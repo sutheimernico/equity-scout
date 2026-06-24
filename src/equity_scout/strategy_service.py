@@ -59,23 +59,21 @@ def _latest_weights(weights_by_date: pd.DataFrame) -> dict[str, float]:
 
 def build_reports(panel: PricePanel, *, costs_bps: float = 10.0) -> list[StrategyReport]:
     strategies = default_strategies()
-    results = [run_backtest(s, panel, costs_bps=costs_bps) for s in strategies]
+    # one backtest per strategy, computing the cost sweep in the same pass
+    results = [run_backtest(s, panel, costs_bps=costs_bps, sweep_bps=COST_SWEEP_BPS) for s in strategies]
     trial_sharpes = [periodic_sharpe(daily_returns(r.equity)) for r in results]
     benchmark = next((r for r in results if r.strategy_name == BENCHMARK_NAME), results[0])
     benchmark_curve = _downsample(benchmark.equity)
 
     reports: list[StrategyReport] = []
-    for strategy, result in zip(strategies, results):
+    for result in results:
         returns = daily_returns(result.equity)
         metrics = replace(
             compute_metrics(result.equity),
             annual_turnover=result.annual_turnover,
             deflated_sharpe=deflated_sharpe_ratio(returns, trial_sharpes),
         )
-        sweep = [
-            [bps, round(float(run_backtest(strategy, panel, costs_bps=bps).equity.iloc[-1]), 4)]
-            for bps in COST_SWEEP_BPS
-        ]
+        sweep = [[bps, round(float(result.sweep_terminals[bps]), 4)] for bps in COST_SWEEP_BPS]
         reports.append(
             StrategyReport(
                 name=result.strategy_name,

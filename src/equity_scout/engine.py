@@ -15,8 +15,9 @@ CLI sweeps {0,5,10,20} to show the turnover lever honestly.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 
 from equity_scout.market import MarketView, PricePanel
@@ -41,6 +42,7 @@ class BacktestResult:
     total_turnover: float
     costs_bps: float
     weights_by_date: pd.DataFrame  # post-rebalance target weights, index = rebalance dates
+    sweep_terminals: dict[float, float] = field(default_factory=dict)  # bps -> terminal value
 
     @property
     def years(self) -> float:
@@ -62,8 +64,12 @@ def run_backtest(
     rebalance: str = "ME",
     costs_bps: float = 10.0,
     initial_capital: float = 1.0,
+    sweep_bps: tuple[float, ...] = (),
 ) -> BacktestResult:
-    returns = panel.closes.pct_change()
+    # Vectorised once into a numpy array so the daily drift loop avoids per-day pandas label lookups
+    # (the hot path: ~5000 days). A missing day = price unchanged (return 0).
+    returns_values = np.nan_to_num(panel.closes.pct_change().to_numpy(), nan=0.0)
+    col = {ticker: j for j, ticker in enumerate(panel.closes.columns)}
     rebalance_dates = set(panel.rebalance_dates(rebalance))
     cost_rate = costs_bps / 10_000.0
 
@@ -73,16 +79,21 @@ def run_backtest(
     trades: list[Trade] = []
     weight_rows: dict[pd.Timestamp, dict[str, float]] = {}
     total_turnover = 0.0
+    # Same strategy decisions, different cost levels — tracked in this one pass instead of re-running
+    # the whole backtest per bps (the decide/MarketView work is the expensive part).
+    sweep_equity = {bps: initial_capital for bps in sweep_bps}
 
     for i, date in enumerate(panel.dates):
         if i > 0 and weights:
-            row = returns.loc[date].fillna(0.0)  # a missing day = price unchanged
-            port_return = sum(w * float(row[ticker]) for ticker, w in weights.items())
+            row = returns_values[i]
+            port_return = sum(w * row[col[ticker]] for ticker, w in weights.items())
             equity *= 1.0 + port_return
+            for bps in sweep_bps:
+                sweep_equity[bps] *= 1.0 + port_return
             growth = 1.0 + port_return
             if growth > 0:  # drift weights with realised returns
                 weights = {
-                    ticker: w * (1.0 + float(row[ticker])) / growth for ticker, w in weights.items()
+                    ticker: w * (1.0 + row[col[ticker]]) / growth for ticker, w in weights.items()
                 }
 
         if date in rebalance_dates:
@@ -91,6 +102,8 @@ def run_backtest(
                 target = weights_dict(normalise_weights(strategy.decide(date, view)))
                 turnover = _turnover(weights, target)
                 equity *= 1.0 - turnover * cost_rate
+                for bps in sweep_bps:
+                    sweep_equity[bps] *= 1.0 - turnover * bps / 10_000.0
                 total_turnover += turnover
                 if turnover > _TURNOVER_EPS:
                     trades.append(Trade(date.date().isoformat(), target, turnover))
@@ -106,4 +119,5 @@ def run_backtest(
         total_turnover=total_turnover,
         costs_bps=costs_bps,
         weights_by_date=pd.DataFrame(weight_rows).T.fillna(0.0).sort_index(),
+        sweep_terminals={bps: sweep_equity[bps] for bps in sweep_bps},
     )
