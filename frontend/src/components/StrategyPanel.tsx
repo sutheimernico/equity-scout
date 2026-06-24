@@ -1,5 +1,5 @@
 import { type StrategyMetrics, type StrategyReport } from "../api";
-import { METRIC_HELP, METRIC_LABELS, num, pct, pctAbs } from "../format";
+import { METRIC_HELP, METRIC_LABELS, num, pct, pctAbs, STRATEGY_PITCH } from "../format";
 import { EquityChart } from "./EquityChart";
 
 const METRIC_ORDER: (keyof StrategyMetrics)[] = [
@@ -33,12 +33,19 @@ export function StrategyPanel({
   const weights = Object.entries(report.current_weights).sort((a, b) => b[1] - a[1]);
   const baseline = report.cost_sweep[0]?.[1] ?? 1;
 
+  const pitch = STRATEGY_PITCH[report.name];
+
   return (
     <div className="strat-panel">
-      {report.is_benchmark && (
+      {pitch && (
         <p className="explain">
-          <strong>{report.name}</strong> ist ein passiver Vergleichsmaßstab, keine aktive Strategie —
-          jede aktive Strategie muss ihn nach Kosten schlagen, um ihren Aufwand zu rechtfertigen.
+          <strong>{report.name}.</strong> {pitch}
+        </p>
+      )}
+      {report.is_benchmark && (
+        <p className="block-hint">
+          Passiver Vergleichsmaßstab, keine aktive Strategie — jede aktive Strategie muss ihn nach
+          Kosten schlagen, um ihren Aufwand zu rechtfertigen.
         </p>
       )}
 

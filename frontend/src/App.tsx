@@ -1,9 +1,16 @@
 import { useState } from "react";
 
 import { FunnelView } from "./components/FunnelView";
+import { MLSection } from "./components/MLSection";
 import { StrategyDashboard } from "./components/StrategyDashboard";
 
-type View = "strategies" | "funnel";
+type View = "strategies" | "ml" | "funnel";
+
+const NAV: { key: View; label: string }[] = [
+  { key: "strategies", label: "Strategien" },
+  { key: "ml", label: "Machine Learning" },
+  { key: "funnel", label: "Aktien-Screener" },
+];
 
 export default function App() {
   const [view, setView] = useState<View>("strategies");
@@ -15,23 +22,22 @@ export default function App() {
           equity-scout<span className="dot">.</span>
         </span>
         <nav className="nav">
-          <button
-            className={view === "strategies" ? "nav-link active" : "nav-link"}
-            onClick={() => setView("strategies")}
-          >
-            Strategien
-          </button>
-          <button
-            className={view === "funnel" ? "nav-link active" : "nav-link"}
-            onClick={() => setView("funnel")}
-          >
-            Aktien-Screener
-          </button>
+          {NAV.map((item) => (
+            <button
+              key={item.key}
+              className={view === item.key ? "nav-link active" : "nav-link"}
+              onClick={() => setView(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
         </nav>
       </header>
 
       <main className="content">
-        {view === "strategies" ? <StrategyDashboard /> : <FunnelView />}
+        {view === "strategies" && <StrategyDashboard />}
+        {view === "ml" && <MLSection />}
+        {view === "funnel" && <FunnelView />}
       </main>
     </>
   );

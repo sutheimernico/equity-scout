@@ -47,6 +47,30 @@ export const METRIC_LABELS: Record<string, string> = {
   deflated_sharpe: "Deflated Sharpe",
 };
 
+// One-paragraph pitch per strategy (keyed by the backend strategy name), shown atop each tab.
+export const STRATEGY_PITCH: Record<string, string> = {
+  "DCA (12-month entry)":
+    "Dollar-Cost-Averaging: Kapital in 12 gleichen Tranchen über ein Jahr in einen 60/40-Mix " +
+    "einzahlen, dann halten. Senkt das Risiko, zum falschen Zeitpunkt all-in zu gehen, kostet aber " +
+    "Rendite (länger in Cash). Der Bildungs-Anker — kein Timing-Anspruch.",
+  "60/40":
+    "Der klassische Benchmark: fix 60 % Aktien / 40 % Anleihen, monatlich zurückgesetzt. Die stumpf, " +
+    "aber solide diversifizierte Messlatte, die jede aktive Strategie nach Kosten erst schlagen muss.",
+  "Permanent Portfolio":
+    "Harry Brownes Allwetter-Portfolio: fix 25/25/25/25 auf Aktien, lange Staatsanleihen, Cash und " +
+    "Gold — ein Quadrant für jedes Makro-Szenario (Wachstum, Deflation, Rezession, Inflation). Kein Timing.",
+  "Volatility Targeting":
+    "Steuert das Aktien-Exposure so, dass die Schwankung ein Ziel (≈10 % p.a.) trifft, gedeckelt bei " +
+    "100 % (kein Hebel). Ruhiger Markt → voll investiert, unruhiger → reduziert. Reine Risiko-Steuerung.",
+  "Dual Momentum (GEM)":
+    "Antonaccis Dual Momentum: hält das stärkere von US- vs. Welt-Aktien (relatives Momentum), aber " +
+    "nur, wenn es auch T-Bills schlägt (absolutes Momentum); sonst Anleihen. Trendfolge mit Crash-Schalter.",
+  "Defensive Asset Allocation":
+    "Keller & Keunings DAA: ein „Canary“-Frühwarnsystem (Schwellenländer + Anleihen) misst die " +
+    "Marktgesundheit und steuert die Cash-Quote; der Rest geht in die 3 stärksten Risk-Assets. " +
+    "Regelbasierter Crashschutz.",
+};
+
 export const ML_FEATURE_LABELS: Record<string, string> = {
   vol: "Volatilität",
   trend: "Trend (Abstand zur MA)",
