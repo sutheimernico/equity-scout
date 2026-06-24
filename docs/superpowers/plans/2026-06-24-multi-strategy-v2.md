@@ -116,10 +116,24 @@ per-fold re-training already realises the "periodic retraining" half of the feed
 - [ ] ML-meta as its own account (weights primary signals by `P(follow)`). Tests on synthetic
       panels with a *known* edge to prove the pipeline recovers it, and on noise to prove DSR rejects.
 
-## Phase F — Feedback loop
-- [ ] Per-closed-bet attribution log (which signals, which regime, why wrong).
-- [ ] Calendar-based re-training (not performance-triggered); each retrain counted as a trial.
-- [ ] Dashboard ML tab: feature importance, hit-rate over time, attribution, "why it was wrong".
+## Phase F — Continuous self-improving research loop  [DONE 2026-06-25]
+**Outcome (Nico's "ML that keeps learning in the background, many dimensions, no overfitting"):**
+built a continuous search loop instead of naive re-training (which on fixed data = overfitting). It
+searches MetaConfig points (features × {elastic_net, random_forest} × lookback × horizon × barrier),
+evaluates each OOS via purged walk-forward, and records to a SQLite ledger (`ml/ledger.py`, idempotent
+per config). The **Deflated Sharpe hurdle is recomputed from all trials** → it *rises as the search
+widens*, so luck can't survive — the overfitting budget is built in. Champion = highest current DSR.
+`scripts/run_research.py` runs it forever (resumable cursor); `/api/research` + an "Auto-Research"
+dashboard tab show champion, trial count, rising hurdle, leaderboard, and which dimensions win (live,
+5s poll). Live 8-trial run: search already beat the default model (champion MaxDD -19.8% vs -23%).
+
+### Still open (future sessions)
+- [ ] Per-bet attribution / "why was it wrong" self-analysis (Nico's earlier wish): log each OOS
+      decision + regime context; surface the most instructive misses.
+- [ ] Forward-paper multi-account persistence: accounts advance in real time (not just backtest).
+- [ ] PBO (probability of backtest overfitting) over the ledger as a second overfitting diagnostic.
+- [ ] FRED regime features (VIX/term-spread/HY-spread) as a feature-space extension.
+- [ ] Optionally let the ML-Meta tab serve the live champion instead of the default config.
 
 ## Needs Nico
 - Git remote / first-push decision (repo is local-only; no push without explicit go).
