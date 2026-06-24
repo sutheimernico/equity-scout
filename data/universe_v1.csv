@@ -1,0 +1,43 @@
+ticker,name,exchange,region,currency,sector
+AAPL,Apple,NASDAQ,US,USD,Technology
+MSFT,Microsoft,NASDAQ,US,USD,Technology
+NVDA,NVIDIA,NASDAQ,US,USD,Technology
+GOOGL,Alphabet,NASDAQ,US,USD,Communication Services
+AMZN,Amazon,NASDAQ,US,USD,Consumer Discretionary
+JNJ,Johnson & Johnson,NYSE,US,USD,Healthcare
+KO,Coca-Cola,NYSE,US,USD,Consumer Staples
+PG,Procter & Gamble,NYSE,US,USD,Consumer Staples
+JPM,JPMorgan Chase,NYSE,US,USD,Financials
+XOM,Exxon Mobil,NYSE,US,USD,Energy
+PFE,Pfizer,NYSE,US,USD,Healthcare
+WMT,Walmart,NYSE,US,USD,Consumer Staples
+HD,Home Depot,NYSE,US,USD,Consumer Discretionary
+CAT,Caterpillar,NYSE,US,USD,Industrials
+SAP.DE,SAP,XETRA,EU,EUR,Technology
+SIE.DE,Siemens,XETRA,EU,EUR,Industrials
+ALV.DE,Allianz,XETRA,EU,EUR,Financials
+BMW.DE,BMW,XETRA,EU,EUR,Consumer Discretionary
+ASML.AS,ASML,Euronext,EU,EUR,Technology
+MC.PA,LVMH,Euronext,EU,EUR,Consumer Discretionary
+OR.PA,L'Oreal,Euronext,EU,EUR,Consumer Staples
+SAN.PA,Sanofi,Euronext,EU,EUR,Healthcare
+NESN.SW,Nestle,SIX,EU,CHF,Consumer Staples
+ROG.SW,Roche,SIX,EU,CHF,Healthcare
+NOVN.SW,Novartis,SIX,EU,CHF,Healthcare
+SHEL.L,Shell,LSE,UK,GBP,Energy
+AZN.L,AstraZeneca,LSE,UK,GBP,Healthcare
+HSBA.L,HSBC,LSE,UK,GBP,Financials
+ULVR.L,Unilever,LSE,UK,GBP,Consumer Staples
+7203.T,Toyota,TSE,JP,JPY,Consumer Discretionary
+6758.T,Sony,TSE,JP,JPY,Technology
+9984.T,SoftBank,TSE,JP,JPY,Communication Services
+8306.T,Mitsubishi UFJ,TSE,JP,JPY,Financials
+0700.HK,Tencent,HKEX,HK,HKD,Technology
+9988.HK,Alibaba,HKEX,HK,HKD,Consumer Discretionary
+0941.HK,China Mobile,HKEX,HK,HKD,Communication Services
+005930.KS,Samsung Electronics,KRX,KR,KRW,Technology
+RELIANCE.NS,Reliance Industries,NSE,IN,INR,Energy
+TCS.NS,Tata Consultancy,NSE,IN,INR,Technology
+VALE,Vale,NYSE,BR,USD,Materials
+BHP.AX,BHP Group,ASX,AU,AUD,Materials
+RY.TO,Royal Bank of Canada,TSX,CA,CAD,Financials
