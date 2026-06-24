@@ -1,0 +1,45 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>equity-scout</title>
+<style>
+  body { font: 15px system-ui, sans-serif; margin: 2rem; background: #0d1117; color: #e6edf3; }
+  h1 { font-weight: 600; }
+  h1 small { color: #8b949e; font-size: 60%; font-weight: 400; }
+  .buckets { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+  .bucket { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 1rem; }
+  .bucket h2 { margin-top: 0; text-transform: capitalize; }
+  .pick { padding: .5rem 0; border-bottom: 1px solid #21262d; }
+  .ticker { font-weight: 600; }
+  .name { color: #8b949e; }
+  .bar { height: 6px; background: #238636; border-radius: 3px; margin: 4px 0; }
+  .thesis { font-size: 13px; color: #c9d1d9; }
+  footer { margin-top: 2rem; color: #8b949e; font-size: 13px; max-width: 72ch; line-height: 1.5; }
+</style>
+<h1>equity-scout <small id="ts"></small></h1>
+<div class="buckets" id="buckets"></div>
+<footer id="disclaimer"></footer>
+<script>
+  fetch("/api/latest").then(r => r.json()).then(d => {
+    document.getElementById("ts").textContent = d.created_at || "(no runs yet)";
+    document.getElementById("disclaimer").textContent = d.disclaimer || "";
+    const root = document.getElementById("buckets");
+    for (const [bucket, picks] of Object.entries(d.buckets || {})) {
+      const el = document.createElement("div");
+      el.className = "bucket";
+      el.innerHTML = `<h2>${bucket}</h2>`;
+      for (const p of picks) {
+        const pct = Math.round(p.composite * 100);
+        const div = document.createElement("div");
+        div.className = "pick";
+        div.innerHTML =
+          `<div><span class="ticker">${p.rank}. ${p.instrument.ticker}</span> ` +
+          `<span class="name">${p.instrument.name} · ${p.instrument.region}</span></div>` +
+          `<div class="bar" style="width:${pct}%"></div>` +
+          (p.thesis ? `<div class="thesis">${p.thesis}</div>` : "");
+        el.appendChild(div);
+      }
+      root.appendChild(el);
+    }
+  });
+</script>
