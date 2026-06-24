@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from equity_scout.strategies.base import AccountState
+from equity_scout.strategies.base import TargetWeight
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -31,19 +31,23 @@ class DualMomentumStrategy:
         self.hurdle = hurdle
         self.lookback_months = lookback_months
 
-    def decide(
-        self, as_of: pd.Timestamp, market: MarketView, state: AccountState
-    ) -> dict[str, float]:
+    def _defensive(self, market: MarketView) -> list[TargetWeight]:
+        """Go to bonds; if the bond asset has no history (missing/too new), fall back to the cash
+        proxy (BIL) rather than guess."""
+        target = self.safe if market.trailing_return(self.safe, 0) is not None else self.hurdle
+        return [TargetWeight(target, 1.0)]
+
+    def decide(self, as_of: pd.Timestamp, market: MarketView) -> list[TargetWeight]:
         moms: dict[str, float] = {}
         for asset in self.risk_assets:
             mom = market.trailing_return(asset, self.lookback_months)
             if mom is None:  # not enough history yet → sit defensively, never guess
-                return {self.safe: 1.0}
+                return self._defensive(market)
             moms[asset] = mom
         hurdle_mom = market.trailing_return(self.hurdle, self.lookback_months)
         if hurdle_mom is None:
-            return {self.safe: 1.0}
+            return self._defensive(market)
         best = max(moms, key=lambda asset: moms[asset])  # relative momentum
         if moms[best] > hurdle_mom:  # absolute momentum: must also beat cash
-            return {best: 1.0}
-        return {self.safe: 1.0}
+            return [TargetWeight(best, 1.0)]
+        return self._defensive(market)

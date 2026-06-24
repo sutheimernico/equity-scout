@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from equity_scout.strategies.base import AccountState
+from equity_scout.strategies.base import TargetWeight
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -21,7 +21,8 @@ class SixtyFortyStrategy:
         self.stock_weight = stock_weight
         self.name = f"{int(stock_weight * 100)}/{int((1 - stock_weight) * 100)}"
 
-    def decide(
-        self, as_of: pd.Timestamp, market: MarketView, state: AccountState
-    ) -> dict[str, float]:
-        return {self.stock: self.stock_weight, self.bond: 1.0 - self.stock_weight}
+    def decide(self, as_of: pd.Timestamp, market: MarketView) -> list[TargetWeight]:
+        return [
+            TargetWeight(self.stock, self.stock_weight),
+            TargetWeight(self.bond, 1.0 - self.stock_weight),
+        ]

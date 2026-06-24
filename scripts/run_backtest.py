@@ -34,7 +34,7 @@ def main() -> None:
     print(f"\nETF panel: {', '.join(panel.tickers)}\nSpan: {span}\n")
 
     strategies = default_strategies()
-    results = [run_backtest(s, panel, rebalance=args.rebalance, cost_bps=args.cost_bps) for s in strategies]
+    results = [run_backtest(s, panel, rebalance=args.rebalance, costs_bps=args.cost_bps) for s in strategies]
     trial_sharpes = [periodic_sharpe(daily_returns(r.equity)) for r in results]
 
     header = f"{'Strategy':<22}{'CAGR':>8}{'Vol':>8}{'Sharpe':>8}{'Sortino':>9}{'MaxDD':>8}{'Calmar':>8}{'Turn/y':>8}{'DSR':>7}"
@@ -55,7 +55,7 @@ def main() -> None:
     print(f"{'Strategy':<22}" + "".join(f"{int(b):>9}bp" for b in COST_SWEEP_BPS))
     for strategy in strategies:
         cells = "".join(
-            f"{run_backtest(strategy, panel, rebalance=args.rebalance, cost_bps=b).equity.iloc[-1]:>11.3f}"
+            f"{run_backtest(strategy, panel, rebalance=args.rebalance, costs_bps=b).equity.iloc[-1]:>11.3f}"
             for b in COST_SWEEP_BPS
         )
         print(f"{strategy.name:<22}{cells}")
