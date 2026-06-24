@@ -28,3 +28,16 @@ def test_latest_endpoint_empty_db_still_has_disclaimer(tmp_path):
     body = client.get("/api/latest").json()
     assert body["buckets"] == {}
     assert body["disclaimer"]
+
+
+def test_history_endpoint_returns_runs(tmp_path):
+    db = tmp_path / "h.db"
+    init_db(db)
+    inst = Instrument("AAPL", "Apple", "NASDAQ", "US", "USD", "Tech")
+    pick = Pick(inst, "balanced", 1, 0.7,
+                {"value": 0.5, "quality": 0.5, "momentum": 0.5, "growth": 0.5})
+    save_run(db, RunResult("2026-06-24T10:00:00", 10, {}, {"balanced": [pick]}))
+    client = TestClient(create_app(str(db)))
+    body = client.get("/api/history").json()
+    assert len(body["runs"]) == 1
+    assert body["runs"][0]["picks"]["balanced"] == ["AAPL"]

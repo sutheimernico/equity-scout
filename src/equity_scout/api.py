@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 
 from equity_scout.constants import DEFAULT_DB_PATH, DISCLAIMER
-from equity_scout.storage import load_latest_run
+from equity_scout.storage import load_latest_run, load_run_summaries
 
 _FRONTEND = Path(__file__).resolve().parents[2] / "frontend" / "index.html"
 
@@ -30,6 +30,10 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> FastAPI:
             "disclaimer": DISCLAIMER,
         }
         return JSONResponse(payload)
+
+    @app.get("/api/history")
+    def history(limit: int = 20) -> JSONResponse:
+        return JSONResponse({"runs": load_run_summaries(db_path, limit=limit)})
 
     @app.get("/")
     def index() -> FileResponse:

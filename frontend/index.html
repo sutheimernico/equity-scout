@@ -6,20 +6,24 @@
   body { font: 15px system-ui, sans-serif; margin: 2rem; background: #0d1117; color: #e6edf3; }
   h1 { font-weight: 600; }
   h1 small { color: #8b949e; font-size: 60%; font-weight: 400; }
+  h2.section { font-size: 1.1rem; margin: 2rem 0 .5rem; }
   .stats { color: #8b949e; font-size: 13px; margin-bottom: 1rem; }
   .buckets { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
   .bucket { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 1rem; }
-  .bucket h2 { margin-top: 0; text-transform: capitalize; }
+  .bucket h2 { margin-top: 0; text-transform: capitalize; font-size: 1.1rem; }
   .pick { padding: .5rem 0; border-bottom: 1px solid #21262d; }
   .ticker { font-weight: 600; }
   .name { color: #8b949e; }
   .bar { height: 6px; background: #238636; border-radius: 3px; margin: 4px 0; }
   .thesis { font-size: 13px; color: #c9d1d9; }
+  .hist-row { font-size: 13px; color: #8b949e; padding: .25rem 0; border-bottom: 1px solid #21262d; }
   footer { margin-top: 2rem; color: #8b949e; font-size: 13px; max-width: 72ch; line-height: 1.5; }
 </style>
 <h1>equity-scout <small id="ts"></small></h1>
 <div class="stats" id="stats"></div>
 <div class="buckets" id="buckets"></div>
+<h2 class="section">Recent runs</h2>
+<div class="history" id="history"></div>
 <footer id="disclaimer"></footer>
 <script>
   fetch("/api/latest").then(r => r.json()).then(d => {
@@ -51,6 +55,18 @@
         el.appendChild(div);
       }
       root.appendChild(el);
+    }
+  });
+
+  fetch("/api/history").then(r => r.json()).then(d => {
+    const h = document.getElementById("history");
+    for (const run of d.runs || []) {
+      const counts = Object.entries(run.picks || {}).map(([b, ts]) => `${b} ${ts.length}`).join(" · ");
+      const row = document.createElement("div");
+      row.className = "hist-row";
+      row.textContent =
+        `${run.created_at} — universe ${run.universe_size}, gated ${run.total_gated} — ${counts}`;
+      h.appendChild(row);
     }
   });
 </script>

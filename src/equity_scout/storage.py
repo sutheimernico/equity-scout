@@ -66,3 +66,25 @@ def load_latest_run(db_path: str | Path) -> RunResult | None:
         buckets=buckets_obj,
         gate_stats=json.loads(gate_stats),
     )
+
+
+def load_run_summaries(db_path: str | Path, limit: int = 20) -> list[dict]:
+    """Compact per-run summaries (newest first) for the history view — tickers only, no full picks."""
+    with sqlite3.connect(db_path) as con:
+        rows = con.execute(
+            "SELECT created_at, universe_size, gated_out, buckets, gate_stats FROM runs "
+            "ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    summaries: list[dict] = []
+    for created_at, universe_size, gated_out, buckets, gate_stats in rows:
+        parsed = json.loads(buckets)
+        tickers = {b: [p["instrument"]["ticker"] for p in picks] for b, picks in parsed.items()}
+        total_gated = json.loads(gate_stats).get("total_gated", len(json.loads(gated_out)))
+        summaries.append({
+            "created_at": created_at,
+            "universe_size": universe_size,
+            "total_gated": total_gated,
+            "picks": tickers,
+        })
+    return summaries
