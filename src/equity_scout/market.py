@@ -71,6 +71,12 @@ class MarketView:
     def latest_date(self) -> pd.Timestamp | None:
         return self._visible.index[-1] if self.has_data else None
 
+    @property
+    def first_date(self) -> pd.Timestamp | None:
+        """Earliest visible date — the panel start. Lets a time-phased strategy (DCA) derive how
+        far it is into its schedule without carrying account state."""
+        return self._visible.index[0] if self.has_data else None
+
     def last_price(self, ticker: str) -> float | None:
         if ticker not in self._visible.columns or self._visible.empty:
             return None
