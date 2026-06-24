@@ -4,16 +4,16 @@ export const FACTOR_ORDER = ["value", "quality", "momentum", "growth", "low_vol"
 
 export const FACTOR_LABELS: Record<string, string> = {
   value: "Value",
-  quality: "Quality",
+  quality: "Qualität",
   momentum: "Momentum",
-  growth: "Growth",
-  low_vol: "Low Vol",
+  growth: "Wachstum",
+  low_vol: "Geringe Vola",
 };
 
 export const BUCKET_LABELS: Record<string, string> = {
-  defensive: "Defensive",
-  balanced: "Balanced",
-  aggressive: "Aggressive",
+  defensive: "Defensiv",
+  balanced: "Ausgewogen",
+  aggressive: "Aggressiv",
 };
 
 /** Percentile / score in [0,1] → integer 0–100. */

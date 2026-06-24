@@ -1,15 +1,15 @@
 import type { RunSummary } from "../api";
 
 export function RunHistory({ runs }: { runs: RunSummary[] }) {
-  if (runs.length === 0) return <p className="muted">No history yet.</p>;
+  if (runs.length === 0) return <p className="muted">Noch keine Läufe.</p>;
   return (
     <table className="history">
       <thead>
         <tr>
-          <th>Run</th>
-          <th>Universe</th>
-          <th>Gated</th>
-          <th>Picks per bucket</th>
+          <th>Lauf</th>
+          <th>Universum</th>
+          <th>Aussortiert</th>
+          <th>Picks je Bucket</th>
         </tr>
       </thead>
       <tbody>

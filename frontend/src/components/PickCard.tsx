@@ -32,10 +32,10 @@ export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string
       {open && (
         <div className="drill">
           <div className="drill-head">
-            <span>Factor</span>
-            <span>Percentile</span>
-            <span>×Wt</span>
-            <span>=Contrib</span>
+            <span>Faktor</span>
+            <span>Perzentil</span>
+            <span>×Gew.</span>
+            <span>=Beitrag</span>
           </div>
           {contributions.map((c) => (
             <div className="factor-row" key={c.factor}>
@@ -48,7 +48,7 @@ export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string
             </div>
           ))}
           <div className="composite-line">
-            <span>Composite = Σ contributions</span>
+            <span>Score = Summe der Beiträge</span>
             <span className="tnum">{toPercent(compositeFromParts)}</span>
           </div>
           {pick.thesis && <p className="thesis">{pick.thesis}</p>}

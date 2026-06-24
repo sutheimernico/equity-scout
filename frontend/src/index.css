@@ -303,6 +303,21 @@ select.region {
   margin: var(--space-3) 0 0;
 }
 
+/* Erklär-Zeile (z. B. über dem Depot) */
+.explain {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  background: var(--bg-surface);
+  box-shadow: var(--raised);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin: 0 0 var(--space-4);
+}
+.explain strong {
+  color: var(--text-primary);
+}
+
 /* Methodology note — dezent, not boxed-in */
 .note {
   margin-bottom: var(--space-5);

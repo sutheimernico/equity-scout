@@ -62,6 +62,11 @@ export interface PortfolioPosition {
   region: string;
   shares: number;
   cost_basis: number;
+  last_price: number;
+  invested: number;
+  market_value: number;
+  pnl: number;
+  pnl_pct: number;
   opened_at: string;
 }
 

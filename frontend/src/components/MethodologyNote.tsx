@@ -1,17 +1,18 @@
-// Collapsible in-app explanation of how scores are produced — keeps the screen honest and legible.
+// Aufklappbare Erklärung, wie die Scores zustande kommen — hält den Screen ehrlich und lesbar.
 export function MethodologyNote() {
   return (
     <details className="note">
-      <summary>How are these scores computed?</summary>
+      <summary>Wie werden die Aktien ausgewählt? (kurz erklärt)</summary>
       <p>
-        Each stock is scored on five factor families — Value, Quality, Momentum, Growth and Low
-        Volatility — from free fundamentals and price history. For every metric, stocks are ranked
-        cross-sectionally into a percentile (0–100); Value, Quality and Growth are ranked within
-        sector, so a tech P/E is never compared to a utility's. Each risk bucket weights the
-        families differently — open a card to see <em>percentile × weight = contribution</em>, and
-        the composite is their sum. Rank-based scoring is robust to outliers; a non-positive P/E is
-        dropped, not treated as "cheap". This is a research screen, not investment advice — the
-        weights are reasoned defaults, not backtested.
+        <strong>Kein KI-/ML-Modell.</strong> Die Auswahl ist ein regelbasierter Faktor-Funnel: Jede
+        Aktie wird auf fünf Faktor-Gruppen bewertet — Value, Qualität, Momentum, Wachstum und
+        geringe Volatilität — aus kostenlosen Fundamentaldaten und Kursen. Pro Kennzahl werden alle
+        Aktien in einen Perzentil-Rang (0–100) einsortiert; Value, Qualität und Wachstum innerhalb
+        der Branche, damit ein Tech-KGV nicht mit dem eines Versorgers verglichen wird. Jeder
+        Risiko-Bucket gewichtet die Gruppen anders — klick eine Karte an für{" "}
+        <em>Perzentil × Gewicht = Beitrag</em>; der Score ist die Summe der Beiträge. Negative KGVs
+        werden verworfen, nicht als „billig" gewertet. Das ist ein Recherche-Screen, keine
+        Anlageberatung — die Gewichte sind begründete Voreinstellungen, nicht backgetestet.
       </p>
     </details>
   );

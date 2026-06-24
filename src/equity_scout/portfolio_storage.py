@@ -48,6 +48,7 @@ def _from_json(blob: str) -> Portfolio:
             shares=pos["shares"],
             cost_basis=pos["cost_basis"],
             opened_at=pos["opened_at"],
+            last_price=pos.get("last_price"),
         )
         for ticker, pos in data["positions"].items()
     }

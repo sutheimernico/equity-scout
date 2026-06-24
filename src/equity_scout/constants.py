@@ -1,10 +1,11 @@
 """Shared constants. Honesty guardrails live here so every surface reuses them."""
 
 DISCLAIMER = (
-    "equity-scout is a local research assistant. It does NOT provide investment advice "
-    "and makes no performance promises. Factor screens are well-studied but do not reliably "
-    "beat the market. Free data (yfinance) is unofficial and may be incomplete, especially "
-    "outside the US. LLM theses are context-bounded interpretations, never price forecasts."
+    "equity-scout ist ein lokaler Recherche-Assistent. Es ist KEINE Anlageberatung und gibt "
+    "keine Performance-Versprechen. Faktor-Screens sind gut erforscht, schlagen den Markt aber "
+    "nicht zuverlässig. Die kostenlosen Daten (yfinance) sind inoffiziell und können lückenhaft "
+    "sein, besonders außerhalb der USA. LLM-Einschätzungen sind kontextgebundene Interpretationen, "
+    "niemals Kursprognosen."
 )
 
 DEFAULT_DB_PATH = "equity_scout.db"

@@ -32,7 +32,7 @@ export default function App() {
   }, []);
 
   const picks = run?.buckets[bucket] ?? [];
-  // Regions present in the active bucket, for the filter dropdown.
+  // Regionen im aktiven Bucket, für den Filter.
   const regions = useMemo(
     () => ["all", ...Array.from(new Set(picks.map((p) => p.instrument.region))).sort()],
     [picks],
@@ -40,8 +40,8 @@ export default function App() {
   const visiblePicks =
     region === "all" ? picks : picks.filter((p) => p.instrument.region === region);
 
-  if (error) return <main className="content state err">Error: {error}</main>;
-  if (!run) return <main className="content state">Loading…</main>;
+  if (error) return <main className="content state err">Fehler: {error}</main>;
+  if (!run) return <main className="content state">Lädt…</main>;
 
   const gate = run.gate_stats ?? { total_gated: 0, by_region: {}, by_reason: {} };
   const passed = (run.universe_size ?? 0) - gate.total_gated;
@@ -53,15 +53,15 @@ export default function App() {
         <span className="brand">
           equity-scout<span className="dot">.</span>
         </span>
-        <span className="meta">{run.created_at ?? "no runs yet"}</span>
+        <span className="meta">{run.created_at ?? "noch keine Läufe"}</span>
       </header>
 
       <main className="content">
         <div className="kpi-row">
-          <StatTile label="Universe" value={String(run.universe_size ?? 0)} sub="instruments screened" />
-          <StatTile label="Passed gate" value={String(passed)} sub="enough data to rank" />
-          <StatTile label="Gated out" value={String(gate.total_gated)} sub="thin / invalid data" />
-          <StatTile label="Buckets" value={String(availableBuckets.length)} sub="risk profiles" />
+          <StatTile label="Universum" value={String(run.universe_size ?? 0)} sub="Aktien gescreent" />
+          <StatTile label="Daten ok" value={String(passed)} sub="genug Daten zum Ranken" />
+          <StatTile label="Aussortiert" value={String(gate.total_gated)} sub="zu dünne/ungültige Daten" />
+          <StatTile label="Buckets" value={String(availableBuckets.length)} sub="Risiko-Profile" />
         </div>
 
         <MethodologyNote />
@@ -83,7 +83,7 @@ export default function App() {
             <select className="region" value={region} onChange={(e) => setRegion(e.target.value)}>
               {regions.map((r) => (
                 <option key={r} value={r}>
-                  {r === "all" ? "All regions" : r}
+                  {r === "all" ? "Alle Regionen" : r}
                 </option>
               ))}
             </select>
@@ -98,13 +98,13 @@ export default function App() {
               weights={run.bucket_weights[bucket] ?? {}}
             />
           ))}
-          {visiblePicks.length === 0 && <p className="muted">No picks for this filter.</p>}
+          {visiblePicks.length === 0 && <p className="muted">Keine Picks für diesen Filter.</p>}
         </div>
 
-        <h2 className="section-title">Paper portfolio</h2>
-        {portfolio ? <Portfolio data={portfolio} /> : <p className="muted">Loading…</p>}
+        <h2 className="section-title">Demo-Depot</h2>
+        {portfolio ? <Portfolio data={portfolio} /> : <p className="muted">Lädt…</p>}
 
-        <h2 className="section-title">Recent runs</h2>
+        <h2 className="section-title">Letzte Läufe</h2>
         <RunHistory runs={history} />
 
         <footer>{run.disclaimer}</footer>

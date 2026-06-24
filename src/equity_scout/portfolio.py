@@ -17,6 +17,7 @@ class Position:
     shares: float
     cost_basis: float  # price per share at purchase
     opened_at: str
+    last_price: float | None = None  # most recent price seen, for per-position P&L
 
 
 @dataclass(frozen=True)
@@ -83,6 +84,13 @@ def advance(
         cash -= total_cost
         positions[ticker] = Position(pick.instrument, shares, price, now)
         trades.append(f"BUY {ticker} {shares:.2f}@{price:.2f} (composite {pick.composite:.2f})")
+
+    # Refresh last_price for every held position where we have a current price, so the dashboard
+    # can show per-position gain/loss without re-fetching.
+    positions = {
+        ticker: (replace(pos, last_price=prices[ticker]) if ticker in prices else pos)
+        for ticker, pos in positions.items()
+    }
 
     updated = replace(portfolio, cash=cash, positions=positions, benchmark_shares=benchmark_shares)
     return updated, trades

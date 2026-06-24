@@ -18,11 +18,11 @@ class FakeAnalysis:
     """Deterministic, offline. Used in tests and --no-llm runs."""
 
     def thesis_for(self, pick: Pick) -> str:
-        b = pick.breakdown
+        breakdown = pick.breakdown
         return (
-            f"{pick.instrument.ticker} sits in the {pick.bucket} bucket "
-            f"(momentum={b['momentum']:.2f}, quality={b['quality']:.2f}). "
-            "Interpretation only — not a forecast."
+            f"{pick.instrument.ticker} liegt im {pick.bucket}-Bucket "
+            f"(Momentum {breakdown['momentum']:.2f}, Quality {breakdown['quality']:.2f}). "
+            "Nur eine Einordnung — keine Prognose."
         )
 
 
@@ -35,11 +35,12 @@ class ClaudeCliAnalysis:
 
     def thesis_for(self, pick: Pick) -> str:
         prompt = (
-            "You are a sober equity analyst. Given these cross-sectional factor percentiles "
-            f"for {pick.instrument.ticker} ({pick.instrument.name}, {pick.instrument.region}), "
-            f"bucket={pick.bucket}: {json.dumps(pick.breakdown)}. "
-            "Write 2-3 sentences: why it fits this risk bucket, and the single biggest risk. "
-            "Do NOT predict price. Be explicit this is interpretation, not advice."
+            "Du bist ein nüchterner Aktien-Analyst. Gegeben diese cross-sektionalen Faktor-Perzentile "
+            f"für {pick.instrument.ticker} ({pick.instrument.name}, {pick.instrument.region}), "
+            f"Bucket={pick.bucket}: {json.dumps(pick.breakdown)}. "
+            "Schreibe 2-3 Sätze auf Deutsch: warum die Aktie in dieses Risiko-Profil passt und das "
+            "größte Risiko. Mach KEINE Kursprognose. Sag explizit, dass dies eine Einordnung ist, "
+            "keine Beratung."
         )
         cmd = ["claude", "-p", prompt]
         if self._model:

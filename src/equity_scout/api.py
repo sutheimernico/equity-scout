@@ -44,11 +44,19 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> FastAPI:
         pf = load_portfolio(db_path)
         if pf is None:
             return JSONResponse({"exists": False, "positions": [], "valuations": []})
-        positions = [
-            {"ticker": t, "name": pos.instrument.name, "region": pos.instrument.region,
-             "shares": pos.shares, "cost_basis": pos.cost_basis, "opened_at": pos.opened_at}
-            for t, pos in pf.positions.items()
-        ]
+        positions = []
+        for ticker, pos in pf.positions.items():
+            invested = pos.shares * pos.cost_basis
+            last_price = pos.last_price if pos.last_price is not None else pos.cost_basis
+            market_value = pos.shares * last_price
+            pnl = market_value - invested
+            positions.append({
+                "ticker": ticker, "name": pos.instrument.name, "region": pos.instrument.region,
+                "shares": pos.shares, "cost_basis": pos.cost_basis, "last_price": last_price,
+                "invested": invested, "market_value": market_value,
+                "pnl": pnl, "pnl_pct": (pnl / invested) if invested else 0.0,
+                "opened_at": pos.opened_at,
+            })
         return JSONResponse({
             "exists": True,
             "initial_capital": pf.initial_capital,
