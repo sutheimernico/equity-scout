@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { fetchStrategies, type StrategiesResponse, type StrategyReport } from "../api";
 import { METRIC_LABELS } from "../format";
 import { MLPanel } from "./MLPanel";
+import { ResearchPanel } from "./ResearchPanel";
 import { COMPARE_METRICS, formatMetric, StrategyPanel } from "./StrategyPanel";
 
-type Tab = number | "compare" | "ml";
+type Tab = number | "compare" | "ml" | "research";
 
 function CompareTable({
   strategies,
@@ -90,6 +91,12 @@ export function StrategyDashboard() {
           ML-Meta ✨
         </button>
         <button
+          className={active === "research" ? "tab active ml" : "tab ml"}
+          onClick={() => setActive("research")}
+        >
+          Auto-Research ✨
+        </button>
+        <button
           className={active === "compare" ? "tab active" : "tab"}
           onClick={() => setActive("compare")}
         >
@@ -101,6 +108,8 @@ export function StrategyDashboard() {
         <CompareTable strategies={strategies} />
       ) : active === "ml" ? (
         <MLPanel />
+      ) : active === "research" ? (
+        <ResearchPanel />
       ) : (
         <StrategyPanel report={strategies[active]} benchmarkName={benchmark} />
       )}

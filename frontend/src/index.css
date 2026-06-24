@@ -638,3 +638,9 @@ code {
 .tab.ml.active {
   color: var(--accent);
 }
+.champion-config {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0 0 var(--space-1);
+}

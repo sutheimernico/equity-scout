@@ -162,3 +162,38 @@ export async function fetchMlReport(): Promise<MlResponse> {
   if (!response.ok) throw new Error(`/api/ml returned ${response.status}`);
   return response.json();
 }
+
+// --- Continuous research loop (src/equity_scout/ml/research_view + ledger) ---
+
+export interface ResearchConfig {
+  features: string[];
+  model: string;
+  primary_lookback_months: number;
+  horizon_days: number;
+  barrier: number;
+  dsr: number;
+  sharpe: number;
+  sortino: number;
+  cagr: number;
+  max_drawdown: number;
+  oos_hit_rate: number;
+  n_bets: number;
+  feature_importance: Record<string, number>;
+}
+
+export interface ResearchResponse {
+  available: boolean;
+  n_trials: number;
+  hurdle?: number;
+  champion: ResearchConfig | null;
+  leaderboard: ResearchConfig[];
+  model_frequency?: Record<string, number>;
+  feature_frequency?: Record<string, number>;
+  disclaimer: string;
+}
+
+export async function fetchResearch(): Promise<ResearchResponse> {
+  const response = await fetch("/api/research");
+  if (!response.ok) throw new Error(`/api/research returned ${response.status}`);
+  return response.json();
+}
