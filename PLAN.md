@@ -4,11 +4,18 @@
 **v1 implementation log:** `docs/superpowers/plans/2026-06-24-vertical-slice-v1.md` (done — see Outcome).
 Personal rules (`~/.claude/CLAUDE.md`) + global loop rules (`~/private/AUTOPILOT.md`) apply.
 
-> **NEXT MAJOR DIRECTION (2026-06-24):** multi-strategy paper-trading (N strategies as N demo
-> accounts, dashboard tabs) + a self-learning ML meta-model with a feedback loop. Vision + research
-> + architecture: `docs/superpowers/specs/2026-06-24-multi-strategy-ml-vision.md`. New-chat starting
-> point: `HANDOFF.md`. The next chat runs brainstorming → writing-plans → loop to build this; the
-> phases below (Phase 2–5 + redesign/transparency/paper/ML follow-ups) are the prior, completed work.
+> **NEXT MAJOR DIRECTION (2026-06-24) — IN PROGRESS:** multi-strategy paper-trading (N strategies as
+> N demo accounts, dashboard tabs) + a self-learning ML meta-model with a feedback loop.
+> **Active plan + phase backlog: `docs/superpowers/plans/2026-06-24-multi-strategy-v2.md`**
+> (Phases A–F). Research + resolved §9 decisions: `docs/research/2026-06-24-strategy-ml-data-research.md`.
+> Vision: `docs/superpowers/specs/2026-06-24-multi-strategy-ml-vision.md`. The phases below
+> (Phase 2–8 + redesign/transparency/paper/naming) are the prior, completed v1 work.
+>
+> Key research findings that changed the spec: (1) the TAA family (Faber GTAA, VAA, **DAA**, PAA,
+> Accelerating DM) + Permanent/All-Weather benchmarks were the biggest gap — added to v1.
+> (2) Intraday is a dead end on free data — dropped. (3) `mlfinlab` is no longer open-source — use
+> `purgedcv`/`skfolio`/CatBoost. (4) Backtest history is the initial ML training material; forward
+> paper is the feedback loop — backtest and forward share one engine.
 
 This file is the binding backlog for the autonomous loop. Each iteration picks the SINGLE
 highest-value open `- [ ]` task, does it on `autopilot/work`, runs the gate, commits only if green,
