@@ -35,11 +35,13 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] Run-history: `load_run_summaries`, `/api/history`, `pick_churn` helper, dashboard history section.
 - [x] Budget-capped LLM theses: `attach_theses(max_per_bucket)` + CLI `--llm-top-n` (default 3).
 
-## Phase 4 — Factor / bucket refinement
-- [ ] Sector-relative percentile ranking (rank within sector) to remove sector bias; document why.
-- [ ] Add a low-volatility factor and wire it into the defensive bucket weighting.
-- [ ] Winsorize/clip raw metrics before ranking to blunt outliers; unit-test the clipping.
-- [ ] Document factor definitions + rationale in `docs/factors.md`.
+## Phase 4 — Factor / bucket refinement — DONE (2026-06-24)
+- [x] Sector-relative percentile ranking for value/quality/growth (momentum/low-vol stay global).
+- [x] Low-volatility factor (stdev of daily returns), wired into bucket weights (defensive 0.25).
+- [x] ~~Winsorize~~ → replaced by **cleaning invalid values** (non-positive P/E/P/B dropped).
+      Rank-based scoring is ordinal, so winsorizing is a no-op; cleaning was the real fix.
+- [x] `docs/factors.md` — families, directions, sector-relative + rank-based rationale, weights,
+      honest limitations.
 
 ## Phase 5 — Dashboard polish (React)
 - [ ] Migrate the vanilla page to React 19 (reuse signal-trader dashboard patterns): bucket tabs,

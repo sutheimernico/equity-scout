@@ -10,3 +10,7 @@
 - 2026-06-24 — Phase 3 done (interactively): run-history (summaries, /api/history, churn helper,
   dashboard section), budget-capped LLM theses (--llm-top-n), scheduled_run.sh + scheduling docs
   (cron + systemd templates). 37 tests + ruff green. Next: Phase 4 (factor/bucket refinement).
+- 2026-06-24 — Phase 4 done (interactively): fixed value-factor bug (non-positive P/E no longer
+  "cheap"), sector-relative ranking, low-volatility factor, docs/factors.md. Winsorize dropped as
+  no-op for rank-based scoring. 42 tests + ruff green; live run shows buckets now well-differentiated
+  (defensive=staples/quality, aggressive=momentum/growth). Next: Phase 5 (React dashboard).
