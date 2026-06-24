@@ -1,6 +1,7 @@
 """CLI: run the funnel, persist a snapshot, print a summary.
 
 Default provider is 'fake' for a deterministic offline run; pass --provider yfinance for live.
+yfinance is wrapped in a read-through cache by default (--no-cache to disable).
 LLM theses off by default (--use-llm to enable).
 """
 from __future__ import annotations
@@ -10,6 +11,7 @@ from datetime import datetime, timezone
 
 from equity_scout.analysis import ClaudeCliAnalysis, FakeAnalysis
 from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_UNIVERSE_PATH, DISCLAIMER
+from equity_scout.data.cache import CachedProvider, QuoteCache
 from equity_scout.data.fake_provider import FakeProvider
 from equity_scout.data.yf_provider import YFinanceProvider
 from equity_scout.pipeline import run_pipeline
@@ -21,18 +23,25 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--universe", default=DEFAULT_UNIVERSE_PATH)
     ap.add_argument("--db", default=DEFAULT_DB_PATH)
+    ap.add_argument("--cache-db", default="equity_scout_cache.db")
+    ap.add_argument("--no-cache", action="store_true")
     ap.add_argument("--top-n", type=int, default=10)
     ap.add_argument("--provider", choices=["fake", "yfinance"], default="fake")
     ap.add_argument("--use-llm", action="store_true")
     args = ap.parse_args()
 
+    now = datetime.now(timezone.utc)
     universe = load_universe(args.universe)
-    provider = YFinanceProvider() if args.provider == "yfinance" else FakeProvider()
+    base = YFinanceProvider() if args.provider == "yfinance" else FakeProvider()
+    if args.provider == "yfinance" and not args.no_cache:
+        provider = CachedProvider(base, QuoteCache(args.cache_db), run_date=now.date().isoformat())
+    else:
+        provider = base
     analysis = ClaudeCliAnalysis() if args.use_llm else FakeAnalysis()
 
     run = run_pipeline(
         universe, provider, analysis=analysis, top_n=args.top_n,
-        created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        created_at=now.isoformat(timespec="seconds"),
     )
     init_db(args.db)
     save_run(args.db, run)
