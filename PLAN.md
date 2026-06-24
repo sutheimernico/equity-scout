@@ -30,10 +30,10 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [ ] Follow-up: add STOXX Europe 600 + Nikkei 225 constituent sources (each needs an exchange→Yahoo
       suffix mapping; Nikkei is `code + .T`, STOXX is multi-exchange). v2.2 shipped S&P 500 only.
 
-## Phase 3 — Scheduler automation + run history
-- [ ] Scheduled headless run (systemd timer or AUTOPILOT-driven); each run writes a snapshot.
-- [ ] Run-history endpoint + dashboard view: compare runs, show pick churn over time.
-- [ ] Enable LLM theses by default for finalists in scheduled runs, budget-capped (count + timeout).
+## Phase 3 — Scheduler automation + run history — DONE (2026-06-24)
+- [x] `scripts/scheduled_run.sh` + `docs/scheduling.md` (cron + systemd user-timer templates).
+- [x] Run-history: `load_run_summaries`, `/api/history`, `pick_churn` helper, dashboard history section.
+- [x] Budget-capped LLM theses: `attach_theses(max_per_bucket)` + CLI `--llm-top-n` (default 3).
 
 ## Phase 4 — Factor / bucket refinement
 - [ ] Sector-relative percentile ranking (rank within sector) to remove sector bias; document why.
