@@ -17,3 +17,16 @@ def test_quote_from_info_handles_missing():
     q = quote_from_info_and_history(inst, {}, [])
     assert q.trailing_pe is None
     assert q.momentum_6m is None
+    assert q.volatility_6m is None
+
+
+def test_volatility_from_varying_prices_is_positive():
+    inst = Instrument("X", "X", "E", "US", "USD", "Tech")
+    q = quote_from_info_and_history(inst, {}, [100.0, 101.0, 100.0, 102.0, 99.0, 103.0])
+    assert q.volatility_6m is not None and q.volatility_6m > 0
+
+
+def test_volatility_flat_prices_is_zero():
+    inst = Instrument("X", "X", "E", "US", "USD", "Tech")
+    q = quote_from_info_and_history(inst, {}, [100.0] * 6)
+    assert q.volatility_6m == 0.0

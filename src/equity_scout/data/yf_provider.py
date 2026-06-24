@@ -1,7 +1,17 @@
 """yfinance-backed provider. Network code isolated; pure parsing is unit-tested."""
 from __future__ import annotations
 
+import statistics
+
 from equity_scout.models import Instrument, Quote
+
+
+def _daily_returns(closes: list[float]) -> list[float]:
+    return [
+        (closes[i] - closes[i - 1]) / closes[i - 1]
+        for i in range(1, len(closes))
+        if closes[i - 1]
+    ]
 
 
 def quote_from_info_and_history(
@@ -11,6 +21,8 @@ def quote_from_info_and_history(
     momentum = None
     if len(closes) >= 2 and closes[0]:
         momentum = (closes[-1] - closes[0]) / closes[0]
+    rets = _daily_returns(closes)
+    volatility = statistics.pstdev(rets) if len(rets) >= 2 else None
     return Quote(
         instrument=instrument,
         trailing_pe=info.get("trailingPE"),
@@ -20,6 +32,7 @@ def quote_from_info_and_history(
         revenue_growth=info.get("revenueGrowth"),
         earnings_growth=info.get("earningsGrowth"),
         momentum_6m=momentum,
+        volatility_6m=volatility,
     )
 
 

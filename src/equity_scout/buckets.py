@@ -4,9 +4,9 @@ from __future__ import annotations
 from equity_scout.models import FactorScore, Pick
 
 BUCKET_WEIGHTS: dict[str, dict[str, float]] = {
-    "defensive": {"value": 0.35, "quality": 0.45, "momentum": 0.10, "growth": 0.10},
-    "balanced": {"value": 0.25, "quality": 0.25, "momentum": 0.25, "growth": 0.25},
-    "aggressive": {"value": 0.10, "quality": 0.10, "momentum": 0.40, "growth": 0.40},
+    "defensive": {"value": 0.30, "quality": 0.35, "momentum": 0.05, "growth": 0.05, "low_vol": 0.25},
+    "balanced": {"value": 0.20, "quality": 0.20, "momentum": 0.20, "growth": 0.20, "low_vol": 0.20},
+    "aggressive": {"value": 0.10, "quality": 0.10, "momentum": 0.40, "growth": 0.35, "low_vol": 0.05},
 }
 
 
@@ -16,6 +16,7 @@ def _composite(score: FactorScore, weights: dict[str, float]) -> float:
         + weights["quality"] * score.quality
         + weights["momentum"] * score.momentum
         + weights["growth"] * score.growth
+        + weights["low_vol"] * score.low_vol
     )
 
 
@@ -32,7 +33,8 @@ def assign_buckets(scores: list[FactorScore], top_n: int = 10) -> dict[str, list
                     rank=rank,
                     composite=_composite(s, weights),
                     breakdown={"value": s.value, "quality": s.quality,
-                               "momentum": s.momentum, "growth": s.growth},
+                               "momentum": s.momentum, "growth": s.growth,
+                               "low_vol": s.low_vol},
                 )
             )
         out[bucket] = picks

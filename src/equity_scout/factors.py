@@ -17,6 +17,7 @@ _FAMILIES: dict[str, list[tuple[str, bool, bool]]] = {
     "quality": [("return_on_equity", True, False), ("profit_margins", True, False)],
     "momentum": [("momentum_6m", True, False)],
     "growth": [("revenue_growth", True, False), ("earnings_growth", True, False)],
+    "low_vol": [("volatility_6m", False, False)],  # lower volatility ranks higher
 }
 # Families ranked within sector (others rank globally).
 _SECTOR_RELATIVE = {"value", "quality", "growth"}
@@ -81,6 +82,6 @@ def score_factors(quotes: list[Quote]) -> list[FactorScore]:
         scores.append(
             FactorScore(instrument=q.instrument, value=fam("value"),
                         quality=fam("quality"), momentum=fam("momentum"),
-                        growth=fam("growth"))
+                        growth=fam("growth"), low_vol=fam("low_vol"))
         )
     return scores

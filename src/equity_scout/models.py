@@ -26,6 +26,7 @@ class Quote:
     revenue_growth: float | None
     earnings_growth: float | None
     momentum_6m: float | None  # 6-month total return, computed from price history
+    volatility_6m: float | None = None  # stdev of daily returns over the window (lower = calmer)
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ class FactorScore:
     quality: float
     momentum: float
     growth: float
+    low_vol: float = 0.0  # 1.0 = calmest in the set; 0.0 = most volatile / no data
 
 
 @dataclass(frozen=True)

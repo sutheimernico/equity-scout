@@ -19,4 +19,5 @@ class FakeProvider:
             revenue_growth=m.get("revenue_growth"),
             earnings_growth=m.get("earnings_growth"),
             momentum_6m=m.get("momentum_6m"),
+            volatility_6m=m.get("volatility_6m"),
         )

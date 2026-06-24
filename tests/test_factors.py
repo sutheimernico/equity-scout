@@ -2,11 +2,12 @@ from equity_scout.factors import score_factors
 from equity_scout.models import Instrument, Quote
 
 
-def _q(t, pe, roe, mom, growth, sector="Tech"):
+def _q(t, pe, roe, mom, growth, sector="Tech", vol=None):
     inst = Instrument(t, t, "E", "US", "USD", sector)
     return Quote(instrument=inst, trailing_pe=pe, price_to_book=None,
                  return_on_equity=roe, profit_margins=None,
-                 revenue_growth=growth, earnings_growth=None, momentum_6m=mom)
+                 revenue_growth=growth, earnings_growth=None, momentum_6m=mom,
+                 volatility_6m=vol)
 
 
 def test_lower_pe_scores_higher_on_value():
@@ -36,6 +37,13 @@ def test_non_positive_pe_not_treated_as_cheap():
     scores = {s.instrument.ticker: s for s in score_factors(quotes)}
     assert scores["POS"].value > scores["NEG"].value
     assert scores["NEG"].value == 0.0  # no valid value metric
+
+
+def test_lower_volatility_scores_higher_on_low_vol():
+    quotes = [_q("CALM", 10.0, 0.1, 0.1, 0.1, vol=0.01),
+              _q("WILD", 10.0, 0.1, 0.1, 0.1, vol=0.5)]
+    scores = {s.instrument.ticker: s for s in score_factors(quotes)}
+    assert scores["CALM"].low_vol > scores["WILD"].low_vol
 
 
 def test_value_ranked_within_sector():
