@@ -33,8 +33,15 @@ Strategy(Protocol):
 
 ---
 
-## Phase A — Strategy seam + backtest engine + 2 strategies  [VERTICAL SLICE]
+## Phase A — Strategy seam + backtest engine + 2 strategies  [VERTICAL SLICE — DONE 2026-06-25]
 Goal: one command backtests a strategy over the ETF basket and prints honest metrics.
+**Outcome:** built `market.py` (look-ahead-safe `MarketView`), `strategies/` (base seam + 60/40 +
+GEM + registry), `engine.py` (weight-based backtest, turnover costs), `metrics.py` (full ratio canon
++ Deflated Sharpe / PSR, in-house, no metrics dep), `data/etf_panel.py` (yfinance loader + CSV
+snapshot), `scripts/run_backtest.py`. Added pandas/numpy as explicit deps. 29 new tests, gate green.
+Live-verified over 2007-2026 (10 ETFs): 60/40 Sharpe 0.75 / MaxDD -32.6%, GEM Sharpe 0.56 / turnover
+3.6x — the cost sweep shows GEM's edge eaten by turnover. Honest, plausible. Deviation: dropped
+`empyrical` (own metrics) and made yfinance `repair` scipy-optional (scipy arrives in Phase E).
 - [ ] `etf_universe.py` — the 10-ETF basket as constants + a multi-asset OHLCV loader (yfinance,
       `auto_adjust=True`, `repair=True`, daily, Parquet snapshot under `data/prices/`). FakeProvider
       path for tests (deterministic synthetic price panels).

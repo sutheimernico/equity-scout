@@ -6,6 +6,7 @@ __pycache__/
 .ruff_cache/
 *.db
 data/cache/
+data/prices/
 .env
 .claude/settings.local.json
 frontend/node_modules/
