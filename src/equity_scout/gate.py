@@ -1,7 +1,7 @@
 """Data completeness gate. Without it the funnel ranks thin-data noise to the top."""
 from __future__ import annotations
 
-from equity_scout.models import Quote
+from equity_scout.models import Instrument, Quote
 
 _METRIC_FIELDS = (
     "trailing_pe", "price_to_book", "return_on_equity",
@@ -22,3 +22,16 @@ def apply_gate(quotes: list[Quote], min_metrics: int = 4) -> tuple[list[Quote], 
         else:
             passed.append(q)
     return passed, rejected
+
+
+def summarize_gate(rejected: dict[str, str], universe: list[Instrument]) -> dict:
+    """Aggregate gate rejections by reason category and by region for visibility."""
+    region_of = {i.ticker: i.region for i in universe}
+    by_reason: dict[str, int] = {}
+    by_region: dict[str, int] = {}
+    for ticker, reason in rejected.items():
+        category = reason.split("(")[0].strip()  # drop the count detail in parentheses
+        by_reason[category] = by_reason.get(category, 0) + 1
+        region = region_of.get(ticker, "Unknown")
+        by_region[region] = by_region.get(region, 0) + 1
+    return {"total_gated": len(rejected), "by_reason": by_reason, "by_region": by_region}

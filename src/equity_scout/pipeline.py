@@ -6,7 +6,7 @@ from equity_scout.buckets import assign_buckets
 from equity_scout.data.fetch import fetch_all
 from equity_scout.data.provider import MarketDataProvider
 from equity_scout.factors import score_factors
-from equity_scout.gate import apply_gate
+from equity_scout.gate import apply_gate, summarize_gate
 from equity_scout.models import Instrument, RunResult
 
 
@@ -29,4 +29,5 @@ def run_pipeline(
         universe_size=len(universe),
         gated_out=rejected,
         buckets=buckets,
+        gate_stats=summarize_gate(rejected, universe),
     )

@@ -25,6 +25,7 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> FastAPI:
             "created_at": run.created_at,
             "universe_size": run.universe_size,
             "gated_out": run.gated_out,
+            "gate_stats": run.gate_stats,
             "buckets": {b: [asdict(p) for p in picks] for b, picks in run.buckets.items()},
             "disclaimer": DISCLAIMER,
         }

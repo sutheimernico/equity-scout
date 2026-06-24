@@ -9,7 +9,9 @@ def _run(ts):
                 thesis="ok")
     return RunResult(created_at=ts, universe_size=10,
                      gated_out={"BAD": "missing price history"},
-                     buckets={"balanced": [pick]})
+                     buckets={"balanced": [pick]},
+                     gate_stats={"total_gated": 1, "by_reason": {"missing price history": 1},
+                                 "by_region": {"US": 1}})
 
 
 def test_save_and_load_latest_roundtrip(tmp_path):
@@ -22,6 +24,8 @@ def test_save_and_load_latest_roundtrip(tmp_path):
     assert latest.created_at == "2026-06-24T12:00:00"
     assert latest.buckets["balanced"][0].instrument.ticker == "AAPL"
     assert latest.gated_out["BAD"].startswith("missing")
+    assert latest.gate_stats["total_gated"] == 1
+    assert latest.gate_stats["by_region"] == {"US": 1}
 
 
 def test_load_latest_returns_none_on_empty_db(tmp_path):
