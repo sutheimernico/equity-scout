@@ -20,6 +20,7 @@ from equity_scout.metrics import (
     deflated_sharpe_ratio,
     periodic_sharpe,
 )
+from equity_scout.ml.meta_model import run_meta_model
 from equity_scout.strategies.registry import default_strategies
 
 COST_SWEEP_BPS = (0.0, 5.0, 10.0, 20.0)
@@ -88,3 +89,44 @@ def build_reports(panel: PricePanel, *, costs_bps: float = 10.0) -> list[Strateg
             )
         )
     return reports
+
+
+@dataclass(frozen=True)
+class MLReport:
+    trained: bool
+    metrics: PerformanceMetrics | None
+    equity: list[list]  # OOS, from the first live bet, re-based to 1.0
+    benchmark_equity: list[list]  # SPY buy-and-hold over the same OOS span
+    n_bets: int
+    oos_hit_rate: float
+    avg_probability: float
+    avg_exposure: float
+    feature_importance: dict[str, float]
+
+
+def build_ml_report(panel: PricePanel, *, risk: str = "SPY", costs_bps: float = 10.0) -> MLReport:
+    """Run the meta-model and shape it for the dashboard. The equity curve starts at the first
+    out-of-sample bet (the early years are training-only) and is benchmarked against buy-and-hold of
+    the risk asset — the honest question being whether the timing helps versus just holding it."""
+    result = run_meta_model(panel, risk=risk, costs_bps=costs_bps)
+    if not result.trained:
+        return MLReport(False, None, [], [], 0, 0.0, 0.0, 0.0, {})
+
+    active = result.exposure[result.exposure > 0]
+    start = active.index[0] if not active.empty else result.equity.index[0]
+    equity_oos = result.equity.loc[start:]
+    equity_oos = equity_oos / equity_oos.iloc[0]
+    spy = panel.closes[risk].loc[start:]
+    spy = spy / spy.iloc[0]
+
+    return MLReport(
+        trained=True,
+        metrics=compute_metrics(equity_oos),
+        equity=_downsample(equity_oos),
+        benchmark_equity=_downsample(spy),
+        n_bets=result.n_bets,
+        oos_hit_rate=round(result.oos_hit_rate, 3),
+        avg_probability=round(result.avg_probability, 3),
+        avg_exposure=round(float(result.exposure.loc[start:].mean()), 3),
+        feature_importance=result.feature_importance,
+    )

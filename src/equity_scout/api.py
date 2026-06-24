@@ -14,14 +14,14 @@ from equity_scout.constants import DEFAULT_DB_PATH, DISCLAIMER
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
 from equity_scout.storage import load_latest_run, load_run_summaries
-from equity_scout.strategy_service import BENCHMARK_NAME, build_reports
+from equity_scout.strategy_service import BENCHMARK_NAME, build_ml_report, build_reports
 
 _DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
 def create_app(db_path: str = DEFAULT_DB_PATH, snapshot: str = DEFAULT_SNAPSHOT) -> FastAPI:
     app = FastAPI(title="equity-scout")
-    reports_cache: dict[str, list] = {}  # built once per process (backtests are deterministic)
+    reports_cache: dict[str, object] = {}  # built once per process (backtests are deterministic)
 
     def get_reports() -> list | None:
         if "reports" not in reports_cache:
@@ -46,6 +46,16 @@ def create_app(db_path: str = DEFAULT_DB_PATH, snapshot: str = DEFAULT_SNAPSHOT)
             "strategies": [asdict(r) for r in reports],
             "disclaimer": DISCLAIMER,
         })
+
+    @app.get("/api/ml")
+    def ml() -> JSONResponse:
+        if not os.path.exists(snapshot):
+            return JSONResponse({"available": False, "disclaimer": DISCLAIMER})
+        if "ml" not in reports_cache:
+            from equity_scout.data.etf_panel import load_snapshot as _load
+
+            reports_cache["ml"] = build_ml_report(_load(snapshot))
+        return JSONResponse({"available": True, "report": asdict(reports_cache["ml"]), "disclaimer": DISCLAIMER})
 
     @app.get("/api/latest")
     def latest() -> JSONResponse:

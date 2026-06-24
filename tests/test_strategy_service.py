@@ -55,3 +55,17 @@ def test_api_strategies_without_snapshot_is_graceful(tmp_path):
     body = client.get("/api/strategies").json()
     assert body["available"] is False
     assert body["strategies"] == []
+
+
+def test_api_ml_endpoint(tmp_path):
+    # 320-day panel is too short to train → endpoint must still respond gracefully (trained False)
+    snapshot = str(tmp_path / "panel.csv")
+    save_snapshot(_full_panel(), snapshot)
+    body = TestClient(create_app(snapshot=snapshot)).get("/api/ml").json()
+    assert body["available"] is True
+    assert body["report"]["trained"] is False
+
+
+def test_api_ml_without_snapshot_is_graceful(tmp_path):
+    body = TestClient(create_app(snapshot=str(tmp_path / "missing.csv"))).get("/api/ml").json()
+    assert body["available"] is False

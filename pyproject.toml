@@ -14,6 +14,10 @@ dependencies = [
     # declared explicitly because the strategy engine depends on them directly.
     "pandas>=2.2",
     "numpy>=1.26",
+    # ML meta-model (Phase E): elastic-net logistic + purged walk-forward. scikit-learn/scipy are
+    # BSD-licensed and free (unlike mlfinlab, which is proprietary). scipy also enables yfinance repair.
+    "scikit-learn>=1.4",
+    "scipy>=1.11",
 ]
 
 [dependency-groups]
