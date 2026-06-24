@@ -49,6 +49,26 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] Gate stats (total + by region) + disclaimer surfaced; run-history section.
 - [ ] Follow-up: sector filter (region done) and a dedicated gated-out list view.
 
+## Phase 6 — Frontend redesign — DONE (2026-06-24)
+- [x] Dark design-token system (Geist/Linear-style: near-black surface stack, border-as-shadow,
+      one accent, tabular-nums).
+- [x] App shell: topbar + KPI stat-tiles + underline tabs + responsive card grid.
+- [x] Redesigned pick cards, score bars, history as a clean hairline table; modular components
+      with descriptive names (StatTile/PickCard/RunHistory/MethodologyNote, format.ts helpers).
+
+## Phase 7 — Score transparency — DONE (2026-06-24)
+- [x] API exposes `bucket_weights`; pick drilldown shows per-factor `percentile × weight =
+      contribution`, composite = sum of contributions.
+- [x] In-app methodology note explaining rank-based, sector-relative scoring + the data gate.
+
+## Phase 8 — Paper-trading bot
+- [ ] Paper portfolio (100k demo): buy picks with composite ≥ threshold, equal-weight, buy-and-hold
+      forward tracking; mark-to-market vs cost + a benchmark; persisted snapshots.
+- [ ] CLI to advance the paper portfolio + API + dashboard portfolio view. Paper-only, never real.
+
+## Code quality
+- [ ] Rename cryptic variables (fam, _q, t, pct, gs, single letters) to descriptive names.
+
 ## Standing mandate (per AUTOPILOT, once per phase — not per iteration)
 - [ ] Research current best practice (factor investing, free data sources, screening pitfalls) and
       challenge this plan. If a materially better approach exists, write an ADR in `docs/adr/` and

@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
+from equity_scout.buckets import BUCKET_WEIGHTS
 from equity_scout.constants import DEFAULT_DB_PATH, DISCLAIMER
 from equity_scout.storage import load_latest_run, load_run_summaries
 
@@ -28,6 +29,7 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> FastAPI:
             "gated_out": run.gated_out,
             "gate_stats": run.gate_stats,
             "buckets": {b: [asdict(p) for p in picks] for b, picks in run.buckets.items()},
+            "bucket_weights": BUCKET_WEIGHTS,
             "disclaimer": DISCLAIMER,
         }
         return JSONResponse(payload)

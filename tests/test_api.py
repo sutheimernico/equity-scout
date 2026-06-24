@@ -19,6 +19,9 @@ def test_latest_endpoint_returns_buckets(tmp_path):
     body = resp.json()
     assert body["buckets"]["balanced"][0]["instrument"]["ticker"] == "AAPL"
     assert "disclaimer" in body
+    # bucket weights are exposed so the dashboard can show score transparency (percentile × weight)
+    assert "bucket_weights" in body
+    assert set(body["bucket_weights"]) == {"defensive", "balanced", "aggressive"}
 
 
 def test_latest_endpoint_empty_db_still_has_disclaimer(tmp_path):

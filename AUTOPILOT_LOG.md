@@ -17,3 +17,8 @@
 - 2026-06-24 — Phase 5 done (interactively): Vite + React 19 + TS dashboard (bucket tabs, score
   bars, region filter, drilldown), FastAPI serves built dist/. typecheck + build green, 42 py tests
   + ruff green, live server verified (index/asset/api all 200). All five planned phases complete.
+- 2026-06-24 — Phase 6+7 (new loop, Nico's feedback): full FE redesign (Geist/Linear dark token
+  system, app shell + KPI tiles + underline tabs, modular components, descriptive names) + score
+  transparency (API exposes bucket_weights; card drilldown shows percentile×weight=contribution;
+  in-app methodology note). typecheck+build+42 py tests+ruff green, live verified. Next: Phase 8
+  (paper-trading bot) + backend naming cleanup.
