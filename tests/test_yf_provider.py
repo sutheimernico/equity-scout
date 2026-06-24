@@ -30,3 +30,11 @@ def test_volatility_flat_prices_is_zero():
     inst = Instrument("X", "X", "E", "US", "USD", "Tech")
     q = quote_from_info_and_history(inst, {}, [100.0] * 6)
     assert q.volatility_6m == 0.0
+
+
+def test_handles_nan_and_zero_closes_without_crashing():
+    inst = Instrument("X", "X", "E", "US", "USD", "Tech")
+    # yfinance sometimes returns NaN / 0 rows — only the two valid prices should count.
+    q = quote_from_info_and_history(inst, {}, [100.0, float("nan"), 0.0, 110.0])
+    assert q.price == 110.0
+    assert q.momentum_6m is not None and abs(q.momentum_6m - 0.10) < 1e-9

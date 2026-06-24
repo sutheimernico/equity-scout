@@ -1,27 +1,29 @@
 """yfinance-backed provider. Network code isolated; pure parsing is unit-tested."""
 from __future__ import annotations
 
+import math
 import statistics
 
 from equity_scout.models import Instrument, Quote
 
 
+def _clean_closes(closes: list[float]) -> list[float]:
+    """Keep only finite, positive prices — yfinance occasionally returns NaN/0 rows, which would
+    otherwise produce NaN returns and crash the volatility calc."""
+    return [c for c in closes if isinstance(c, (int, float)) and math.isfinite(c) and c > 0]
+
+
 def _daily_returns(closes: list[float]) -> list[float]:
-    return [
-        (closes[i] - closes[i - 1]) / closes[i - 1]
-        for i in range(1, len(closes))
-        if closes[i - 1]
-    ]
+    return [(closes[i] - closes[i - 1]) / closes[i - 1] for i in range(1, len(closes))]
 
 
 def quote_from_info_and_history(
     instrument: Instrument, info: dict, closes: list[float]
 ) -> Quote:
     """Pure transform: yfinance .info dict + close prices -> Quote. No network here."""
-    momentum = None
-    if len(closes) >= 2 and closes[0]:
-        momentum = (closes[-1] - closes[0]) / closes[0]
-    rets = _daily_returns(closes)
+    clean = _clean_closes(closes)
+    momentum = (clean[-1] - clean[0]) / clean[0] if len(clean) >= 2 else None
+    rets = _daily_returns(clean)
     volatility = statistics.pstdev(rets) if len(rets) >= 2 else None
     return Quote(
         instrument=instrument,
@@ -33,7 +35,7 @@ def quote_from_info_and_history(
         earnings_growth=info.get("earningsGrowth"),
         momentum_6m=momentum,
         volatility_6m=volatility,
-        price=closes[-1] if closes else None,
+        price=clean[-1] if clean else None,
     )
 
 
