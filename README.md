@@ -1,14 +1,27 @@
 # equity-scout
 
-Local, free global stock funnel. Quant factor screen over a global universe → risk buckets →
-LLM thesis for the finalists → dashboard. **Research assistant — not investment advice, no edge promise.**
+Local, free research harness with two parts, switchable from the dashboard top nav:
 
-See `docs/superpowers/specs/2026-06-24-equity-scout-design.md` (design) and
-`docs/superpowers/plans/2026-06-24-vertical-slice-v1.md` (v1 plan).
+1. **Strategien** — N systematic strategies as own paper accounts over a 10-ETF basket (DCA, 60/40,
+   Permanent Portfolio, Vol-Targeting, Dual-Momentum/GEM, Defensive Asset Allocation), each backtested
+   over ~19 years **after costs** vs 60/40, plus an **ML meta-model** (triple-barrier meta-labeling,
+   purged walk-forward) that learns *whether to follow* the trend signal from the market regime.
+2. **Aktien-Screener** — the original quant factor screen over a global stock universe → risk buckets
+   → LLM thesis → drilldown.
+
+**Research assistant — not investment advice, no edge promise.** Every result is after-cost and
+out-of-sample; the honest takeaway is process/risk, not alpha (see `docs/research/`).
+
+Docs: strategy/ML plan `docs/superpowers/plans/2026-06-24-multi-strategy-v2.md`,
+research `docs/research/2026-06-24-strategy-ml-data-research.md`,
+funnel design `docs/superpowers/specs/2026-06-24-equity-scout-design.md`.
 
 ## Quickstart (after `uv sync`)
 
 ```bash
+# Strategies: backtest all 6 over the ETF basket (first run fetches the price panel; --refresh re-fetches)
+uv run python scripts/run_backtest.py --refresh   # prints metrics + cost sweep {0,5,10,20} bps
+
 # Offline deterministic run (fake provider)
 uv run python scripts/run_scout.py --provider fake --db equity_scout.db
 

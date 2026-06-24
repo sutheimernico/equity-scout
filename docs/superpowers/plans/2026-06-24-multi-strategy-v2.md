@@ -89,7 +89,19 @@ live-verified (all endpoints 200).
 - [ ] Frontend: strategy tabs, **equity-curve chart vs benchmark** (currently missing), metrics
       table, cost-sweep panel, a "Compare" tab (all strategies side by side). Keep honest framing.
 
-## Phase D — FRED regime data + orthogonal feature pipeline
+## Phase D+E — ML meta-model  [DONE 2026-06-25]
+**Outcome:** built the `ml/` package — `labeling.py` (triple-barrier meta-labels), `features.py`
+(regime features: vol/trend/breadth/drawdown/momentum, orthogonal to the primary signal),
+`meta_model.py` (elastic-net logistic + purged+embargoed walk-forward, OOS exposure curve, 1-day lag
+= no look-ahead). Wired into `strategy_service.build_ml_report` + `/api/ml` + an "ML-Meta" dashboard
+tab (OOS equity vs SPY, hit-rate/exposure tiles, learned feature-importance bars). Added
+scikit-learn + scipy (BSD). Live 2007-26: 69% OOS hit-rate, breadth+drawdown the top learned
+features, MaxDD halved vs SPY (-23% vs -55%), Sharpe 0.72 vs 0.61 — honest risk reduction, no alpha.
+**Deviation from plan:** used price-derived regime features (no FRED key needed → stays autonomous);
+FRED enrichment (VIX/term-spread/HY-spread) is a documented future extension. The walk-forward's
+per-fold re-training already realises the "periodic retraining" half of the feedback loop.
+
+## Phase D-orig — FRED regime data (deferred extension)
 - [ ] `fred_provider.py` (free key via env, cached, look-ahead-safe; T10Y2Y/VIXCLS/BAMLH0A0HYM2/
       NFCI/STLFSI4/T10YIE/DGS10). FakeFred for tests.
 - [ ] `features.py` — meta-features orthogonal to primary signal: strategy agreement/conviction,

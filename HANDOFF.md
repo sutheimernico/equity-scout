@@ -1,41 +1,43 @@
-# HANDOFF — Multi-Strategy + ML (für den nächsten Chat)
+# HANDOFF — Multi-Strategy + ML (Stand 2026-06-25)
 
-Du übernimmst `equity-scout` und baust es zu Nicos großer Vision aus: **mehrere systematische
-Paper-Trading-Strategien als je eigener Demo-Account (im Dashboard per Reiter umschaltbar) + ein
-selbstlernendes ML-Meta-Modell mit Feedbackschleife.**
+Stand nach der großen Ausbau-Session. Alles auf Branch **`feat/multi-strategy-ml`** (NICHT nach
+`main` gemerged — Nico reviewt + merged). Gate grün: `uv run pytest -q` + `uv run ruff check .` +
+`npm run typecheck --prefix frontend` + `npm run build --prefix frontend`.
 
-## Lies das zuerst (in dieser Reihenfolge)
-1. **`docs/superpowers/specs/2026-06-24-multi-strategy-ml-vision.md`** — die Vision-Spec. Enthält
-   Nicos Vision wörtlich, die 9 recherchierten Strategie-Familien (mit Quellen + Machbarkeits-Tiers),
-   die Architektur-Skizze, die ML-Meta-Labeling-Methodik, die Methodik-Leitplanken und die offenen
-   Entscheidungen. **Das ist dein Startpunkt.**
-2. `README.md`, `PLAN.md`, `AUTOPILOT_LOG.md`, `docs/factors.md`.
-3. Der Code: `src/equity_scout/` (v.a. `portfolio.py`, `portfolio_storage.py`, `pipeline.py`,
-   `factors.py`, `buckets.py`, `api.py`) und `frontend/src/`.
+## Was jetzt steht (gebaut + live-verifiziert)
+1. **Recherche** (`docs/research/2026-06-24-strategy-ml-data-research.md`): 4 Stränge, Quellen,
+   challenged die alte Spec. Kernfunde: TAA-Familie war die Lücke (DAA etc.), Intraday = Scheinpfad,
+   `mlfinlab` proprietär (vermieden), Backtest-Historie = ML-Trainingsmaterial.
+2. **Backtest-Engine** (`engine.py`): gewichtsbasiert, look-ahead-safe (decide sieht nur `< t`),
+   Turnover-Kosten. `MarketView` (`market.py`) ist der Look-ahead-Guard.
+3. **6 Strategien** (`strategies/`): DCA, 60/40, Permanent Portfolio, Vol-Targeting, GEM, DAA.
+   Seam: `decide(as_of, market) -> list[TargetWeight]`, alle state-free. ETF-Korb: `etf_universe.py`.
+4. **Ehrliche Metriken** (`metrics.py`): CAGR/Vol/Sharpe/Sortino/MaxDD/Calmar/Turnover +
+   **Deflated Sharpe / PSR** (eigene Impl, kein Lib-Dep).
+5. **Dashboard** (`frontend/`): Top-Nav (Strategien | Aktien-Screener), pro Strategie ein Reiter mit
+   SVG-Equity-Kurve vs 60/40, Metrik-Kacheln, Allokation, Kosten-Sweep; Vergleichs-Tab; **ML-Meta-Tab**.
+   API: `/api/strategies`, `/api/ml` (`strategy_service.py`, `api.py`).
+6. **ML-Meta-Modell** (`ml/`): Triple-Barrier-Meta-Labeling, Regime-Features (orthogonal),
+   Elastic-Net-Logistic, **purged + embargoed Walk-Forward** (= das periodische Re-Training).
+   Live 2007-26: 69% OOS-Trefferquote, MaxDD halbiert vs SPY (-23% vs -55%) — ehrliche Risikoreduktion.
 
-## Was schon steht (die Basis)
-Funnel (globales Universum → Faktor-Score → 3 Buckets), **ein** Buy-and-Hold-Paper-Account vs. SPY,
-React-Dashboard (hell, deutsch, Score-Transparenz + Depot-View). ~50 Tests + ruff grün, alles auf
-`main`. Du verallgemeinerst „ein Account / eine Strategie" auf „N Accounts / N Strategien + ML".
+## Lokal starten
+```bash
+uv run python scripts/run_backtest.py --refresh   # holt ETF-Panel (yfinance) → data/prices/, druckt Metriken+Sweep
+cd frontend && npm install && npm run build && cd ..
+uv run python scripts/run_api.py --port 8000      # http://127.0.0.1:8000  (erster /api/ml-Request trainiert ~Sek.)
+```
 
-## Arbeitsweise (von Nico autorisiert)
-- **Volle lokale Autonomie**, keine Permission-Rückfragen. Lokal + kostenlos, Docker erlaubt, freie
-  APIs/Keys ok (FRED/EDGAR/yfinance). Safety-Nets (kein Echtgeld, kein `rm -rf`/`push --force`,
-  `.env` nie lesen) bleiben. Permissions liegen in `.claude/settings.json`.
-- **Im Loop autonom orchestrieren:** `brainstorming` (offene Entscheidungen klären, v1 zuschneiden)
-  → `writing-plans` → Umsetzung in Phasen, TDD, kleine Commits, Gate (`pytest`+`ruff`) grün, Phasen
-  einzeln nach `main` mergen. **Vertical slice zuerst** — nicht alle 9 Strategien auf einmal.
-- **Reihenfolge-Empfehlung:** Strategie-Interface (Seam) → 2–3 Tier-A-Strategien (z.B. DCA-Tranchen,
-  Vol-Targeting, Trend/MA-Crossover) + 60/40-Benchmark → Multi-Account-Persistenz → Dashboard-Reiter
-  + Kosten/Metriken-Harness (Sharpe/Sortino/MaxDD/Turnover nach Kosten) → weitere Strategien → erst
-  dann ML-Meta-Schicht (braucht Forward-Historie) → Feedbackschleife.
+## Was als Nächstes (Phase F — Feedbackschleife, noch offen)
+Plan + Phasen-Backlog: `docs/superpowers/plans/2026-06-24-multi-strategy-v2.md`.
+- **Attribution / Selbstanalyse** (Nicos Wunsch „wenn es nicht gut lief, warum"): pro OOS-Bet
+  Entscheidung+Ergebnis+Regime-Kontext loggen; die lehrreichsten Fehlentscheidungen im ML-Tab zeigen.
+- **Forward-Paper-Persistenz**: Multi-Account-DB-Schema, damit die Accounts real über die Zeit
+  vorwärtslaufen (nicht nur Backtest). Scheduler rückt alle Accounts + das ML einen Schritt vor.
+- **FRED-Regime-Features** (VIX, Term-Spread, HY-Spread) als ML-Feature-Anreicherung (Key gratis,
+  aber Registrierung → ggf. „Needs Nico").
+- Optional: CatBoost als zweites Meta-Modell, CPCV + PBO sobald genug Historie/Trials.
 
-## Nicht verhandelbar
-Paper-only, kein Look-ahead (`position[t]=signal[t-1]`), Kosten+Slippage immer, Walk-forward statt
-In-Sample, jede Strategie + das ML gegen 60/40 nach Kosten benchmarken. **Ehrliches Framing:**
-Prozess/Bildung/Risiko — kein Alpha-Versprechen (publizierte Prämien zerfallen, Retail+Gratis-Daten
-→ Netto-Edge ~null). Das ist ein Forschungs-Harness.
-
-## Erste Aktion
-Starte mit `brainstorming` und kläre §9 der Vision-Spec (v1-Strategie-Set, Universum je Strategie,
-Rebalancing-Kadenz). Dann `writing-plans`. Dann bauen.
+## Nicht verhandelbar (bleibt)
+Paper-only, kein Look-ahead, Kosten immer, Walk-forward/OOS, gegen 60/40 + Buy-and-Hold nach Kosten.
+Ehrliches Framing: Prozess/Bildung/Risiko, kein Alpha-Versprechen. Disclaimer auf jeder Surface.
