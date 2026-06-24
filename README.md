@@ -12,12 +12,18 @@ See `docs/superpowers/specs/2026-06-24-equity-scout-design.md` (design) and
 # Offline deterministic run (fake provider)
 uv run python scripts/run_scout.py --provider fake --db equity_scout.db
 
-# Live run over the v1 universe (yfinance, free)
-uv run python scripts/run_scout.py --provider yfinance --universe data/universe_v1.csv --db equity_scout.db
+# Refresh the combined universe snapshot (S&P 500 + curated global CSV)
+uv run python scripts/refresh_universe.py
 
-# Serve the dashboard
+# Live run over the combined universe (yfinance, free; cached)
+uv run python scripts/run_scout.py --provider yfinance --universe data/universe_combined.csv --db equity_scout.db
+
+# Build the React dashboard once, then serve it
+cd frontend && npm install && npm run build && cd ..
 uv run python scripts/run_api.py --db equity_scout.db   # http://127.0.0.1:8000
 ```
+
+Scheduling a recurring run: see `docs/scheduling.md`. Factor definitions: `docs/factors.md`.
 
 ## Honesty guardrails
 Factor screens are well-studied but do not reliably beat the market. Free data (yfinance) is

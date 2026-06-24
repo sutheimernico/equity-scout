@@ -43,10 +43,11 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] `docs/factors.md` — families, directions, sector-relative + rank-based rationale, weights,
       honest limitations.
 
-## Phase 5 — Dashboard polish (React)
-- [ ] Migrate the vanilla page to React 19 (reuse signal-trader dashboard patterns): bucket tabs,
-      score-breakdown bars, region/sector filters, per-pick drilldown.
-- [ ] Surface the gated-out list + data caveats prominently in the UI.
+## Phase 5 — Dashboard polish (React) — DONE (2026-06-24)
+- [x] Vite + React 19 + TS dashboard (`frontend/`): bucket tabs, score-breakdown bars, region
+      filter, per-pick drilldown (factor bars + thesis). FastAPI serves the built `dist/`.
+- [x] Gate stats (total + by region) + disclaimer surfaced; run-history section.
+- [ ] Follow-up: sector filter (region done) and a dedicated gated-out list view.
 
 ## Standing mandate (per AUTOPILOT, once per phase — not per iteration)
 - [ ] Research current best practice (factor investing, free data sources, screening pitfalls) and

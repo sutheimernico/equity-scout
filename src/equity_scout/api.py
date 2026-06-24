@@ -5,12 +5,13 @@ from dataclasses import asdict
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 
 from equity_scout.constants import DEFAULT_DB_PATH, DISCLAIMER
 from equity_scout.storage import load_latest_run, load_run_summaries
 
-_FRONTEND = Path(__file__).resolve().parents[2] / "frontend" / "index.html"
+_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
 def create_app(db_path: str = DEFAULT_DB_PATH) -> FastAPI:
@@ -35,8 +36,15 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> FastAPI:
     def history(limit: int = 20) -> JSONResponse:
         return JSONResponse({"runs": load_run_summaries(db_path, limit=limit)})
 
-    @app.get("/")
-    def index() -> FileResponse:
-        return FileResponse(_FRONTEND)
+    # Serve the built React dashboard. Mounted at "/" LAST so the /api/* routes above win.
+    # Run `cd frontend && npm install && npm run build` to produce dist/.
+    if _DIST.exists():
+        app.mount("/", StaticFiles(directory=_DIST, html=True), name="frontend")
+    else:
+        @app.get("/")
+        def index() -> PlainTextResponse:
+            return PlainTextResponse(
+                "Dashboard not built. Run: cd frontend && npm install && npm run build"
+            )
 
     return app

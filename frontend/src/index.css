@@ -1,0 +1,163 @@
+:root {
+  color-scheme: dark;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font: 15px system-ui, sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+}
+.wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+h1 {
+  font-weight: 600;
+}
+h1 small {
+  color: #8b949e;
+  font-size: 60%;
+  font-weight: 400;
+}
+.section {
+  font-size: 1.1rem;
+  margin-top: 2rem;
+}
+.stats {
+  color: #8b949e;
+  font-size: 13px;
+}
+.muted {
+  color: #8b949e;
+}
+.err {
+  color: #f85149;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+.tab {
+  background: #161b22;
+  color: #e6edf3;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+.tab.active {
+  background: #238636;
+  border-color: #238636;
+}
+.region {
+  margin-left: auto;
+  background: #161b22;
+  color: #e6edf3;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+}
+
+.picks {
+  display: grid;
+  gap: 0.6rem;
+}
+.card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+}
+.card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+.ticker {
+  font-weight: 600;
+}
+.name {
+  color: #8b949e;
+  flex: 1;
+}
+.score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.bar {
+  height: 6px;
+  background: #21262d;
+  border-radius: 3px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  background: #238636;
+}
+
+.drill {
+  margin-top: 0.7rem;
+  border-top: 1px solid #21262d;
+  padding-top: 0.6rem;
+}
+.factor {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 13px;
+  padding: 2px 0;
+}
+.flabel {
+  width: 5.5rem;
+  color: #8b949e;
+}
+.fbar {
+  flex: 1;
+  height: 5px;
+  background: #21262d;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.fbar-fill {
+  height: 100%;
+  background: #388bfd;
+}
+.fval {
+  width: 2rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.thesis {
+  font-size: 13px;
+  color: #c9d1d9;
+  margin: 0.6rem 0 0;
+}
+
+.history {
+  display: grid;
+  gap: 0;
+}
+.hist-row {
+  font-size: 13px;
+  color: #8b949e;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #21262d;
+}
+footer {
+  margin-top: 2rem;
+  color: #8b949e;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 72ch;
+}

@@ -8,3 +8,5 @@ __pycache__/
 data/cache/
 .env
 .claude/settings.local.json
+frontend/node_modules/
+frontend/dist/

@@ -14,3 +14,6 @@
   "cheap"), sector-relative ranking, low-volatility factor, docs/factors.md. Winsorize dropped as
   no-op for rank-based scoring. 42 tests + ruff green; live run shows buckets now well-differentiated
   (defensive=staples/quality, aggressive=momentum/growth). Next: Phase 5 (React dashboard).
+- 2026-06-24 — Phase 5 done (interactively): Vite + React 19 + TS dashboard (bucket tabs, score
+  bars, region filter, drilldown), FastAPI serves built dist/. typecheck + build green, 42 py tests
+  + ruff green, live server verified (index/asset/api all 200). All five planned phases complete.

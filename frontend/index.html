@@ -1,72 +1,12 @@
 <!doctype html>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>equity-scout</title>
-<style>
-  body { font: 15px system-ui, sans-serif; margin: 2rem; background: #0d1117; color: #e6edf3; }
-  h1 { font-weight: 600; }
-  h1 small { color: #8b949e; font-size: 60%; font-weight: 400; }
-  h2.section { font-size: 1.1rem; margin: 2rem 0 .5rem; }
-  .stats { color: #8b949e; font-size: 13px; margin-bottom: 1rem; }
-  .buckets { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
-  .bucket { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 1rem; }
-  .bucket h2 { margin-top: 0; text-transform: capitalize; font-size: 1.1rem; }
-  .pick { padding: .5rem 0; border-bottom: 1px solid #21262d; }
-  .ticker { font-weight: 600; }
-  .name { color: #8b949e; }
-  .bar { height: 6px; background: #238636; border-radius: 3px; margin: 4px 0; }
-  .thesis { font-size: 13px; color: #c9d1d9; }
-  .hist-row { font-size: 13px; color: #8b949e; padding: .25rem 0; border-bottom: 1px solid #21262d; }
-  footer { margin-top: 2rem; color: #8b949e; font-size: 13px; max-width: 72ch; line-height: 1.5; }
-</style>
-<h1>equity-scout <small id="ts"></small></h1>
-<div class="stats" id="stats"></div>
-<div class="buckets" id="buckets"></div>
-<h2 class="section">Recent runs</h2>
-<div class="history" id="history"></div>
-<footer id="disclaimer"></footer>
-<script>
-  fetch("/api/latest").then(r => r.json()).then(d => {
-    document.getElementById("ts").textContent = d.created_at || "(no runs yet)";
-    document.getElementById("disclaimer").textContent = d.disclaimer || "";
-
-    const s = d.gate_stats || {};
-    const byRegion = s.by_region
-      ? " · gated by region: " + Object.entries(s.by_region).map(([r, n]) => `${r} ${n}`).join(", ")
-      : "";
-    document.getElementById("stats").textContent = d.universe_size
-      ? `Universe ${d.universe_size} · gated out ${s.total_gated || 0}${byRegion}`
-      : "";
-
-    const root = document.getElementById("buckets");
-    for (const [bucket, picks] of Object.entries(d.buckets || {})) {
-      const el = document.createElement("div");
-      el.className = "bucket";
-      el.innerHTML = `<h2>${bucket}</h2>`;
-      for (const p of picks) {
-        const pct = Math.round(p.composite * 100);
-        const div = document.createElement("div");
-        div.className = "pick";
-        div.innerHTML =
-          `<div><span class="ticker">${p.rank}. ${p.instrument.ticker}</span> ` +
-          `<span class="name">${p.instrument.name} · ${p.instrument.region}</span></div>` +
-          `<div class="bar" style="width:${pct}%"></div>` +
-          (p.thesis ? `<div class="thesis">${p.thesis}</div>` : "");
-        el.appendChild(div);
-      }
-      root.appendChild(el);
-    }
-  });
-
-  fetch("/api/history").then(r => r.json()).then(d => {
-    const h = document.getElementById("history");
-    for (const run of d.runs || []) {
-      const counts = Object.entries(run.picks || {}).map(([b, ts]) => `${b} ${ts.length}`).join(" · ");
-      const row = document.createElement("div");
-      row.className = "hist-row";
-      row.textContent =
-        `${run.created_at} — universe ${run.universe_size}, gated ${run.total_gated} — ${counts}`;
-      h.appendChild(row);
-    }
-  });
-</script>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>equity-scout</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
