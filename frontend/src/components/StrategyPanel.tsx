@@ -42,7 +42,12 @@ export function StrategyPanel({
         </p>
       )}
 
-      <EquityChart report={report} benchmarkName={benchmarkName} />
+      <EquityChart
+        equity={report.equity}
+        benchmark={report.benchmark_equity}
+        label={report.name}
+        benchmarkLabel={benchmarkName}
+      />
 
       <div className="metric-grid">
         {METRIC_ORDER.map((key) => (

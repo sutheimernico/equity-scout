@@ -47,6 +47,14 @@ export const METRIC_LABELS: Record<string, string> = {
   deflated_sharpe: "Deflated Sharpe",
 };
 
+export const ML_FEATURE_LABELS: Record<string, string> = {
+  vol: "Volatilität",
+  trend: "Trend (Abstand zur MA)",
+  breadth: "Marktbreite",
+  drawdown: "Drawdown-Zustand",
+  mom_3m: "3-Monats-Momentum",
+};
+
 export const METRIC_HELP: Record<string, string> = {
   cagr: "Durchschnittliche jährliche Wachstumsrate über den gesamten Zeitraum.",
   annual_volatility: "Schwankungsbreite der Renditen p.a. — höher = unruhiger.",

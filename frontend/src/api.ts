@@ -136,3 +136,29 @@ export async function fetchStrategies(): Promise<StrategiesResponse> {
   if (!response.ok) throw new Error(`/api/strategies returned ${response.status}`);
   return response.json();
 }
+
+// --- ML meta-model (src/equity_scout/ml + strategy_service.build_ml_report) ---
+
+export interface MlReport {
+  trained: boolean;
+  metrics: StrategyMetrics | null;
+  equity: [string, number][];
+  benchmark_equity: [string, number][];
+  n_bets: number;
+  oos_hit_rate: number;
+  avg_probability: number;
+  avg_exposure: number;
+  feature_importance: Record<string, number>;
+}
+
+export interface MlResponse {
+  available: boolean;
+  report?: MlReport;
+  disclaimer: string;
+}
+
+export async function fetchMlReport(): Promise<MlResponse> {
+  const response = await fetch("/api/ml");
+  if (!response.ok) throw new Error(`/api/ml returned ${response.status}`);
+  return response.json();
+}

@@ -623,3 +623,18 @@ code {
   padding: 1px var(--space-2);
   border-radius: var(--radius-pill);
 }
+
+/* ML feature-importance rows need room for longer labels */
+.alloc-row.feat-row {
+  grid-template-columns: 10rem 1fr 2.6rem;
+}
+.alloc-ticker.feat {
+  font-weight: 400;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab.ml.active {
+  color: var(--accent);
+}

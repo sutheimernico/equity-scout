@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 
 import { fetchStrategies, type StrategiesResponse, type StrategyReport } from "../api";
 import { METRIC_LABELS } from "../format";
+import { MLPanel } from "./MLPanel";
 import { COMPARE_METRICS, formatMetric, StrategyPanel } from "./StrategyPanel";
+
+type Tab = number | "compare" | "ml";
 
 function CompareTable({
   strategies,
@@ -45,7 +48,7 @@ function CompareTable({
 export function StrategyDashboard() {
   const [data, setData] = useState<StrategiesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [active, setActive] = useState(0); // strategy index, or -1 for the compare view
+  const [active, setActive] = useState<Tab>(0); // strategy index, "compare", or "ml"
 
   useEffect(() => {
     fetchStrategies()
@@ -83,13 +86,21 @@ export function StrategyDashboard() {
             {s.name}
           </button>
         ))}
-        <button className={active === -1 ? "tab active" : "tab"} onClick={() => setActive(-1)}>
+        <button className={active === "ml" ? "tab active ml" : "tab ml"} onClick={() => setActive("ml")}>
+          ML-Meta ✨
+        </button>
+        <button
+          className={active === "compare" ? "tab active" : "tab"}
+          onClick={() => setActive("compare")}
+        >
           Vergleich
         </button>
       </div>
 
-      {active === -1 ? (
+      {active === "compare" ? (
         <CompareTable strategies={strategies} />
+      ) : active === "ml" ? (
+        <MLPanel />
       ) : (
         <StrategyPanel report={strategies[active]} benchmarkName={benchmark} />
       )}
