@@ -1,0 +1,57 @@
+# equity-scout — Plan (AUTOPILOT-driven build backlog)
+
+**Source of truth for design:** `docs/superpowers/specs/2026-06-24-equity-scout-design.md`
+**v1 implementation log:** `docs/superpowers/plans/2026-06-24-vertical-slice-v1.md` (done — see Outcome).
+Personal rules (`~/.claude/CLAUDE.md`) + global loop rules (`~/private/AUTOPILOT.md`) apply.
+
+This file is the binding backlog for the autonomous loop. Each iteration picks the SINGLE
+highest-value open `- [ ]` task, does it on `autopilot/work`, runs the gate, commits only if green,
+checks the box, and appends one line to `AUTOPILOT_LOG.md`.
+
+## Iron principles (never overridden)
+- **Local & free only.** yfinance / SEC EDGAR (UA header) / public lists. No paid feeds, no
+  real-money anything. A task needing a paid resource goes to "Needs Nico", never faked.
+- **Honesty guardrails on every surface.** Disclaimer present; LLM theses are interpretation,
+  never price forecasts; the data-completeness gate is mandatory — never rank thin-data noise.
+- **Gate is objective:** `uv run pytest -q` green AND `uv run ruff check .` clean. Never commit red.
+- **Small, reviewable diffs.** New logic ships with a test. Net/LLM behind seams, faked in tests.
+- **One change per iteration.** No bundling. No speculative abstractions (YAGNI).
+
+## Status
+- **v1 Vertical Slice — DONE.** Funnel end-to-end (universe→data→gate→factors→buckets→LLM-seam→
+  SQLite→API→dashboard), 21 tests + ruff green, live yfinance run over 42 global tickers verified.
+
+## Phase 2 — Persistent cache + real global universe
+- [ ] Persist fetched fundamentals + price closes in a read-through SQLite/Parquet cache with an
+      `as_of` date (point-in-time); pipeline reads cache first, fetches only on miss/stale.
+- [ ] Replace the static `data/universe_v1.csv` with real index-constituent lists (start: S&P 500,
+      STOXX Europe 600, Nikkei 225). Source via a documented scraper or committed snapshot; record
+      provenance + retrieval date. Keep the v1 CSV as a fast offline fixture.
+- [ ] Add polite rate-limiting + retry/backoff for yfinance over the larger universe; bounded
+      parallel fetch (respect a global concurrency cap).
+- [ ] Persist per-run gate statistics (count gated, by reason, by region) and surface them in the API.
+
+## Phase 3 — Scheduler automation + run history
+- [ ] Scheduled headless run (systemd timer or AUTOPILOT-driven); each run writes a snapshot.
+- [ ] Run-history endpoint + dashboard view: compare runs, show pick churn over time.
+- [ ] Enable LLM theses by default for finalists in scheduled runs, budget-capped (count + timeout).
+
+## Phase 4 — Factor / bucket refinement
+- [ ] Sector-relative percentile ranking (rank within sector) to remove sector bias; document why.
+- [ ] Add a low-volatility factor and wire it into the defensive bucket weighting.
+- [ ] Winsorize/clip raw metrics before ranking to blunt outliers; unit-test the clipping.
+- [ ] Document factor definitions + rationale in `docs/factors.md`.
+
+## Phase 5 — Dashboard polish (React)
+- [ ] Migrate the vanilla page to React 19 (reuse signal-trader dashboard patterns): bucket tabs,
+      score-breakdown bars, region/sector filters, per-pick drilldown.
+- [ ] Surface the gated-out list + data caveats prominently in the UI.
+
+## Standing mandate (per AUTOPILOT, once per phase — not per iteration)
+- [ ] Research current best practice (factor investing, free data sources, screening pitfalls) and
+      challenge this plan. If a materially better approach exists, write an ADR in `docs/adr/` and
+      adjust the backlog. Re-examine settled decisions only with a concrete, sourced reason.
+
+## Needs Nico (loop cannot do these itself)
+- Git remote / visibility decision before any first push (repo is currently local-only).
+- Any data source that would require a paid key (do NOT sign up — log here instead).

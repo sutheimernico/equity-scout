@@ -1362,3 +1362,26 @@ Do NOT merge to main — Nico reviews `feat/vertical-slice-v1`.
 - **Type consistency:** `RunResult`, `Pick`, `FactorScore`, `Quote` field names consistent across T1/T5/T6/T8/T9/T12. `attach_theses(buckets, provider|None)` signature consistent T7/T9.
 
 **Deviation from spec (logged):** v1 fetches fundamentals fresh per run instead of a persisted PriceBar/Fundamentals cache (spec §4). Justified: vertical slice keeps the funnel honest end-to-end; the cache is a Loop task (performance + point-in-time history), not needed to prove the mechanic.
+
+---
+
+## Outcome (2026-06-24)
+
+**Status: DONE.** All 13 plan tasks implemented, 16 atomic commits, merged to `main`.
+
+**Verification (evidence, not assertion):**
+- `uv run pytest -q` → 21 passed (gate, factors, buckets, analysis, storage, pipeline, api, models, universe, yf parsing).
+- `uv run ruff check .` → all checks passed.
+- Live `yfinance` run over the 42-ticker global universe: filled all three buckets from real data
+  (US/EU/JP/HK/KR/IN/BR/AU/CA); the data gate correctly rejected one fragile ticker (`ROG.SW`, Yahoo 404)
+  instead of propagating noise. Buckets differ as designed (aggressive led by `005930.KS` on momentum/growth,
+  defensive by `9984.T`).
+- Real server path checked: `GET /api/latest` → 200 with all buckets + disclaimer; `GET /` serves the dashboard.
+
+**Deviations from plan:**
+- v1 fetches fresh (no persistent cache) — deferred to Phase 2 as planned above.
+- Added `httpx` to deps (FastAPI `TestClient` dependency) — not in the original stack list.
+- React dashboard deferred to Phase 5; v1 ships a vanilla HTML page (kept v1 in one session).
+
+**Handoff:** Further build is driven by `PLAN.md` (Phase 2+) via the AUTOPILOT loop (`LOOP.md`).
+Open input for Nico: git remote/visibility before any first push (repo is local-only).
