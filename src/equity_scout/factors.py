@@ -1,15 +1,33 @@
-"""Cross-sectional factor scoring. Each metric -> percentile in [0,1] over the set."""
+"""Cross-sectional factor scoring.
+
+Each metric becomes a percentile in [0,1]. Two refinements over a naive rank:
+- Invalid values are dropped before ranking. A non-positive P/E or P/B is NOT "cheap" — it usually
+  means losses or negative equity — so we treat it as missing rather than top-of-value.
+- value/quality/growth are ranked WITHIN sector (a tech P/E is not comparable to a utility's);
+  momentum and low-vol are ranked globally. Rank-based scoring is ordinal, so it needs no
+  winsorizing — an outlier's magnitude doesn't move its rank.
+"""
 from __future__ import annotations
 
 from equity_scout.models import FactorScore, Quote
 
-# family -> list of (field_name, higher_is_better)
-_FAMILIES: dict[str, list[tuple[str, bool]]] = {
-    "value": [("trailing_pe", False), ("price_to_book", False)],
-    "quality": [("return_on_equity", True), ("profit_margins", True)],
-    "momentum": [("momentum_6m", True)],
-    "growth": [("revenue_growth", True), ("earnings_growth", True)],
+# family -> list of (field_name, higher_is_better, require_positive)
+_FAMILIES: dict[str, list[tuple[str, bool, bool]]] = {
+    "value": [("trailing_pe", False, True), ("price_to_book", False, True)],
+    "quality": [("return_on_equity", True, False), ("profit_margins", True, False)],
+    "momentum": [("momentum_6m", True, False)],
+    "growth": [("revenue_growth", True, False), ("earnings_growth", True, False)],
 }
+# Families ranked within sector (others rank globally).
+_SECTOR_RELATIVE = {"value", "quality", "growth"}
+
+
+def _clean(value: float | None, require_positive: bool) -> float | None:
+    if value is None:
+        return None
+    if require_positive and value <= 0:
+        return None
+    return value
 
 
 def _percentiles(values: dict[str, float], higher_is_better: bool) -> dict[str, float]:
@@ -18,24 +36,40 @@ def _percentiles(values: dict[str, float], higher_is_better: bool) -> dict[str, 
         return {}
     if len(values) == 1:
         return {k: 0.5 for k in values}
-    # order worst-first so the best ends at index n-1 -> percentile 1.0
     ordered = sorted(values.items(), key=lambda kv: kv[1], reverse=not higher_is_better)
     n = len(ordered)
     return {ticker: idx / (n - 1) for idx, (ticker, _) in enumerate(ordered)}
 
 
+def _rank_metric(
+    present: dict[str, float], higher: bool, sector_of: dict[str, str], sector_relative: bool
+) -> dict[str, float]:
+    """Percentiles for one metric, globally or within each sector group."""
+    if not sector_relative:
+        return _percentiles(present, higher)
+    groups: dict[str, dict[str, float]] = {}
+    for ticker, value in present.items():
+        groups.setdefault(sector_of[ticker], {})[ticker] = value
+    out: dict[str, float] = {}
+    for group in groups.values():
+        out.update(_percentiles(group, higher))
+    return out
+
+
 def score_factors(quotes: list[Quote]) -> list[FactorScore]:
     by_ticker = {q.instrument.ticker: q for q in quotes}
-    # family -> ticker -> list of metric percentiles (averaged into the family score)
+    sector_of = {t: q.instrument.sector for t, q in by_ticker.items()}
     family_pcts: dict[str, dict[str, list[float]]] = {f: {} for f in _FAMILIES}
+
     for family, metrics in _FAMILIES.items():
-        for field_name, higher in metrics:
+        sector_relative = family in _SECTOR_RELATIVE
+        for field_name, higher, require_positive in metrics:
             present = {
-                t: getattr(q, field_name)
+                t: _clean(getattr(q, field_name), require_positive)
                 for t, q in by_ticker.items()
-                if getattr(q, field_name) is not None
             }
-            for t, pct in _percentiles(present, higher).items():
+            present = {t: v for t, v in present.items() if v is not None}
+            for t, pct in _rank_metric(present, higher, sector_of, sector_relative).items():
                 family_pcts[family].setdefault(t, []).append(pct)
 
     scores: list[FactorScore] = []
