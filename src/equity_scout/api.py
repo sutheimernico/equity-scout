@@ -1,6 +1,7 @@
-"""Read-only API for the dashboard. Serves the latest run snapshot + disclaimer."""
+"""Read-only API for the dashboard. Serves the latest run snapshot + strategy reports + disclaimer."""
 from __future__ import annotations
 
+import os
 from dataclasses import asdict
 from pathlib import Path
 
@@ -10,14 +11,41 @@ from fastapi.staticfiles import StaticFiles
 
 from equity_scout.buckets import BUCKET_WEIGHTS
 from equity_scout.constants import DEFAULT_DB_PATH, DISCLAIMER
+from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
 from equity_scout.storage import load_latest_run, load_run_summaries
+from equity_scout.strategy_service import BENCHMARK_NAME, build_reports
 
 _DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
-def create_app(db_path: str = DEFAULT_DB_PATH) -> FastAPI:
+def create_app(db_path: str = DEFAULT_DB_PATH, snapshot: str = DEFAULT_SNAPSHOT) -> FastAPI:
     app = FastAPI(title="equity-scout")
+    reports_cache: dict[str, list] = {}  # built once per process (backtests are deterministic)
+
+    def get_reports() -> list | None:
+        if "reports" not in reports_cache:
+            if not os.path.exists(snapshot):
+                return None
+            reports_cache["reports"] = build_reports(load_snapshot(snapshot))
+        return reports_cache["reports"]
+
+    @app.get("/api/strategies")
+    def strategies() -> JSONResponse:
+        reports = get_reports()
+        if reports is None:
+            return JSONResponse({
+                "available": False,
+                "strategies": [],
+                "hint": "Run `python scripts/run_backtest.py --refresh` to fetch the price panel.",
+                "disclaimer": DISCLAIMER,
+            })
+        return JSONResponse({
+            "available": True,
+            "benchmark": BENCHMARK_NAME,
+            "strategies": [asdict(r) for r in reports],
+            "disclaimer": DISCLAIMER,
+        })
 
     @app.get("/api/latest")
     def latest() -> JSONResponse:
