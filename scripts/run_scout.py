@@ -29,6 +29,8 @@ def main() -> None:
     ap.add_argument("--max-workers", type=int, default=8, help="Bounded parallel fetch (1 = serial).")
     ap.add_argument("--provider", choices=["fake", "yfinance"], default="fake")
     ap.add_argument("--use-llm", action="store_true")
+    ap.add_argument("--llm-top-n", type=int, default=3,
+                    help="Cap LLM theses to top-N per bucket (cost control).")
     args = ap.parse_args()
 
     now = datetime.now(timezone.utc)
@@ -43,6 +45,7 @@ def main() -> None:
     run = run_pipeline(
         universe, provider, analysis=analysis, top_n=args.top_n,
         created_at=now.isoformat(timespec="seconds"), max_workers=args.max_workers,
+        llm_top_n=args.llm_top_n,
     )
     init_db(args.db)
     save_run(args.db, run)

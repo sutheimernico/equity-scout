@@ -54,12 +54,21 @@ class ClaudeCliAnalysis:
 
 
 def attach_theses(
-    buckets: dict[str, list[Pick]], provider: AnalysisProvider | None
+    buckets: dict[str, list[Pick]],
+    provider: AnalysisProvider | None,
+    max_per_bucket: int | None = None,
 ) -> dict[str, list[Pick]]:
-    """Return a copy of buckets with theses attached. provider=None -> unchanged."""
+    """Return a copy of buckets with theses attached. provider=None -> unchanged.
+
+    max_per_bucket caps cost: only picks ranked <= max_per_bucket get an LLM call (None = all).
+    """
     if provider is None:
         return buckets
     out: dict[str, list[Pick]] = {}
     for bucket, picks in buckets.items():
-        out[bucket] = [dataclasses.replace(p, thesis=provider.thesis_for(p)) for p in picks]
+        out[bucket] = [
+            dataclasses.replace(p, thesis=provider.thesis_for(p))
+            if (max_per_bucket is None or p.rank <= max_per_bucket) else p
+            for p in picks
+        ]
     return out

@@ -19,3 +19,14 @@ def test_attach_theses_is_noop_when_provider_none():
     buckets = {"aggressive": [_pick("AGG")]}
     out = attach_theses(buckets, None)
     assert out["aggressive"][0].thesis is None
+
+
+def test_attach_theses_respects_max_per_bucket():
+    inst = Instrument("X", "X", "E", "US", "USD", "Tech")
+    picks = [Pick(inst, "aggressive", rank, 0.8,
+                  {"value": 0.1, "quality": 0.1, "momentum": 0.9, "growth": 0.9})
+             for rank in (1, 2, 3)]
+    out = attach_theses({"aggressive": picks}, FakeAnalysis(), max_per_bucket=2)
+    theses = [p.thesis for p in out["aggressive"]]
+    assert theses[0] is not None and theses[1] is not None  # ranks 1,2 analyzed
+    assert theses[2] is None  # rank 3 skipped (cost cap)
