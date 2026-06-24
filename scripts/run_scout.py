@@ -26,6 +26,7 @@ def main() -> None:
     ap.add_argument("--cache-db", default="equity_scout_cache.db")
     ap.add_argument("--no-cache", action="store_true")
     ap.add_argument("--top-n", type=int, default=10)
+    ap.add_argument("--max-workers", type=int, default=8, help="Bounded parallel fetch (1 = serial).")
     ap.add_argument("--provider", choices=["fake", "yfinance"], default="fake")
     ap.add_argument("--use-llm", action="store_true")
     args = ap.parse_args()
@@ -41,7 +42,7 @@ def main() -> None:
 
     run = run_pipeline(
         universe, provider, analysis=analysis, top_n=args.top_n,
-        created_at=now.isoformat(timespec="seconds"),
+        created_at=now.isoformat(timespec="seconds"), max_workers=args.max_workers,
     )
     init_db(args.db)
     save_run(args.db, run)

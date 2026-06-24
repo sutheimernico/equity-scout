@@ -29,14 +29,25 @@ class YFinanceProvider:
     def fetch_quote(self, instrument: Instrument) -> Quote:
         import yfinance as yf
 
+        from equity_scout.data.fetch import with_retry
+
         tk = yf.Ticker(instrument.ticker)
+
+        def _info() -> dict:
+            return tk.info or {}
+
+        def _closes() -> list[float]:
+            hist = tk.history(period="6mo", interval="1d")
+            return [float(c) for c in hist["Close"].tolist()] if not hist.empty else []
+
+        # Retry transient failures (e.g. rate limits); fall back to empty on persistent failure
+        # so a single bad ticker is gated out, not fatal to the whole run.
         try:
-            info = tk.info or {}
+            info = with_retry(_info, attempts=3)
         except Exception:
             info = {}
         try:
-            hist = tk.history(period="6mo", interval="1d")
-            closes = [float(c) for c in hist["Close"].tolist()] if not hist.empty else []
+            closes = with_retry(_closes, attempts=3)
         except Exception:
             closes = []
         return quote_from_info_and_history(instrument, info, closes)
