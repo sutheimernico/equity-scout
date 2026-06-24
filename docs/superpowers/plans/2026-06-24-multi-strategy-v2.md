@@ -59,7 +59,22 @@ Live-verified over 2007-2026 (10 ETFs): 60/40 Sharpe 0.75 / MaxDD -32.6%, GEM Sh
 - Tests: deterministic FakeProvider panel; assert no look-ahead (engine never reads ≥ t), known-input
       metric values, cost monotonicity (more bps → lower return). Gate green. Merge to `main`.
 
-## Phase B — Multi-account persistence + remaining v1 strategies
+## Phase B — Remaining v1 strategies  [DONE 2026-06-25]
+**Outcome:** added DCA (time-phased, state-free), Vol-Targeting (capped at 1.0), Permanent Portfolio,
+and DAA (Keller canary, top-N diversified) — registry now serves 6. The User pair-edited the seam to
+return typed `list[TargetWeight]` and dropped `AccountState` (YAGNI); all strategies state-free.
+Live over 2007-2026: Permanent best risk-adjusted (Sharpe 0.92 / MaxDD -17.6%), DAA highest CAGR
+(9.8%) but cost-sensitive (sweep 7.3→4.8). Multi-account *persistence* deferred — backtest-on-the-fly
++ cache serves the dashboard now; forward-paper persistence will be built with the feedback loop (F).
+
+## Phase C — Dashboard tabs + equity chart + metrics/cost harness  [DONE 2026-06-25]
+**Outcome:** `strategy_service.build_reports` + `/api/strategies` (app-local cache, graceful w/o
+snapshot). Frontend: top-level nav (Strategien | Aktien-Screener, funnel extracted to FunnelView),
+per-strategy tab with an in-house SVG equity curve vs 60/40, metric tiles w/ tooltips, current
+allocation, cost-sweep bars, recent rebalances, and a compare tab. typecheck + vite build green,
+live-verified (all endpoints 200).
+
+## Phase B-orig — Multi-account persistence (deferred, folded into Phase F)
 - [ ] Generalise `portfolio_storage.py`: `accounts(id, name, strategy, initial_capital, benchmark,
       created_at)` + `account_id` FK on portfolio/valuations/trades. Migrate the single account.
 - [ ] Strategies: `DCAStrategy` (fixed tranche into SPY/60-40), `VolTargetStrategy`
