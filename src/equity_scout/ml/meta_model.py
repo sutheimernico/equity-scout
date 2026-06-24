@@ -10,17 +10,49 @@ walk-forward: each fold retrains on newly available history.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Iterator
 
 import numpy as np
 import pandas as pd
+from sklearn.base import ClassifierMixin
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
 from equity_scout.market import PricePanel
 from equity_scout.ml.features import FEATURE_NAMES, primary_long_signal, regime_features
 from equity_scout.ml.labeling import triple_barrier_labels
+
+
+@dataclass(frozen=True)
+class MetaConfig:
+    """One point in the search space the research loop explores ("many dimensions"). Defaults
+    reproduce the original meta-model. The model only ever picks among regularised, shallow learners
+    — depth is capped on purpose, the edge against overfitting is the validation, not model capacity."""
+
+    features: tuple[str, ...] = field(default_factory=lambda: FEATURE_NAMES)
+    model: str = "elastic_net"  # "elastic_net" | "random_forest"
+    primary_lookback_months: int = 12
+    horizon_days: int = 21
+    barrier: float = 0.05  # symmetric profit-take = stop-loss
+
+    def key(self) -> str:
+        """Stable identity for the ledger (order-independent in features)."""
+        feats = "+".join(sorted(self.features))
+        return f"{feats}|{self.model}|{self.primary_lookback_months}|{self.horizon_days}|{self.barrier}"
+
+
+DEFAULT_CONFIG = MetaConfig()
+
+
+def _build_model(config: MetaConfig) -> ClassifierMixin:
+    if config.model == "random_forest":  # shallow + leaf floor → low variance, hard to overfit
+        return RandomForestClassifier(
+            n_estimators=200, max_depth=3, min_samples_leaf=20, random_state=0
+        )
+    # elastic-net logistic: setting l1_ratio (sklearn >=1.8 API) selects the elastic-net penalty
+    return LogisticRegression(solver="saga", l1_ratio=0.5, C=0.5, max_iter=5000)
 
 
 @dataclass(frozen=True)
@@ -79,25 +111,31 @@ def _backtest_exposure(
     return (1.0 + port_ret - cost).cumprod()
 
 
+def _feature_weights(model: ClassifierMixin) -> np.ndarray:
+    """Per-feature importance, whichever attribute the model exposes (logistic vs forest)."""
+    if hasattr(model, "coef_"):
+        return np.abs(model.coef_[0])
+    return np.asarray(model.feature_importances_)
+
+
 def run_meta_model(
     panel: PricePanel,
+    config: MetaConfig = DEFAULT_CONFIG,
     *,
     risk: str = "SPY",
     cash: str = "BIL",
-    horizon_days: int = 21,
-    profit_take: float = 0.05,
-    stop_loss: float = 0.05,
     costs_bps: float = 10.0,
     n_splits: int = 4,
     embargo_days: int = 21,
 ) -> MetaResult:
-    primary = primary_long_signal(panel, risk)
-    features = regime_features(panel, risk)
+    feature_cols = list(config.features)
+    primary = primary_long_signal(panel, risk, lookback_days=config.primary_lookback_months * 21)
+    features = regime_features(panel, risk)[feature_cols]
     rebalance = panel.rebalance_dates()
     bet_dates = pd.DatetimeIndex([d for d in rebalance if bool(primary.get(d, False))])
     labels = triple_barrier_labels(
-        panel.closes[risk], bet_dates, horizon_days=horizon_days,
-        profit_take=profit_take, stop_loss=stop_loss,
+        panel.closes[risk], bet_dates, horizon_days=config.horizon_days,
+        profit_take=config.barrier, stop_loss=config.barrier,
     )
     usable = features.loc[features.index.intersection(labels.index)].dropna()
     X, y = usable, labels.loc[usable.index]
@@ -105,7 +143,7 @@ def run_meta_model(
     oos_prob: dict[pd.Timestamp, float] = {}
     importances: list[np.ndarray] = []
     for train, test in purged_walk_forward(
-        X.index, n_splits=n_splits, embargo_days=embargo_days, horizon_days=horizon_days
+        X.index, n_splits=n_splits, embargo_days=embargo_days, horizon_days=config.horizon_days
     ):
         x_train, y_train = X.loc[train], y.loc[train]
         x_test = X.loc[X.index.intersection(test)]
@@ -116,13 +154,12 @@ def run_meta_model(
                 oos_prob[date] = float(y_train.mean())
             continue
         scaler = StandardScaler().fit(x_train)
-        # elastic-net logistic: setting l1_ratio (sklearn >=1.8 API) selects the elastic-net penalty
-        model = LogisticRegression(solver="saga", l1_ratio=0.5, C=0.5, max_iter=5000)
+        model = _build_model(config)
         model.fit(scaler.transform(x_train), y_train)
         probs = model.predict_proba(scaler.transform(x_test))[:, 1]
         for date, prob in zip(x_test.index, probs):
             oos_prob[date] = float(prob)
-        importances.append(np.abs(model.coef_[0]))
+        importances.append(_feature_weights(model))
 
     if not oos_prob:
         flat = pd.Series(1.0, index=panel.dates)
@@ -138,7 +175,7 @@ def run_meta_model(
     y_oos = y.loc[oos.index]
     hit_rate = float(((oos > 0.5).astype(int) == y_oos).mean())
     importance = (
-        dict(zip(FEATURE_NAMES, np.mean(importances, axis=0) / (np.sum(np.mean(importances, axis=0)) or 1)))
+        dict(zip(feature_cols, np.mean(importances, axis=0) / (np.sum(np.mean(importances, axis=0)) or 1)))
         if importances
         else {}
     )

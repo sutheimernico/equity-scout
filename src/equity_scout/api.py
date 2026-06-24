@@ -14,12 +14,18 @@ from equity_scout.constants import DEFAULT_DB_PATH, DISCLAIMER
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
 from equity_scout.storage import load_latest_run, load_run_summaries
+from equity_scout.ml.ledger import DEFAULT_LEDGER_PATH
+from equity_scout.ml.research_view import research_summary
 from equity_scout.strategy_service import BENCHMARK_NAME, build_ml_report, build_reports
 
 _DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
-def create_app(db_path: str = DEFAULT_DB_PATH, snapshot: str = DEFAULT_SNAPSHOT) -> FastAPI:
+def create_app(
+    db_path: str = DEFAULT_DB_PATH,
+    snapshot: str = DEFAULT_SNAPSHOT,
+    ledger: str = DEFAULT_LEDGER_PATH,
+) -> FastAPI:
     app = FastAPI(title="equity-scout")
     reports_cache: dict[str, object] = {}  # built once per process (backtests are deterministic)
 
@@ -56,6 +62,11 @@ def create_app(db_path: str = DEFAULT_DB_PATH, snapshot: str = DEFAULT_SNAPSHOT)
 
             reports_cache["ml"] = build_ml_report(_load(snapshot))
         return JSONResponse({"available": True, "report": asdict(reports_cache["ml"]), "disclaimer": DISCLAIMER})
+
+    @app.get("/api/research")
+    def research() -> JSONResponse:
+        # No cache: reflects the background research loop live as it writes to the ledger.
+        return JSONResponse({**research_summary(ledger), "disclaimer": DISCLAIMER})
 
     @app.get("/api/latest")
     def latest() -> JSONResponse:

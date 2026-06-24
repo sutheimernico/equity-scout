@@ -97,36 +97,48 @@ def periodic_sharpe(returns: pd.Series) -> float:
     return 0.0 if sd == 0 else float(returns.mean() / sd)
 
 
+def psr_from_stats(
+    sharpe_periodic: float, n_obs: int, skew: float, kurtosis: float, benchmark: float = 0.0
+) -> float:
+    """Probabilistic Sharpe from compact stats (no return series needed) — lets the research ledger
+    store 4 numbers per trial and recompute DSR as the trial count grows."""
+    if n_obs < 3:
+        return 0.5
+    denom = math.sqrt(max(1e-12, 1.0 - skew * sharpe_periodic + (kurtosis - 1.0) / 4.0 * sharpe_periodic**2))
+    z = (sharpe_periodic - benchmark) * math.sqrt(n_obs - 1) / denom
+    return float(_NORMAL.cdf(z))
+
+
 def probabilistic_sharpe_ratio(returns: pd.Series, benchmark_periodic_sharpe: float = 0.0) -> float:
     """P(true Sharpe > benchmark), correcting for sample length, skew and kurtosis (Bailey & LdP)."""
-    n = len(returns)
-    if n < 3:
+    if len(returns) < 3:
         return 0.5
-    sr = periodic_sharpe(returns)
-    skew = float(returns.skew())
-    kurt = float(returns.kurt()) + 3.0  # pandas reports excess kurtosis; the formula wants raw
-    denom = math.sqrt(max(1e-12, 1.0 - skew * sr + (kurt - 1.0) / 4.0 * sr**2))
-    z = (sr - benchmark_periodic_sharpe) * math.sqrt(n - 1) / denom
-    return float(_NORMAL.cdf(z))
+    # pandas reports excess kurtosis; the formula wants raw (+3)
+    return psr_from_stats(
+        periodic_sharpe(returns), len(returns), float(returns.skew()), float(returns.kurt()) + 3.0,
+        benchmark_periodic_sharpe,
+    )
+
+
+def expected_max_sharpe(trial_periodic_sharpes: list[float]) -> float:
+    """The Sharpe the best of N independent trials would show by chance (the DSR deflation term).
+    Rises with the number of trials — this is the built-in overfitting budget."""
+    n_trials = len(trial_periodic_sharpes)
+    if n_trials <= 1:
+        return 0.0
+    sr_variance = float(pd.Series(trial_periodic_sharpes).var(ddof=1))
+    if sr_variance <= 0:
+        return 0.0
+    return math.sqrt(sr_variance) * (
+        (1.0 - _EULER_MASCHERONI) * _NORMAL.inv_cdf(1.0 - 1.0 / n_trials)
+        + _EULER_MASCHERONI * _NORMAL.inv_cdf(1.0 - 1.0 / (n_trials * math.e))
+    )
 
 
 def deflated_sharpe_ratio(returns: pd.Series, trial_periodic_sharpes: list[float]) -> float:
     """DSR: PSR against the Sharpe the best of N independent trials would show by chance.
-
-    `trial_periodic_sharpes` are the non-annualised Sharpes of *all* strategies/configs tried
-    (including this one). With a single trial it degenerates to PSR against 0.
-    """
-    n_trials = len(trial_periodic_sharpes)
-    if n_trials <= 1:
-        return probabilistic_sharpe_ratio(returns, 0.0)
-    sr_variance = float(pd.Series(trial_periodic_sharpes).var(ddof=1))
-    if sr_variance <= 0:
-        return probabilistic_sharpe_ratio(returns, 0.0)
-    expected_max = math.sqrt(sr_variance) * (
-        (1.0 - _EULER_MASCHERONI) * _NORMAL.inv_cdf(1.0 - 1.0 / n_trials)
-        + _EULER_MASCHERONI * _NORMAL.inv_cdf(1.0 - 1.0 / (n_trials * math.e))
-    )
-    return probabilistic_sharpe_ratio(returns, expected_max)
+    With a single trial it degenerates to PSR against 0."""
+    return probabilistic_sharpe_ratio(returns, expected_max_sharpe(trial_periodic_sharpes))
 
 
 def compute_metrics(equity: pd.Series) -> PerformanceMetrics:
