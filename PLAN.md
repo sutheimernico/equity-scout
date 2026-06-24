@@ -4,6 +4,12 @@
 **v1 implementation log:** `docs/superpowers/plans/2026-06-24-vertical-slice-v1.md` (done — see Outcome).
 Personal rules (`~/.claude/CLAUDE.md`) + global loop rules (`~/private/AUTOPILOT.md`) apply.
 
+> **NEXT MAJOR DIRECTION (2026-06-24):** multi-strategy paper-trading (N strategies as N demo
+> accounts, dashboard tabs) + a self-learning ML meta-model with a feedback loop. Vision + research
+> + architecture: `docs/superpowers/specs/2026-06-24-multi-strategy-ml-vision.md`. New-chat starting
+> point: `HANDOFF.md`. The next chat runs brainstorming → writing-plans → loop to build this; the
+> phases below (Phase 2–5 + redesign/transparency/paper/ML follow-ups) are the prior, completed work.
+
 This file is the binding backlog for the autonomous loop. Each iteration picks the SINGLE
 highest-value open `- [ ]` task, does it on `autopilot/work`, runs the gate, commits only if green,
 checks the box, and appends one line to `AUTOPILOT_LOG.md`.
