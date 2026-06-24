@@ -21,15 +21,14 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - **v1 Vertical Slice — DONE.** Funnel end-to-end (universe→data→gate→factors→buckets→LLM-seam→
   SQLite→API→dashboard), 21 tests + ruff green, live yfinance run over 42 global tickers verified.
 
-## Phase 2 — Persistent cache + real global universe
-- [ ] Persist fetched fundamentals + price closes in a read-through SQLite/Parquet cache with an
-      `as_of` date (point-in-time); pipeline reads cache first, fetches only on miss/stale.
-- [ ] Replace the static `data/universe_v1.csv` with real index-constituent lists (start: S&P 500,
-      STOXX Europe 600, Nikkei 225). Source via a documented scraper or committed snapshot; record
-      provenance + retrieval date. Keep the v1 CSV as a fast offline fixture.
-- [ ] Add polite rate-limiting + retry/backoff for yfinance over the larger universe; bounded
-      parallel fetch (respect a global concurrency cap).
-- [ ] Persist per-run gate statistics (count gated, by reason, by region) and surface them in the API.
+## Phase 2 — Persistent cache + real global universe — DONE (2026-06-24)
+- [x] Read-through SQLite quote cache (`data/cache.py`), freshness vs. injected run-date, wired into CLI.
+- [x] Index-constituent sources behind a seam (`data/constituents.py`): hand-curated global CSV +
+      S&P 500 from Wikipedia (polite UA), deduped → `data/universe_combined.csv` (531) + provenance.
+- [x] Retry/backoff + bounded-parallel fetch (`data/fetch.py`), wired into pipeline + yfinance provider.
+- [x] Per-run gate statistics (total, by reason, by region) persisted + surfaced in API + dashboard.
+- [ ] Follow-up: add STOXX Europe 600 + Nikkei 225 constituent sources (each needs an exchange→Yahoo
+      suffix mapping; Nikkei is `code + .T`, STOXX is multi-exchange). v2.2 shipped S&P 500 only.
 
 ## Phase 3 — Scheduler automation + run history
 - [ ] Scheduled headless run (systemd timer or AUTOPILOT-driven); each run writes a snapshot.
