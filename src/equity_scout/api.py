@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from equity_scout.buckets import BUCKET_WEIGHTS
 from equity_scout.constants import DEFAULT_DB_PATH, DISCLAIMER
+from equity_scout.portfolio_storage import load_portfolio, load_valuations
 from equity_scout.storage import load_latest_run, load_run_summaries
 
 _DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
@@ -37,6 +38,25 @@ def create_app(db_path: str = DEFAULT_DB_PATH) -> FastAPI:
     @app.get("/api/history")
     def history(limit: int = 20) -> JSONResponse:
         return JSONResponse({"runs": load_run_summaries(db_path, limit=limit)})
+
+    @app.get("/api/portfolio")
+    def portfolio() -> JSONResponse:
+        pf = load_portfolio(db_path)
+        if pf is None:
+            return JSONResponse({"exists": False, "positions": [], "valuations": []})
+        positions = [
+            {"ticker": t, "name": pos.instrument.name, "region": pos.instrument.region,
+             "shares": pos.shares, "cost_basis": pos.cost_basis, "opened_at": pos.opened_at}
+            for t, pos in pf.positions.items()
+        ]
+        return JSONResponse({
+            "exists": True,
+            "initial_capital": pf.initial_capital,
+            "cash": pf.cash,
+            "benchmark_ticker": pf.benchmark_ticker,
+            "positions": positions,
+            "valuations": load_valuations(db_path),
+        })
 
     # Serve the built React dashboard. Mounted at "/" LAST so the /api/* routes above win.
     # Run `cd frontend && npm install && npm run build` to produce dist/.

@@ -33,6 +33,15 @@ def test_latest_endpoint_empty_db_still_has_disclaimer(tmp_path):
     assert body["disclaimer"]
 
 
+def test_portfolio_endpoint_handles_no_portfolio(tmp_path):
+    db = tmp_path / "np.db"
+    init_db(db)  # funnel tables only, no portfolio yet
+    client = TestClient(create_app(str(db)))
+    body = client.get("/api/portfolio").json()
+    assert body["exists"] is False
+    assert body["positions"] == []
+
+
 def test_history_endpoint_returns_runs(tmp_path):
     db = tmp_path / "h.db"
     init_db(db)

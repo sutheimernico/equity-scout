@@ -33,6 +33,7 @@ def quote_from_info_and_history(
         earnings_growth=info.get("earningsGrowth"),
         momentum_6m=momentum,
         volatility_6m=volatility,
+        price=closes[-1] if closes else None,
     )
 
 

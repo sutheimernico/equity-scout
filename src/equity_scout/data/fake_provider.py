@@ -20,4 +20,5 @@ class FakeProvider:
             earnings_growth=m.get("earnings_growth"),
             momentum_6m=m.get("momentum_6m"),
             volatility_6m=m.get("volatility_6m"),
+            price=m.get("price"),
         )

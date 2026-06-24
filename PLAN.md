@@ -61,13 +61,15 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       contribution`, composite = sum of contributions.
 - [x] In-app methodology note explaining rank-based, sector-relative scoring + the data gate.
 
-## Phase 8 — Paper-trading bot
-- [ ] Paper portfolio (100k demo): buy picks with composite ≥ threshold, equal-weight, buy-and-hold
-      forward tracking; mark-to-market vs cost + a benchmark; persisted snapshots.
-- [ ] CLI to advance the paper portfolio + API + dashboard portfolio view. Paper-only, never real.
+## Phase 8 — Paper-trading bot — DONE (2026-06-24)
+- [x] Paper portfolio (100k demo): buy picks with composite ≥ threshold, equal-weight, buy-and-hold;
+      mark-to-market vs cost + SPY benchmark, small fee; persisted (portfolio + valuation history).
+- [x] `scripts/run_paper.py` to advance it + `/api/portfolio` + dashboard portfolio view. Paper-only.
+- [ ] Follow-up: sell/exit rules, costs/slippage realism, valuation sparkline chart.
 
-## Code quality
-- [ ] Rename cryptic variables (fam, _q, t, pct, gs, single letters) to descriptive names.
+## Code quality — DONE (2026-06-24)
+- [x] Renamed cryptic variables (fam, _t closure trick, t/q/pct, s) to descriptive names in
+      factors/gate/buckets; frontend uses descriptive names throughout. Behavior unchanged, tests green.
 
 ## Standing mandate (per AUTOPILOT, once per phase — not per iteration)
 - [ ] Research current best practice (factor investing, free data sources, screening pitfalls) and

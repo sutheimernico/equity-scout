@@ -57,31 +57,40 @@ def _rank_metric(
     return out
 
 
+def _family_score(family_percentiles: dict[str, list[float]], ticker: str) -> float:
+    """Mean of a ticker's available metric percentiles in one family; 0.0 if it has none."""
+    percentiles = family_percentiles.get(ticker, [])
+    return sum(percentiles) / len(percentiles) if percentiles else 0.0
+
+
 def score_factors(quotes: list[Quote]) -> list[FactorScore]:
-    by_ticker = {q.instrument.ticker: q for q in quotes}
-    sector_of = {t: q.instrument.sector for t, q in by_ticker.items()}
-    family_pcts: dict[str, dict[str, list[float]]] = {f: {} for f in _FAMILIES}
+    quotes_by_ticker = {quote.instrument.ticker: quote for quote in quotes}
+    sector_by_ticker = {ticker: q.instrument.sector for ticker, q in quotes_by_ticker.items()}
+    # family -> ticker -> list of that family's metric percentiles (averaged into the family score)
+    percentiles_by_family: dict[str, dict[str, list[float]]] = {family: {} for family in _FAMILIES}
 
     for family, metrics in _FAMILIES.items():
         sector_relative = family in _SECTOR_RELATIVE
-        for field_name, higher, require_positive in metrics:
-            present = {
-                t: _clean(getattr(q, field_name), require_positive)
-                for t, q in by_ticker.items()
+        for field_name, higher_is_better, require_positive in metrics:
+            present_values = {
+                ticker: cleaned
+                for ticker, quote in quotes_by_ticker.items()
+                if (cleaned := _clean(getattr(quote, field_name), require_positive)) is not None
             }
-            present = {t: v for t, v in present.items() if v is not None}
-            for t, pct in _rank_metric(present, higher, sector_of, sector_relative).items():
-                family_pcts[family].setdefault(t, []).append(pct)
+            ranked = _rank_metric(present_values, higher_is_better, sector_by_ticker, sector_relative)
+            for ticker, percentile in ranked.items():
+                percentiles_by_family[family].setdefault(ticker, []).append(percentile)
 
     scores: list[FactorScore] = []
-    for t, q in by_ticker.items():
-        def fam(name: str, _t: str = t) -> float:
-            vals = family_pcts[name].get(_t, [])
-            return sum(vals) / len(vals) if vals else 0.0
-
+    for ticker, quote in quotes_by_ticker.items():
         scores.append(
-            FactorScore(instrument=q.instrument, value=fam("value"),
-                        quality=fam("quality"), momentum=fam("momentum"),
-                        growth=fam("growth"), low_vol=fam("low_vol"))
+            FactorScore(
+                instrument=quote.instrument,
+                value=_family_score(percentiles_by_family["value"], ticker),
+                quality=_family_score(percentiles_by_family["quality"], ticker),
+                momentum=_family_score(percentiles_by_family["momentum"], ticker),
+                growth=_family_score(percentiles_by_family["growth"], ticker),
+                low_vol=_family_score(percentiles_by_family["low_vol"], ticker),
+            )
         )
     return scores

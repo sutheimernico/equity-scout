@@ -55,3 +55,35 @@ export async function fetchRunHistory(): Promise<{ runs: RunSummary[] }> {
   if (!response.ok) throw new Error(`/api/history returned ${response.status}`);
   return response.json();
 }
+
+export interface PortfolioPosition {
+  ticker: string;
+  name: string;
+  region: string;
+  shares: number;
+  cost_basis: number;
+  opened_at: string;
+}
+
+export interface Valuation {
+  created_at: string;
+  total_value: number;
+  total_return: number;
+  benchmark_return: number;
+  open_positions: number;
+}
+
+export interface PortfolioState {
+  exists: boolean;
+  initial_capital?: number;
+  cash?: number;
+  benchmark_ticker?: string;
+  positions: PortfolioPosition[];
+  valuations: Valuation[];
+}
+
+export async function fetchPortfolio(): Promise<PortfolioState> {
+  const response = await fetch("/api/portfolio");
+  if (!response.ok) throw new Error(`/api/portfolio returned ${response.status}`);
+  return response.json();
+}

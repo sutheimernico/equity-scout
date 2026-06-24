@@ -27,6 +27,7 @@ class Quote:
     earnings_growth: float | None
     momentum_6m: float | None  # 6-month total return, computed from price history
     volatility_6m: float | None = None  # stdev of daily returns over the window (lower = calmer)
+    price: float | None = None  # last close, used for paper-trading mark-to-market
 
 
 @dataclass(frozen=True)

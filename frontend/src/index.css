@@ -370,3 +370,15 @@ footer {
 .muted {
   color: var(--text-muted);
 }
+.pos {
+  color: var(--positive);
+}
+.neg {
+  color: var(--negative);
+}
+code {
+  background: var(--bg-inset);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+  font-size: 0.9em;
+}

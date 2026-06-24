@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { fetchLatestRun, fetchRunHistory, type LatestRun, type RunSummary } from "./api";
+import {
+  fetchLatestRun,
+  fetchPortfolio,
+  fetchRunHistory,
+  type LatestRun,
+  type PortfolioState,
+  type RunSummary,
+} from "./api";
 import { MethodologyNote } from "./components/MethodologyNote";
 import { PickCard } from "./components/PickCard";
+import { Portfolio } from "./components/Portfolio";
 import { RunHistory } from "./components/RunHistory";
 import { StatTile } from "./components/StatTile";
 import { BUCKET_LABELS } from "./format";
@@ -12,6 +20,7 @@ const BUCKET_ORDER = ["defensive", "balanced", "aggressive"];
 export default function App() {
   const [run, setRun] = useState<LatestRun | null>(null);
   const [history, setHistory] = useState<RunSummary[]>([]);
+  const [portfolio, setPortfolio] = useState<PortfolioState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [bucket, setBucket] = useState("defensive");
   const [region, setRegion] = useState("all");
@@ -19,6 +28,7 @@ export default function App() {
   useEffect(() => {
     fetchLatestRun().then(setRun).catch((e: unknown) => setError(String(e)));
     fetchRunHistory().then((h) => setHistory(h.runs)).catch(() => undefined);
+    fetchPortfolio().then(setPortfolio).catch(() => undefined);
   }, []);
 
   const picks = run?.buckets[bucket] ?? [];
@@ -90,6 +100,9 @@ export default function App() {
           ))}
           {visiblePicks.length === 0 && <p className="muted">No picks for this filter.</p>}
         </div>
+
+        <h2 className="section-title">Paper portfolio</h2>
+        {portfolio ? <Portfolio data={portfolio} /> : <p className="muted">Loading…</p>}
 
         <h2 className="section-title">Recent runs</h2>
         <RunHistory runs={history} />

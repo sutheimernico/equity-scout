@@ -21,21 +21,21 @@ def _composite(score: FactorScore, weights: dict[str, float]) -> float:
 
 
 def assign_buckets(scores: list[FactorScore], top_n: int = 10) -> dict[str, list[Pick]]:
-    out: dict[str, list[Pick]] = {}
-    for bucket, weights in BUCKET_WEIGHTS.items():
-        ranked = sorted(scores, key=lambda s: _composite(s, weights), reverse=True)
+    buckets: dict[str, list[Pick]] = {}
+    for bucket_name, weights in BUCKET_WEIGHTS.items():
+        ranked = sorted(scores, key=lambda score: _composite(score, weights), reverse=True)
         picks: list[Pick] = []
-        for rank, s in enumerate(ranked[:top_n], start=1):
+        for rank, score in enumerate(ranked[:top_n], start=1):
             picks.append(
                 Pick(
-                    instrument=s.instrument,
-                    bucket=bucket,
+                    instrument=score.instrument,
+                    bucket=bucket_name,
                     rank=rank,
-                    composite=_composite(s, weights),
-                    breakdown={"value": s.value, "quality": s.quality,
-                               "momentum": s.momentum, "growth": s.growth,
-                               "low_vol": s.low_vol},
+                    composite=_composite(score, weights),
+                    breakdown={"value": score.value, "quality": score.quality,
+                               "momentum": score.momentum, "growth": score.growth,
+                               "low_vol": score.low_vol},
                 )
             )
-        out[bucket] = picks
-    return out
+        buckets[bucket_name] = picks
+    return buckets

@@ -18,11 +18,16 @@ uv run python scripts/refresh_universe.py
 # Live run over the combined universe (yfinance, free; cached)
 uv run python scripts/run_scout.py --provider yfinance --universe data/universe_combined.csv --db equity_scout.db
 
+# Advance the paper portfolio against the latest picks (demo money, buy-and-hold; PAPER ONLY)
+uv run python scripts/run_paper.py --db equity_scout.db --bucket balanced --threshold 0.70
+
 # Build the React dashboard once, then serve it
 cd frontend && npm install && npm run build && cd ..
 uv run python scripts/run_api.py --db equity_scout.db   # http://127.0.0.1:8000
 ```
 
+The dashboard shows the risk buckets with a per-pick score-transparency drilldown
+(percentile x weight = contribution) and the paper portfolio's value vs. a benchmark.
 Scheduling a recurring run: see `docs/scheduling.md`. Factor definitions: `docs/factors.md`.
 
 ## Honesty guardrails

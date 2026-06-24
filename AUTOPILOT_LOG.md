@@ -22,3 +22,7 @@
   transparency (API exposes bucket_weights; card drilldown shows percentile×weight=contribution;
   in-app methodology note). typecheck+build+42 py tests+ruff green, live verified. Next: Phase 8
   (paper-trading bot) + backend naming cleanup.
+- 2026-06-24 — Phase 8 + naming cleanup done: paper-trading bot (Portfolio model, buy-and-hold over
+  threshold, mark-to-market vs SPY benchmark + fee, persisted; run_paper.py + /api/portfolio +
+  dashboard portfolio view), live-verified (9 positions bought). Backend var-name cleanup in
+  factors/gate/buckets. 50 py tests + ruff + FE typecheck/build green.

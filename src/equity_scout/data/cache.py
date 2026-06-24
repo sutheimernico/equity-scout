@@ -14,7 +14,7 @@ from equity_scout.models import Instrument, Quote
 
 _METRIC_FIELDS = (
     "trailing_pe", "price_to_book", "return_on_equity", "profit_margins",
-    "revenue_growth", "earnings_growth", "momentum_6m", "volatility_6m",
+    "revenue_growth", "earnings_growth", "momentum_6m", "volatility_6m", "price",
 )
 
 
