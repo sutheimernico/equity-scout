@@ -409,3 +409,217 @@ code {
   padding: 1px 6px;
   font-size: 0.9em;
 }
+
+/* Top-level nav (in the topbar) */
+.nav {
+  margin-left: auto;
+  display: flex;
+  gap: var(--space-2);
+}
+.nav-link {
+  appearance: none;
+  background: none;
+  border: none;
+  font: inherit;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background 150ms var(--ease), color 150ms var(--ease);
+}
+.nav-link:hover {
+  color: var(--text-primary);
+}
+.nav-link.active {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+.tabbar.wrap {
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-5);
+}
+
+/* Equity chart */
+.eq-chart {
+  background: var(--bg-surface);
+  box-shadow: var(--raised);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.eq-chart svg {
+  width: 100%;
+  height: 260px;
+  display: block;
+}
+.eq-line {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.eq-benchmark {
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+}
+.eq-baseline {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+  vector-effect: non-scaling-stroke;
+}
+.eq-grad-top {
+  stop-color: var(--accent);
+  stop-opacity: 0.18;
+}
+.eq-grad-bottom {
+  stop-color: var(--accent);
+  stop-opacity: 0;
+}
+.eq-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.eq-legend {
+  display: flex;
+  gap: var(--space-4);
+  font-size: var(--text-xs);
+}
+.eq-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+.eq-key::before {
+  content: "";
+  width: 14px;
+  height: 0;
+  border-top-width: 2.5px;
+  border-top-style: solid;
+}
+.eq-key.strat::before {
+  border-top-color: var(--accent);
+}
+.eq-key.bench::before {
+  border-top-color: var(--text-muted);
+  border-top-style: dashed;
+}
+.eq-range {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* Metric tiles */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.metric {
+  background: var(--bg-surface);
+  box-shadow: var(--raised);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  cursor: help;
+}
+.metric-label {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.metric-value {
+  font-size: var(--text-md);
+  font-weight: 600;
+  margin-top: var(--space-1);
+  letter-spacing: -0.01em;
+}
+
+/* Strategy panel layout */
+.strat-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+.strat-block {
+  background: var(--bg-surface);
+  box-shadow: var(--raised);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+}
+.block-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin: 0 0 var(--space-3);
+}
+.block-hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin: -8px 0 var(--space-3);
+}
+.alloc-row {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr 3rem;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 3px 0;
+  font-size: var(--text-sm);
+}
+.alloc-ticker {
+  font-weight: 500;
+}
+.alloc-bar {
+  height: 8px;
+}
+.bar-fill.cost {
+  background: var(--text-secondary);
+}
+.alloc-pct {
+  text-align: right;
+  color: var(--text-secondary);
+}
+.trade-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--text-sm);
+}
+.trade-list li {
+  display: flex;
+  gap: var(--space-3);
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.trade-list li:last-child {
+  border-bottom: none;
+}
+.trade-date {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.trade-alloc {
+  color: var(--text-secondary);
+}
+
+/* Compare table */
+.table-scroll {
+  overflow-x: auto;
+}
+.bench-tag {
+  margin-left: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+}

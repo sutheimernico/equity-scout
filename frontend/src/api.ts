@@ -92,3 +92,47 @@ export async function fetchPortfolio(): Promise<PortfolioState> {
   if (!response.ok) throw new Error(`/api/portfolio returned ${response.status}`);
   return response.json();
 }
+
+// --- Strategy backtests (src/equity_scout/strategy_service.py) ---
+
+export interface StrategyMetrics {
+  cagr: number;
+  annual_volatility: number;
+  sharpe: number;
+  sortino: number;
+  max_drawdown: number;
+  calmar: number;
+  annual_turnover: number | null;
+  deflated_sharpe: number | null;
+}
+
+export interface StrategyTrade {
+  date: string;
+  weights: Record<string, number>;
+  turnover: number;
+}
+
+export interface StrategyReport {
+  name: string;
+  is_benchmark: boolean;
+  metrics: StrategyMetrics;
+  equity: [string, number][];
+  benchmark_equity: [string, number][];
+  current_weights: Record<string, number>;
+  recent_trades: StrategyTrade[];
+  cost_sweep: [number, number][];
+}
+
+export interface StrategiesResponse {
+  available: boolean;
+  benchmark?: string;
+  strategies: StrategyReport[];
+  hint?: string;
+  disclaimer: string;
+}
+
+export async function fetchStrategies(): Promise<StrategiesResponse> {
+  const response = await fetch("/api/strategies");
+  if (!response.ok) throw new Error(`/api/strategies returned ${response.status}`);
+  return response.json();
+}
