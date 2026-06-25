@@ -1,3 +1,5 @@
+import equity_scout.entry as entry_mod
+
 from fastapi.testclient import TestClient
 
 from equity_scout.api import create_app
@@ -53,3 +55,34 @@ def test_history_endpoint_returns_runs(tmp_path):
     body = client.get("/api/history").json()
     assert len(body["runs"]) == 1
     assert body["runs"][0]["picks"]["balanced"] == ["AAPL"]
+
+
+def test_entry_endpoint_returns_plan(tmp_path, monkeypatch):
+    closes = [100 + i for i in range(260)]
+    highs = [c + 1 for c in closes]
+    lows = [c - 1 for c in closes]
+    monkeypatch.setattr(entry_mod, "fetch_entry_history", lambda t: (closes, highs, lows))
+
+    client = TestClient(create_app(str(tmp_path / "x.db")))
+    resp = client.get("/api/entry/AAPL")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["available"] is True
+    assert body["plan"]["ticker"] == "AAPL"
+    assert "disclaimer" in body
+    assert len(body["plan"]["dca_tranches"]) == 4
+
+
+def test_entry_endpoint_rejects_bad_ticker(tmp_path):
+    client = TestClient(create_app(str(tmp_path / "x.db")))
+    resp = client.get("/api/entry/..%2Fetc")  # path-traversal-ish junk
+    # FastAPI may 404 the malformed path, or our validator 400s a decoded bad ticker.
+    assert resp.status_code in (400, 404)
+
+
+def test_entry_endpoint_unavailable_on_short_history(tmp_path, monkeypatch):
+    monkeypatch.setattr(entry_mod, "fetch_entry_history", lambda t: ([], [], []))
+    client = TestClient(create_app(str(tmp_path / "x.db")))
+    resp = client.get("/api/entry/ZZZZ")
+    assert resp.status_code == 200
+    assert resp.json()["available"] is False

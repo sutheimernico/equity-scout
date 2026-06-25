@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import asdict
 from pathlib import Path
 
@@ -141,6 +142,33 @@ def create_app(
             "accounts": payload,
             "disclaimer": DISCLAIMER,
         })
+
+    _TICKER_RE = re.compile(r"^[A-Za-z0-9.\-]{1,15}$")
+    entry_cache: dict[str, dict] = {}  # key "TICKER:YYYY-MM-DD" -> payload; daily-fresh, no TTL timer
+
+    @app.get("/api/entry/{ticker}")
+    def entry(ticker: str) -> JSONResponse:
+        from datetime import date
+
+        import equity_scout.entry as entry_mod
+
+        t = ticker.strip().upper()
+        if not _TICKER_RE.match(t):
+            return JSONResponse({"error": "Ungültiges Ticker-Symbol."}, status_code=400)
+        cache_key = f"{t}:{date.today().isoformat()}"
+        if cache_key in entry_cache:
+            return JSONResponse(entry_cache[cache_key])
+        closes, highs, lows = entry_mod.fetch_entry_history(t)
+        try:
+            plan = entry_mod.compute_entry_plan(t, closes, highs, lows)
+        except ValueError:
+            # Too little valid price history (bad/illiquid ticker, or a thin yfinance response).
+            payload = {"available": False, "ticker": t, "disclaimer": DISCLAIMER}
+            entry_cache[cache_key] = payload
+            return JSONResponse(payload)
+        payload = {"available": True, "plan": asdict(plan), "disclaimer": DISCLAIMER}
+        entry_cache[cache_key] = payload
+        return JSONResponse(payload)
 
     @app.post("/api/chat")
     def chat(body: dict) -> JSONResponse:
