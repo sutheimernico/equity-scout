@@ -43,6 +43,20 @@ export function eur(value: number): string {
   });
 }
 
+/** Max drawdown (a negative fraction, e.g. -0.55) of an equity curve [date, value][]. */
+export function maxDrawdown(equity: [string, number][]): number {
+  let peak = -Infinity;
+  let mdd = 0;
+  for (const [, v] of equity) {
+    if (v > peak) peak = v;
+    if (peak > 0) {
+      const dd = v / peak - 1;
+      if (dd < mdd) mdd = dd;
+    }
+  }
+  return mdd;
+}
+
 // Readable names for the ETF basket (ticker → what it actually is).
 export const ETF_NAMES: Record<string, string> = {
   SPY: "US-Aktien (S&P 500)",

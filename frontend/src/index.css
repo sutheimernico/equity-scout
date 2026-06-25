@@ -789,3 +789,195 @@ code {
   color: var(--text-muted);
   margin-top: 2px;
 }
+
+/* ============================================================
+   UI primitives (components/ui/) — shared building blocks
+   ============================================================ */
+
+/* Bar — wraps the existing track/fill, adds an optional reference tick */
+.bar {
+  position: relative;
+}
+.bar-fill.neg {
+  background: var(--negative);
+}
+.bar-marker {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 13px;
+  background: var(--text-secondary);
+  border-radius: 2px;
+  transform: translateX(-50%);
+}
+.bar-marker-label {
+  position: absolute;
+  top: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Metric with a reference anchor — wider tile, bar + caption below the value */
+.metric--wide {
+  cursor: default;
+}
+.metric-ref {
+  margin-top: var(--space-3);
+}
+.metric-ref-caption {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: var(--space-2);
+}
+.metric-grid.with-ref {
+  grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
+}
+
+/* Disclosure — progressive offenlegung */
+.disclosure {
+  background: var(--bg-surface);
+  box-shadow: var(--raised);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-5);
+  overflow: hidden;
+}
+.disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.disclosure > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.disclosure-chev {
+  color: var(--accent);
+  font-size: var(--text-md);
+  transition: transform 200ms var(--ease);
+}
+.disclosure[open] > summary .disclosure-chev {
+  transform: rotate(90deg);
+}
+.disclosure-body {
+  padding: 0 var(--space-4) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.disclosure-body p {
+  margin: 0 0 var(--space-3);
+}
+.disclosure-body p:last-child {
+  margin-bottom: 0;
+}
+.disclosure-body strong {
+  color: var(--text-primary);
+}
+
+/* Badge — unified pill tag */
+.badge {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+/* Chip — status as form */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  box-shadow: var(--raised);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-pill);
+}
+.chip b {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.chip-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--positive);
+  position: relative;
+}
+.chip-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: var(--positive);
+  opacity: 0.35;
+  animation: chip-pulse 1.8s ease-out infinite;
+}
+@keyframes chip-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+/* Section header — one-line orientation per top-level view */
+.section-head {
+  margin-bottom: var(--space-5);
+}
+.section-head .eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--accent);
+  margin: 0 0 var(--space-1);
+}
+.section-head h1 {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--space-2);
+}
+.section-head .section-sub {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 70ch;
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip-pulse::after {
+    animation: none;
+  }
+  .disclosure-chev {
+    transition: none;
+  }
+}
