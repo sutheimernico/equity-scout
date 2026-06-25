@@ -1,7 +1,9 @@
 """Advance the paper portfolio against the latest run's picks. PAPER ONLY — no real orders.
 
 Reads the most recent funnel run, fetches current prices for held + candidate tickers (and the
-benchmark), buys fresh picks above the threshold (buy-and-hold), and records a valuation snapshot.
+benchmark), sells holdings whose composite fell below the exit threshold (or dropped out of the
+screen), buys fresh picks above the entry threshold, and records a valuation snapshot. Entry/exit
+hysteresis avoids whipsaw; every trade pays commission + slippage.
 """
 from __future__ import annotations
 
@@ -26,7 +28,9 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=DEFAULT_DB_PATH)
     ap.add_argument("--bucket", default="balanced", help="Which bucket's picks to buy from.")
-    ap.add_argument("--threshold", type=float, default=0.70)
+    ap.add_argument("--threshold", type=float, default=0.70, help="Entry: buy at composite >= this.")
+    ap.add_argument("--exit-threshold", type=float, default=0.55,
+                    help="Exit: sell once a holding's composite falls below this (hysteresis).")
     ap.add_argument("--capital", type=float, default=100_000.0)
     ap.add_argument("--provider", choices=["fake", "yfinance"], default="yfinance")
     args = ap.parse_args()
@@ -52,7 +56,8 @@ def main() -> None:
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     portfolio, trades = advance(portfolio, picks, prices, now=now,
-                                threshold=args.threshold, benchmark_price=benchmark_price)
+                                threshold=args.threshold, exit_threshold=args.exit_threshold,
+                                benchmark_price=benchmark_price)
     save_portfolio(args.db, portfolio)
     valuation = mark_to_market(portfolio, prices, benchmark_price=benchmark_price)
     append_valuation(args.db, now, valuation)

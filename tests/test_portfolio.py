@@ -31,19 +31,67 @@ def test_does_not_rebuy_held_position():
 def test_cash_decreases_by_cost_plus_fee():
     pf = new_portfolio(100_000.0)
     pf, _ = advance(pf, [_pick("HOT", 0.85)], {"HOT": 100.0},
-                    now="d1", position_fraction=0.05, fee_rate=0.001)
+                    now="d1", position_fraction=0.05, fee_rate=0.001, slippage_bps=0.0)
     # target value 5000, fee 5 → cash 100000 - 5005
     assert abs(pf.cash - 94_995.0) < 1e-6
-    assert abs(pf.positions["HOT"].shares - 50.0) < 1e-9  # 5000 / 100
+    assert abs(pf.positions["HOT"].shares - 50.0) < 1e-9  # 5000 / 100, no slippage
 
 
 def test_mark_to_market_tracks_gain_and_benchmark():
     pf = new_portfolio(100_000.0)
     pf, _ = advance(pf, [_pick("HOT", 0.85)], {"HOT": 100.0},
-                    now="d1", position_fraction=0.05, benchmark_price=400.0)
+                    now="d1", position_fraction=0.05, benchmark_price=400.0, slippage_bps=0.0)
     # price doubles → position worth 10000 (was 5000), benchmark flat
     val = mark_to_market(pf, {"HOT": 200.0}, benchmark_price=400.0)
     assert abs(val.positions_value - 10_000.0) < 1e-6
     assert val.total_return > 0  # gained 5000 minus fee
     assert abs(val.benchmark_return) < 1e-9  # benchmark price unchanged
     assert val.open_positions == 1
+
+
+def test_buy_pays_slippage_above_the_quote():
+    pf = new_portfolio(100_000.0)
+    pf, _ = advance(pf, [_pick("HOT", 0.85)], {"HOT": 100.0},
+                    now="d1", position_fraction=0.05, fee_rate=0.0, slippage_bps=10.0)
+    # fill = 100 * 1.001 = 100.1, so fewer shares than the 50.0 a frictionless fill would give
+    assert abs(pf.positions["HOT"].cost_basis - 100.1) < 1e-9
+    assert pf.positions["HOT"].shares < 50.0
+
+
+def test_sells_holding_when_composite_drops_below_exit_threshold():
+    pf = new_portfolio(100_000.0)
+    pf, _ = advance(pf, [_pick("HOT", 0.85)], {"HOT": 100.0}, now="d1", threshold=0.70)
+    assert "HOT" in pf.positions
+    # Composite collapses below the exit threshold → position is sold.
+    pf, trades = advance(pf, [_pick("HOT", 0.40)], {"HOT": 100.0},
+                         now="d2", threshold=0.70, exit_threshold=0.55)
+    assert "HOT" not in pf.positions
+    assert any(t.startswith("SELL HOT") for t in trades)
+
+
+def test_sells_holding_that_dropped_out_of_the_screen():
+    pf = new_portfolio(100_000.0)
+    pf, _ = advance(pf, [_pick("HOT", 0.85)], {"HOT": 100.0}, now="d1", threshold=0.70)
+    # HOT no longer in the picks at all → treated as composite 0 → sold (price still needed to value it).
+    pf, trades = advance(pf, [], {"HOT": 100.0}, now="d2")
+    assert "HOT" not in pf.positions
+    assert any(t.startswith("SELL HOT") for t in trades)
+
+
+def test_holds_when_composite_stays_above_exit_threshold():
+    pf = new_portfolio(100_000.0)
+    pf, _ = advance(pf, [_pick("HOT", 0.85)], {"HOT": 100.0}, now="d1", threshold=0.70)
+    # Composite eased to 0.60 — above the 0.55 exit floor, so hysteresis keeps the position.
+    pf, trades = advance(pf, [_pick("HOT", 0.60)], {"HOT": 100.0},
+                         now="d2", threshold=0.70, exit_threshold=0.55)
+    assert "HOT" in pf.positions
+    assert trades == []
+
+
+def test_missing_price_defers_the_sale():
+    pf = new_portfolio(100_000.0)
+    pf, _ = advance(pf, [_pick("HOT", 0.85)], {"HOT": 100.0}, now="d1", threshold=0.70)
+    # No price for HOT this advance and it dropped out — we cannot value a sale, so we hold.
+    pf, trades = advance(pf, [], {}, now="d2")
+    assert "HOT" in pf.positions
+    assert trades == []

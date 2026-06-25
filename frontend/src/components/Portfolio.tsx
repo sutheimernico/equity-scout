@@ -1,4 +1,5 @@
 import type { PortfolioState } from "../api";
+import { EquityChart } from "./EquityChart";
 import { StockChart } from "./StockChart";
 import { PieChart, type PieSlice } from "./ui/PieChart";
 import { StatTile } from "./StatTile";
@@ -31,13 +32,25 @@ export function Portfolio({ data }: { data: PortfolioState }) {
   }));
   if ((data.cash ?? 0) > 0) slices.push({ label: "Cash", value: data.cash ?? 0, info: "nicht investiert" });
 
+  // Normalise both tracks to start = 1× so the shared EquityChart can overlay them. The valuation
+  // history is the depot's own equity curve over the advances run so far.
+  const equitySeries: [string, number][] = data.valuations.map((v) => [
+    v.created_at,
+    1 + v.total_return,
+  ]);
+  const benchmarkSeries: [string, number][] = data.valuations.map((v) => [
+    v.created_at,
+    1 + v.benchmark_return,
+  ]);
+
   return (
     <>
       <p className="explain">
-        So kauft der Bot: 100.000 € Spielgeld, je <strong>5.000 € pro Aktie</strong>{" "}
-        (gleichgewichtet) in jede mit <strong>Score ≥ 70</strong>, dann Buy-and-Hold. Keine echten
-        Orders — das Depot misst über Zeit, ob die Picks aufgehen, gemessen am Benchmark{" "}
-        {data.benchmark_ticker}.
+        So handelt der Bot: 100.000 € Spielgeld, je <strong>5.000 € pro Aktie</strong>{" "}
+        (gleichgewichtet) in jede mit <strong>Score ≥ 70</strong>; verkauft wird erst, wenn der Score
+        unter <strong>55</strong> fällt (Hysterese gegen Hin-und-Her). Jede Order kostet Gebühr +
+        Slippage. Keine echten Orders — das Depot misst über Zeit, ob die Picks aufgehen, gemessen am
+        Benchmark {data.benchmark_ticker}.
       </p>
 
       <div className="kpi-row">
@@ -52,10 +65,22 @@ export function Portfolio({ data }: { data: PortfolioState }) {
         <StatTile
           label="Positionen"
           value={String(latest?.open_positions ?? data.positions.length)}
-          sub="Buy-and-Hold"
+          sub="regelbasiert, mit Exit"
         />
         <StatTile label="Cash" value={euro(data.cash ?? 0)} sub="nicht investiert" />
       </div>
+
+      {equitySeries.length >= 2 && (
+        <section className="strat-block reveal">
+          <h3 className="block-title">Wertentwicklung vs. Benchmark</h3>
+          <EquityChart
+            equity={equitySeries}
+            benchmark={benchmarkSeries}
+            label="Demo-Depot"
+            benchmarkLabel={`${data.benchmark_ticker} halten`}
+          />
+        </section>
+      )}
 
       {slices.length > 0 && (
         <section className="strat-block reveal">
