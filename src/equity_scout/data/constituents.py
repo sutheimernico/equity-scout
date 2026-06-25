@@ -200,16 +200,16 @@ def _clean_nikkei_name(raw: str) -> str:
 
     The intro paragraph can sit on the same line as the first constituent (e.g. "...the largest
     influence on the index is Tokyo Electron (TYO: 8035)"), so a captured name may carry a leading
-    prose sentence. Keep only the text after the last sentence break ('. ' / ' is ') when the capture
-    is implausibly long for a company name.
+    prose sentence. Real Nikkei names top out near 40 chars, so only an implausibly long capture
+    (> 50) is trimmed, and only by a single split on a sentence break — narrow blast radius: a
+    well-formed name is never long enough to trigger this. Prefer the sentence-ending '. '; fall back
+    to ' is ' (the intro sentence's verb) only when there's no period to split on.
     """
     name = raw.strip()
     if len(name) <= 50:
         return name
-    for sep in (" is ", ". "):
-        if sep in name:
-            name = name.rsplit(sep, 1)[-1].strip()
-    return name
+    sep = ". " if ". " in name else (" is " if " is " in name else None)
+    return name.rsplit(sep, 1)[-1].strip() if sep else name
 
 
 def parse_nikkei225_text(text: str) -> list[Instrument]:

@@ -78,6 +78,19 @@ def test_sells_holding_that_dropped_out_of_the_screen():
     assert any(t.startswith("SELL HOT") for t in trades)
 
 
+def test_sell_proceeds_pay_slippage_and_fee():
+    # Buy frictionlessly so cash is exactly known, then sell with friction and check the proceeds.
+    pf = new_portfolio(100_000.0)
+    pf, _ = advance(pf, [_pick("HOT", 0.85)], {"HOT": 100.0},
+                    now="d1", position_fraction=0.05, fee_rate=0.0, slippage_bps=0.0)
+    cash_after_buy = pf.cash  # 95_000, holding 50 shares at 100
+    pf, _ = advance(pf, [_pick("HOT", 0.40)], {"HOT": 100.0},
+                    now="d2", exit_threshold=0.55, fee_rate=0.001, slippage_bps=10.0)
+    # fill = 100 * (1 - 0.001) = 99.9; proceeds = 50 * 99.9 * (1 - 0.001) = 4_990.005
+    assert "HOT" not in pf.positions
+    assert abs((pf.cash - cash_after_buy) - 4_990.005) < 1e-6
+
+
 def test_holds_when_composite_stays_above_exit_threshold():
     pf = new_portfolio(100_000.0)
     pf, _ = advance(pf, [_pick("HOT", 0.85)], {"HOT": 100.0}, now="d1", threshold=0.70)
