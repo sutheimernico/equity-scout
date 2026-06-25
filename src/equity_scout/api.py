@@ -163,7 +163,27 @@ def create_app(
             }
             for a in load_all_accounts(forward_db)
         ]
-        context = build_dashboard_context(strategies=strategies, ml=ml, research=research, forward=forward)
+        run = load_latest_run(db_path)
+        bucket_labels = {"defensive": "Defensiv", "balanced": "Ausgewogen", "aggressive": "Aggressiv"}
+        screener = (
+            {
+                bucket_labels.get(b, b): [
+                    {
+                        "ticker": p.instrument.ticker,
+                        "name": p.instrument.name,
+                        "region": p.instrument.region,
+                        "composite": round(p.composite * 100),
+                    }
+                    for p in picks[:5]
+                ]
+                for b, picks in run.buckets.items()
+            }
+            if run is not None and run.buckets
+            else None
+        )
+        context = build_dashboard_context(
+            strategies=strategies, ml=ml, research=research, forward=forward, screener=screener
+        )
         try:
             answer = ask_ollama(question, context)
         except ChatError as exc:
