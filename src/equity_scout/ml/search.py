@@ -17,7 +17,7 @@ from equity_scout.ml.features import FEATURE_NAMES
 from equity_scout.ml.fred import FRED_FEATURE_NAMES, fred_available
 from equity_scout.ml.meta_model import MetaConfig, run_meta_model
 
-MODELS = ("elastic_net", "random_forest")
+MODELS = ("elastic_net", "random_forest", "catboost")
 LOOKBACK_MONTHS = (6, 9, 12)
 HORIZON_DAYS = (10, 21, 42)
 BARRIERS = (0.03, 0.05, 0.08)

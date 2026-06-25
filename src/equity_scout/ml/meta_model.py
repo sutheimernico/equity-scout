@@ -52,6 +52,13 @@ def _build_model(config: MetaConfig) -> ClassifierMixin:
         return RandomForestClassifier(
             n_estimators=200, max_depth=3, min_samples_leaf=20, random_state=0
         )
+    if config.model == "catboost":  # shallow gradient boosting; depth capped like the forest
+        from catboost import CatBoostClassifier
+
+        return CatBoostClassifier(
+            iterations=200, depth=3, learning_rate=0.05, random_seed=0,
+            verbose=False, allow_writing_files=False,
+        )
     # elastic-net logistic: setting l1_ratio (sklearn >=1.8 API) selects the elastic-net penalty
     return LogisticRegression(solver="saga", l1_ratio=0.5, C=0.5, max_iter=5000)
 
