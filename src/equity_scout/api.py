@@ -10,8 +10,10 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from equity_scout.buckets import BUCKET_WEIGHTS
-from equity_scout.constants import DEFAULT_DB_PATH, DISCLAIMER
+from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_FORWARD_DB_PATH, DISCLAIMER
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
+from equity_scout.forward_storage import load_all_accounts
+from equity_scout.forward_storage import load_valuations as load_forward_valuations
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
 from equity_scout.storage import load_latest_run, load_run_summaries
 from equity_scout.ml.ledger import DEFAULT_LEDGER_PATH
@@ -25,6 +27,7 @@ def create_app(
     db_path: str = DEFAULT_DB_PATH,
     snapshot: str = DEFAULT_SNAPSHOT,
     ledger: str = DEFAULT_LEDGER_PATH,
+    forward_db: str = DEFAULT_FORWARD_DB_PATH,
 ) -> FastAPI:
     app = FastAPI(title="equity-scout")
     reports_cache: dict[str, object] = {}  # built once per process (backtests are deterministic)
@@ -113,6 +116,30 @@ def create_app(
             "benchmark_ticker": pf.benchmark_ticker,
             "positions": positions,
             "valuations": load_valuations(db_path),
+        })
+
+    @app.get("/api/forward")
+    def forward() -> JSONResponse:
+        # No cache: reflects the forward paper accounts as the daily advance writes to the DB.
+        accounts = load_all_accounts(forward_db)
+        payload = []
+        for acc in accounts:
+            vals = load_forward_valuations(forward_db, acc.strategy_name)
+            payload.append({
+                "strategy_name": acc.strategy_name,
+                "initial_capital": acc.initial_capital,
+                "equity": acc.equity,
+                "total_return": acc.equity / acc.initial_capital - 1.0,
+                "benchmark_ticker": acc.benchmark_ticker,
+                "benchmark_return": acc.benchmark_equity / acc.initial_capital - 1.0,
+                "last_as_of": acc.last_as_of,
+                "n_points": len(vals),
+                "equity_curve": [[v["created_at"], v["equity"], v["benchmark_equity"]] for v in vals],
+            })
+        return JSONResponse({
+            "available": len(accounts) > 0,
+            "accounts": payload,
+            "disclaimer": DISCLAIMER,
         })
 
     # Serve the built React dashboard. Mounted at "/" LAST so the /api/* routes above win.
