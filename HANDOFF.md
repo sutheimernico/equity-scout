@@ -4,6 +4,22 @@ Stand nach der großen Ausbau-Session. Alles auf Branch **`feat/multi-strategy-m
 `main` gemerged — Nico reviewt + merged). Gate grün: `uv run pytest -q` + `uv run ruff check .` +
 `npm run typecheck --prefix frontend` + `npm run build --prefix frontend`.
 
+> **Hinweis:** Die Multi-Strategy-Arbeit unten ist inzwischen auf `main` gemerged (samt Post-Merge-
+> Iterationen: Chat-Default `qwen2.5:7b` statt `llama3.2`, hover-Pies, TradingView-1-Jahr-Charts,
+> Design-Politur). Aktueller Stand + voller Verlauf: Auto-Memory (`equity-scout-multistrategy-ml.md`).
+
+## Entry-Levels + Tranchen pro Aktie (2026-06-25, Branch `feat/entry-levels` — NICHT gemerged)
+To-Do 1 aus der letzten Session umgesetzt: pro Screener-Pick regelbasierte **Referenz-Levels**
+(200-Tage-SMA, Fibonacci 38.2/50/61.8 %, jüngstes Swing-Tief, −1/−2 ATR, 52W-Tief + Drawdown) plus
+zwei **Tranchen-Pläne** (DCA-Baseline 4× gleich; Drawdown-Scale-in jetzt/−7 %/−15 % als Option ohne
+Edge). Backend `GET /api/entry/{ticker}` (`src/equity_scout/entry.py` — pure Mathe getrennt vom
+yfinance-Fetch; Ticker-Regex; Cache mit Tages-Key) → JSON `EntryPlan`. Frontend: `EntryPlanBlock`
+im `PickCard`-Drilldown (lazy beim Aufklappen, Levels als Marker auf der 52W-Range-Bar, Tranchen-
+Tabelle). **Framing neutral**: „Referenzzone erreicht", kein Kaufsignal, Disclaimer. Gate grün
+(169 pytest). Live-Smoke gegen echtes yfinance ok. Plan + Outcome:
+`docs/superpowers/plans/2026-06-25-entry-levels-tranchen.md`. **Wartet auf Nicos Review/Merge** +
+visuelle UI-Abnahme. Nächstes To-Do: „Pitching" (Bedeutung unklar — erst klären).
+
 ## Ausbaurunde 2026-06-25 — 4 Stränge, ALLE DONE
 Nach dem unten beschriebenen Multi-Strategy-Stand: 4-Strang-Runde, komplett umgesetzt auf
 `feat/multi-strategy-ml` (NICHT gemerged — Nico reviewt/merged). Gate je Strang grün.
