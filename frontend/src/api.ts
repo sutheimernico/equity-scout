@@ -272,19 +272,3 @@ export async function askChat(question: string): Promise<ChatReply> {
   });
   return response.json(); // body carries {answer} or {error} on both 200 and 503
 }
-
-// --- Per-ticker price history for the stock charts (src/equity_scout/quote.py via yfinance) ---
-
-export interface Quote {
-  ticker: string;
-  closes: [string, number][]; // [date, adjusted close]
-  last: number;
-  change_1d: number; // percent
-  change_period: number; // percent over the loaded window
-}
-
-export async function fetchQuote(ticker: string): Promise<Quote | null> {
-  const response = await fetch(`/api/quote/${encodeURIComponent(ticker)}`);
-  if (!response.ok) return null;
-  return response.json();
-}
