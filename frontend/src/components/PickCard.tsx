@@ -15,6 +15,7 @@ export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string
     return { factor, percentile, weight, contribution: percentile * weight };
   });
   const compositeFromParts = contributions.reduce((sum, c) => sum + c.contribution, 0);
+  const news = pick.news ?? [];
 
   return (
     <div className="card" onClick={() => setOpen((isOpen) => !isOpen)}>
@@ -22,6 +23,7 @@ export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string
         <span className="rank tnum">{pick.rank}</span>
         <span className="ticker">{pick.instrument.ticker}</span>
         <span className="region-tag">{pick.instrument.region}</span>
+        {news.length > 0 && <span className="news-badge" title={`${news.length} aktuelle News`}>📰 {news.length}</span>}
         <span className="composite tnum">{toPercent(pick.composite)}</span>
       </div>
       <div className="name">{pick.instrument.name}</div>
@@ -52,6 +54,28 @@ export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string
             <span className="tnum">{toPercent(compositeFromParts)}</span>
           </div>
           {pick.thesis && <p className="thesis">{pick.thesis}</p>}
+
+          {news.length > 0 && (
+            <div className="news-list">
+              <div className="news-head">Aktuelle News</div>
+              {news.map((item, i) => (
+                <a
+                  className="news-item"
+                  key={i}
+                  href={item.link || undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span className="news-title">{item.title}</span>
+                  <span className="news-meta tnum">
+                    {item.publisher}
+                    {item.published ? ` · ${item.published}` : ""}
+                  </span>
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

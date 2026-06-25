@@ -9,4 +9,4 @@ DISCLAIMER = (
 )
 
 DEFAULT_DB_PATH = "equity_scout.db"
-DEFAULT_UNIVERSE_PATH = "data/universe_v1.csv"
+DEFAULT_UNIVERSE_PATH = "data/universe_combined.csv"  # the full ~530-stock global universe

@@ -12,6 +12,13 @@ export interface Instrument {
 export type Breakdown = Record<string, number>;
 export type BucketWeights = Record<string, Record<string, number>>;
 
+export interface NewsItem {
+  title: string;
+  publisher: string;
+  published: string;
+  link: string;
+}
+
 export interface Pick {
   instrument: Instrument;
   bucket: string;
@@ -19,6 +26,7 @@ export interface Pick {
   composite: number;
   breakdown: Breakdown;
   thesis: string | null;
+  news?: NewsItem[];
 }
 
 export interface GateStats {
