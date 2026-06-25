@@ -80,3 +80,28 @@ add helper `maxDrawdown(equity)` to a util; extend `index.css`.
 - „Bereichs-Header pro Tab" → Task 5 ✓. „ResearchPanel/FunnelView splitten" → Task 2/4 ✓.
 - „Demodepot → B" → explizit ausgenommen in Task 4 ✓. „Lilac bleibt" → keine Token-Farbänderung ✓.
 - Anker-Herkunft: 60/40 aus Report (Task 3), SPY-MaxDD berechnet (Task 2), Zufall 50 % Konstante ✓.
+
+---
+
+## Outcome (2026-06-25)
+
+Umgesetzt, alle Gates grün: FE `typecheck` + `build`, `ruff` (all passed), `pytest` (130 grün).
+Commits auf `feat/multi-strategy-ml`:
+
+- `feat(ui)`: 6 Primitives (`Bar`, `Metric`, `Disclosure`, `Explain`, `Badge`, `Chip`) + `maxDrawdown`-Helper.
+- `feat(ml-tab)`: Intro-Textwand → `Disclosure`; Metriken mit Ankern (Trefferquote vs. 50 %, Sharpe
+  vs. ~1,0-Faustregel, MaxDD vs. SPY aus `benchmark_equity`); `ResearchPanel` gesplittet in
+  `ChampionCard` + `Leaderboard` + Status-`Chip`s.
+- `feat(strategy-tab)`: Headline-Metriken (CAGR/Sharpe/MaxDD) mit Ankern gegen den 60/40-Report
+  (echte Daten, kein Hardcode); Section-Header; Pitch/Kosten auf Primitives.
+- `feat(screener-tab)`: `MethodologyNote` → `Disclosure`; `PickCard` auf `Badge`/`Bar`; Section-Header.
+- `refactor(css)`: tote Klassen entfernt (`.ml-intro*`, `.note*`, `.region-tag`, `.news-badge`,
+  `.bench-tag`) — CSS 16,2 → 14,8 kB.
+
+**Abweichungen:** Sharpe-Anker im ML-Tab nutzt die ~1,0-Faustregel (METRIC_HELP) statt einer
+erfundenen SPY-Sharpe-Zahl — ehrlicher, da SPY-Sharpe nicht sauber aus den Tab-Daten ableitbar.
+Section-Header wurden in Task 2–4 mitgebaut, nicht separat in Task 5. Demodepot unangetastet (→ B).
+Lilac-Palette unverändert (User-Entscheidung im Mockup).
+
+**Offen:** Visuelle Abnahme im Browser steht aus (kein lokales Screenshot-Tooling) — Nico prüft am
+laufenden Dashboard (`http://127.0.0.1:8000`).

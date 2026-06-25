@@ -4,6 +4,14 @@ Stand nach der großen Ausbau-Session. Alles auf Branch **`feat/multi-strategy-m
 `main` gemerged — Nico reviewt + merged). Gate grün: `uv run pytest -q` + `uv run ruff check .` +
 `npm run typecheck --prefix frontend` + `npm run build --prefix frontend`.
 
+## Laufende Ausbaurunde (4 Stränge, Stand 2026-06-25)
+Nach dem unten beschriebenen Multi-Strategy-Stand läuft eine 4-Strang-Runde (priorisiert, je Spec→Plan→
+Umsetzung): **A UX/Design-Fundament — DONE**, B Forward-Paper-Persistenz, C Ehrlichkeits-Analytik
+(Attribution+PBO+FRED), D lokaler Chatbot (Ollama). Strang A: wiederverwendbare UI-Primitives
+(`frontend/src/components/ui/`), Zahlen mit Bezugsrahmen-Ankern, progressive Offenlegung (Disclosure),
+Section-Header pro Tab, tote CSS entfernt. Lilac-Palette bleibt; Demodepot bewusst → Strang B.
+Specs/Pläne: `docs/superpowers/{specs,plans}/2026-06-25-strang-a-ux-design.md`.
+
 ## Was jetzt steht (gebaut + live-verifiziert)
 1. **Recherche** (`docs/research/2026-06-24-strategy-ml-data-research.md`): 4 Stränge, Quellen,
    challenged die alte Spec. Kernfunde: TAA-Familie war die Lücke (DAA etc.), Intraday = Scheinpfad,
