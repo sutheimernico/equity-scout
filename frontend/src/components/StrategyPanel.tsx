@@ -1,5 +1,6 @@
 import { type StrategyMetrics, type StrategyReport } from "../api";
 import { METRIC_HELP, METRIC_LABELS, num, pct, pctAbs, STRATEGY_PITCH } from "../format";
+import { AllocationAdvisor } from "./AllocationAdvisor";
 import { EquityChart } from "./EquityChart";
 
 const METRIC_ORDER: (keyof StrategyMetrics)[] = [
@@ -30,7 +31,6 @@ export function StrategyPanel({
   report: StrategyReport;
   benchmarkName: string;
 }) {
-  const weights = Object.entries(report.current_weights).sort((a, b) => b[1] - a[1]);
   const baseline = report.cost_sweep[0]?.[1] ?? 1;
 
   const pitch = STRATEGY_PITCH[report.name];
@@ -65,38 +65,24 @@ export function StrategyPanel({
         ))}
       </div>
 
-      <div className="strat-cols">
-        <section className="strat-block">
-          <h3 className="block-title">Aktuelle Allokation</h3>
-          {weights.length === 0 && <p className="muted">Aktuell in Cash.</p>}
-          {weights.map(([ticker, weight]) => (
-            <div className="alloc-row" key={ticker}>
-              <span className="alloc-ticker">{ticker}</span>
-              <div className="bar-track alloc-bar">
-                <div className="bar-fill" style={{ width: `${Math.round(weight * 100)}%` }} />
-              </div>
-              <span className="alloc-pct tnum">{pctAbs(weight, 0)}</span>
-            </div>
-          ))}
-        </section>
+      <AllocationAdvisor weights={report.current_weights} />
 
-        <section className="strat-block">
-          <h3 className="block-title">Kosten-Sensitivität</h3>
-          <p className="block-hint">Endwert von 1× nach Round-Trip-Kosten — je flacher, desto robuster.</p>
-          {report.cost_sweep.map(([bps, terminal]) => (
-            <div className="alloc-row" key={bps}>
-              <span className="alloc-ticker tnum">{bps} bp</span>
-              <div className="bar-track alloc-bar">
-                <div
-                  className="bar-fill cost"
-                  style={{ width: `${Math.round((terminal / baseline) * 100)}%` }}
-                />
-              </div>
-              <span className="alloc-pct tnum">{num(terminal)}×</span>
+      <section className="strat-block">
+        <h3 className="block-title">Kosten-Sensitivität</h3>
+        <p className="block-hint">Endwert von 1× nach Round-Trip-Kosten — je flacher, desto robuster.</p>
+        {report.cost_sweep.map(([bps, terminal]) => (
+          <div className="alloc-row" key={bps}>
+            <span className="alloc-ticker tnum">{bps} bp</span>
+            <div className="bar-track alloc-bar">
+              <div
+                className="bar-fill cost"
+                style={{ width: `${Math.round((terminal / baseline) * 100)}%` }}
+              />
             </div>
-          ))}
-        </section>
-      </div>
+            <span className="alloc-pct tnum">{num(terminal)}×</span>
+          </div>
+        ))}
+      </section>
 
       {report.recent_trades.length > 0 && (
         <section className="strat-block">

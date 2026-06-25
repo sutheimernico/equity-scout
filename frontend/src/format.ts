@@ -35,6 +35,28 @@ export function num(value: number, digits = 2): string {
   return value.toFixed(digits);
 }
 
+export function eur(value: number): string {
+  return value.toLocaleString("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  });
+}
+
+// Readable names for the ETF basket (ticker → what it actually is).
+export const ETF_NAMES: Record<string, string> = {
+  SPY: "US-Aktien (S&P 500)",
+  VEU: "Aktien Welt ex-USA",
+  VWO: "Schwellenländer-Aktien",
+  IEF: "US-Staatsanleihen 7–10 J.",
+  TLT: "US-Staatsanleihen 20 J.+",
+  BND: "US-Anleihen (breit)",
+  BIL: "Geldmarkt / T-Bills",
+  GLD: "Gold",
+  DBC: "Rohstoffe",
+  VNQ: "Immobilien (REITs)",
+};
+
 // Strategy metric labels + one-line explanations (German UI).
 export const METRIC_LABELS: Record<string, string> = {
   cagr: "Rendite p.a.",
