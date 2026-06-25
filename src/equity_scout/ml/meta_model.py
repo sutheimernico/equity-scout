@@ -22,6 +22,7 @@ from sklearn.preprocessing import StandardScaler
 
 from equity_scout.market import PricePanel
 from equity_scout.ml.features import FEATURE_NAMES, primary_long_signal, regime_features
+from equity_scout.ml.fred import FRED_FEATURE_NAMES
 from equity_scout.ml.labeling import triple_barrier_labels
 
 
@@ -144,7 +145,10 @@ def run_meta_model(
 ) -> MetaResult:
     feature_cols = list(config.features)
     primary = primary_long_signal(panel, risk, lookback_days=config.primary_lookback_months * 21)
-    features = regime_features(panel, risk)[feature_cols]
+    needs_fred = any(f in FRED_FEATURE_NAMES for f in feature_cols)
+    features_all = regime_features(panel, risk, include_fred=needs_fred)
+    feature_cols = [f for f in feature_cols if f in features_all.columns]  # robust if FRED unavailable
+    features = features_all[feature_cols]
     rebalance = panel.rebalance_dates()
     bet_dates = pd.DatetimeIndex([d for d in rebalance if bool(primary.get(d, False))])
     labels = triple_barrier_labels(

@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from equity_scout.market import PricePanel
 from equity_scout.metrics import compute_metrics, daily_returns, periodic_sharpe
 from equity_scout.ml.features import FEATURE_NAMES
+from equity_scout.ml.fred import FRED_FEATURE_NAMES, fred_available
 from equity_scout.ml.meta_model import MetaConfig, run_meta_model
 
 MODELS = ("elastic_net", "random_forest")
@@ -24,12 +25,19 @@ FEATURE_INCLUDE_PROB = 0.6
 MIN_BETS = 20  # too few OOS bets → Sharpe is noise; skip
 
 
+def _feature_pool() -> tuple[str, ...]:
+    """The features the search may draw from. FRED macro features join only when a local snapshot
+    exists, so the loop never samples a feature whose data it can't load."""
+    return FEATURE_NAMES + (FRED_FEATURE_NAMES if fred_available() else ())
+
+
 def sample_config(trial_index: int) -> MetaConfig:
     """Deterministic random draw keyed by the trial index."""
     rng = random.Random(trial_index)
-    features = tuple(f for f in FEATURE_NAMES if rng.random() < FEATURE_INCLUDE_PROB)
+    pool = _feature_pool()
+    features = tuple(f for f in pool if rng.random() < FEATURE_INCLUDE_PROB)
     if len(features) < 2:  # always keep at least two dimensions
-        features = tuple(rng.sample(list(FEATURE_NAMES), 2))
+        features = tuple(rng.sample(list(pool), 2))
     return MetaConfig(
         features=features,
         model=rng.choice(MODELS),

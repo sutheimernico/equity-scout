@@ -113,6 +113,9 @@ export const ML_FEATURE_LABELS: Record<string, string> = {
   breadth: "Marktbreite",
   drawdown: "Drawdown-Zustand",
   mom_3m: "3-Monats-Momentum",
+  vix: "VIX (Angstindex)",
+  term_spread: "Zinsstruktur (10J–2J)",
+  hy_spread: "High-Yield-Spread",
 };
 
 // Research-loop config display (shared by ResearchPanel / ChampionCard / Leaderboard).

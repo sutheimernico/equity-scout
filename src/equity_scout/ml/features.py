@@ -22,7 +22,9 @@ def primary_long_signal(panel: PricePanel, asset: str = "SPY", lookback_days: in
     return (price / price.shift(lookback_days) - 1.0) > 0
 
 
-def regime_features(panel: PricePanel, asset: str = "SPY") -> pd.DataFrame:
+def regime_features(
+    panel: PricePanel, asset: str = "SPY", *, include_fred: bool = False, fred_refresh: bool = False
+) -> pd.DataFrame:
     closes = panel.closes
     price = closes[asset]
     returns = price.pct_change()
@@ -35,4 +37,11 @@ def regime_features(panel: PricePanel, asset: str = "SPY") -> pd.DataFrame:
     features["breadth"] = above_ma.mean(axis=1)
     features["drawdown"] = price / price.rolling(252, min_periods=1).max() - 1.0
     features["mom_3m"] = price / price.shift(63) - 1.0
+
+    if include_fred:  # optional macro regime features (VIX, term spread, HY spread) from FRED
+        from equity_scout.ml.fred import load_fred_features
+
+        fred = load_fred_features(closes.index, refresh=fred_refresh)
+        for col in fred.columns:
+            features[col] = fred[col]
     return features
