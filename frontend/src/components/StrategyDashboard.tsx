@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 
 import { fetchStrategies, type StrategiesResponse, type StrategyReport } from "../api";
 import { METRIC_LABELS } from "../format";
+import { ForwardPanel } from "./ForwardPanel";
 import { COMPARE_METRICS, formatMetric, StrategyPanel } from "./StrategyPanel";
 import { Badge } from "./ui/Badge";
 import { Explain } from "./ui/Explain";
 
-type Tab = number | "compare";
+type Tab = number | "compare" | "live";
 
 function CompareTable({ strategies }: { strategies: StrategyReport[] }) {
   return (
@@ -84,10 +85,15 @@ export function StrategyDashboard() {
         >
           Vergleich
         </button>
+        <button className={active === "live" ? "tab active" : "tab"} onClick={() => setActive("live")}>
+          Live (Forward)
+        </button>
       </div>
 
       {active === "compare" ? (
         <CompareTable strategies={strategies} />
+      ) : active === "live" ? (
+        <ForwardPanel />
       ) : (
         <StrategyPanel
           report={strategies[active]}

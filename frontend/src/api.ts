@@ -205,3 +205,29 @@ export async function fetchResearch(): Promise<ResearchResponse> {
   if (!response.ok) throw new Error(`/api/research returned ${response.status}`);
   return response.json();
 }
+
+// --- Forward paper trading (src/equity_scout/forward_paper + forward_storage) ---
+
+export interface ForwardAccount {
+  strategy_name: string;
+  initial_capital: number;
+  equity: number;
+  total_return: number;
+  benchmark_ticker: string;
+  benchmark_return: number;
+  last_as_of: string | null;
+  n_points: number;
+  equity_curve: [string, number, number][]; // [date, equity, benchmark_equity]
+}
+
+export interface ForwardResponse {
+  available: boolean;
+  accounts: ForwardAccount[];
+  disclaimer: string;
+}
+
+export async function fetchForward(): Promise<ForwardResponse> {
+  const response = await fetch("/api/forward");
+  if (!response.ok) throw new Error(`/api/forward returned ${response.status}`);
+  return response.json();
+}
