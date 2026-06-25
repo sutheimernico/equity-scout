@@ -216,13 +216,6 @@ select.region {
 .ticker {
   font-weight: 600;
 }
-.region-tag {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  background: var(--bg-inset);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-pill);
-}
 .composite {
   margin-left: auto;
   font-size: var(--text-lg);
@@ -316,24 +309,6 @@ select.region {
 }
 .explain strong {
   color: var(--text-primary);
-}
-
-/* Methodology note — dezent, not boxed-in */
-.note {
-  margin-bottom: var(--space-5);
-  padding: var(--space-3) var(--space-4);
-  background: var(--accent-subtle);
-  border-radius: var(--radius-md);
-}
-.note summary {
-  cursor: pointer;
-  font-weight: 500;
-  color: var(--accent-hover);
-}
-.note p {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  line-height: 1.65;
 }
 
 /* History table */
@@ -615,15 +590,6 @@ code {
 .table-scroll {
   overflow-x: auto;
 }
-.bench-tag {
-  margin-left: var(--space-2);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  background: var(--bg-inset);
-  padding: 1px var(--space-2);
-  border-radius: var(--radius-pill);
-}
-
 /* ML feature-importance rows need room for longer labels */
 .alloc-row.feat-row {
   grid-template-columns: 10rem 1fr 2.6rem;
@@ -643,42 +609,6 @@ code {
   font-weight: 600;
   color: var(--accent);
   margin: 0 0 var(--space-1);
-}
-
-/* ML category intro */
-.ml-intro {
-  background: var(--bg-surface);
-  box-shadow: var(--raised);
-  border-radius: var(--radius-md);
-  padding: var(--space-5);
-  margin-bottom: var(--space-5);
-}
-.ml-intro h1 {
-  font-size: var(--text-xl);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  margin: 0 0 var(--space-3);
-}
-.ml-intro p {
-  font-size: var(--text-base);
-  color: var(--text-secondary);
-  line-height: 1.6;
-  margin: 0 0 var(--space-3);
-}
-.ml-points {
-  margin: 0 0 var(--space-3);
-  padding-left: var(--space-4);
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-.ml-points li {
-  margin-bottom: var(--space-2);
-}
-.ml-honest {
-  background: var(--accent-subtle);
-  border-radius: var(--radius-sm);
-  padding: var(--space-3) var(--space-4);
-  margin-bottom: 0 !important;
 }
 
 /* Allocation advisor — "what to buy now" */
@@ -745,14 +675,6 @@ code {
 }
 
 /* News on pick cards */
-.news-badge {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  background: var(--bg-inset);
-  padding: 1px var(--space-2);
-  border-radius: var(--radius-pill);
-  white-space: nowrap;
-}
 .news-list {
   margin-top: var(--space-3);
   padding-top: var(--space-3);
