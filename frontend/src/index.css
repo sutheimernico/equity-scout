@@ -1153,3 +1153,18 @@ code {
     transition: none;
   }
 }
+
+/* --- Entry plan block ---------------------------------------------------- */
+.entry-plan { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.entry-head { display: flex; align-items: center; justify-content: space-between; }
+.entry-title { font-weight: 600; }
+.entry-flag { font-size: 0.75rem; opacity: 0.6; }
+.entry-flag.on { opacity: 1; font-weight: 600; }
+.entry-range-label { font-size: 0.8rem; opacity: 0.8; }
+.entry-levels { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.25rem; }
+.entry-level { display: grid; grid-template-columns: 7rem 1fr 4rem; align-items: center; gap: 0.5rem; }
+.entry-level-name { font-size: 0.8rem; }
+.entry-level-price { text-align: right; font-size: 0.8rem; }
+.tranche-table { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem; }
+.tranche-row { display: flex; justify-content: space-between; font-size: 0.85rem; }
+.tranche-col-head { font-weight: 600; font-size: 0.8rem; margin-bottom: 0.25rem; }

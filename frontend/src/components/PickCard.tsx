@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import type { Pick } from "../api";
 import { FACTOR_LABELS, FACTOR_ORDER, toPercent } from "../format";
+import { EntryPlanBlock } from "./EntryPlanBlock";
 import { StockChart } from "./StockChart";
 import { Badge } from "./ui/Badge";
 import { Bar } from "./ui/Bar";
@@ -55,6 +56,10 @@ export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string
 
           <div onClick={(e) => e.stopPropagation()}>
             <StockChart ticker={pick.instrument.ticker} />
+          </div>
+
+          <div onClick={(e) => e.stopPropagation()}>
+            <EntryPlanBlock ticker={pick.instrument.ticker} />
           </div>
 
           {pick.thesis && <p className="thesis">{pick.thesis}</p>}
