@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { fetchMlReport, type MlResponse, type StrategyMetrics } from "../api";
 import { maxDrawdown, METRIC_HELP, METRIC_LABELS, ML_FEATURE_LABELS, num, pct, pctAbs } from "../format";
+import { AttributionSection } from "./AttributionSection";
 import { EquityChart } from "./EquityChart";
 import { formatMetric } from "./StrategyPanel";
 import { Bar } from "./ui/Bar";
@@ -113,6 +114,8 @@ export function MLPanel() {
           </div>
         ))}
       </section>
+
+      {r.attribution && <AttributionSection attribution={r.attribution} />}
     </>
   );
 }

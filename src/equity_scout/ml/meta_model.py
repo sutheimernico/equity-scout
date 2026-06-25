@@ -56,6 +56,19 @@ def _build_model(config: MetaConfig) -> ClassifierMixin:
 
 
 @dataclass(frozen=True)
+class BetRecord:
+    """One out-of-sample decision, with the regime it was made in — the raw material for the
+    self-analysis ("why was it wrong"). `correct` = the follow/avoid call matched the realised label."""
+
+    date: str
+    probability: float  # P(follow) the model assigned
+    decision: str  # "follow" if probability > 0.5 else "avoid"
+    label: int  # realised triple-barrier label (1 = profit hit first)
+    correct: bool
+    features: dict[str, float]  # regime feature values at the decision date
+
+
+@dataclass(frozen=True)
 class MetaResult:
     trained: bool
     equity: pd.Series  # OOS total-return index (1.0 at start)
@@ -64,6 +77,7 @@ class MetaResult:
     oos_hit_rate: float  # share of OOS follow/avoid calls that were right (at p>0.5)
     avg_probability: float
     feature_importance: dict[str, float]
+    bets: list[BetRecord] = field(default_factory=list)
 
 
 def purged_walk_forward(
@@ -179,6 +193,17 @@ def run_meta_model(
         if importances
         else {}
     )
+    bets = [
+        BetRecord(
+            date=date.date().isoformat(),
+            probability=round(float(prob), 3),
+            decision="follow" if prob > 0.5 else "avoid",
+            label=int(y_oos.loc[date]),
+            correct=bool((prob > 0.5) == bool(y_oos.loc[date])),
+            features={k: round(float(X.loc[date, k]), 4) for k in feature_cols},
+        )
+        for date, prob in oos.items()
+    ]
     return MetaResult(
         trained=True,
         equity=equity,
@@ -187,4 +212,5 @@ def run_meta_model(
         oos_hit_rate=hit_rate,
         avg_probability=float(oos.mean()),
         feature_importance={k: round(float(v), 3) for k, v in importance.items()},
+        bets=bets,
     )

@@ -7,7 +7,7 @@ the per-strategy cost-sensitivity sweep — everything a strategy tab needs.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 import pandas as pd
 
@@ -20,6 +20,7 @@ from equity_scout.metrics import (
     deflated_sharpe_ratio,
     periodic_sharpe,
 )
+from equity_scout.ml.attribution import attribution_summary
 from equity_scout.ml.meta_model import run_meta_model
 from equity_scout.strategies.registry import default_strategies
 
@@ -100,6 +101,7 @@ class MLReport:
     avg_probability: float
     avg_exposure: float
     feature_importance: dict[str, float]
+    attribution: dict = field(default_factory=dict)
 
 
 def build_ml_report(panel: PricePanel, *, risk: str = "SPY", costs_bps: float = 10.0) -> MLReport:
@@ -127,4 +129,5 @@ def build_ml_report(panel: PricePanel, *, risk: str = "SPY", costs_bps: float = 
         avg_probability=round(result.avg_probability, 3),
         avg_exposure=round(float(result.exposure.loc[start:].mean()), 3),
         feature_importance=result.feature_importance,
+        attribution=attribution_summary(result.bets),
     )

@@ -147,6 +147,22 @@ export async function fetchStrategies(): Promise<StrategiesResponse> {
 
 // --- ML meta-model (src/equity_scout/ml + strategy_service.build_ml_report) ---
 
+export interface AttributionBet {
+  date: string;
+  decision: string; // "follow" | "avoid"
+  probability: number;
+  label: number; // 1 = profit barrier hit first
+  features: Record<string, number>;
+}
+
+export interface Attribution {
+  n_bets: number;
+  n_errors: number;
+  hit_rate: number;
+  worst: AttributionBet[];
+  regime_contrast: Record<string, { correct: number | null; wrong: number | null }>;
+}
+
 export interface MlReport {
   trained: boolean;
   metrics: StrategyMetrics | null;
@@ -157,6 +173,7 @@ export interface MlReport {
   avg_probability: number;
   avg_exposure: number;
   feature_importance: Record<string, number>;
+  attribution?: Attribution;
 }
 
 export interface MlResponse {
