@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 
 SYSTEM_PROMPT = (
     "Du bist der Assistent von equity-scout, einem lokalen Recherche-Tool für systematische "
