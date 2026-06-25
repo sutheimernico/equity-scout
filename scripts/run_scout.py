@@ -13,6 +13,7 @@ from equity_scout.analysis import ClaudeCliAnalysis, FakeAnalysis
 from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_UNIVERSE_PATH, DISCLAIMER
 from equity_scout.data.cache import CachedProvider, QuoteCache
 from equity_scout.data.fake_provider import FakeProvider
+from equity_scout.data.news import YFinanceNews
 from equity_scout.data.yf_provider import YFinanceProvider
 from equity_scout.pipeline import run_pipeline
 from equity_scout.storage import init_db, save_run
@@ -31,6 +32,9 @@ def main() -> None:
     ap.add_argument("--use-llm", action="store_true")
     ap.add_argument("--llm-top-n", type=int, default=3,
                     help="Cap LLM theses to top-N per bucket (cost control).")
+    ap.add_argument("--no-news", action="store_true", help="Skip fetching recent headlines.")
+    ap.add_argument("--news-top-n", type=int, default=5,
+                    help="Fetch headlines for top-N picks per bucket (yfinance only).")
     args = ap.parse_args()
 
     now = datetime.now(timezone.utc)
@@ -41,11 +45,13 @@ def main() -> None:
     else:
         provider = base
     analysis = ClaudeCliAnalysis() if args.use_llm else FakeAnalysis()
+    # Headlines only make sense with live data; fake provider stays fully offline.
+    news = None if (args.no_news or args.provider != "yfinance") else YFinanceNews()
 
     run = run_pipeline(
         universe, provider, analysis=analysis, top_n=args.top_n,
         created_at=now.isoformat(timespec="seconds"), max_workers=args.max_workers,
-        llm_top_n=args.llm_top_n,
+        llm_top_n=args.llm_top_n, news=news, news_top_n=args.news_top_n,
     )
     init_db(args.db)
     save_run(args.db, run)

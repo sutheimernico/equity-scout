@@ -5,7 +5,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.db
+*.log
 data/cache/
+data/prices/
 .env
 .claude/settings.local.json
 frontend/node_modules/

@@ -9,6 +9,15 @@ dependencies = [
     "uvicorn>=0.29",
     "httpx>=0.27",
     "lxml>=6.1.1",
+    # pandas/numpy: time-series panels, returns, and performance metrics for the backtest engine
+    # (and a prerequisite for the later ML phases). Already present transitively via yfinance;
+    # declared explicitly because the strategy engine depends on them directly.
+    "pandas>=2.2",
+    "numpy>=1.26",
+    # ML meta-model (Phase E): elastic-net logistic + purged walk-forward. scikit-learn/scipy are
+    # BSD-licensed and free (unlike mlfinlab, which is proprietary). scipy also enables yfinance repair.
+    "scikit-learn>=1.4",
+    "scipy>=1.11",
 ]
 
 [dependency-groups]

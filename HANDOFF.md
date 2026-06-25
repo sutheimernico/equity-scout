@@ -1,41 +1,94 @@
-# HANDOFF — Multi-Strategy + ML (für den nächsten Chat)
+# HANDOFF — Multi-Strategy + ML (Stand 2026-06-25)
 
-Du übernimmst `equity-scout` und baust es zu Nicos großer Vision aus: **mehrere systematische
-Paper-Trading-Strategien als je eigener Demo-Account (im Dashboard per Reiter umschaltbar) + ein
-selbstlernendes ML-Meta-Modell mit Feedbackschleife.**
+Stand nach der großen Ausbau-Session. Alles auf Branch **`feat/multi-strategy-ml`** (NICHT nach
+`main` gemerged — Nico reviewt + merged). Gate grün: `uv run pytest -q` + `uv run ruff check .` +
+`npm run typecheck --prefix frontend` + `npm run build --prefix frontend`.
 
-## Lies das zuerst (in dieser Reihenfolge)
-1. **`docs/superpowers/specs/2026-06-24-multi-strategy-ml-vision.md`** — die Vision-Spec. Enthält
-   Nicos Vision wörtlich, die 9 recherchierten Strategie-Familien (mit Quellen + Machbarkeits-Tiers),
-   die Architektur-Skizze, die ML-Meta-Labeling-Methodik, die Methodik-Leitplanken und die offenen
-   Entscheidungen. **Das ist dein Startpunkt.**
-2. `README.md`, `PLAN.md`, `AUTOPILOT_LOG.md`, `docs/factors.md`.
-3. Der Code: `src/equity_scout/` (v.a. `portfolio.py`, `portfolio_storage.py`, `pipeline.py`,
-   `factors.py`, `buckets.py`, `api.py`) und `frontend/src/`.
+## Ausbaurunde 2026-06-25 — 4 Stränge, ALLE DONE
+Nach dem unten beschriebenen Multi-Strategy-Stand: 4-Strang-Runde, komplett umgesetzt auf
+`feat/multi-strategy-ml` (NICHT gemerged — Nico reviewt/merged). Gate je Strang grün.
+- **A UX/Design-Fundament**: wiederverwendbare UI-Primitives (`frontend/src/components/ui/`), Zahlen mit
+  Bezugsrahmen-Ankern, progressive Offenlegung (Disclosure), Section-Header pro Tab, tote CSS weg; Lilac bleibt.
+- **B Forward-Paper**: Strategien laufen fortlaufend vorwärts — `forward_paper.py`+`forward_storage.py`
+  (`forward_paper.db`), CLI `scripts/run_forward_paper.py` (täglich/Cron), `/api/forward`, „Live (Forward)"-Tab.
+- **C Ehrlichkeits-Analytik**: C1 Per-Bet-Attribution/Selbstanalyse (ML-Tab), C2 CSCV-PBO via
+  `scripts/run_pbo.py` → Auto-Research-Tab (erstes Ergebnis PBO≈0.69 = eher Glück), C3 FRED-Makro-Features
+  (`ml/fred.py`, public CSV, kein Key) im Loop-Suchraum wenn Snapshot da.
+- **D Lokaler Chatbot**: `chat.py` + `/api/chat` + „Assistent"-Tab, Ollama-basiert (kein RAG, kompakter
+  Daten-Snapshot in den Prompt). Setup: `ollama serve` + `ollama pull llama3.2` (oder `OLLAMA_MODEL`).
+Specs+Outcomes je Strang: `docs/superpowers/specs/2026-06-25-strang-{a,b,c,d}-*.md`.
+Offen/visuell: Browser-Abnahme der UI durch Nico (kein lokales Screenshot-Tooling in der Build-Umgebung);
+Forward-Track braucht reale Tage, um eine Kurve zu zeigen. Strang A: wiederverwendbare UI-Primitives
+(`frontend/src/components/ui/`), Zahlen mit Bezugsrahmen-Ankern, progressive Offenlegung (Disclosure),
+Section-Header pro Tab, tote CSS entfernt; Lilac bleibt. Strang B: Strategien laufen fortlaufend
+vorwärts — `forward_paper.py` (`ForwardAccount`+`advance_account`, idempotent) + `forward_storage.py`
+(`forward_paper.db`), CLI `scripts/run_forward_paper.py` (täglich/Cron laufen lassen), `GET /api/forward`,
+„Live (Forward)"-Tab im Strategien-Dashboard. Screener-Demodepot bleibt (anderes Konzept).
+Specs: `docs/superpowers/specs/2026-06-25-strang-{a,b}-*.md`.
 
-## Was schon steht (die Basis)
-Funnel (globales Universum → Faktor-Score → 3 Buckets), **ein** Buy-and-Hold-Paper-Account vs. SPY,
-React-Dashboard (hell, deutsch, Score-Transparenz + Depot-View). ~50 Tests + ruff grün, alles auf
-`main`. Du verallgemeinerst „ein Account / eine Strategie" auf „N Accounts / N Strategien + ML".
+## Was jetzt steht (gebaut + live-verifiziert)
+1. **Recherche** (`docs/research/2026-06-24-strategy-ml-data-research.md`): 4 Stränge, Quellen,
+   challenged die alte Spec. Kernfunde: TAA-Familie war die Lücke (DAA etc.), Intraday = Scheinpfad,
+   `mlfinlab` proprietär (vermieden), Backtest-Historie = ML-Trainingsmaterial.
+2. **Backtest-Engine** (`engine.py`): gewichtsbasiert, look-ahead-safe (decide sieht nur `< t`),
+   Turnover-Kosten. `MarketView` (`market.py`) ist der Look-ahead-Guard.
+3. **6 Strategien** (`strategies/`): DCA, 60/40, Permanent Portfolio, Vol-Targeting, GEM, DAA.
+   Seam: `decide(as_of, market) -> list[TargetWeight]`, alle state-free. ETF-Korb: `etf_universe.py`.
+4. **Ehrliche Metriken** (`metrics.py`): CAGR/Vol/Sharpe/Sortino/MaxDD/Calmar/Turnover +
+   **Deflated Sharpe / PSR** (eigene Impl, kein Lib-Dep).
+5. **Dashboard** (`frontend/`): Top-Nav (Strategien | Aktien-Screener), pro Strategie ein Reiter mit
+   SVG-Equity-Kurve vs 60/40, Metrik-Kacheln, Allokation, Kosten-Sweep; Vergleichs-Tab; **ML-Meta-Tab**.
+   API: `/api/strategies`, `/api/ml` (`strategy_service.py`, `api.py`).
+6. **ML-Meta-Modell** (`ml/`): Triple-Barrier-Meta-Labeling, Regime-Features (orthogonal),
+   Elastic-Net-Logistic, **purged + embargoed Walk-Forward**. Live 2007-26: 69% OOS-Trefferquote,
+   MaxDD halbiert vs SPY (-23% vs -55%). Dashboard-Tab "ML-Meta".
+7. **Continuous Research Loop** (`ml/search.py` + `ledger.py` + `research_loop.py`): sucht laufend
+   Modell-Konfigs (config-getriebenes `MetaConfig`: features × {elastic_net, random_forest} ×
+   lookback × horizon × barrier), bewertet OOS, schreibt ins SQLite-Ledger (idempotent pro Config).
+   **DSR-Hürde steigt mit der Trial-Zahl → eingebauter Overfitting-Schutz.** Champion = höchste DSR.
+   `scripts/run_research.py` (endlos, resumable), `/api/research` + Dashboard-Tab "Auto-Research"
+   (live, 5s-Poll). Die Suche fand bereits eine bessere Config als das Default-Modell.
+8. **Multi-Strategie-Mix** (`strategies/ensemble.py`): gleichgewichteter Blend aus Permanent +
+   Vol-Targeting + GEM + DAA (1/N, kein in-sample-Tuning). Live: Sharpe 0.87 (schlägt jede aktive
+   Einzelstrategie), MaxDD -19.1% — Diversifikation über Strategie-Typen.
+9. **Kaufempfehlung** (`frontend/.../AllocationAdvisor.tsx`): pro Strategie ein „was jetzt kaufen“-
+   Block — Betrag eingeben → konkrete €-Aufteilung je ETF (lesbare Namen) + Cash-Rest + Tranchen-
+   Hinweis. Regelbasierte Vorgabe, keine Anlageberatung. Strategie-Pitches stehen über jedem Tab.
+   Dashboard-Nav jetzt: **Strategien | Machine Learning | Aktien-Screener** (ML eigene Kategorie).
 
-## Arbeitsweise (von Nico autorisiert)
-- **Volle lokale Autonomie**, keine Permission-Rückfragen. Lokal + kostenlos, Docker erlaubt, freie
-  APIs/Keys ok (FRED/EDGAR/yfinance). Safety-Nets (kein Echtgeld, kein `rm -rf`/`push --force`,
-  `.env` nie lesen) bleiben. Permissions liegen in `.claude/settings.json`.
-- **Im Loop autonom orchestrieren:** `brainstorming` (offene Entscheidungen klären, v1 zuschneiden)
-  → `writing-plans` → Umsetzung in Phasen, TDD, kleine Commits, Gate (`pytest`+`ruff`) grün, Phasen
-  einzeln nach `main` mergen. **Vertical slice zuerst** — nicht alle 9 Strategien auf einmal.
-- **Reihenfolge-Empfehlung:** Strategie-Interface (Seam) → 2–3 Tier-A-Strategien (z.B. DCA-Tranchen,
-  Vol-Targeting, Trend/MA-Crossover) + 60/40-Benchmark → Multi-Account-Persistenz → Dashboard-Reiter
-  + Kosten/Metriken-Harness (Sharpe/Sortino/MaxDD/Turnover nach Kosten) → weitere Strategien → erst
-  dann ML-Meta-Schicht (braucht Forward-Historie) → Feedbackschleife.
+**Frontend nach Backend-Strategie-Änderungen neu bauen + API neu starten** (build_reports cached die
+Strategieliste): `npm run build --prefix frontend` + API-Server killen (über Port: `fuser -k 8000/tcp`,
+NICHT `pkill -f run_api` — matcht den eigenen Befehl) + neu starten.
 
-## Nicht verhandelbar
-Paper-only, kein Look-ahead (`position[t]=signal[t-1]`), Kosten+Slippage immer, Walk-forward statt
-In-Sample, jede Strategie + das ML gegen 60/40 nach Kosten benchmarken. **Ehrliches Framing:**
-Prozess/Bildung/Risiko — kein Alpha-Versprechen (publizierte Prämien zerfallen, Retail+Gratis-Daten
-→ Netto-Edge ~null). Das ist ein Forschungs-Harness.
+## Lokal starten
+```bash
+uv run python scripts/run_backtest.py --refresh   # holt ETF-Panel (yfinance) → data/prices/, druckt Metriken+Sweep
+cd frontend && npm install && npm run build && cd ..
+uv run python scripts/run_api.py --port 8000      # http://127.0.0.1:8000  (erster /api/ml-Request trainiert ~Sek.)
 
-## Erste Aktion
-Starte mit `brainstorming` und kläre §9 der Vision-Spec (v1-Strategie-Set, Universum je Strategie,
-Rebalancing-Kadenz). Dann `writing-plans`. Dann bauen.
+# Continuous research loop im Hintergrund (läuft solange der Laptop an ist, resumable):
+nohup uv run python scripts/run_research.py > research.log 2>&1 &   # Auto-Research-Tab aktualisiert live
+
+# Forward-Paper fortschreiben (täglich/Cron; idempotent pro Tag) → „Live (Forward)"-Tab:
+uv run python scripts/run_forward_paper.py --refresh
+
+# PBO über die Top-Configs berechnen (langsam, gelegentlich) → Auto-Research-Tab:
+uv run python scripts/run_pbo.py
+
+# Lokaler Chatbot („Assistent"-Tab): Ollama lokal starten + Modell ziehen
+ollama serve & ollama pull llama3.2   # Modell wählbar über OLLAMA_MODEL
+```
+
+## Was als Nächstes (noch offen)
+Plan + Phasen-Backlog: `docs/superpowers/plans/2026-06-24-multi-strategy-v2.md`.
+- **Attribution / Selbstanalyse** („wenn es nicht gut lief, warum"): pro OOS-Bet
+  Entscheidung+Ergebnis+Regime-Kontext loggen; die lehrreichsten Fehlentscheidungen zeigen.
+- **Forward-Paper-Persistenz**: Multi-Account-DB-Schema, damit die Accounts real über die Zeit
+  vorwärtslaufen (nicht nur Backtest).
+- **PBO** (Probability of Backtest Overfitting) über das Ledger als zweite Overfitting-Diagnostik.
+- **FRED-Regime-Features** (VIX, Term-Spread, HY-Spread) als ML-Feature-Anreicherung (Key gratis,
+  Registrierung → ggf. „Needs Nico"). Optional CatBoost als dritter Lerner.
+
+## Nicht verhandelbar (bleibt)
+Paper-only, kein Look-ahead, Kosten immer, Walk-forward/OOS, gegen 60/40 + Buy-and-Hold nach Kosten.
+Ehrliches Framing: Prozess/Bildung/Risiko, kein Alpha-Versprechen. Disclaimer auf jeder Surface.

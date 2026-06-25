@@ -1,5 +1,6 @@
 import type { PortfolioState } from "../api";
 import { StatTile } from "./StatTile";
+import { PieChart, type PieSlice } from "./ui/PieChart";
 
 const euro = (x: number) => `${x.toLocaleString("de-DE", { maximumFractionDigits: 0 })} €`;
 const signedPercent = (x: number) => `${x >= 0 ? "▲ +" : "▼ "}${(x * 100).toFixed(1)} %`;
@@ -21,6 +22,13 @@ export function Portfolio({ data }: { data: PortfolioState }) {
   const totalReturn = latest?.total_return ?? 0;
   const benchmarkReturn = latest?.benchmark_return ?? 0;
   const totalValue = latest?.total_value ?? data.initial_capital ?? 0;
+
+  const slices: PieSlice[] = data.positions.map((p) => ({
+    label: p.ticker,
+    value: p.market_value,
+    info: `${p.name} · ${signedPercent(p.pnl_pct)}`,
+  }));
+  if ((data.cash ?? 0) > 0) slices.push({ label: "Cash", value: data.cash ?? 0, info: "nicht investiert" });
 
   return (
     <>
@@ -47,6 +55,13 @@ export function Portfolio({ data }: { data: PortfolioState }) {
         />
         <StatTile label="Cash" value={euro(data.cash ?? 0)} sub="nicht investiert" />
       </div>
+
+      {slices.length > 0 && (
+        <section className="strat-block">
+          <h3 className="block-title">Aufteilung des Depots</h3>
+          <PieChart slices={slices} />
+        </section>
+      )}
 
       {data.positions.length > 0 && (
         <table className="history">

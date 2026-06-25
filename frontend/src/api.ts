@@ -12,6 +12,13 @@ export interface Instrument {
 export type Breakdown = Record<string, number>;
 export type BucketWeights = Record<string, Record<string, number>>;
 
+export interface NewsItem {
+  title: string;
+  publisher: string;
+  published: string;
+  link: string;
+}
+
 export interface Pick {
   instrument: Instrument;
   bucket: string;
@@ -19,6 +26,7 @@ export interface Pick {
   composite: number;
   breakdown: Breakdown;
   thesis: string | null;
+  news?: NewsItem[];
 }
 
 export interface GateStats {
@@ -91,4 +99,176 @@ export async function fetchPortfolio(): Promise<PortfolioState> {
   const response = await fetch("/api/portfolio");
   if (!response.ok) throw new Error(`/api/portfolio returned ${response.status}`);
   return response.json();
+}
+
+// --- Strategy backtests (src/equity_scout/strategy_service.py) ---
+
+export interface StrategyMetrics {
+  cagr: number;
+  annual_volatility: number;
+  sharpe: number;
+  sortino: number;
+  max_drawdown: number;
+  calmar: number;
+  annual_turnover: number | null;
+  deflated_sharpe: number | null;
+}
+
+export interface StrategyTrade {
+  date: string;
+  weights: Record<string, number>;
+  turnover: number;
+}
+
+export interface StrategyReport {
+  name: string;
+  is_benchmark: boolean;
+  metrics: StrategyMetrics;
+  equity: [string, number][];
+  benchmark_equity: [string, number][];
+  current_weights: Record<string, number>;
+  recent_trades: StrategyTrade[];
+  cost_sweep: [number, number][];
+}
+
+export interface StrategiesResponse {
+  available: boolean;
+  benchmark?: string;
+  strategies: StrategyReport[];
+  hint?: string;
+  disclaimer: string;
+}
+
+export async function fetchStrategies(): Promise<StrategiesResponse> {
+  const response = await fetch("/api/strategies");
+  if (!response.ok) throw new Error(`/api/strategies returned ${response.status}`);
+  return response.json();
+}
+
+// --- ML meta-model (src/equity_scout/ml + strategy_service.build_ml_report) ---
+
+export interface AttributionBet {
+  date: string;
+  decision: string; // "follow" | "avoid"
+  probability: number;
+  label: number; // 1 = profit barrier hit first
+  features: Record<string, number>;
+}
+
+export interface Attribution {
+  n_bets: number;
+  n_errors: number;
+  hit_rate: number;
+  worst: AttributionBet[];
+  regime_contrast: Record<string, { correct: number | null; wrong: number | null }>;
+}
+
+export interface MlReport {
+  trained: boolean;
+  metrics: StrategyMetrics | null;
+  equity: [string, number][];
+  benchmark_equity: [string, number][];
+  n_bets: number;
+  oos_hit_rate: number;
+  avg_probability: number;
+  avg_exposure: number;
+  feature_importance: Record<string, number>;
+  attribution?: Attribution;
+}
+
+export interface MlResponse {
+  available: boolean;
+  report?: MlReport;
+  disclaimer: string;
+}
+
+export async function fetchMlReport(): Promise<MlResponse> {
+  const response = await fetch("/api/ml");
+  if (!response.ok) throw new Error(`/api/ml returned ${response.status}`);
+  return response.json();
+}
+
+// --- Continuous research loop (src/equity_scout/ml/research_view + ledger) ---
+
+export interface ResearchConfig {
+  features: string[];
+  model: string;
+  primary_lookback_months: number;
+  horizon_days: number;
+  barrier: number;
+  dsr: number;
+  sharpe: number;
+  sortino: number;
+  cagr: number;
+  max_drawdown: number;
+  oos_hit_rate: number;
+  n_bets: number;
+  feature_importance: Record<string, number>;
+}
+
+export interface PboResult {
+  pbo: number; // [0,1] — probability of backtest overfitting (CSCV)
+  n_configs: number;
+  n_blocks: number;
+  computed_at: string;
+}
+
+export interface ResearchResponse {
+  available: boolean;
+  n_trials: number;
+  hurdle?: number;
+  champion: ResearchConfig | null;
+  leaderboard: ResearchConfig[];
+  model_frequency?: Record<string, number>;
+  feature_frequency?: Record<string, number>;
+  pbo?: PboResult;
+  disclaimer: string;
+}
+
+export async function fetchResearch(): Promise<ResearchResponse> {
+  const response = await fetch("/api/research");
+  if (!response.ok) throw new Error(`/api/research returned ${response.status}`);
+  return response.json();
+}
+
+// --- Forward paper trading (src/equity_scout/forward_paper + forward_storage) ---
+
+export interface ForwardAccount {
+  strategy_name: string;
+  initial_capital: number;
+  equity: number;
+  total_return: number;
+  benchmark_ticker: string;
+  benchmark_return: number;
+  last_as_of: string | null;
+  n_points: number;
+  equity_curve: [string, number, number][]; // [date, equity, benchmark_equity]
+}
+
+export interface ForwardResponse {
+  available: boolean;
+  accounts: ForwardAccount[];
+  disclaimer: string;
+}
+
+export async function fetchForward(): Promise<ForwardResponse> {
+  const response = await fetch("/api/forward");
+  if (!response.ok) throw new Error(`/api/forward returned ${response.status}`);
+  return response.json();
+}
+
+// --- Local chatbot over the dashboard data (src/equity_scout/chat.py via Ollama) ---
+
+export interface ChatReply {
+  answer?: string;
+  error?: string;
+}
+
+export async function askChat(question: string): Promise<ChatReply> {
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question }),
+  });
+  return response.json(); // body carries {answer} or {error} on both 200 and 503
 }

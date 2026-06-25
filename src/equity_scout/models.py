@@ -50,6 +50,7 @@ class Pick:
     composite: float
     breakdown: dict[str, float]  # family -> percentile
     thesis: str | None = None
+    news: list[dict] = field(default_factory=list)  # recent headlines: {title, publisher, published, link}
 
 
 @dataclass(frozen=True)
