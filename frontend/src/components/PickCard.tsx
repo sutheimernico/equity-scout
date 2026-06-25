@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import type { Pick } from "../api";
 import { FACTOR_LABELS, FACTOR_ORDER, toPercent } from "../format";
+import { StockChart } from "./StockChart";
 import { Badge } from "./ui/Badge";
 import { Bar } from "./ui/Bar";
 
@@ -51,6 +52,11 @@ export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string
             <span>Score = Summe der Beiträge</span>
             <span className="tnum">{toPercent(compositeFromParts)}</span>
           </div>
+
+          <div onClick={(e) => e.stopPropagation()}>
+            <StockChart ticker={pick.instrument.ticker} />
+          </div>
+
           {pick.thesis && <p className="thesis">{pick.thesis}</p>}
 
           {news.length > 0 && (

@@ -14,6 +14,7 @@ import { PickCard } from "./PickCard";
 import { Portfolio } from "./Portfolio";
 import { RunHistory } from "./RunHistory";
 import { StatTile } from "./StatTile";
+import { ChartStyleToggle } from "./StockChart";
 
 const BUCKET_ORDER = ["defensive", "balanced", "aggressive"];
 
@@ -90,6 +91,8 @@ export function FunnelView() {
           </select>
         </div>
       </div>
+
+      <ChartStyleToggle />
 
       <div className="cards">
         {visiblePicks.map((p) => (

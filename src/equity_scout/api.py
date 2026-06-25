@@ -31,6 +31,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title="equity-scout")
     reports_cache: dict[str, object] = {}  # built once per process (backtests are deterministic)
+    quote_cache: dict[str, object] = {}  # per-ticker price history, fetched on demand
 
     def get_reports() -> list | None:
         if "reports" not in reports_cache:
@@ -189,6 +190,17 @@ def create_app(
         except ChatError as exc:
             return JSONResponse({"error": str(exc)}, status_code=503)
         return JSONResponse({"answer": answer})
+
+    @app.get("/api/quote/{ticker}")
+    def quote(ticker: str) -> JSONResponse:
+        from equity_scout.quote import fetch_quote_history
+
+        if ticker not in quote_cache:
+            quote_cache[ticker] = fetch_quote_history(ticker)
+        data = quote_cache[ticker]
+        if data is None:
+            return JSONResponse({"error": f"Keine Kursdaten für {ticker}."}, status_code=404)
+        return JSONResponse(data)
 
     # Serve the built React dashboard. Mounted at "/" LAST so the /api/* routes above win.
     # Run `cd frontend && npm install && npm run build` to produce dist/.
