@@ -9,6 +9,7 @@ import {
   type RunSummary,
 } from "../api";
 import { BUCKET_LABELS } from "../format";
+import { GatedOutList } from "./GatedOutList";
 import { MethodologyNote } from "./MethodologyNote";
 import { PickCard } from "./PickCard";
 import { Portfolio } from "./Portfolio";
@@ -25,6 +26,7 @@ export function FunnelView() {
   const [error, setError] = useState<string | null>(null);
   const [bucket, setBucket] = useState("defensive");
   const [region, setRegion] = useState("all");
+  const [sector, setSector] = useState("all");
 
   useEffect(() => {
     fetchLatestRun().then(setRun).catch((e: unknown) => setError(String(e)));
@@ -37,8 +39,15 @@ export function FunnelView() {
     () => ["all", ...Array.from(new Set(picks.map((p) => p.instrument.region))).sort()],
     [picks],
   );
-  const visiblePicks =
-    region === "all" ? picks : picks.filter((p) => p.instrument.region === region);
+  const sectors = useMemo(
+    () => ["all", ...Array.from(new Set(picks.map((p) => p.instrument.sector))).sort()],
+    [picks],
+  );
+  const visiblePicks = picks.filter(
+    (p) =>
+      (region === "all" || p.instrument.region === region) &&
+      (sector === "all" || p.instrument.sector === sector),
+  );
 
   if (error) return <p className="state err">Fehler: {error}</p>;
   if (!run) return <p className="state">Lädt…</p>;
@@ -75,6 +84,7 @@ export function FunnelView() {
             onClick={() => {
               setBucket(b);
               setRegion("all");
+              setSector("all");
             }}
           >
             {BUCKET_LABELS[b] ?? b}
@@ -88,6 +98,13 @@ export function FunnelView() {
               </option>
             ))}
           </select>
+          <select className="region" value={sector} onChange={(e) => setSector(e.target.value)}>
+            {sectors.map((s) => (
+              <option key={s} value={s}>
+                {s === "all" ? "Alle Sektoren" : s}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -97,6 +114,8 @@ export function FunnelView() {
         ))}
         {visiblePicks.length === 0 && <p className="muted">Keine Picks für diesen Filter.</p>}
       </div>
+
+      <GatedOutList gatedOut={run.gated_out ?? {}} byRegion={gate.by_region} />
 
       <h2 className="section-title">Demo-Depot</h2>
       {portfolio ? <Portfolio data={portfolio} /> : <p className="muted">Lädt…</p>}
