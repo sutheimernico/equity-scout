@@ -26,6 +26,17 @@ Stand nach der großen Ausbau-Session. Alles auf Branch **`feat/multi-strategy-m
    **DSR-Hürde steigt mit der Trial-Zahl → eingebauter Overfitting-Schutz.** Champion = höchste DSR.
    `scripts/run_research.py` (endlos, resumable), `/api/research` + Dashboard-Tab "Auto-Research"
    (live, 5s-Poll). Die Suche fand bereits eine bessere Config als das Default-Modell.
+8. **Multi-Strategie-Mix** (`strategies/ensemble.py`): gleichgewichteter Blend aus Permanent +
+   Vol-Targeting + GEM + DAA (1/N, kein in-sample-Tuning). Live: Sharpe 0.87 (schlägt jede aktive
+   Einzelstrategie), MaxDD -19.1% — Diversifikation über Strategie-Typen.
+9. **Kaufempfehlung** (`frontend/.../AllocationAdvisor.tsx`): pro Strategie ein „was jetzt kaufen“-
+   Block — Betrag eingeben → konkrete €-Aufteilung je ETF (lesbare Namen) + Cash-Rest + Tranchen-
+   Hinweis. Regelbasierte Vorgabe, keine Anlageberatung. Strategie-Pitches stehen über jedem Tab.
+   Dashboard-Nav jetzt: **Strategien | Machine Learning | Aktien-Screener** (ML eigene Kategorie).
+
+**Frontend nach Backend-Strategie-Änderungen neu bauen + API neu starten** (build_reports cached die
+Strategieliste): `npm run build --prefix frontend` + API-Server killen (über Port: `fuser -k 8000/tcp`,
+NICHT `pkill -f run_api` — matcht den eigenen Befehl) + neu starten.
 
 ## Lokal starten
 ```bash
