@@ -272,3 +272,46 @@ export async function askChat(question: string): Promise<ChatReply> {
   });
   return response.json(); // body carries {answer} or {error} on both 200 and 503
 }
+
+// --- Per-stock entry reference levels + tranche plan (src/equity_scout/entry.py) ---
+
+export interface EntryLevel {
+  label: string;
+  price: number;
+  kind: "anchor" | "support" | "volatility";
+  note: string;
+}
+
+export interface Tranche {
+  label: string;
+  fraction: number;
+  trigger_price: number | null;
+}
+
+export interface EntryPlan {
+  ticker: string;
+  price: number;
+  sma200: number | null;
+  high_52w: number;
+  low_52w: number;
+  drawdown_from_high: number;
+  atr: number | null;
+  levels: EntryLevel[];
+  dca_tranches: Tranche[];
+  dip_tranches: Tranche[];
+  near_reference: boolean;
+  reference_note: string;
+}
+
+export interface EntryResponse {
+  available: boolean;
+  ticker?: string;
+  plan?: EntryPlan;
+  disclaimer: string;
+}
+
+export async function fetchEntry(ticker: string): Promise<EntryResponse> {
+  const response = await fetch(`/api/entry/${encodeURIComponent(ticker)}`);
+  if (!response.ok) throw new Error(`/api/entry returned ${response.status}`);
+  return response.json();
+}
