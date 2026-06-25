@@ -50,10 +50,23 @@ def _true_ranges(highs: list[float], lows: list[float], closes: list[float]) -> 
 
 
 def atr(highs: list[float], lows: list[float], closes: list[float], window: int = 14) -> float | None:
-    """Average True Range over the last `window` days. None if too little data."""
-    if len(closes) < 2 or not (len(highs) == len(lows) == len(closes)):
+    """Average True Range over the last `window` days. None if too little valid data.
+
+    Cleans row-wise (drops any day with a non-finite/non-positive H/L/C) so the three
+    series stay index-aligned — yfinance occasionally returns NaN/0 rows."""
+    if not (len(highs) == len(lows) == len(closes)):
         return None
-    trs = _true_ranges(highs, lows, closes)
+    rows = [
+        (h, low, c)
+        for h, low, c in zip(highs, lows, closes)
+        if all(isinstance(x, (int, float)) and math.isfinite(x) and x > 0 for x in (h, low, c))
+    ]
+    if len(rows) < 2:
+        return None
+    h = [r[0] for r in rows]
+    low_s = [r[1] for r in rows]
+    c = [r[2] for r in rows]
+    trs = _true_ranges(h, low_s, c)
     if not trs:
         return None
     tail = trs[-window:]

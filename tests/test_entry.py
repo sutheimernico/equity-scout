@@ -41,3 +41,15 @@ def test_atr_is_mean_true_range():
     lows = [10, 10, 10, 10, 10]
     closes = [11, 11, 11, 11, 11]
     assert atr(highs, lows, closes, window=4) == 2.0
+
+
+def test_atr_drops_nan_rows():
+    # one NaN row in the middle is dropped; the rest still yield a clean ATR of 2.0
+    highs = [12, 12, float("nan"), 12, 12]
+    lows = [10, 10, float("nan"), 10, 10]
+    closes = [11, 11, float("nan"), 11, 11]
+    assert atr(highs, lows, closes, window=4) == 2.0
+
+
+def test_atr_none_on_length_mismatch():
+    assert atr([12, 12], [10], [11, 11]) is None
