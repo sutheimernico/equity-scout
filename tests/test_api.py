@@ -86,3 +86,35 @@ def test_entry_endpoint_unavailable_on_short_history(tmp_path, monkeypatch):
     resp = client.get("/api/entry/ZZZZ")
     assert resp.status_code == 200
     assert resp.json()["available"] is False
+
+
+def test_entry_endpoint_caches_within_day(tmp_path, monkeypatch):
+    calls = {"n": 0}
+    closes = [100 + i for i in range(260)]
+
+    def _fake(_t):
+        calls["n"] += 1
+        return closes, [c + 1 for c in closes], [c - 1 for c in closes]
+
+    monkeypatch.setattr(entry_mod, "fetch_entry_history", _fake)
+    client = TestClient(create_app(str(tmp_path / "x.db")))
+    r1 = client.get("/api/entry/AAPL")
+    r2 = client.get("/api/entry/AAPL")
+    assert r1.status_code == r2.status_code == 200
+    assert r1.json() == r2.json()
+    assert calls["n"] == 1  # second request served from cache, fetch not called again
+
+
+def test_entry_endpoint_accepts_dotted_ticker(tmp_path, monkeypatch):
+    closes = [100 + i for i in range(260)]
+    monkeypatch.setattr(
+        entry_mod,
+        "fetch_entry_history",
+        lambda _t: (closes, [c + 1 for c in closes], [c - 1 for c in closes]),
+    )
+    client = TestClient(create_app(str(tmp_path / "x.db")))
+    resp = client.get("/api/entry/BRK.B")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["available"] is True
+    assert body["plan"]["ticker"] == "BRK.B"
