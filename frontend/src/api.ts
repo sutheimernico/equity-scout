@@ -256,3 +256,19 @@ export async function fetchForward(): Promise<ForwardResponse> {
   if (!response.ok) throw new Error(`/api/forward returned ${response.status}`);
   return response.json();
 }
+
+// --- Local chatbot over the dashboard data (src/equity_scout/chat.py via Ollama) ---
+
+export interface ChatReply {
+  answer?: string;
+  error?: string;
+}
+
+export async function askChat(question: string): Promise<ChatReply> {
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question }),
+  });
+  return response.json(); // body carries {answer} or {error} on both 200 and 503
+}

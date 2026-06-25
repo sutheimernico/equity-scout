@@ -142,6 +142,34 @@ def create_app(
             "disclaimer": DISCLAIMER,
         })
 
+    @app.post("/api/chat")
+    def chat(body: dict) -> JSONResponse:
+        from equity_scout.chat import ChatError, ask_ollama, build_dashboard_context
+
+        question = str((body or {}).get("question", "")).strip()
+        if not question:
+            return JSONResponse({"error": "Keine Frage übergeben."}, status_code=400)
+
+        reports = get_reports() or []
+        strategies = [asdict(r) for r in reports]
+        ml = asdict(reports_cache["ml"]) if "ml" in reports_cache else None  # only if already trained
+        research = research_summary(ledger)
+        forward = [
+            {
+                "strategy_name": a.strategy_name,
+                "total_return": a.equity / a.initial_capital - 1.0,
+                "benchmark_return": a.benchmark_equity / a.initial_capital - 1.0,
+                "n_points": len(load_forward_valuations(forward_db, a.strategy_name)),
+            }
+            for a in load_all_accounts(forward_db)
+        ]
+        context = build_dashboard_context(strategies=strategies, ml=ml, research=research, forward=forward)
+        try:
+            answer = ask_ollama(question, context)
+        except ChatError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=503)
+        return JSONResponse({"answer": answer})
+
     # Serve the built React dashboard. Mounted at "/" LAST so the /api/* routes above win.
     # Run `cd frontend && npm install && npm run build` to produce dist/.
     if _DIST.exists():

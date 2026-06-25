@@ -895,6 +895,94 @@ code {
   margin: 0;
 }
 
+/* Chatbot (Assistent tab) */
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  min-height: 120px;
+}
+.chat-examples {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.chat-example {
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  text-align: left;
+  transition: background 150ms var(--ease);
+}
+.chat-example:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.chat-msg {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  max-width: 80%;
+  white-space: pre-wrap;
+}
+.chat-user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+}
+.chat-assistant {
+  align-self: flex-start;
+  background: var(--bg-surface);
+  box-shadow: var(--raised);
+}
+.chat-error {
+  align-self: flex-start;
+  background: color-mix(in srgb, var(--negative) 12%, transparent);
+  color: var(--negative);
+}
+.chat-input {
+  display: flex;
+  gap: var(--space-2);
+}
+.chat-input input {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font: inherit;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+.chat-input input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.chat-input button {
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: var(--space-3) var(--space-5);
+  cursor: pointer;
+  transition: background 150ms var(--ease);
+}
+.chat-input button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.chat-input button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .chip-pulse::after {
     animation: none;
