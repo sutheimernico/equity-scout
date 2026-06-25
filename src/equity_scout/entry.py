@@ -187,3 +187,26 @@ def compute_entry_plan(
         levels=levels, dca_tranches=dca, dip_tranches=dip,
         near_reference=near_reference, reference_note=note,
     )
+
+
+def fetch_entry_history(ticker: str) -> tuple[list[float], list[float], list[float]]:
+    """Fetch 1y of daily Close/High/Low for `ticker`. Lazy yfinance import + retry, like
+    YFinanceProvider.fetch_quote. Returns ([], [], []) on persistent failure (caller handles)."""
+    import yfinance as yf
+
+    from equity_scout.data.fetch import with_retry
+
+    def _hist() -> tuple[list[float], list[float], list[float]]:
+        h = yf.Ticker(ticker).history(period="1y", interval="1d")
+        if h.empty:
+            return [], [], []
+        return (
+            [float(c) for c in h["Close"].tolist()],
+            [float(c) for c in h["High"].tolist()],
+            [float(c) for c in h["Low"].tolist()],
+        )
+
+    try:
+        return with_retry(_hist, attempts=3)
+    except Exception:
+        return [], [], []
