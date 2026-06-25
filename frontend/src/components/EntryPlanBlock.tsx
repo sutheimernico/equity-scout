@@ -52,7 +52,7 @@ export function EntryPlanBlock({ ticker }: { ticker: string }) {
 
       <div className="entry-levels">
         {p.levels.map((lvl) => (
-          <div className="entry-level" key={lvl.label} title={lvl.note}>
+          <div className="entry-level" key={`${lvl.label}_${lvl.price}`} title={lvl.note}>
             <span className="entry-level-name">{lvl.label}</span>
             <Bar
               value={frac(lvl.price, p.low_52w, p.high_52w)}
@@ -75,7 +75,7 @@ export function EntryPlanBlock({ ticker }: { ticker: string }) {
           <div className="tranche-col">
             <div className="tranche-col-head">DCA · gleichmäßig</div>
             {p.dca_tranches.map((t) => (
-              <div className="tranche-row" key={t.label}>
+              <div className="tranche-row" key={`${t.label}_${t.fraction}`}>
                 <span>{t.label}</span>
                 <span className="tnum">{Math.round(t.fraction * 100)} %</span>
               </div>
@@ -84,7 +84,7 @@ export function EntryPlanBlock({ ticker }: { ticker: string }) {
           <div className="tranche-col">
             <div className="tranche-col-head">Drawdown-Scale-in (Option)</div>
             {p.dip_tranches.map((t) => (
-              <div className="tranche-row" key={t.label}>
+              <div className="tranche-row" key={`${t.label}_${t.trigger_price}`}>
                 <span>{t.label}</span>
                 <span className="tnum">
                   {Math.round(t.fraction * 100)} %{t.trigger_price ? ` · ${t.trigger_price}` : ""}
