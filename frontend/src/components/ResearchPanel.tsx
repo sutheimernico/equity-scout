@@ -87,8 +87,12 @@ export function ResearchPanel() {
               <strong>PBO {pctAbs(data.pbo.pbo, 0)}</strong> (CSCV über die {data.pbo.n_configs} besten
               Konfigurationen, {data.pbo.n_blocks} Zeit-Blöcke): die Wahrscheinlichkeit, dass die
               in-sample-beste Konfiguration out-of-sample unterdurchschnittlich ist. Niedrig = die
-              Bestenliste ist eher Können; hoch (→ 50 %+) = eher Glück. Zweite, unabhängige Overfitting-
-              Diagnostik neben der DSR-Hürde. Stand {data.pbo.computed_at}.
+              Bestenliste ist eher Können; hoch (→ 50 %+) = eher Glück.{" "}
+              <strong>DSR und PBO messen Verschiedenes:</strong> die DSR bewertet, ob der{" "}
+              <em>einzelne</em> Champion nach Abzug der Such-Glücksprämie noch signifikant ist; der PBO
+              bewertet, ob das <em>Auswahlverfahren</em> (den Besten aus tausenden Versuchen zu küren)
+              überhaupt verlässlich ist. Genau das fängt die DSR allein nicht ab. Ein offen gezeigter,
+              hoher PBO ist hier Methodik-Disziplin, kein Schönheitsfehler. Stand {data.pbo.computed_at}.
             </Explain>
           )}
 
