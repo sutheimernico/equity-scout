@@ -115,6 +115,17 @@ export const ML_FEATURE_LABELS: Record<string, string> = {
   mom_3m: "3-Monats-Momentum",
 };
 
+// Research-loop config display (shared by ResearchPanel / ChampionCard / Leaderboard).
+export const MODEL_LABELS: Record<string, string> = {
+  elastic_net: "Elastic-Net",
+  random_forest: "Random Forest",
+};
+
+export function researchConfigLabel(c: { features: string[]; model: string }): string {
+  const feats = c.features.map((f) => ML_FEATURE_LABELS[f] ?? f).join(" · ");
+  return `${MODEL_LABELS[c.model] ?? c.model} · ${feats}`;
+}
+
 export const METRIC_HELP: Record<string, string> = {
   cagr: "Durchschnittliche jährliche Wachstumsrate über den gesamten Zeitraum.",
   annual_volatility: "Schwankungsbreite der Renditen p.a. — höher = unruhiger.",
