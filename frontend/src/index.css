@@ -50,6 +50,10 @@
   --raised: 0 1px 2px rgba(20, 16, 50, 0.04), 0 6px 20px -8px rgba(20, 16, 50, 0.1);
   --raised-hover: 0 2px 4px rgba(20, 16, 50, 0.05), 0 12px 28px -8px rgba(124, 92, 255, 0.22);
   --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 180ms;
+  --dur-mid: 320ms;
+  --dur-slow: 640ms;
 }
 
 * {
@@ -95,6 +99,8 @@ body {
   font-size: var(--text-xs);
 }
 .content {
+  position: relative;
+  z-index: 1;
   max-width: 1120px;
   margin: 0 auto;
   padding: var(--space-6);
@@ -1064,11 +1070,86 @@ code {
   gap: var(--space-4);
 }
 
+/* === Design polish: ambient aurora, reveal-on-scroll, view transition, glow === */
+
+/* ambient lilac aurora drifting behind the content */
+.aurora {
+  position: fixed;
+  inset: -25vh -25vw;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(38vw 38vw at 18% 22%, rgba(124, 92, 255, 0.16), transparent 60%),
+    radial-gradient(34vw 34vw at 82% 26%, rgba(167, 139, 250, 0.14), transparent 60%),
+    radial-gradient(44vw 44vw at 62% 84%, rgba(196, 181, 253, 0.13), transparent 62%);
+  filter: blur(28px);
+  animation: aurora-drift 26s ease-in-out infinite alternate;
+}
+@keyframes aurora-drift {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(2.4%, -2.2%) scale(1.07); }
+}
+
+/* top-level view fades + lifts in on switch */
+.view {
+  animation: view-in var(--dur-mid) var(--ease-out);
+}
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.994); }
+  to { opacity: 1; transform: none; }
+}
+
+/* reveal on scroll — sections fade + lift in as they enter the viewport */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-out);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
+/* hover lift on metric + stat tiles */
+.metric,
+.tile {
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.metric:hover,
+.tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 2px 4px rgba(20, 16, 50, 0.05), 0 14px 30px -10px rgba(124, 92, 255, 0.28);
+}
+
+/* champion card — a quiet breathing glow to draw the eye */
+.champion-glow {
+  animation: champion-breathe 4.5s ease-in-out infinite;
+}
+@keyframes champion-breathe {
+  0%, 100% { box-shadow: var(--raised), 0 8px 30px -12px rgba(124, 92, 255, 0.22); }
+  50% { box-shadow: var(--raised), 0 10px 40px -10px rgba(124, 92, 255, 0.42); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .chip-pulse::after {
     animation: none;
   }
   .disclosure-chev {
+    transition: none;
+  }
+  .aurora,
+  .view,
+  .champion-glow {
+    animation: none;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
     transition: none;
   }
 }

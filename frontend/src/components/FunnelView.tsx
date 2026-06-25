@@ -49,7 +49,7 @@ export function FunnelView() {
 
   return (
     <>
-      <header className="section-head">
+      <header className="section-head reveal">
         <p className="eyebrow">Aktien-Screener</p>
         <h1>Globaler Faktor-Funnel</h1>
         <p className="section-sub">
@@ -58,7 +58,7 @@ export function FunnelView() {
         </p>
       </header>
 
-      <div className="kpi-row">
+      <div className="kpi-row reveal">
         <StatTile label="Universum" value={String(run.universe_size ?? 0)} sub="Aktien gescreent" />
         <StatTile label="Daten ok" value={String(passed)} sub="genug Daten zum Ranken" />
         <StatTile label="Aussortiert" value={String(gate.total_gated)} sub="zu dünne/ungültige Daten" />
@@ -91,7 +91,7 @@ export function FunnelView() {
         </div>
       </div>
 
-      <div className="cards">
+      <div className="cards reveal">
         {visiblePicks.map((p) => (
           <PickCard key={p.instrument.ticker} pick={p} weights={run.bucket_weights[bucket] ?? {}} />
         ))}

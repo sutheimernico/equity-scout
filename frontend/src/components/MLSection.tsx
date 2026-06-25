@@ -11,7 +11,7 @@ export function MLSection() {
 
   return (
     <>
-      <header className="section-head">
+      <header className="section-head reveal">
         <p className="eyebrow">Machine Learning</p>
         <h1>Lohnt es sich, dem Signal zu folgen?</h1>
         <p className="section-sub">

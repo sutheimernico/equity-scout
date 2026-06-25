@@ -63,7 +63,7 @@ export function StrategyDashboard() {
 
   return (
     <>
-      <header className="section-head">
+      <header className="section-head reveal">
         <p className="eyebrow">Strategien</p>
         <h1>Sechs Systematiken, ehrlich gegen {benchmarkName} gemessen</h1>
         <p className="section-sub">

@@ -6,7 +6,7 @@ import { Metric } from "./ui/Metric";
 // The best configuration the research loop has found so far (highest Deflated Sharpe).
 export function ChampionCard({ champion }: { champion: ResearchConfig }) {
   return (
-    <section className="strat-block">
+    <section className="strat-block champion-glow reveal">
       <h3 className="block-title">Aktueller Champion</h3>
       <p className="champion-config">{researchConfigLabel(champion)}</p>
       <Explain tone="hint">

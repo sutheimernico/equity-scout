@@ -4,7 +4,7 @@ import { num, pct, researchConfigLabel } from "../format";
 // Top configurations by Deflated Sharpe — the leaderboard the loop keeps updating.
 export function Leaderboard({ rows }: { rows: ResearchConfig[] }) {
   return (
-    <section className="strat-block">
+    <section className="strat-block reveal">
       <h3 className="block-title">Bestenliste</h3>
       <div className="table-scroll">
         <table className="history compare">

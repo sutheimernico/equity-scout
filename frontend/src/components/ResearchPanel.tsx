@@ -96,14 +96,14 @@ export function ResearchPanel() {
 
           <div className="strat-cols">
             {data.model_frequency && (
-              <section className="strat-block">
+              <section className="strat-block reveal">
                 <h3 className="block-title">Welche Algorithmen gewinnen</h3>
                 <Explain tone="hint">Häufigkeit unter den besten Konfigurationen.</Explain>
                 <FreqBars counts={data.model_frequency} />
               </section>
             )}
             {data.feature_frequency && (
-              <section className="strat-block">
+              <section className="strat-block reveal">
                 <h3 className="block-title">Welche Merkmale gewinnen</h3>
                 <Explain tone="hint">Häufigkeit unter den besten Konfigurationen.</Explain>
                 <FreqBars counts={data.feature_frequency} />
