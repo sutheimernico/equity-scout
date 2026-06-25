@@ -26,3 +26,24 @@
   threshold, mark-to-market vs SPY benchmark + fee, persisted; run_paper.py + /api/portfolio +
   dashboard portfolio view), live-verified (9 positions bought). Backend var-name cleanup in
   factors/gate/buckets. 50 py tests + ruff + FE typecheck/build green.
+- 2026-06-26 — Phase 2 follow-up done: STOXX Europe 600 + Nikkei 225 constituent sources behind the
+  ConstituentSource seam. STOXX maps bare ticker + Country -> Yahoo symbol via country->exchange
+  suffix map (459/600 mapped live across 15 exchanges; unmappable countries skipped, not guessed).
+  Nikkei tag-strips the sector-bulleted page then code+.T (223/225 live). 6 new pure-parse tests.
+  175 pytest + ruff green. Branch feat/auto-research-ml-loop.
+- 2026-06-26 — Phase 5 follow-up done: screener sector filter (chains with region, resets on bucket
+  switch) + GatedOutList disclosure surfacing the data-completeness gate (excluded tickers + reasons,
+  filterable by reason, per-region summary). typecheck + vite build green; live-verified vs the API
+  (gated_out + sectors populated). Branch feat/auto-research-ml-loop.
+- 2026-06-26 — Phase 8 follow-up done: screener paper bot gains rule-based exits (hysteresis: buy
+  >=0.70, sell <0.55 or drop-out; missing price defers the sale), slippage on each fill + commission
+  (churn costs money), and a valuation-vs-benchmark sparkline (reused EquityChart). run_paper.py gets
+  --exit-threshold. 5 new tests; 180 pytest + ruff green; FE typecheck/build green; fake-provider
+  smoke ok. Branch feat/auto-research-ml-loop.
+- 2026-06-26 — Headline ML loop verified complete + phase self-challenge. CatBoost (3rd learner),
+  FRED features (vix/term_spread, free CSV no key), rising-DSR hurdle, per-bet attribution (logged +
+  rendered in MLPanel), and the live Auto-Research tab are all built and live-verified against a
+  4100+ trial ledger. Champion: CatBoost on (trend, breadth, mom_3m, vix), DSR 0.998 / Sharpe 1.10 /
+  MaxDD -9.3% OOS. Sourced overfitting challenge (Bailey & LdP) -> ADR 0002: PBO made first-class +
+  framing sharpened, N_eff-clustering rejected as churn. PBO refreshed 0.69->0.77. 180 pytest + ruff
+  + FE typecheck/build green. Branch feat/auto-research-ml-loop.

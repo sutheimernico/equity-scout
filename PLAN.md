@@ -40,8 +40,10 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       S&P 500 from Wikipedia (polite UA), deduped → `data/universe_combined.csv` (531) + provenance.
 - [x] Retry/backoff + bounded-parallel fetch (`data/fetch.py`), wired into pipeline + yfinance provider.
 - [x] Per-run gate statistics (total, by reason, by region) persisted + surfaced in API + dashboard.
-- [ ] Follow-up: add STOXX Europe 600 + Nikkei 225 constituent sources (each needs an exchange→Yahoo
+- [x] Follow-up: add STOXX Europe 600 + Nikkei 225 constituent sources (each needs an exchange→Yahoo
       suffix mapping; Nikkei is `code + .T`, STOXX is multi-exchange). v2.2 shipped S&P 500 only.
+      DONE 2026-06-26: `WikipediaStoxx600Source` (country→suffix map, 459/600 live) +
+      `WikipediaNikkei225Source` (tag-strip + `code+.T`, 223/225 live); pure parse fns unit-tested.
 
 ## Phase 3 — Scheduler automation + run history — DONE (2026-06-24)
 - [x] `scripts/scheduled_run.sh` + `docs/scheduling.md` (cron + systemd user-timer templates).
@@ -60,7 +62,9 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] Vite + React 19 + TS dashboard (`frontend/`): bucket tabs, score-breakdown bars, region
       filter, per-pick drilldown (factor bars + thesis). FastAPI serves the built `dist/`.
 - [x] Gate stats (total + by region) + disclaimer surfaced; run-history section.
-- [ ] Follow-up: sector filter (region done) and a dedicated gated-out list view.
+- [x] Follow-up: sector filter (region done) and a dedicated gated-out list view.
+      DONE 2026-06-26: sector dropdown in FunnelView (chains with region); `GatedOutList` disclosure
+      shows excluded tickers + reasons (filterable by reason) + per-region summary. Live-verified.
 
 ## Phase 6 — Frontend redesign — DONE (2026-06-24)
 - [x] Dark design-token system (Geist/Linear-style: near-black surface stack, border-as-shadow,
@@ -78,16 +82,21 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] Paper portfolio (100k demo): buy picks with composite ≥ threshold, equal-weight, buy-and-hold;
       mark-to-market vs cost + SPY benchmark, small fee; persisted (portfolio + valuation history).
 - [x] `scripts/run_paper.py` to advance it + `/api/portfolio` + dashboard portfolio view. Paper-only.
-- [ ] Follow-up: sell/exit rules, costs/slippage realism, valuation sparkline chart.
+- [x] Follow-up: sell/exit rules, costs/slippage realism, valuation sparkline chart.
+      DONE 2026-06-26: hysteresis exit (sell < 0.55 / buy ≥ 0.70 or drop-out), per-leg slippage_bps
+      on the fill + commission, valuation-vs-benchmark sparkline (reused EquityChart). 5 new tests.
 
 ## Code quality — DONE (2026-06-24)
 - [x] Renamed cryptic variables (fam, _t closure trick, t/q/pct, s) to descriptive names in
       factors/gate/buckets; frontend uses descriptive names throughout. Behavior unchanged, tests green.
 
 ## Standing mandate (per AUTOPILOT, once per phase — not per iteration)
-- [ ] Research current best practice (factor investing, free data sources, screening pitfalls) and
+- [x] Research current best practice (factor investing, free data sources, screening pitfalls) and
       challenge this plan. If a materially better approach exists, write an ADR in `docs/adr/` and
       adjust the backlog. Re-examine settled decisions only with a concrete, sourced reason.
+      DONE 2026-06-26 (ML phase): sourced challenge of the overfitting design (Bailey & LdP) →
+      ADR 0002. Kept the design, made PBO first-class + sharpened framing; rejected N_eff-clustering
+      as churn (needs return-series storage). Measured PBO refreshed 0.69→0.77 over the wider search.
 
 ## Needs Nico (loop cannot do these itself)
 - Git remote / visibility decision before any first push (repo is currently local-only).

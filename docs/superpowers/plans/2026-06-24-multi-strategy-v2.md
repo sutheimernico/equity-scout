@@ -128,12 +128,20 @@ dashboard tab show champion, trial count, rising hurdle, leaderboard, and which 
 5s poll). Live 8-trial run: search already beat the default model (champion MaxDD -19.8% vs -23%).
 
 ### Still open (future sessions)
-- [ ] Per-bet attribution / "why was it wrong" self-analysis (Nico's earlier wish): log each OOS
-      decision + regime context; surface the most instructive misses.
+- [x] Per-bet attribution / "why was it wrong" self-analysis (Nico's earlier wish): log each OOS
+      decision + regime context; surface the most instructive misses. DONE: `ml/attribution.py` +
+      `BetRecord` regime context, wired into `/api/ml` and rendered in `AttributionSection` (MLPanel).
 - [ ] Forward-paper multi-account persistence: accounts advance in real time (not just backtest).
-- [ ] PBO (probability of backtest overfitting) over the ledger as a second overfitting diagnostic.
-- [ ] FRED regime features (VIX/term-spread/HY-spread) as a feature-space extension.
+      (Built: `forward_paper.py` + `/api/forward` + Live tab; needs real calendar days to show a curve.)
+- [x] PBO (probability of backtest overfitting) over the ledger as a second overfitting diagnostic.
+      DONE: `ml/pbo.py` (CSCV) + `scripts/run_pbo.py`, shown first-class in the Auto-Research tab.
+      ADR 0002 (2026-06-26) frames DSR-vs-PBO and the honest high-PBO takeaway.
+- [x] FRED regime features (VIX/term-spread/HY-spread) as a feature-space extension. DONE: `ml/fred.py`
+      (free public CSV, no key) joins the search space when a snapshot exists — `vix` is in the
+      current champion's feature set, `term_spread` recurs among top configs.
 - [ ] Optionally let the ML-Meta tab serve the live champion instead of the default config.
+- [x] CatBoost as a third learner. DONE: in the search-space `MODELS` tuple; the current champion is
+      a CatBoost model.
 
 ## Needs Nico
 - Git remote / first-push decision (repo is local-only; no push without explicit go).
