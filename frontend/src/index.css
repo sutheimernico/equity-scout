@@ -1156,20 +1156,45 @@ code {
 
 /* --- Entry plan block ---------------------------------------------------- */
 .entry-plan { margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
-.entry-head { display: flex; align-items: center; justify-content: space-between; }
+.entry-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .entry-title { font-weight: 600; font-size: var(--text-sm); }
-.entry-flag { font-size: var(--text-xs); color: var(--text-muted); }
-.entry-flag.on { color: var(--accent); font-weight: 600; }
-.entry-range-label { font-size: var(--text-xs); color: var(--text-muted); }
-.entry-levels { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-1); }
+.entry-flag { font-size: var(--text-xs); color: var(--accent); font-weight: 600; white-space: nowrap; }
+.entry-range-label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-bottom: var(--space-1);
+}
+.entry-range-label .nobr { white-space: nowrap; }
+.entry-levels { display: flex; flex-direction: column; gap: var(--space-1); }
+.entry-levels-head,
 .entry-level {
   display: grid;
-  grid-template-columns: 7.5rem 1fr 3.5rem;
-  align-items: center;
-  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) 3.5rem 4rem;
+  gap: var(--space-2);
+  align-items: baseline;
 }
-.entry-level-name { font-size: var(--text-xs); color: var(--text-secondary); white-space: nowrap; }
-.entry-level-price { text-align: right; font-size: var(--text-xs); white-space: nowrap; }
+.entry-levels-head {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border-soft);
+}
+.entry-levels-head span:not(:first-child),
+.entry-level-price,
+.entry-level-delta { text-align: right; }
+.entry-level { font-size: var(--text-sm); }
+.entry-level-name { color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.entry-level-name.anchor { color: var(--text-primary); font-weight: 600; }
+.entry-level-price { white-space: nowrap; }
+.entry-level-delta { color: var(--text-muted); white-space: nowrap; }
+.entry-level-delta.below { color: var(--text-secondary); }
+/* Tranche disclosure sits inside the drilldown card — flatten it (no card-in-card elevation) */
+.entry-plan .disclosure { box-shadow: none; background: var(--bg-inset); margin-bottom: 0; }
 
 /* Tranche plan — single column, full width (the drilldown is narrow) */
 .tranche-group { margin-top: var(--space-3); }

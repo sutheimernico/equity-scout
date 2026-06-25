@@ -37,30 +37,34 @@ export function EntryPlanBlock({ ticker }: { ticker: string }) {
     <div className="entry-plan">
       <div className="entry-head">
         <span className="entry-title">Einstiegs-Referenz</span>
-        <span className={p.near_reference ? "entry-flag on" : "entry-flag"}>
-          {p.near_reference ? "Referenzzone erreicht" : "über Referenzzone"}
-        </span>
+        {p.near_reference && <span className="entry-flag">Referenzzone erreicht</span>}
       </div>
       <Explain tone="hint">{p.reference_note} Kein Kaufsignal, keine Kursprognose.</Explain>
 
       <div className="entry-range">
         <span className="entry-range-label">
-          Kurs {p.price} · 52W {p.low_52w}–{p.high_52w} · vom Hoch {pct(p.drawdown_from_high)}
+          <span className="nobr">Kurs {p.price}</span>
+          <span className="nobr">52W {p.low_52w}–{p.high_52w}</span>
+          <span className="nobr">vom Hoch {pct(p.drawdown_from_high)}</span>
         </span>
-        <Bar value={priceFrac} max={1} marker={{ at: priceFrac, label: "Kurs" }} />
+        <Bar value={priceFrac} max={1} marker={{ at: priceFrac }} />
       </div>
 
       <div className="entry-levels">
+        <div className="entry-levels-head">
+          <span>Referenz-Level</span>
+          <span>Preis</span>
+          <span>zum Kurs</span>
+        </div>
         {p.levels.map((lvl) => (
           <div className="entry-level" key={`${lvl.label}_${lvl.price}`} title={lvl.note}>
-            <span className="entry-level-name">{lvl.label}</span>
-            <Bar
-              value={frac(lvl.price, p.low_52w, p.high_52w)}
-              max={1}
-              tone={lvl.kind === "anchor" ? "accent" : undefined}
-              marker={{ at: priceFrac }}
-            />
+            <span className={lvl.kind === "anchor" ? "entry-level-name anchor" : "entry-level-name"}>
+              {lvl.label}
+            </span>
             <span className="entry-level-price tnum">{lvl.price}</span>
+            <span className={`entry-level-delta tnum ${lvl.price < p.price ? "below" : ""}`}>
+              {pct(p.price > 0 ? lvl.price / p.price - 1 : 0)}
+            </span>
           </div>
         ))}
       </div>
