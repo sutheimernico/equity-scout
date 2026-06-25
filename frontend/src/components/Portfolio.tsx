@@ -1,6 +1,7 @@
 import type { PortfolioState } from "../api";
-import { StatTile } from "./StatTile";
+import { StockChart } from "./StockChart";
 import { PieChart, type PieSlice } from "./ui/PieChart";
+import { StatTile } from "./StatTile";
 
 const euro = (x: number) => `${x.toLocaleString("de-DE", { maximumFractionDigits: 0 })} €`;
 const signedPercent = (x: number) => `${x >= 0 ? "▲ +" : "▼ "}${(x * 100).toFixed(1)} %`;
@@ -90,6 +91,17 @@ export function Portfolio({ data }: { data: PortfolioState }) {
             ))}
           </tbody>
         </table>
+      )}
+
+      {data.positions.length > 0 && (
+        <section className="strat-block">
+          <h3 className="block-title">Kurs-Charts (1 Jahr)</h3>
+          <div className="chart-grid">
+            {data.positions.map((p) => (
+              <StockChart key={p.ticker} ticker={p.ticker} />
+            ))}
+          </div>
+        </section>
       )}
     </>
   );

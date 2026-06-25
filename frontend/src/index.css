@@ -1046,6 +1046,24 @@ code {
   border-top: 1px solid var(--border-soft);
 }
 
+/* Stock charts (TradingView mini widget, 1-year) */
+.stock-chart {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-soft);
+}
+.tv-chart {
+  width: 100%;
+  min-height: 260px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-4);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .chip-pulse::after {
     animation: none;
