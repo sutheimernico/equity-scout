@@ -1,6 +1,6 @@
 import math
 
-from equity_scout.entry import atr, fib_levels, recent_swing_low, sma
+from equity_scout.entry import atr, compute_entry_plan, fib_levels, recent_swing_low, sma
 
 
 def test_sma_uses_last_window():
@@ -53,3 +53,56 @@ def test_atr_drops_nan_rows():
 
 def test_atr_none_on_length_mismatch():
     assert atr([12, 12], [10], [11, 11]) is None
+
+
+def _ramp_then_dip() -> tuple[list[float], list[float], list[float]]:
+    # 260 trading days: rise 100->200 then pull back to 160. Highs/Lows bracket closes by ±1.
+    rising = [100 + i * (100 / 199) for i in range(200)]   # 100 .. 200
+    falling = [200 - i * (40 / 59) for i in range(1, 61)]  # ~199.3 .. 160
+    closes = rising + falling
+    highs = [c + 1 for c in closes]
+    lows = [c - 1 for c in closes]
+    return closes, highs, lows
+
+
+def test_compute_entry_plan_core_levels():
+    closes, highs, lows = _ramp_then_dip()
+    plan = compute_entry_plan("TEST", closes, highs, lows)
+
+    assert plan.ticker == "TEST"
+    assert plan.price == round(closes[-1], 2)       # last close ~160
+    assert plan.high_52w == round(max(highs), 2)    # ~201
+    assert plan.low_52w == round(min(lows), 2)      # ~99
+    assert plan.sma200 is not None
+    # current price (~160) is below the 200-day SMA of a long uptrend -> below "fair value"
+    assert plan.price < plan.sma200
+    # drawdown from the high is negative
+    assert plan.drawdown_from_high < 0
+
+
+def test_compute_entry_plan_tranches_sum_to_one():
+    closes, highs, lows = _ramp_then_dip()
+    plan = compute_entry_plan("TEST", closes, highs, lows)
+
+    assert len(plan.dca_tranches) == 4
+    assert math.isclose(sum(t.fraction for t in plan.dca_tranches), 1.0)
+    assert math.isclose(sum(t.fraction for t in plan.dip_tranches), 1.0)
+    # DCA tranches are time-based (no trigger price); dip tranches have descending triggers
+    assert all(t.trigger_price is None for t in plan.dca_tranches)
+    triggers = [t.trigger_price for t in plan.dip_tranches]
+    assert triggers == sorted(triggers, reverse=True)
+
+
+def test_compute_entry_plan_levels_present():
+    closes, highs, lows = _ramp_then_dip()
+    plan = compute_entry_plan("TEST", closes, highs, lows)
+    labels = {lvl.label for lvl in plan.levels}
+    assert "200-Tage-Schnitt" in labels
+    assert "Fib 61.8 %" in labels
+
+
+def test_compute_entry_plan_handles_short_history():
+    # Two points only — must not crash, sma falls back, atr is None.
+    plan = compute_entry_plan("X", [100.0, 110.0], [101.0, 111.0], [99.0, 109.0])
+    assert plan.price == 110.0
+    assert plan.atr is None

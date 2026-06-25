@@ -8,6 +8,7 @@ Framing: these are REFERENCE levels, not buy signals. No price prediction.
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
 
 def _clean(values: list[float]) -> list[float]:
@@ -71,3 +72,112 @@ def atr(highs: list[float], lows: list[float], closes: list[float], window: int 
         return None
     tail = trs[-window:]
     return sum(tail) / len(tail)
+
+
+@dataclass(frozen=True)
+class EntryLevel:
+    label: str          # "200-Tage-Schnitt", "Fib 61.8 %", "Jüngstes Tief", "−1 ATR"
+    price: float
+    kind: str           # "anchor" | "support" | "volatility"
+    note: str
+
+
+@dataclass(frozen=True)
+class Tranche:
+    label: str                      # "Tranche 1", "Jetzt", "bei −7 %"
+    fraction: float                 # share of capital in [0,1]
+    trigger_price: float | None     # None = time-based (DCA); else the price that arms it
+
+
+@dataclass(frozen=True)
+class EntryPlan:
+    ticker: str
+    price: float
+    sma200: float | None
+    high_52w: float
+    low_52w: float
+    drawdown_from_high: float       # negative fraction, e.g. -0.20
+    atr: float | None
+    levels: list[EntryLevel]
+    dca_tranches: list[Tranche]
+    dip_tranches: list[Tranche]
+    near_reference: bool            # neutral: price is at/below the reference zone — NOT a buy signal
+    reference_note: str
+
+
+_FIB_LABEL = {"0.382": "Fib 38.2 %", "0.5": "Fib 50 %", "0.618": "Fib 61.8 %"}
+
+
+def compute_entry_plan(
+    ticker: str, closes: list[float], highs: list[float], lows: list[float]
+) -> EntryPlan:
+    """Build the full reference-level + tranche plan from 1y of daily OHLC closes."""
+    clean = _clean(closes)
+    price = clean[-1]
+    clean_highs = _clean(highs)
+    clean_lows = _clean(lows)
+    high_52w = max(clean_highs) if clean_highs else price
+    low_52w = min(clean_lows) if clean_lows else price
+    sma200 = sma(closes, window=200)
+    _atr_window = 14
+    atr_val = atr(highs, lows, closes, window=_atr_window) if len(clean) > _atr_window else None
+    drawdown = price / high_52w - 1.0 if high_52w > 0 else 0.0
+    fibs = fib_levels(high_52w, low_52w)
+    swing = recent_swing_low(closes, k=5)
+
+    levels: list[EntryLevel] = []
+    if sma200 is not None:
+        rel = price / sma200 - 1.0
+        levels.append(EntryLevel(
+            "200-Tage-Schnitt", round(sma200, 2), "anchor",
+            f"Langfrist-Anker. Preis liegt {rel * 100:+.1f} % dazu.",
+        ))
+    for ratio, lvl in fibs.items():
+        levels.append(EntryLevel(
+            _FIB_LABEL[ratio], round(lvl, 2), "support",
+            "Retracement vom 52-Wochen-Hoch zum -Tief." if ratio == "0.618"
+            else "Fibonacci-Retracement-Level.",
+        ))
+    if swing is not None:
+        levels.append(EntryLevel(
+            "Jüngstes Tief", round(swing, 2), "support", "Letztes lokales Kurstief (Support)."
+        ))
+    if atr_val is not None:
+        levels.append(EntryLevel(
+            "−1 ATR", round(price - atr_val, 2), "volatility",
+            "Eine durchschnittliche Tagesschwankung unter dem Kurs.",
+        ))
+        levels.append(EntryLevel(
+            "−2 ATR", round(price - 2 * atr_val, 2), "volatility",
+            "Zwei Tagesschwankungen unter dem Kurs (tiefere Pullback-Zone).",
+        ))
+
+    # Baseline: 4 equal, time-staggered DCA tranches (no price trigger).
+    dca = [Tranche(f"Tranche {i + 1}", 0.25, None) for i in range(4)]
+
+    # Option: scale in on drawdown. Thirds at now / -7 % / -15 % relative to the current price.
+    dip = [
+        Tranche("Jetzt", 1 / 3, round(price, 2)),
+        Tranche("bei −7 %", 1 / 3, round(price * 0.93, 2)),
+        Tranche("bei −15 %", 1 / 3, round(price * 0.85, 2)),
+    ]
+
+    # Neutral "reference zone" flag — confluence of below-fair-value AND near a support level.
+    near_support = swing is not None and price <= swing * 1.05
+    near_support = near_support or price <= fibs["0.618"] * 1.02
+    below_anchor = sma200 is not None and price <= sma200
+    near_reference = bool(below_anchor and near_support)
+    if near_reference:
+        note = "Kurs unter dem 200-Tage-Schnitt und nahe einem Support — eine der Referenzzonen."
+    elif below_anchor:
+        note = "Kurs unter dem 200-Tage-Schnitt, aber über den Support-Levels."
+    else:
+        note = "Kurs über dem 200-Tage-Schnitt — keine der Referenzzonen erreicht."
+
+    return EntryPlan(
+        ticker=ticker, price=round(price, 2), sma200=round(sma200, 2) if sma200 else None,
+        high_52w=round(high_52w, 2), low_52w=round(low_52w, 2),
+        drawdown_from_high=round(drawdown, 4), atr=round(atr_val, 2) if atr_val else None,
+        levels=levels, dca_tranches=dca, dip_tranches=dip,
+        near_reference=near_reference, reference_note=note,
+    )
