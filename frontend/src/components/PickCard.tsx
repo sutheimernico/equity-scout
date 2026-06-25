@@ -2,6 +2,8 @@ import { useState } from "react";
 
 import type { Pick } from "../api";
 import { FACTOR_LABELS, FACTOR_ORDER, toPercent } from "../format";
+import { Badge } from "./ui/Badge";
+import { Bar } from "./ui/Bar";
 
 // One pick. Click toggles a transparency drilldown: for each factor we show its percentile, the
 // bucket weight, and the contribution (percentile × weight). The composite is their sum — so the
@@ -22,14 +24,12 @@ export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string
       <div className="card-head">
         <span className="rank tnum">{pick.rank}</span>
         <span className="ticker">{pick.instrument.ticker}</span>
-        <span className="region-tag">{pick.instrument.region}</span>
-        {news.length > 0 && <span className="news-badge" title={`${news.length} aktuelle News`}>📰 {news.length}</span>}
+        <Badge tone="region">{pick.instrument.region}</Badge>
+        {news.length > 0 && <Badge tone="news">📰 {news.length}</Badge>}
         <span className="composite tnum">{toPercent(pick.composite)}</span>
       </div>
       <div className="name">{pick.instrument.name}</div>
-      <div className="bar-track">
-        <div className="bar-fill" style={{ width: `${toPercent(pick.composite)}%` }} />
-      </div>
+      <Bar value={pick.composite} max={1} />
 
       {open && (
         <div className="drill">
@@ -42,9 +42,7 @@ export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string
           {contributions.map((c) => (
             <div className="factor-row" key={c.factor}>
               <span className="flabel">{FACTOR_LABELS[c.factor]}</span>
-              <div className="bar-track">
-                <div className="bar-fill" style={{ width: `${toPercent(c.percentile)}%` }} />
-              </div>
+              <Bar value={c.percentile} max={1} />
               <span className="fweight tnum">{c.weight.toFixed(2)}</span>
               <span className="fcontrib tnum">{toPercent(c.contribution)}</span>
             </div>

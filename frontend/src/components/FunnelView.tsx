@@ -49,6 +49,15 @@ export function FunnelView() {
 
   return (
     <>
+      <header className="section-head">
+        <p className="eyebrow">Aktien-Screener</p>
+        <h1>Globaler Faktor-Funnel</h1>
+        <p className="section-sub">
+          Ein regelbasierter Screen über ein globales Aktienuniversum — fünf Faktor-Gruppen, sortiert in
+          Risiko-Buckets. <strong>Kein KI-Modell</strong>, keine Anlageberatung.
+        </p>
+      </header>
+
       <div className="kpi-row">
         <StatTile label="Universum" value={String(run.universe_size ?? 0)} sub="Aktien gescreent" />
         <StatTile label="Daten ok" value={String(passed)} sub="genug Daten zum Ranken" />
