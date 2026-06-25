@@ -129,7 +129,7 @@ export function StrategyPanel({
       )}
 
       {allocSlices.length > 0 && (
-        <section className="strat-block">
+        <section className="strat-block reveal">
           <h3 className="block-title">Aktuelle Allokation</h3>
           <Explain tone="hint">
             Wohin diese Strategie jetzt allokiert — die Aufteilung, die sie aktuell kaufen/halten würde.
@@ -140,7 +140,7 @@ export function StrategyPanel({
 
       <AllocationAdvisor weights={report.current_weights} />
 
-      <section className="strat-block">
+      <section className="strat-block reveal">
         <h3 className="block-title">Kosten-Sensitivität</h3>
         <Explain tone="hint">Endwert von 1× nach Round-Trip-Kosten — je flacher, desto robuster.</Explain>
         {report.cost_sweep.map(([bps, terminal]) => (
@@ -153,7 +153,7 @@ export function StrategyPanel({
       </section>
 
       {report.recent_trades.length > 0 && (
-        <section className="strat-block">
+        <section className="strat-block reveal">
           <h3 className="block-title">Letzte Umschichtungen</h3>
           <ul className="trade-list">
             {report.recent_trades

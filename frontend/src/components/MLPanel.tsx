@@ -107,7 +107,7 @@ export function MLPanel() {
         ))}
       </div>
 
-      <section className="strat-block">
+      <section className="strat-block reveal">
         <h3 className="block-title">Was das Modell im Schnitt hielt</h3>
         <Explain tone="hint">
           Das Meta-Modell handelt keine Einzelaktien — es steuert nur, wie viel out-of-sample in
@@ -116,7 +116,7 @@ export function MLPanel() {
         <PieChart slices={exposureSlices} fmt={(s) => pctAbs(s, 0)} />
       </section>
 
-      <section className="strat-block">
+      <section className="strat-block reveal">
         <h3 className="block-title">Was das Modell gelernt hat (Feature-Gewichtung)</h3>
         <Explain tone="hint">
           Relativer Einfluss der Regime-Merkmale auf die Entscheidung — gemittelt über alle Trainingsfenster.

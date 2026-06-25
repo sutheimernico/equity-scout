@@ -58,7 +58,7 @@ export function Portfolio({ data }: { data: PortfolioState }) {
       </div>
 
       {slices.length > 0 && (
-        <section className="strat-block">
+        <section className="strat-block reveal">
           <h3 className="block-title">Aufteilung des Depots</h3>
           <PieChart slices={slices} />
         </section>
@@ -94,7 +94,7 @@ export function Portfolio({ data }: { data: PortfolioState }) {
       )}
 
       {data.positions.length > 0 && (
-        <section className="strat-block">
+        <section className="strat-block reveal">
           <h3 className="block-title">Kurs-Charts (1 Jahr)</h3>
           <div className="chart-grid">
             {data.positions.map((p) => (
