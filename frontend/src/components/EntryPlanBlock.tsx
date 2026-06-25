@@ -67,27 +67,28 @@ export function EntryPlanBlock({ ticker }: { ticker: string }) {
 
       <Disclosure summary="Tranchen-Plan (gestaffelt einsteigen)">
         <Explain tone="info">
-          Solider Default: <strong>gestaffeltes DCA</strong> — gleiche Beträge über Zeit. „Buy the
-          Dip" verliert historisch in ~70 % der Fälle gegen stures DCA (Maggiulli). Der
-          Drawdown-Plan unten ist eine Option ohne nachgewiesenen Edge.
+          Solider Default: <strong>gestaffeltes DCA</strong> — gleiche Beträge über die Zeit. „Buy the
+          Dip" verliert historisch in ~70 % der Fälle gegen stures DCA (Maggiulli). Der Drawdown-Plan
+          ist eine Option ohne nachgewiesenen Edge.
         </Explain>
-        <div className="tranche-table">
-          <div className="tranche-col">
-            <div className="tranche-col-head">DCA · gleichmäßig</div>
-            {p.dca_tranches.map((t) => (
-              <div className="tranche-row" key={`${t.label}_${t.fraction}`}>
-                <span>{t.label}</span>
-                <span className="tnum">{Math.round(t.fraction * 100)} %</span>
-              </div>
-            ))}
-          </div>
-          <div className="tranche-col">
-            <div className="tranche-col-head">Drawdown-Scale-in (Option)</div>
+
+        <div className="tranche-group">
+          <div className="tranche-group-head">Gleichmäßig (DCA) · empfohlen</div>
+          <p className="tranche-note">
+            {p.dca_tranches.length} gleiche Tranchen à {Math.round((p.dca_tranches[0]?.fraction ?? 0) * 100)} %,
+            zeitlich gestaffelt.
+          </p>
+        </div>
+
+        <div className="tranche-group">
+          <div className="tranche-group-head">Bei Drawdown nachkaufen · Option</div>
+          <div className="tranche-dip">
             {p.dip_tranches.map((t) => (
-              <div className="tranche-row" key={`${t.label}_${t.trigger_price}`}>
-                <span>{t.label}</span>
-                <span className="tnum">
-                  {Math.round(t.fraction * 100)} %{t.trigger_price ? ` · ${t.trigger_price}` : ""}
+              <div className="tranche-dip-row" key={`${t.label}_${t.trigger_price}`}>
+                <span className="tranche-dip-label">{t.label}</span>
+                <span className="tranche-dip-frac tnum">{Math.round(t.fraction * 100)} %</span>
+                <span className="tranche-dip-price tnum">
+                  {t.trigger_price != null ? `ab ${t.trigger_price}` : "—"}
                 </span>
               </div>
             ))}

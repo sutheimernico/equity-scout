@@ -1155,16 +1155,41 @@ code {
 }
 
 /* --- Entry plan block ---------------------------------------------------- */
-.entry-plan { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.entry-plan { margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
 .entry-head { display: flex; align-items: center; justify-content: space-between; }
-.entry-title { font-weight: 600; }
-.entry-flag { font-size: 0.75rem; opacity: 0.6; }
-.entry-flag.on { opacity: 1; font-weight: 600; }
-.entry-range-label { font-size: 0.8rem; opacity: 0.8; }
-.entry-levels { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.25rem; }
-.entry-level { display: grid; grid-template-columns: 7rem 1fr 4rem; align-items: center; gap: 0.5rem; }
-.entry-level-name { font-size: 0.8rem; }
-.entry-level-price { text-align: right; font-size: 0.8rem; }
-.tranche-table { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem; }
-.tranche-row { display: flex; justify-content: space-between; font-size: 0.85rem; }
-.tranche-col-head { font-weight: 600; font-size: 0.8rem; margin-bottom: 0.25rem; }
+.entry-title { font-weight: 600; font-size: var(--text-sm); }
+.entry-flag { font-size: var(--text-xs); color: var(--text-muted); }
+.entry-flag.on { color: var(--accent); font-weight: 600; }
+.entry-range-label { font-size: var(--text-xs); color: var(--text-muted); }
+.entry-levels { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-1); }
+.entry-level {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr 3.5rem;
+  align-items: center;
+  gap: var(--space-3);
+}
+.entry-level-name { font-size: var(--text-xs); color: var(--text-secondary); white-space: nowrap; }
+.entry-level-price { text-align: right; font-size: var(--text-xs); white-space: nowrap; }
+
+/* Tranche plan — single column, full width (the drilldown is narrow) */
+.tranche-group { margin-top: var(--space-3); }
+.tranche-group-head {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-1);
+}
+.tranche-note { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+.tranche-dip { display: flex; flex-direction: column; gap: var(--space-1); }
+.tranche-dip-row {
+  display: grid;
+  grid-template-columns: 1fr 3rem 5rem;
+  gap: var(--space-3);
+  align-items: baseline;
+  font-size: var(--text-sm);
+}
+.tranche-dip-label { color: var(--text-secondary); }
+.tranche-dip-frac { text-align: right; color: var(--text-muted); white-space: nowrap; }
+.tranche-dip-price { text-align: right; white-space: nowrap; }
