@@ -69,6 +69,27 @@ export function EntryPlanBlock({ ticker }: { ticker: string }) {
         ))}
       </div>
 
+      <Disclosure summary="Was bedeuten diese Niveaus?">
+        <dl className="entry-glossary">
+          <dt>Spalte „zum Kurs"</dt>
+          <dd>Wie weit das Niveau über (+) oder unter (−) dem aktuellen Kurs liegt.</dd>
+          <dt>200-Tage-Schnitt</dt>
+          <dd>Der Durchschnittskurs der letzten ~10 Monate — ein grober Anker für „eher teuer / eher günstig".</dd>
+          <dt>Fibonacci 38.2 / 50 / 61.8 %</dt>
+          <dd>
+            Niveaus, an denen ein gefallener Kurs erfahrungsgemäß oft (kurz) Halt findet. Die 61.8 % gelten
+            als das „tiefe" Einstiegsniveau. Faustregel, kein Naturgesetz.
+          </dd>
+          <dt>Jüngstes Tief</dt>
+          <dd>Der letzte lokale Tiefpunkt im Kursverlauf — ein technischer Boden.</dd>
+          <dt>−1 / −2 ATR</dt>
+          <dd>
+            Eine bzw. zwei durchschnittliche Tagesschwankungen unter dem aktuellen Kurs — wie tief ein
+            ganz normaler Rücksetzer reichen könnte.
+          </dd>
+        </dl>
+      </Disclosure>
+
       <Disclosure summary="Tranchen-Plan (gestaffelt einsteigen)">
         <Explain tone="info">
           Solider Default: <strong>gestaffeltes DCA</strong> — gleiche Beträge über die Zeit. „Buy the

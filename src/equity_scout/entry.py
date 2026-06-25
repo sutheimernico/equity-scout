@@ -105,7 +105,7 @@ class EntryPlan:
     reference_note: str
 
 
-_FIB_LABEL = {"0.382": "Fib 38.2 %", "0.5": "Fib 50 %", "0.618": "Fib 61.8 %"}
+_FIB_LABEL = {"0.382": "Fibonacci 38.2 %", "0.5": "Fibonacci 50 %", "0.618": "Fibonacci 61.8 %"}
 
 
 def compute_entry_plan(

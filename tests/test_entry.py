@@ -100,7 +100,7 @@ def test_compute_entry_plan_levels_present():
     plan = compute_entry_plan("TEST", closes, highs, lows)
     labels = {lvl.label for lvl in plan.levels}
     assert "200-Tage-Schnitt" in labels
-    assert "Fib 61.8 %" in labels
+    assert "Fibonacci 61.8 %" in labels
 
 
 def test_compute_entry_plan_handles_short_history():

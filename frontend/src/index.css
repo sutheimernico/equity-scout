@@ -1195,6 +1195,10 @@ code {
 .entry-level-delta.below { color: var(--text-secondary); }
 /* Tranche disclosure sits inside the drilldown card — flatten it (no card-in-card elevation) */
 .entry-plan .disclosure { box-shadow: none; background: var(--bg-inset); margin-bottom: 0; }
+.entry-glossary { margin: 0; font-size: var(--text-sm); }
+.entry-glossary dt { font-weight: 600; color: var(--text-primary); margin-top: var(--space-2); }
+.entry-glossary dt:first-child { margin-top: 0; }
+.entry-glossary dd { margin: 0 0 0 0; color: var(--text-secondary); line-height: 1.5; }
 
 /* Tranche plan — single column, full width (the drilldown is narrow) */
 .tranche-group { margin-top: var(--space-3); }
