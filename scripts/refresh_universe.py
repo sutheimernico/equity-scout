@@ -12,7 +12,9 @@ from pathlib import Path
 
 from equity_scout.data.constituents import (
     CsvConstituentSource,
+    WikipediaNikkei225Source,
     WikipediaSP500Source,
+    WikipediaStoxx600Source,
     combine_sources,
 )
 
@@ -26,7 +28,12 @@ def main() -> None:
     ap.add_argument("--out", default="data/universe_combined.csv")
     args = ap.parse_args()
 
-    sources = [CsvConstituentSource(args.base_csv), WikipediaSP500Source()]
+    sources = [
+        CsvConstituentSource(args.base_csv),
+        WikipediaSP500Source(),
+        WikipediaStoxx600Source(),
+        WikipediaNikkei225Source(),
+    ]
     universe = combine_sources(sources)
 
     out = Path(args.out)
@@ -41,7 +48,8 @@ def main() -> None:
     prov.write_text(
         f"# Provenance: {out.name}\n\n"
         f"- Retrieved: {now}\n"
-        f"- Sources: hand-curated `{args.base_csv}` + Wikipedia 'List of S&P 500 companies'\n"
+        f"- Sources: hand-curated `{args.base_csv}` + Wikipedia 'List of S&P 500 companies'"
+        f" + Wikipedia 'STOXX Europe 600' + Wikipedia 'Nikkei 225'\n"
         f"- Count: {len(universe)} instruments (deduped by ticker)\n"
         f"- Caveat: Wikipedia tables are unofficial and may change format; re-run to refresh.\n",
         encoding="utf-8",
