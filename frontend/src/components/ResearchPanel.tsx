@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { fetchResearch, type ResearchResponse } from "../api";
-import { ML_FEATURE_LABELS, MODEL_LABELS, num } from "../format";
+import { ML_FEATURE_LABELS, MODEL_LABELS, num, pctAbs } from "../format";
 import { ChampionCard } from "./ChampionCard";
 import { Leaderboard } from "./Leaderboard";
 import { Bar } from "./ui/Bar";
@@ -75,7 +75,22 @@ export function ResearchPanel() {
             <Chip>
               Champion-DSR <b>{num(data.champion?.dsr ?? 0, 2)}</b>
             </Chip>
+            {data.pbo && (
+              <Chip>
+                Overfitting-Test (PBO) <b>{pctAbs(data.pbo.pbo, 0)}</b>
+              </Chip>
+            )}
           </div>
+
+          {data.pbo && (
+            <Explain tone="hint">
+              <strong>PBO {pctAbs(data.pbo.pbo, 0)}</strong> (CSCV über die {data.pbo.n_configs} besten
+              Konfigurationen, {data.pbo.n_blocks} Zeit-Blöcke): die Wahrscheinlichkeit, dass die
+              in-sample-beste Konfiguration out-of-sample unterdurchschnittlich ist. Niedrig = die
+              Bestenliste ist eher Können; hoch (→ 50 %+) = eher Glück. Zweite, unabhängige Overfitting-
+              Diagnostik neben der DSR-Hürde. Stand {data.pbo.computed_at}.
+            </Explain>
+          )}
 
           {data.champion && <ChampionCard champion={data.champion} />}
 

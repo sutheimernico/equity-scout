@@ -206,6 +206,13 @@ export interface ResearchConfig {
   feature_importance: Record<string, number>;
 }
 
+export interface PboResult {
+  pbo: number; // [0,1] — probability of backtest overfitting (CSCV)
+  n_configs: number;
+  n_blocks: number;
+  computed_at: string;
+}
+
 export interface ResearchResponse {
   available: boolean;
   n_trials: number;
@@ -214,6 +221,7 @@ export interface ResearchResponse {
   leaderboard: ResearchConfig[];
   model_frequency?: Record<string, number>;
   feature_frequency?: Record<string, number>;
+  pbo?: PboResult;
   disclaimer: string;
 }
 

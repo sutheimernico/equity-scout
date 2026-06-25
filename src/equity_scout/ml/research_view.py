@@ -8,6 +8,7 @@ from collections import Counter
 
 from equity_scout.metrics import expected_max_sharpe
 from equity_scout.ml.ledger import TrialRecord, load_trials
+from equity_scout.ml.pbo import load_pbo
 
 
 def _record_to_dict(record: TrialRecord) -> dict:
@@ -40,7 +41,7 @@ def research_summary(db_path: str, *, top_n: int = 8) -> dict:
     top = ranked[:top_n]
     model_freq = Counter(r.config.model for r in top)
     feature_freq = Counter(feat for r in top for feat in r.config.features)
-    return {
+    summary = {
         "available": True,
         "n_trials": len(records),
         "hurdle": round(expected_max_sharpe([r.sharpe_periodic for r in records]), 4),
@@ -49,3 +50,7 @@ def research_summary(db_path: str, *, top_n: int = 8) -> dict:
         "model_frequency": dict(model_freq),
         "feature_frequency": dict(feature_freq),
     }
+    pbo = load_pbo(db_path)  # second overfitting diagnostic, computed on demand via scripts/run_pbo.py
+    if pbo is not None:
+        summary["pbo"] = pbo
+    return summary
