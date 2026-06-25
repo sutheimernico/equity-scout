@@ -5,7 +5,13 @@ from equity_scout.chat import build_dashboard_context
 
 
 def test_context_includes_key_numbers_from_each_section() -> None:
-    strategies = [{"name": "60/40", "metrics": {"sharpe": 0.6, "cagr": 0.07, "max_drawdown": -0.30}}]
+    strategies = [
+        {
+            "name": "60/40",
+            "metrics": {"sharpe": 0.6, "cagr": 0.07, "max_drawdown": -0.30},
+            "current_weights": {"SPY": 0.6, "IEF": 0.4},
+        }
+    ]
     ml = {"trained": True, "oos_hit_rate": 0.64, "n_bets": 140, "avg_exposure": 0.5}
     research = {
         "available": True,
@@ -14,15 +20,20 @@ def test_context_includes_key_numbers_from_each_section() -> None:
         "pbo": {"pbo": 0.69},
     }
     forward = [{"strategy_name": "60/40", "total_return": -0.001, "benchmark_return": 0.0, "n_points": 1}]
+    screener = {"Ausgewogen": [{"ticker": "AAPL", "name": "Apple", "region": "US", "composite": 88}]}
 
-    ctx = build_dashboard_context(strategies=strategies, ml=ml, research=research, forward=forward)
+    ctx = build_dashboard_context(
+        strategies=strategies, ml=ml, research=research, forward=forward, screener=screener
+    )
 
     assert "60/40" in ctx
     assert "0.60" in ctx  # benchmark Sharpe
+    assert "SPY 60%" in ctx  # current allocation is in the context now
     assert "64.0%" in ctx  # OOS hit rate
     assert "1300" in ctx  # trials
     assert "69.0%" in ctx  # PBO
     assert "FORWARD" in ctx
+    assert "AAPL" in ctx and "Score 88" in ctx  # screener single-stock picks
 
 
 def test_context_empty_when_no_data() -> None:

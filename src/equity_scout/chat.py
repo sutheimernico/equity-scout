@@ -15,9 +15,11 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 
 SYSTEM_PROMPT = (
     "Du bist der Assistent von equity-scout, einem lokalen Recherche-Tool für systematische "
-    "Anlagestrategien (Paper-Trading, KEINE Anlageberatung). Beantworte Fragen ausschließlich anhand "
-    "des DATEN-Kontexts unten. Gibt der Kontext die Antwort nicht her, sag das ehrlich. Keine "
-    "Kursprognosen, keine Kauf-/Verkaufsempfehlungen. Antworte knapp und auf Deutsch."
+    "Anlagestrategien (Paper-Trading, KEINE Anlageberatung). Beantworte Fragen anhand des DATEN-Kontexts "
+    "unten. Bei Fragen wie 'was soll ich kaufen' nenne konkret, welche Einzelaktien der Aktien-Screener "
+    "aktuell am höchsten rankt und wie die Strategien allokieren — als Recherche-Ergebnis aus den Daten, "
+    "stets mit dem klaren Hinweis, dass das KEINE Anlageberatung ist. Gibt der Kontext etwas nicht her, "
+    "sag das ehrlich. Keine Kursprognosen. Antworte knapp und auf Deutsch."
 )
 
 
@@ -29,17 +31,39 @@ def _fmt_pct(x: float, *, signed: bool = False) -> str:
     return f"{x * 100:+.1f}%" if signed else f"{x * 100:.1f}%"
 
 
-def build_dashboard_context(*, strategies: list, ml: dict | None, research: dict | None, forward: list) -> str:
-    """A compact, model-readable snapshot of the current dashboard numbers."""
+def build_dashboard_context(
+    *,
+    strategies: list,
+    ml: dict | None,
+    research: dict | None,
+    forward: list,
+    screener: dict | None = None,
+) -> str:
+    """A compact, model-readable snapshot of the current dashboard numbers — including the concrete
+    holdings so "what should I buy" questions can be answered: each strategy's current ETF allocation
+    and the screener's top-ranked individual stocks per risk bucket."""
     lines: list[str] = []
     if strategies:
-        lines.append("STRATEGIEN (Backtest nach Kosten, gegen 60/40):")
+        lines.append("STRATEGIEN (Backtest nach Kosten, gegen 60/40; 'Allokation' = was die Strategie JETZT hält):")
         for s in strategies:
             m = s["metrics"]
+            weights = s.get("current_weights") or {}
+            alloc = (
+                ", ".join(f"{t} {round(v * 100)}%" for t, v in sorted(weights.items(), key=lambda kv: -kv[1]))
+                if weights
+                else "—"
+            )
             lines.append(
                 f"- {s['name']}: Sharpe {m['sharpe']:.2f}, Rendite p.a. {_fmt_pct(m['cagr'])}, "
-                f"Max. Verlust {_fmt_pct(m['max_drawdown'])}"
+                f"Max. Verlust {_fmt_pct(m['max_drawdown'])} | Allokation: {alloc}"
             )
+    if screener:
+        lines.append(
+            "\nAKTIEN-SCREENER (regelbasiert, Einzelaktien; Top-Picks je Risiko-Bucket, Composite-Score 0–100):"
+        )
+        for bucket, picks in screener.items():
+            top = "; ".join(f"{p['ticker']} – {p['name']} ({p['region']}, Score {p['composite']})" for p in picks)
+            lines.append(f"- {bucket}: {top}")
     if ml and ml.get("trained"):
         lines.append(
             f"\nML-META-MODELL (out-of-sample): Trefferquote {_fmt_pct(ml['oos_hit_rate'])}, "
