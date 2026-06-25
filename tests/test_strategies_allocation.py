@@ -5,9 +5,10 @@ import pandas as pd
 import pytest
 
 from equity_scout.market import MarketView, PricePanel
-from equity_scout.strategies.base import weights_dict
+from equity_scout.strategies.base import TargetWeight, weights_dict
 from equity_scout.strategies.daa import DefensiveAssetAllocationStrategy, momentum_13612w
 from equity_scout.strategies.dca import DCAStrategy
+from equity_scout.strategies.ensemble import EnsembleStrategy
 from equity_scout.strategies.permanent import PermanentPortfolioStrategy
 from equity_scout.strategies.vol_target import VolatilityTargetStrategy
 
@@ -123,3 +124,29 @@ def test_daa_goes_to_cash_without_enough_history():
     short = _panel({t: [100.0] * 30 for t in _BASE})
     view = MarketView(short, short.dates[-1] + pd.Timedelta(days=1))
     assert weights_dict(_daa().decide(NEXT, view)) == {"BIL": 1.0}
+
+
+# --- Ensemble (multi-strategy blend) ---
+class _Fixed:
+    def __init__(self, name: str, weights: dict[str, float]) -> None:
+        self.name = name
+        self._weights = weights
+
+    def decide(self, as_of, market):
+        return [TargetWeight(t, w) for t, w in self._weights.items()]
+
+
+_ANY_VIEW = MarketView(_panel({"SPY": [100.0] * 5}), pd.Timestamp("2099-01-01"))
+
+
+def test_ensemble_averages_components_equally():
+    blend = EnsembleStrategy([_Fixed("A", {"SPY": 1.0}), _Fixed("B", {"IEF": 1.0})])
+    assert weights_dict(blend.decide(NEXT, _ANY_VIEW)) == pytest.approx({"SPY": 0.5, "IEF": 0.5})
+
+
+def test_ensemble_respects_custom_weights_and_overlap():
+    # 75% of a (SPY) + 25% of b (50/50 SPY/IEF) → SPY 0.875, IEF 0.125
+    blend = EnsembleStrategy(
+        [_Fixed("A", {"SPY": 1.0}), _Fixed("B", {"SPY": 0.5, "IEF": 0.5})], weights=[0.75, 0.25]
+    )
+    assert weights_dict(blend.decide(NEXT, _ANY_VIEW)) == pytest.approx({"SPY": 0.875, "IEF": 0.125})

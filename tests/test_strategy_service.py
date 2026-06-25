@@ -21,10 +21,12 @@ def _full_panel(n: int = 320) -> PricePanel:
 
 
 def test_build_reports_covers_every_strategy():
+    from equity_scout.strategies.registry import default_strategies
+
     reports = build_reports(_full_panel())
-    assert len(reports) == 6
+    assert len(reports) == len(default_strategies())
     names = {r.name for r in reports}
-    assert "60/40" in names and "Defensive Asset Allocation" in names
+    assert {"60/40", "Defensive Asset Allocation", "Multi-Strategie-Mix"} <= names
     assert sum(r.is_benchmark for r in reports) == 1  # exactly the 60/40 benchmark
 
 
@@ -46,7 +48,7 @@ def test_api_strategies_endpoint(tmp_path):
     body = resp.json()
     assert body["available"] is True
     assert body["benchmark"] == "60/40"
-    assert len(body["strategies"]) == 6
+    assert len(body["strategies"]) == 7  # 6 base strategies + the Multi-Strategie-Mix
     assert "disclaimer" in body
 
 

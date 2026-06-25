@@ -10,17 +10,17 @@ from equity_scout.strategies.base import Strategy
 from equity_scout.strategies.daa import DefensiveAssetAllocationStrategy
 from equity_scout.strategies.dca import DCAStrategy
 from equity_scout.strategies.dual_momentum import DualMomentumStrategy
+from equity_scout.strategies.ensemble import EnsembleStrategy
 from equity_scout.strategies.permanent import PermanentPortfolioStrategy
 from equity_scout.strategies.sixty_forty import SixtyFortyStrategy
 from equity_scout.strategies.vol_target import VolatilityTargetStrategy
 
 
 def default_strategies() -> list[Strategy]:
-    return [
-        DCAStrategy(),
-        SixtyFortyStrategy(),
-        PermanentPortfolioStrategy(),
-        VolatilityTargetStrategy(),
-        DualMomentumStrategy(),
-        DefensiveAssetAllocationStrategy(),
-    ]
+    permanent = PermanentPortfolioStrategy()
+    vol_target = VolatilityTargetStrategy()
+    gem = DualMomentumStrategy()
+    daa = DefensiveAssetAllocationStrategy()
+    # Equal-weight blend of the uncorrelated strategy types: allocation + risk-scaling + momentum + trend.
+    blend = EnsembleStrategy([permanent, vol_target, gem, daa])
+    return [DCAStrategy(), SixtyFortyStrategy(), permanent, vol_target, gem, daa, blend]
