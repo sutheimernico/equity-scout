@@ -198,12 +198,15 @@ def fetch_entry_history(ticker: str) -> tuple[list[float], list[float], list[flo
 
     def _hist() -> tuple[list[float], list[float], list[float]]:
         h = yf.Ticker(ticker).history(period="1y", interval="1d")
-        if h.empty:
+        if h.empty or not {"Close", "High", "Low"}.issubset(h.columns):
+            return [], [], []
+        df = h[["Close", "High", "Low"]].dropna()  # drop rows where any of O/H/L is NaN -> aligned, equal-length
+        if df.empty:
             return [], [], []
         return (
-            [float(c) for c in h["Close"].tolist()],
-            [float(c) for c in h["High"].tolist()],
-            [float(c) for c in h["Low"].tolist()],
+            [float(c) for c in df["Close"].tolist()],
+            [float(c) for c in df["High"].tolist()],
+            [float(c) for c in df["Low"].tolist()],
         )
 
     try:
