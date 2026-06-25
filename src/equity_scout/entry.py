@@ -113,6 +113,8 @@ def compute_entry_plan(
 ) -> EntryPlan:
     """Build the full reference-level + tranche plan from 1y of daily OHLC closes."""
     clean = _clean(closes)
+    if len(clean) < 2:
+        raise ValueError("compute_entry_plan needs at least 2 valid closes")
     price = clean[-1]
     clean_highs = _clean(highs)
     clean_lows = _clean(lows)
@@ -120,6 +122,9 @@ def compute_entry_plan(
     low_52w = min(clean_lows) if clean_lows else price
     sma200 = sma(closes, window=200)
     _atr_window = 14
+    # Guard on len(clean): yfinance gaps drop whole OHLC rows together, so the cleaned-close
+    # count tracks the cleaned-row count atr() uses. (A thin ATR from selectively-missing H/L
+    # is not a real yfinance failure mode.)
     atr_val = atr(highs, lows, closes, window=_atr_window) if len(clean) > _atr_window else None
     drawdown = price / high_52w - 1.0 if high_52w > 0 else 0.0
     fibs = fib_levels(high_52w, low_52w)
@@ -142,7 +147,7 @@ def compute_entry_plan(
         levels.append(EntryLevel(
             "Jüngstes Tief", round(swing, 2), "support", "Letztes lokales Kurstief (Support)."
         ))
-    if atr_val is not None:
+    if atr_val:  # truthy: skip both when ATR is None or a meaningless 0.0 (flat price)
         levels.append(EntryLevel(
             "−1 ATR", round(price - atr_val, 2), "volatility",
             "Eine durchschnittliche Tagesschwankung unter dem Kurs.",
@@ -163,9 +168,10 @@ def compute_entry_plan(
     ]
 
     # Neutral "reference zone" flag — confluence of below-fair-value AND near a support level.
-    near_support = swing is not None and price <= swing * 1.05
-    near_support = near_support or price <= fibs["0.618"] * 1.02
+    near_support = (swing is not None and price <= swing * 1.05) or price <= fibs["0.618"] * 1.02
     below_anchor = sma200 is not None and price <= sma200
+    # Deliberate: both conditions required. With no SMA (short history) near_reference is False
+    # by design — we don't flag a "reference zone" without the long-term anchor.
     near_reference = bool(below_anchor and near_support)
     if near_reference:
         note = "Kurs unter dem 200-Tage-Schnitt und nahe einem Support — eine der Referenzzonen."

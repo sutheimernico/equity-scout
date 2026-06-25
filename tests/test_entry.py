@@ -1,5 +1,7 @@
 import math
 
+import pytest
+
 from equity_scout.entry import atr, compute_entry_plan, fib_levels, recent_swing_low, sma
 
 
@@ -106,3 +108,35 @@ def test_compute_entry_plan_handles_short_history():
     plan = compute_entry_plan("X", [100.0, 110.0], [101.0, 111.0], [99.0, 109.0])
     assert plan.price == 110.0
     assert plan.atr is None
+
+
+def test_compute_entry_plan_raises_on_no_valid_closes():
+    with pytest.raises(ValueError):
+        compute_entry_plan("BAD", [], [], [])
+
+
+def test_flat_price_yields_no_atr_and_consistent_state():
+    # Perfectly flat price -> ATR 0.0. The atr field and the ATR levels must agree: both absent.
+    closes = [100.0] * 20
+    plan = compute_entry_plan("FLAT", closes, list(closes), list(closes))
+    assert plan.atr is None
+    assert not any("ATR" in lvl.label for lvl in plan.levels)
+
+
+def test_near_reference_true_when_below_anchor_and_near_support():
+    # V-shape: long decline 200->~100 then a small bounce to ~104. Price sits below the 200d
+    # SMA and inside the fib-61.8 zone, so near_reference must be True.
+    decline = [200 - i * (100 / 209) for i in range(210)]
+    bounce = [100 + i * (4 / 49) for i in range(1, 51)]
+    closes = decline + bounce
+    plan = compute_entry_plan("V", closes, [c + 1 for c in closes], [c - 1 for c in closes])
+    assert plan.sma200 is not None and plan.price < plan.sma200
+    assert plan.near_reference is True
+
+
+def test_near_reference_false_when_above_anchor():
+    # Monotonic rise 100->200: price ends at the high, well above the SMA -> not in a zone.
+    closes = [100 + i * (100 / 259) for i in range(260)]
+    plan = compute_entry_plan("UP", closes, [c + 1 for c in closes], [c - 1 for c in closes])
+    assert plan.sma200 is not None and plan.price > plan.sma200
+    assert plan.near_reference is False
