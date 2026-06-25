@@ -12,6 +12,11 @@ Local, free research harness with two parts, switchable from the dashboard top n
 2. **Aktien-Screener** — the original quant factor screen over a global stock universe → risk buckets
    → LLM thesis → drilldown.
 
+The strategies also run **forward** as live paper accounts (Live tab — a true out-of-sample track that
+builds over real time), the ML tab carries **per-bet self-analysis** (where the model was wrong, in
+which regime) and a second overfitting check (**CSCV-PBO**), and an **Assistent** tab answers questions
+about the current numbers via a local **Ollama** model (no data leaves the machine).
+
 **Research assistant — not investment advice, no edge promise.** Every result is after-cost and
 out-of-sample; the honest takeaway is process/risk, not alpha (see `docs/research/`).
 
@@ -39,6 +44,15 @@ uv run python scripts/run_scout.py --provider yfinance --universe data/universe_
 
 # Advance the paper portfolio against the latest picks (demo money, buy-and-hold; PAPER ONLY)
 uv run python scripts/run_paper.py --db equity_scout.db --bucket balanced --threshold 0.70
+
+# Advance the forward paper accounts one step (daily/cron; idempotent) → "Live (Forward)" tab
+uv run python scripts/run_forward_paper.py --refresh
+
+# Probability of Backtest Overfitting over the top configs (slow, occasional) → Auto-Research tab
+uv run python scripts/run_pbo.py
+
+# Local assistant ("Assistent" tab): run Ollama + pull a model (configurable via OLLAMA_MODEL)
+ollama serve & ollama pull llama3.2
 
 # Build the React dashboard once, then serve it
 cd frontend && npm install && npm run build && cd ..

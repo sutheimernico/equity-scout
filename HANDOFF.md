@@ -4,11 +4,21 @@ Stand nach der großen Ausbau-Session. Alles auf Branch **`feat/multi-strategy-m
 `main` gemerged — Nico reviewt + merged). Gate grün: `uv run pytest -q` + `uv run ruff check .` +
 `npm run typecheck --prefix frontend` + `npm run build --prefix frontend`.
 
-## Laufende Ausbaurunde (4 Stränge, Stand 2026-06-25)
-Nach dem unten beschriebenen Multi-Strategy-Stand läuft eine 4-Strang-Runde (priorisiert): **A UX — DONE**, **B Forward-Paper — DONE**, **C Ehrlichkeits-Analytik — DONE**
-(C1 Per-Bet-Attribution/Selbstanalyse im ML-Tab; C2 CSCV-PBO via `scripts/run_pbo.py` → Auto-Research-
-Tab, erstes Ergebnis PBO≈0.69 = eher Glück; C3 FRED-Makro-Features via public CSV, im Loop-Suchraum
-wenn Snapshot da), D lokaler Chatbot (Ollama) — offen. Strang A: wiederverwendbare UI-Primitives
+## Ausbaurunde 2026-06-25 — 4 Stränge, ALLE DONE
+Nach dem unten beschriebenen Multi-Strategy-Stand: 4-Strang-Runde, komplett umgesetzt auf
+`feat/multi-strategy-ml` (NICHT gemerged — Nico reviewt/merged). Gate je Strang grün.
+- **A UX/Design-Fundament**: wiederverwendbare UI-Primitives (`frontend/src/components/ui/`), Zahlen mit
+  Bezugsrahmen-Ankern, progressive Offenlegung (Disclosure), Section-Header pro Tab, tote CSS weg; Lilac bleibt.
+- **B Forward-Paper**: Strategien laufen fortlaufend vorwärts — `forward_paper.py`+`forward_storage.py`
+  (`forward_paper.db`), CLI `scripts/run_forward_paper.py` (täglich/Cron), `/api/forward`, „Live (Forward)"-Tab.
+- **C Ehrlichkeits-Analytik**: C1 Per-Bet-Attribution/Selbstanalyse (ML-Tab), C2 CSCV-PBO via
+  `scripts/run_pbo.py` → Auto-Research-Tab (erstes Ergebnis PBO≈0.69 = eher Glück), C3 FRED-Makro-Features
+  (`ml/fred.py`, public CSV, kein Key) im Loop-Suchraum wenn Snapshot da.
+- **D Lokaler Chatbot**: `chat.py` + `/api/chat` + „Assistent"-Tab, Ollama-basiert (kein RAG, kompakter
+  Daten-Snapshot in den Prompt). Setup: `ollama serve` + `ollama pull llama3.2` (oder `OLLAMA_MODEL`).
+Specs+Outcomes je Strang: `docs/superpowers/specs/2026-06-25-strang-{a,b,c,d}-*.md`.
+Offen/visuell: Browser-Abnahme der UI durch Nico (kein lokales Screenshot-Tooling in der Build-Umgebung);
+Forward-Track braucht reale Tage, um eine Kurve zu zeigen. Strang A: wiederverwendbare UI-Primitives
 (`frontend/src/components/ui/`), Zahlen mit Bezugsrahmen-Ankern, progressive Offenlegung (Disclosure),
 Section-Header pro Tab, tote CSS entfernt; Lilac bleibt. Strang B: Strategien laufen fortlaufend
 vorwärts — `forward_paper.py` (`ForwardAccount`+`advance_account`, idempotent) + `forward_storage.py`
@@ -58,6 +68,15 @@ uv run python scripts/run_api.py --port 8000      # http://127.0.0.1:8000  (erst
 
 # Continuous research loop im Hintergrund (läuft solange der Laptop an ist, resumable):
 nohup uv run python scripts/run_research.py > research.log 2>&1 &   # Auto-Research-Tab aktualisiert live
+
+# Forward-Paper fortschreiben (täglich/Cron; idempotent pro Tag) → „Live (Forward)"-Tab:
+uv run python scripts/run_forward_paper.py --refresh
+
+# PBO über die Top-Configs berechnen (langsam, gelegentlich) → Auto-Research-Tab:
+uv run python scripts/run_pbo.py
+
+# Lokaler Chatbot („Assistent"-Tab): Ollama lokal starten + Modell ziehen
+ollama serve & ollama pull llama3.2   # Modell wählbar über OLLAMA_MODEL
 ```
 
 ## Was als Nächstes (noch offen)
