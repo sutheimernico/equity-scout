@@ -122,6 +122,7 @@ export const ML_FEATURE_LABELS: Record<string, string> = {
 export const MODEL_LABELS: Record<string, string> = {
   elastic_net: "Elastic-Net",
   random_forest: "Random Forest",
+  catboost: "CatBoost",
 };
 
 export function researchConfigLabel(c: { features: string[]; model: string }): string {

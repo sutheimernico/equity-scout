@@ -13,7 +13,7 @@ from equity_scout.ml.ledger import (
 )
 from equity_scout.ml.meta_model import DEFAULT_CONFIG, MetaConfig
 from equity_scout.ml.research_loop import run_research
-from equity_scout.ml.search import MIN_BETS, EvalResult, evaluate_config, sample_config
+from equity_scout.ml.search import MIN_BETS, MODELS, EvalResult, evaluate_config, sample_config
 
 
 def _eval(features, model, sharpe_periodic, *, n_bets=50, n_obs=2000) -> EvalResult:
@@ -30,7 +30,7 @@ def test_sample_config_is_deterministic_and_valid():
     assert sample_config(7).key() == sample_config(7).key()
     for i in range(12):
         config = sample_config(i)
-        assert config.model in ("elastic_net", "random_forest")
+        assert config.model in MODELS
         assert len(config.features) >= 2
 
 
