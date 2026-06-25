@@ -97,3 +97,26 @@ idempotent (Valuation None, Account unverändert); (4) Turnover-Kosten reduziere
 Strategien laufen per CLI fortlaufend vorwärts, der Track persistiert über Läufe, die UI zeigt ihn
 ehrlich (inkl. Leerzustand). Kein Look-ahead (derselbe `decide`-Pfad), Kosten verrechnet, Benchmark
 mitgeführt.
+
+---
+
+## Outcome (2026-06-25)
+
+Umgesetzt + live verifiziert, alle Gates grün (FE `typecheck`+`build`, `ruff`, `pytest` 136 grün —
+6 neue Forward-Tests). Spec→direkt Umsetzung (kein separater Plan-Doc; Spec war konkret genug, inline-
+Ausführung unter dem Autonomie-Mandat). Commits auf `feat/multi-strategy-ml`:
+
+- `feat(forward)` core: `ForwardAccount` + `advance_account` (Drift + Turnover-Kosten konsistent mit
+  der Engine; idempotent pro Tag) + `forward_storage` (SQLite, `forward_paper.db`).
+- DRY: `turnover()` von `engine.py` nach `strategies/base.py` gehoben (zweiter Konsument existiert jetzt).
+- `feat(forward)` CLI `scripts/run_forward_paper.py` (live getestet: advanced alle 7 Strategien) +
+  `GET /api/forward` (live getestet, liefert alle Accounts + Equity-Kurven).
+- `feat(forward)` UI: „Live (Forward)"-Tab im Strategien-Dashboard, `ForwardPanel` (nutzt Strang-A-
+  Primitives + `EquityChart`, normalisiert auf growth-of-1, ehrlicher Leerzustand bei < 2 Punkten).
+
+**Abweichung von der ursprünglichen Strang-A-Annahme:** Das Screener-Demodepot wird NICHT ersetzt —
+es ist ein anderes Konzept (Einzelaktien-Picks). B *ergänzt* den Forward-Track für die ETF-Strategien.
+
+**Offen / Natur der Sache:** Der Forward-Track hat erst 1 Punkt pro Strategie (erster advance heute).
+Eine sichtbare Kurve braucht ≥ 2 reale Handelstage — Nico lässt `run_forward_paper.py` täglich (oder
+per Cron) laufen. Die Drift-Logik für ≥ 2 Punkte ist durch Unit-Tests abgedeckt.
