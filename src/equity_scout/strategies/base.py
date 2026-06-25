@@ -49,6 +49,12 @@ def weights_dict(weights: list[TargetWeight]) -> dict[str, float]:
     return out
 
 
+def turnover(old: dict[str, float], new: dict[str, float]) -> float:
+    """One-way turnover Σ|Δweight| between two weight dicts — the cost base for a rebalance.
+    Shared by the backtest engine and forward paper trading so the cost convention can't drift."""
+    return sum(abs(new.get(t, 0.0) - old.get(t, 0.0)) for t in set(old) | set(new))
+
+
 def normalise_weights(weights: list[TargetWeight]) -> list[TargetWeight]:
     """Defensive guard the engine applies to any strategy output: drop non-positive weights and
     scale down proportionally if the total exceeds 1 (never lever up implicitly)."""

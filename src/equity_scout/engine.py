@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 
 from equity_scout.market import MarketView, PricePanel
-from equity_scout.strategies.base import Strategy, normalise_weights, weights_dict
+from equity_scout.strategies.base import Strategy, normalise_weights, turnover, weights_dict
 
 _TURNOVER_EPS = 1e-9
 TRADING_DAYS_PER_YEAR = 252
@@ -51,10 +51,6 @@ class BacktestResult:
     @property
     def annual_turnover(self) -> float:
         return self.total_turnover / self.years
-
-
-def _turnover(old: dict[str, float], new: dict[str, float]) -> float:
-    return sum(abs(new.get(t, 0.0) - old.get(t, 0.0)) for t in set(old) | set(new))
 
 
 def run_backtest(
@@ -100,13 +96,13 @@ def run_backtest(
             view = MarketView(panel, date)
             if view.has_data:
                 target = weights_dict(normalise_weights(strategy.decide(date, view)))
-                turnover = _turnover(weights, target)
-                equity *= 1.0 - turnover * cost_rate
+                trade_turnover = turnover(weights, target)
+                equity *= 1.0 - trade_turnover * cost_rate
                 for bps in sweep_bps:
-                    sweep_equity[bps] *= 1.0 - turnover * bps / 10_000.0
-                total_turnover += turnover
-                if turnover > _TURNOVER_EPS:
-                    trades.append(Trade(date.date().isoformat(), target, turnover))
+                    sweep_equity[bps] *= 1.0 - trade_turnover * bps / 10_000.0
+                total_turnover += trade_turnover
+                if trade_turnover > _TURNOVER_EPS:
+                    trades.append(Trade(date.date().isoformat(), target, trade_turnover))
                 weights = target
                 weight_rows[date] = target
 
