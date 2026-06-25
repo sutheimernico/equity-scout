@@ -1,10 +1,11 @@
 import { type StrategyMetrics, type StrategyReport } from "../api";
-import { METRIC_HELP, METRIC_LABELS, num, pct, pctAbs, STRATEGY_PITCH } from "../format";
+import { ETF_NAMES, METRIC_HELP, METRIC_LABELS, num, pct, pctAbs, STRATEGY_PITCH } from "../format";
 import { AllocationAdvisor } from "./AllocationAdvisor";
 import { EquityChart } from "./EquityChart";
 import { Bar } from "./ui/Bar";
 import { Explain } from "./ui/Explain";
 import { Metric, type MetricReference } from "./ui/Metric";
+import { PieChart, type PieSlice } from "./ui/PieChart";
 
 const METRIC_ORDER: (keyof StrategyMetrics)[] = [
   "cagr",
@@ -60,6 +61,12 @@ export function StrategyPanel({
   const baseline = report.cost_sweep[0]?.[1] ?? 1;
   const pitch = STRATEGY_PITCH[report.name];
   const m = report.metrics;
+
+  const allocSlices: PieSlice[] = Object.entries(report.current_weights)
+    .filter(([, w]) => w > 0)
+    .map(([ticker, w]) => ({ label: ETF_NAMES[ticker] ?? ticker, value: w, info: ticker }));
+  const invested = allocSlices.reduce((sum, s) => sum + s.value, 0);
+  if (invested < 0.999) allocSlices.push({ label: "Cash", value: 1 - invested, info: "nicht investiert" });
 
   const refs: Partial<Record<keyof StrategyMetrics, MetricReference>> = {};
   if (benchmark) {
@@ -119,6 +126,16 @@ export function StrategyPanel({
             <Metric key={key} label={METRIC_LABELS[key]} value={formatMetric(key, m[key])} help={METRIC_HELP[key]} />
           ))}
         </div>
+      )}
+
+      {allocSlices.length > 0 && (
+        <section className="strat-block">
+          <h3 className="block-title">Aktuelle Allokation</h3>
+          <Explain tone="hint">
+            Wohin diese Strategie jetzt allokiert — die Aufteilung, die sie aktuell kaufen/halten würde.
+          </Explain>
+          <PieChart slices={allocSlices} fmt={(s) => pctAbs(s, 0)} />
+        </section>
       )}
 
       <AllocationAdvisor weights={report.current_weights} />

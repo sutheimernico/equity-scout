@@ -8,6 +8,7 @@ import { formatMetric } from "./StrategyPanel";
 import { Bar } from "./ui/Bar";
 import { Explain } from "./ui/Explain";
 import { Metric, type MetricReference } from "./ui/Metric";
+import { PieChart, type PieSlice } from "./ui/PieChart";
 
 const STD_METRICS: (keyof StrategyMetrics)[] = ["cagr", "sortino", "calmar", "annual_volatility"];
 
@@ -57,6 +58,11 @@ export function MLPanel() {
     tone: "neg",
   };
 
+  const exposureSlices: PieSlice[] = [
+    { label: "US-Aktien (SPY)", value: r.avg_exposure, info: "Modell folgte dem Trend" },
+    { label: "Cash / T-Bills", value: Math.max(0, 1 - r.avg_exposure), info: "Modell mied den Markt" },
+  ];
+
   return (
     <>
       <Explain>
@@ -100,6 +106,15 @@ export function MLPanel() {
           <Metric key={key} label={METRIC_LABELS[key]} value={formatMetric(key, r.metrics![key])} help={METRIC_HELP[key]} />
         ))}
       </div>
+
+      <section className="strat-block">
+        <h3 className="block-title">Was das Modell im Schnitt hielt</h3>
+        <Explain tone="hint">
+          Das Meta-Modell handelt keine Einzelaktien — es steuert nur, wie viel out-of-sample in
+          US-Aktien (SPY) statt Cash lag. Genau das zeigt dieser Pie.
+        </Explain>
+        <PieChart slices={exposureSlices} fmt={(s) => pctAbs(s, 0)} />
+      </section>
 
       <section className="strat-block">
         <h3 className="block-title">Was das Modell gelernt hat (Feature-Gewichtung)</h3>
