@@ -5,8 +5,10 @@ Stand nach der großen Ausbau-Session. Alles auf Branch **`feat/multi-strategy-m
 `npm run typecheck --prefix frontend` + `npm run build --prefix frontend`.
 
 ## Laufende Ausbaurunde (4 Stränge, Stand 2026-06-25)
-Nach dem unten beschriebenen Multi-Strategy-Stand läuft eine 4-Strang-Runde (priorisiert): **A UX/Design-Fundament — DONE**, **B Forward-Paper — DONE**, C Ehrlichkeits-Analytik
-(Attribution+PBO+FRED), D lokaler Chatbot (Ollama). Strang A: wiederverwendbare UI-Primitives
+Nach dem unten beschriebenen Multi-Strategy-Stand läuft eine 4-Strang-Runde (priorisiert): **A UX — DONE**, **B Forward-Paper — DONE**, **C Ehrlichkeits-Analytik — DONE**
+(C1 Per-Bet-Attribution/Selbstanalyse im ML-Tab; C2 CSCV-PBO via `scripts/run_pbo.py` → Auto-Research-
+Tab, erstes Ergebnis PBO≈0.69 = eher Glück; C3 FRED-Makro-Features via public CSV, im Loop-Suchraum
+wenn Snapshot da), D lokaler Chatbot (Ollama) — offen. Strang A: wiederverwendbare UI-Primitives
 (`frontend/src/components/ui/`), Zahlen mit Bezugsrahmen-Ankern, progressive Offenlegung (Disclosure),
 Section-Header pro Tab, tote CSS entfernt; Lilac bleibt. Strang B: Strategien laufen fortlaufend
 vorwärts — `forward_paper.py` (`ForwardAccount`+`advance_account`, idempotent) + `forward_storage.py`

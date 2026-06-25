@@ -50,5 +50,31 @@ Aggregation, CSCV-PBO auf konstruierter Matrix (bekanntes Ergebnis), FRED-Merge/
 
 ## Abgrenzung / YAGNI
 
-Kein Ledger-Schema-Umbau für PBO (on-demand stattdessen). FRED-Features nicht automatisch in den
-Loop-Search-Space (opt-in). Kein neuer ML-Lerner (CatBoost) — war optional im Backlog, nicht nötig.
+Kein Ledger-Schema-Umbau für PBO (on-demand stattdessen). Kein neuer ML-Lerner (CatBoost) — war
+optional im Backlog, nicht nötig.
+
+---
+
+## Outcome (2026-06-25)
+
+Alle drei Teile umgesetzt + live verifiziert, Gates grün (`ruff`, `pytest` — neue Tests für
+Attribution, FRED, PBO; FE `typecheck`+`build`). Commits auf `feat/multi-strategy-ml`:
+
+- **C1** `feat(attribution)`: `BetRecord` + `MetaResult.bets` in `meta_model.py`, `ml/attribution.py`
+  (`attribution_summary`: Fehler-Ranking nach Konfidenz + Regime-Kontrast korrekt/falsch), durchgereicht
+  via `MLReport.attribution` → `/api/ml`, „Selbstanalyse"-Disclosure im ML-Meta-Tab.
+- **C3** `feat(fred)`: `ml/fred.py` (public `fredgraph.csv`, kein Key, kein neues Dep, gecacht +
+  robust), `regime_features(include_fred=…)`, Search-Pool nimmt FRED auf, **sobald ein Snapshot
+  vorliegt** (`fred_available()`); end-to-end verifiziert (Meta-Modell läuft mit vix/term/hy). FRED-
+  Labels im Frontend.
+- **C2** `feat(pbo)`: `ml/pbo.py` (echtes CSCV, `block_sharpe_matrix` + `probability_of_backtest_
+  overfitting`, on-demand statt Ledger-Umbau), CLI `scripts/run_pbo.py` (persistiert), `/api/research`
+  zeigt es, PBO-Chip + Erklärung im Auto-Research-Tab.
+
+**Erstes echtes Ergebnis:** PBO ≈ **0.69** über die Top-13-Configs — hoch, d. h. die Bestenliste ist
+eher Glück als Können. Ehrlich und konsistent mit der bescheidenen DSR und dem „kein Alpha-Wunder"-
+Framing. Genau die Selbstkritik, die das Tool leisten soll.
+
+**Abweichung zur Spec:** FRED *wird* in den Loop-Search-Space aufgenommen (gated über `fred_available()`),
+nicht nur opt-in — das ist der natürliche „breiter suchen"-Weg und bleibt robust ohne FRED. Research-Loop
+wurde danach neu gestartet, damit er FRED-Features samplet.
