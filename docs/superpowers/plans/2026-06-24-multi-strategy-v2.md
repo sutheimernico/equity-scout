@@ -42,21 +42,21 @@ snapshot), `scripts/run_backtest.py`. Added pandas/numpy as explicit deps. 29 ne
 Live-verified over 2007-2026 (10 ETFs): 60/40 Sharpe 0.75 / MaxDD -32.6%, GEM Sharpe 0.56 / turnover
 3.6x — the cost sweep shows GEM's edge eaten by turnover. Honest, plausible. Deviation: dropped
 `empyrical` (own metrics) and made yfinance `repair` scipy-optional (scipy arrives in Phase E).
-- [ ] `etf_universe.py` — the 10-ETF basket as constants + a multi-asset OHLCV loader (yfinance,
+- [x] `etf_universe.py` — the 10-ETF basket as constants + a multi-asset OHLCV loader (yfinance,
       `auto_adjust=True`, `repair=True`, daily, Parquet snapshot under `data/prices/`). FakeProvider
       path for tests (deterministic synthetic price panels).
-- [ ] `market.py` — `MarketView` over a price panel: `prices_until(as_of)`, `returns_until`,
+- [x] `market.py` — `MarketView` over a price panel: `prices_until(as_of)`, `returns_until`,
       `trailing_return(ticker, months)`, `realised_vol(ticker, window)`. Strictly `< as_of`.
-- [ ] `strategy.py` — `Strategy` Protocol + `TargetWeight`. Two strategies:
+- [x] `strategy.py` — `Strategy` Protocol + `TargetWeight`. Two strategies:
       `SixtyFortyStrategy` (fixed 60% SPY / 40% IEF), `DualMomentumStrategy` (GEM: 12m abs+rel
       momentum, SPY vs VEU, fallback IEF/BIL).
-- [ ] `engine.py` — backtest loop: monthly rebalance dates, `decide` on data ≤ t-1, rebalance at t
+- [x] `engine.py` — backtest loop: monthly rebalance dates, `decide` on data ≤ t-1, rebalance at t
       close, flat-bps cost, daily mark-to-market → equity curve + trade log + turnover.
-- [ ] `metrics.py` — CAGR, ann. vol, Sharpe, Sortino, MaxDD, Calmar, turnover, Deflated Sharpe
+- [x] `metrics.py` — CAGR, ann. vol, Sharpe, Sortino, MaxDD, Calmar, turnover, Deflated Sharpe
       (own impl per López de Prado). Pin `empyrical-reloaded` as a checked backend where it helps.
-- [ ] `scripts/run_backtest.py --strategy {sixty_forty,gem} --costs-bps 10` → table of metrics +
+- [x] `scripts/run_backtest.py --strategy {sixty_forty,gem} --costs-bps 10` → table of metrics +
       cost sweep {0,5,10,20}.
-- Tests: deterministic FakeProvider panel; assert no look-ahead (engine never reads ≥ t), known-input
+- [x] Tests: deterministic FakeProvider panel; assert no look-ahead (engine never reads ≥ t), known-input
       metric values, cost monotonicity (more bps → lower return). Gate green. Merge to `main`.
 
 ## Phase B — Remaining v1 strategies  [DONE 2026-06-25]
@@ -74,20 +74,20 @@ per-strategy tab with an in-house SVG equity curve vs 60/40, metric tiles w/ too
 allocation, cost-sweep bars, recent rebalances, and a compare tab. typecheck + vite build green,
 live-verified (all endpoints 200).
 
-## Phase B-orig — Multi-account persistence (deferred, folded into Phase F)
-- [ ] Generalise `portfolio_storage.py`: `accounts(id, name, strategy, initial_capital, benchmark,
-      created_at)` + `account_id` FK on portfolio/valuations/trades. Migrate the single account.
-- [ ] Strategies: `DCAStrategy` (fixed tranche into SPY/60-40), `VolTargetStrategy`
-      (σ_target/σ̂ on SPY, leverage cap 1.0), `DAAStrategy` (canary VWO+BND, 13612W momentum,
-      offensive/defensive/cash universes), `PermanentPortfolioStrategy` (25/25/25/25 yearly).
-- [ ] Each account: backtest to seed equity history, then forward-advanceable.
-- [ ] `scripts/run_paper.py` advances **all** accounts one step. Tests per strategy (known signals).
+## Phase B-orig — Multi-account persistence (superseded — see Phase F outcome)
+**Superseded 2026-07-01:** this draft's design (`portfolio_storage.py` generalised with an
+`accounts` table) was never built; Phase F shipped a different, simpler persistence path instead —
+`forward_storage.py`'s `forward_accounts` table keyed by `strategy_name`, one row per strategy. The
+strategies listed here (DCA/VolTarget/DAA/Permanent) were all built in Phase B. Superseding design
+decision, not open work — left unchecked intentionally as a record of the road not taken.
+- [ ] ~~Generalise `portfolio_storage.py`: `accounts(id, name, strategy, initial_capital, benchmark,
+      created_at)` + `account_id` FK on portfolio/valuations/trades. Migrate the single account.~~
+- [ ] ~~Each account: backtest to seed equity history, then forward-advanceable.~~
+- [ ] ~~`scripts/run_paper.py` advances **all** accounts one step.~~ → `run_forward_paper.py` instead.
 
-## Phase C — Dashboard tabs + equity chart + metrics/cost harness
-- [ ] API: `GET /api/strategies` (list + headline metrics), `GET /api/strategies/{id}`
-      (equity curve vs benchmark, full metrics, positions, recent orders + reason).
-- [ ] Frontend: strategy tabs, **equity-curve chart vs benchmark** (currently missing), metrics
-      table, cost-sweep panel, a "Compare" tab (all strategies side by side). Keep honest framing.
+## Phase C-orig — Dashboard tabs (superseded — see the Phase C above, [DONE 2026-06-25])
+**Superseded 2026-07-01:** early draft of the same phase; the shipped version above covers this
+scope (API + tabs + equity chart + compare tab) — nothing left open here.
 
 ## Phase D+E — ML meta-model  [DONE 2026-06-25]
 **Outcome:** built the `ml/` package — `labeling.py` (triple-barrier meta-labels), `features.py`
@@ -101,20 +101,24 @@ features, MaxDD halved vs SPY (-23% vs -55%), Sharpe 0.72 vs 0.61 — honest ris
 FRED enrichment (VIX/term-spread/HY-spread) is a documented future extension. The walk-forward's
 per-fold re-training already realises the "periodic retraining" half of the feedback loop.
 
-## Phase D-orig — FRED regime data (deferred extension)
-- [ ] `fred_provider.py` (free key via env, cached, look-ahead-safe; T10Y2Y/VIXCLS/BAMLH0A0HYM2/
-      NFCI/STLFSI4/T10YIE/DGS10). FakeFred for tests.
-- [ ] `features.py` — meta-features orthogonal to primary signal: strategy agreement/conviction,
-      regime (vol-buckets), trend strength, breadth, avg pairwise correlation, strategy rolling
-      hit-rate, drawdown state. All strictly causal (data ≤ t).
+## Phase D-orig — FRED regime data (superseded — see Phase F's "Still open" list)
+**Superseded 2026-07-01:** built later and differently — `ml/fred.py` uses a free public CSV (no
+API key needed, so it stays autonomous) rather than a keyed provider; joins the search space when a
+snapshot exists. `T10Y2Y`/`VIXCLS` etc. as originally scoped here were not all pulled in — only
+`vix`/`term_spread` proved useful in the champion search. Nothing left open here.
+- [ ] ~~`fred_provider.py` (free key via env, cached, look-ahead-safe; T10Y2Y/VIXCLS/BAMLH0A0HYM2/
+      NFCI/STLFSI4/T10YIE/DGS10). FakeFred for tests.~~ → `ml/fred.py`, no-key CSV instead.
+- [ ] ~~`features.py` — meta-features orthogonal to primary signal...~~ → done in Phase D+E's `features.py`.
 
-## Phase E — ML meta-model
-- [ ] `labeling.py` — triple-barrier labels + meta-labels, sample-weight by uniqueness.
-- [ ] `meta_model.py` — Elastic-Net logistic baseline + CatBoost; `P(follow)` → position size.
-- [ ] `validation.py` — purged K-fold + embargo (own/`purgedcv`), Deflated Sharpe + PBO gate,
-      trial counting. CPCV once history allows.
-- [ ] ML-meta as its own account (weights primary signals by `P(follow)`). Tests on synthetic
-      panels with a *known* edge to prove the pipeline recovers it, and on noise to prove DSR rejects.
+## Phase E-orig — ML meta-model (superseded — see Phase D+E above, [DONE 2026-06-25])
+**Superseded 2026-07-01:** early draft of the same phase; the shipped `ml/` package (labeling,
+meta_model, purged walk-forward) plus Phase F's `ml/pbo.py` (CSCV/PBO) and `ml/search.py` (the
+config search, which subsumes "ML-meta as its own account") cover this scope. Nothing left open here.
+- [ ] ~~`labeling.py` — triple-barrier labels + meta-labels, sample-weight by uniqueness.~~ → done.
+- [ ] ~~`meta_model.py` — Elastic-Net logistic baseline + CatBoost; `P(follow)` → position size.~~ → done.
+- [ ] ~~`validation.py` — purged K-fold + embargo, Deflated Sharpe + PBO gate, trial counting.~~
+      → `meta_model.purged_walk_forward` + `ml/pbo.py` + `ml/ledger.py`.
+- [ ] ~~ML-meta as its own account...~~ → superseded by the Auto-Research champion search instead.
 
 ## Phase F — Continuous self-improving research loop  [DONE 2026-06-25]
 **Outcome (Nico's "ML that keeps learning in the background, many dimensions, no overfitting"):**
@@ -139,7 +143,9 @@ dashboard tab show champion, trial count, rising hurdle, leaderboard, and which 
 - [x] FRED regime features (VIX/term-spread/HY-spread) as a feature-space extension. DONE: `ml/fred.py`
       (free public CSV, no key) joins the search space when a snapshot exists — `vix` is in the
       current champion's feature set, `term_spread` recurs among top configs.
-- [ ] Optionally let the ML-Meta tab serve the live champion instead of the default config.
+- [x] Optionally let the ML-Meta tab serve the live champion instead of the default config.
+      DONE 2026-07-01: `build_ml_report` takes an optional `MetaConfig`; `/api/ml` passes the
+      ledger's current champion (`ml/ledger.champion`) when one exists, else the fixed baseline.
 - [x] CatBoost as a third learner. DONE: in the search-space `MODELS` tuple; the current champion is
       a CatBoost model.
 
