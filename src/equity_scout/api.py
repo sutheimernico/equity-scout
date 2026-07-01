@@ -17,7 +17,7 @@ from equity_scout.forward_storage import load_all_accounts
 from equity_scout.forward_storage import load_valuations as load_forward_valuations
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
 from equity_scout.storage import load_latest_run, load_run_summaries
-from equity_scout.ml.ledger import DEFAULT_LEDGER_PATH
+from equity_scout.ml.ledger import DEFAULT_LEDGER_PATH, champion
 from equity_scout.ml.research_view import research_summary
 from equity_scout.strategy_service import BENCHMARK_NAME, build_ml_report, build_reports
 
@@ -64,7 +64,10 @@ def create_app(
         if "ml" not in reports_cache:
             from equity_scout.data.etf_panel import load_snapshot as _load
 
-            reports_cache["ml"] = build_ml_report(_load(snapshot))
+            # Serve the research loop's current champion config once the search has found one;
+            # falls back to the fixed baseline (build_ml_report's default) otherwise.
+            record = champion(ledger) if os.path.exists(ledger) else None
+            reports_cache["ml"] = build_ml_report(_load(snapshot), record.config if record else None)
         return JSONResponse({"available": True, "report": asdict(reports_cache["ml"]), "disclaimer": DISCLAIMER})
 
     @app.get("/api/research")

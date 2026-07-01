@@ -109,6 +109,16 @@ def test_build_ml_report_shapes_oos_curve():
     assert set(report.feature_importance) <= set(FEATURE_NAMES)
 
 
+def test_build_ml_report_honours_a_custom_config():
+    from equity_scout.ml.meta_model import MetaConfig
+    from equity_scout.strategy_service import build_ml_report
+
+    narrow = MetaConfig(features=("vol", "trend"))
+    report = build_ml_report(_wavy_panel(), narrow)
+    assert report.trained
+    assert set(report.feature_importance) <= {"vol", "trend"}
+
+
 def test_run_meta_model_untrained_on_short_history():
     short = PricePanel(pd.DataFrame(
         {t: [100.0 + i for i in range(120)] for t in ["SPY", "VEU", "VWO", "VNQ", "BIL"]},

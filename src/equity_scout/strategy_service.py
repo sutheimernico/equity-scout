@@ -21,7 +21,7 @@ from equity_scout.metrics import (
     periodic_sharpe,
 )
 from equity_scout.ml.attribution import attribution_summary
-from equity_scout.ml.meta_model import run_meta_model
+from equity_scout.ml.meta_model import DEFAULT_CONFIG, MetaConfig, run_meta_model
 from equity_scout.strategies.registry import default_strategies
 
 COST_SWEEP_BPS = (0.0, 5.0, 10.0, 20.0)
@@ -104,11 +104,15 @@ class MLReport:
     attribution: dict = field(default_factory=dict)
 
 
-def build_ml_report(panel: PricePanel, *, risk: str = "SPY", costs_bps: float = 10.0) -> MLReport:
+def build_ml_report(
+    panel: PricePanel, config: MetaConfig | None = None, *, risk: str = "SPY", costs_bps: float = 10.0
+) -> MLReport:
     """Run the meta-model and shape it for the dashboard. The equity curve starts at the first
     out-of-sample bet (the early years are training-only) and is benchmarked against buy-and-hold of
-    the risk asset — the honest question being whether the timing helps versus just holding it."""
-    result = run_meta_model(panel, risk=risk, costs_bps=costs_bps)
+    the risk asset — the honest question being whether the timing helps versus just holding it.
+    `config` defaults to the fixed baseline; the API passes the research loop's current champion
+    when one has been found, so the tab reflects what the search has actually learned."""
+    result = run_meta_model(panel, config or DEFAULT_CONFIG, risk=risk, costs_bps=costs_bps)
     if not result.trained:
         return MLReport(False, None, [], [], 0, 0.0, 0.0, 0.0, {})
 
