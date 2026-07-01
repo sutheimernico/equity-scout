@@ -47,3 +47,10 @@
   MaxDD -9.3% OOS. Sourced overfitting challenge (Bailey & LdP) -> ADR 0002: PBO made first-class +
   framing sharpened, N_eff-clustering rejected as churn. PBO refreshed 0.69->0.77. 180 pytest + ruff
   + FE typecheck/build green. Branch feat/auto-research-ml-loop.
+- 2026-07-01 (autopilot loop) — Closed the last open Phase F item: /api/ml now serves the research
+  loop's current champion config (ml/ledger.champion) instead of always the fixed baseline, falling
+  back gracefully when no ledger/champion exists yet. 2 new tests (build_ml_report with a custom
+  config; /api/ml end-to-end with a seeded champion). 187 pytest + ruff + FE typecheck/build green.
+  Also reconciled stale plan checkboxes (Phases A/B-orig/C-orig/D-orig/E-orig) with what the codebase
+  and Outcome notes actually show — several were fully shipped or superseded but left unchecked,
+  which nearly caused this iteration to duplicate already-done work. Branch autopilot/work.
