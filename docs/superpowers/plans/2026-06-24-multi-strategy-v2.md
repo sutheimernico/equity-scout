@@ -137,6 +137,12 @@ dashboard tab show champion, trial count, rising hurdle, leaderboard, and which 
       `BetRecord` regime context, wired into `/api/ml` and rendered in `AttributionSection` (MLPanel).
 - [ ] Forward-paper multi-account persistence: accounts advance in real time (not just backtest).
       (Built: `forward_paper.py` + `/api/forward` + Live tab; needs real calendar days to show a curve.)
+      FIXED 2026-07-02: `advance_account`'s decision used `MarketView(panel, today + 1 day)`, which
+      reveals data through today inclusive — the backtest engine never lets `decide` see the
+      rebalance day's own close (`MarketView(panel, date)` excludes `date`), so the forward account
+      had a one-day look-ahead edge the backtest never had, breaking their comparability. Now
+      `MarketView(panel, today)` — exact boundary parity with `engine.run_backtest`. 1 new test pins
+      the exact boundary (decide sees `as_of == today` but data only through yesterday).
 - [x] PBO (probability of backtest overfitting) over the ledger as a second overfitting diagnostic.
       DONE: `ml/pbo.py` (CSCV) + `scripts/run_pbo.py`, shown first-class in the Auto-Research tab.
       ADR 0002 (2026-06-26) frames DSR-vs-PBO and the honest high-PBO takeaway.

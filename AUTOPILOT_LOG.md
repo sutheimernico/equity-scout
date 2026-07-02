@@ -54,3 +54,23 @@
   Also reconciled stale plan checkboxes (Phases A/B-orig/C-orig/D-orig/E-orig) with what the codebase
   and Outcome notes actually show — several were fully shipped or superseded but left unchecked,
   which nearly caused this iteration to duplicate already-done work. Branch autopilot/work.
+- 2026-07-02 (10/10-hardening session, 7 tasks in one pass) — (1) Nikkei sectors: derived real
+  industry sectors from the page's own h3 headings instead of hardcoded "Unknown" (222/223 live).
+  (2) Actually ran refresh_universe.py — it was built for STOXX 600 + Nikkei 225 on 2026-06-26 but
+  never re-run, so the committed CSV was still S&P-500-only (531: 503 US / 28 non-US) despite Phase 2
+  being marked DONE for "real global universe"; now 1191 (503 US / 452 EU / 223 JP / 13 other).
+  (3) Historized the universe in SQLite (`data/universe_storage.py`, as_of-keyed snapshots) so a
+  refresh no longer silently overwrites what the universe looked like on past dates — survivorship
+  bias avoidance for later backtest/ML use. (4) Hardened `ClaudeCliAnalysis`: checks the CLI's
+  returncode now (a non-zero exit with stray stdout used to be silently adopted as the thesis); every
+  failure mode degrades to an explicit "These nicht verfügbar (<reason>)". (5) Replaced fetch.py's/
+  yf_provider.py's silent `except Exception` with logging + a thread-safe `FetchStats` counter and a
+  new per-run `data_quality.py` report (fetch error rate, missing fundamentals, gate-filtered count),
+  surfaced via `/api/latest` + a dashboard KPI tile. (6) Fixed a real backtest/forward inconsistency:
+  `advance_account` let the strategy see today's own close before trading on it
+  (`MarketView(panel, today + 1 day)`); the backtest engine never does this. Now exact boundary
+  parity (`MarketView(panel, today)`). (7) ADR 0003: evaluated extending meta-labeling to the factor
+  screener (qlib as reference) vs. splitting the ML loop into its own repo — kept status quo for both
+  on stated grounds, flagged Rank-IC tracking as the correctly-scoped future step. 7 atomic commits,
+  23 new tests (183 → 206), pytest + ruff green throughout, FE typecheck/build green. Branch
+  autopilot/work. New dependency: none (stdlib `logging`/`threading` only).

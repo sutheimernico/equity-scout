@@ -44,11 +44,36 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       suffix mapping; Nikkei is `code + .T`, STOXX is multi-exchange). v2.2 shipped S&P 500 only.
       DONE 2026-06-26: `WikipediaStoxx600Source` (country→suffix map, 459/600 live) +
       `WikipediaNikkei225Source` (tag-strip + `code+.T`, 223/225 live); pure parse fns unit-tested.
+      FIXED 2026-07-02: Nikkei rows were hardcoded `sector="Unknown"` (the page groups sectors by
+      heading, not a column) — sector-relative ranking silently pooled all 223 JP tickers into one
+      meaningless bucket. Now derives sector from the nearest h3 industry heading (222/223 live; the
+      1 remaining Unknown is an honest intro-prose dedup edge case, not a guess). Also found:
+      `refresh_universe.py` was built for STOXX/Nikkei on 2026-06-26 but never actually re-run, so
+      the committed `universe_combined.csv` was still the stale S&P-500-only snapshot (531: 503 US /
+      28 non-US) despite this phase being marked DONE for "real global universe". Re-ran it live:
+      **1191 rows (503 US, 452 EU, 223 JP, 13 other)** — verified via `load_universe`. 9 new tests.
+- [x] Follow-up: historize the universe instead of CSV-overwrite-only, to avoid survivorship bias
+      (a later backtest/ML use of history must not see today's constituent list for every past date).
+      DONE 2026-07-02: `data/universe_storage.py` snapshots each refresh with an `as_of` date in
+      SQLite (mirrors the `storage.py`/`forward_storage.py` pattern); re-running the same day replaces
+      that day's row instead of duplicating it. CSV stays the "latest" export the live pipeline reads.
+      5 new tests.
+- [x] Follow-up: `data/fetch.py`/`data/yf_provider.py` swallowed every fetch exception with a bare
+      `except Exception`, no logging or counting — a provider failing on most tickers looked like
+      just a smaller universe. DONE 2026-07-02: retry attempts + give-ups are now logged; a
+      thread-safe `FetchStats` counts attempted/info_failed/closes_failed; new `data_quality.py`
+      builds a per-run report (fetch error rate, missing fundamentals per field, gate-filtered count)
+      that `run_scout.py` prints and `/api/latest` + a dashboard KPI tile surface. 9 new tests.
 
 ## Phase 3 — Scheduler automation + run history — DONE (2026-06-24)
 - [x] `scripts/scheduled_run.sh` + `docs/scheduling.md` (cron + systemd user-timer templates).
 - [x] Run-history: `load_run_summaries`, `/api/history`, `pick_churn` helper, dashboard history section.
 - [x] Budget-capped LLM theses: `attach_theses(max_per_bucket)` + CLI `--llm-top-n` (default 3).
+- [x] Follow-up: `ClaudeCliAnalysis` shelled `claude -p` without checking its returncode, so a
+      non-zero exit with stray stdout (e.g. an auth error printed to stdout) would have been
+      silently adopted as the thesis. DONE 2026-07-02: every failure mode (non-zero exit, missing
+      binary, timeout, empty stdout) now degrades to an explicit "These nicht verfügbar (<reason>)"
+      message instead. 6 new contract tests mock `subprocess.run`.
 
 ## Phase 4 — Factor / bucket refinement — DONE (2026-06-24)
 - [x] Sector-relative percentile ranking for value/quality/growth (momentum/low-vol stay global).
@@ -97,6 +122,11 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       DONE 2026-06-26 (ML phase): sourced challenge of the overfitting design (Bailey & LdP) →
       ADR 0002. Kept the design, made PBO first-class + sharpened framing; rejected N_eff-clustering
       as churn (needs return-series storage). Measured PBO refreshed 0.69→0.77 over the wider search.
+      DONE 2026-07-02 (10/10-hardening session): challenged whether the ML loop's meta-labeling
+      should extend to the factor screener, or the ML loop should split into its own repo → ADR 0003.
+      Kept status quo for both (data gap: no free point-in-time fundamentals for the non-US majority
+      of the universe; no concrete driver for a repo split yet); flagged Rank-IC tracking on
+      run-history as the correctly-scoped, lower-cost future step instead of meta-labeling.
 
 ## Needs Nico (loop cannot do these itself)
 - Git remote / visibility decision before any first push (repo is currently local-only).
