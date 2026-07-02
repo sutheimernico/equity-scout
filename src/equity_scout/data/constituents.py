@@ -185,13 +185,34 @@ _HTML_TAG = re.compile(r"<[^>]+>")
 # Block-level tags become newlines first, so each bullet stays one line and the name regex (which
 # stops at a newline) can't reach back across entries into surrounding prose.
 _BLOCK_BREAK = re.compile(r"</?(?:li|ul|ol|p|br|tr|div)\b[^>]*>", re.IGNORECASE)
+# The page groups the bullet lists under h3 industry headings (e.g. "Automotive", "Banking") within
+# the "Components" section. h2 section headers (e.g. "Weighting", "Statistics") are deliberately
+# excluded — one of them wraps an unrelated intro-paragraph mention of a constituent. We wrap each
+# h3-h6 heading's text in a sentinel before generic tag-stripping so it survives as its own line and
+# parse_nikkei225_text can recover "which heading came before this bullet" from plain text.
+_SECTOR_HEADING = re.compile(r"<h[3-6][^>]*>(.*?)</h[3-6]>", re.IGNORECASE | re.DOTALL)
+_SECTOR_MARK = "\x00"
+_SECTOR_LINE = re.compile(f"{_SECTOR_MARK}(.*?){_SECTOR_MARK}")
+
+
+def _mark_sector_headings(html: str) -> str:
+    def _wrap(match: re.Match[str]) -> str:
+        heading_text = _HTML_TAG.sub("", match.group(1)).strip()
+        return f"\n{_SECTOR_MARK}{heading_text}{_SECTOR_MARK}\n"
+
+    return _SECTOR_HEADING.sub(_wrap, html)
 
 
 def strip_html_tags(html: str) -> str:
-    """Tag-strip so each bullet becomes its own line '<name> (TYO: NNNN)'. Good enough for this list."""
+    """Tag-strip so each bullet becomes its own line '<name> (TYO: NNNN)'. Good enough for this list.
+
+    Sector headings are marked first (see `_mark_sector_headings`) so they survive as their own
+    sentinel-delimited line instead of disappearing with the rest of the markup.
+    """
     import html as html_module
 
-    with_breaks = _BLOCK_BREAK.sub("\n", html)
+    marked = _mark_sector_headings(html)
+    with_breaks = _BLOCK_BREAK.sub("\n", marked)
     return html_module.unescape(_HTML_TAG.sub("", with_breaks))
 
 
@@ -212,11 +233,29 @@ def _clean_nikkei_name(raw: str) -> str:
     return name.rsplit(sep, 1)[-1].strip() if sep else name
 
 
+def _sector_marks(text: str) -> list[tuple[int, str]]:
+    """Positions of sector-heading sentinels (see `_mark_sector_headings`), in document order."""
+    return [(m.start(), m.group(1).strip()) for m in _SECTOR_LINE.finditer(text)]
+
+
+def _sector_before(marks: list[tuple[int, str]], pos: int) -> str:
+    """The nearest heading at or before `pos`, or 'Unknown' if none precedes it (e.g. an intro-prose
+    mention of a constituent, ahead of the first industry heading)."""
+    sector = "Unknown"
+    for start, name in marks:
+        if start > pos:
+            break
+        sector = name or "Unknown"
+    return sector
+
+
 def parse_nikkei225_text(text: str) -> list[Instrument]:
     """Pure transform: extract '<name> (TYO: NNNN)' entries from Nikkei 225 page text -> Instruments.
 
-    Yahoo symbol = 4-digit TSE code + '.T'. Deduped by code (the page links names that recur).
+    Yahoo symbol = 4-digit TSE code + '.T'. Deduped by code (the page links names that recur); the
+    sector is the nearest industry heading (see `_mark_sector_headings`) at or before the entry.
     """
+    marks = _sector_marks(text)
     out: list[Instrument] = []
     seen: set[str] = set()
     for match in _NIKKEI_ENTRY.finditer(text):
@@ -232,7 +271,7 @@ def parse_nikkei225_text(text: str) -> list[Instrument]:
                 exchange="TSE",
                 region="JP",
                 currency="JPY",
-                sector="Unknown",  # the page groups by sector in headings, not per-row columns
+                sector=_sector_before(marks, match.start()),
             )
         )
     return out

@@ -96,6 +96,37 @@ def test_parse_nikkei225_trims_leading_prose_from_first_entry():
     assert out[0].name == "Tokyo Electron"
 
 
+def test_parse_nikkei225_assigns_sector_from_preceding_h3_heading():
+    html = (
+        '<div class="mw-heading mw-heading3"><h3 id="Automotive">Automotive</h3></div>'
+        "<ul><li><a>Honda Motor</a> Co., Ltd. (<a>TYO</a>: <a>7267</a>)</li></ul>"
+        '<div class="mw-heading mw-heading3"><h3 id="Banking">Banking</h3></div>'
+        "<ul><li><a>Mitsubishi UFJ</a> (<a>TYO</a>: <a>8306</a>)</li></ul>"
+    )
+    out = parse_nikkei225_text(strip_html_tags(html))
+    assert [i.sector for i in out] == ["Automotive", "Banking"]
+
+
+def test_parse_nikkei225_entry_before_any_heading_is_unknown_sector():
+    html = "<p>Tokyo Electron (<a>TYO</a>: <a>8035</a>) is the top constituent by weight.</p>"
+    out = parse_nikkei225_text(strip_html_tags(html))
+    assert out[0].sector == "Unknown"
+
+
+def test_parse_nikkei225_ignores_h2_section_headings():
+    # h2 top-level sections (e.g. "Weighting") must not be mistaken for an industry heading — the
+    # real page has exactly this shape (an h2-level intro mention ahead of the h3 industry list).
+    html = (
+        '<div class="mw-heading mw-heading2"><h2 id="Weighting">Weighting</h2></div>'
+        "<p>Tokyo Electron (<a>TYO</a>: <a>8035</a>) has the largest weight.</p>"
+        '<div class="mw-heading mw-heading3"><h3 id="Electric_machinery">Electric machinery</h3></div>'
+        "<ul><li>Tokyo Electron (<a>TYO</a>: <a>8035</a>)</li></ul>"
+    )
+    out = parse_nikkei225_text(strip_html_tags(html))
+    assert len(out) == 1  # deduped by code — the earlier (intro) mention wins
+    assert out[0].sector == "Unknown"  # not "Weighting"
+
+
 def test_strip_html_tags_breaks_list_items_into_lines():
     # Each <li> becomes its own line so the Nikkei name regex can't reach across entries into prose.
     html = (
