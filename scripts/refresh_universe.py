@@ -1,7 +1,9 @@
 """Refresh the combined universe snapshot from constituent sources.
 
-Network script (scrapes Wikipedia) — not run in tests. Writes a committed CSV snapshot plus a
-provenance note, so live runs read a stable file instead of scraping every time.
+Network script (scrapes Wikipedia) — not run in tests. Writes a committed CSV snapshot (the "latest"
+export the live pipeline reads) plus a provenance note, and archives an `as_of`-dated snapshot in
+SQLite — a CSV overwrite alone would silently discard which names were in the universe on past dates
+(survivorship bias for any later backtest/ML use of history).
 """
 from __future__ import annotations
 
@@ -10,6 +12,7 @@ import csv
 from datetime import datetime, timezone
 from pathlib import Path
 
+from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.data.constituents import (
     CsvConstituentSource,
     WikipediaNikkei225Source,
@@ -17,6 +20,7 @@ from equity_scout.data.constituents import (
     WikipediaStoxx600Source,
     combine_sources,
 )
+from equity_scout.data.universe_storage import init_universe_db, save_universe_snapshot
 
 _FIELDS = ["ticker", "name", "exchange", "region", "currency", "sector"]
 
@@ -26,6 +30,8 @@ def main() -> None:
     ap.add_argument("--base-csv", default="data/universe_v1.csv",
                     help="Hand-curated global universe kept as a source.")
     ap.add_argument("--out", default="data/universe_combined.csv")
+    ap.add_argument("--db", default=DEFAULT_DB_PATH,
+                    help="DB to archive the dated universe snapshot in.")
     args = ap.parse_args()
 
     sources = [
@@ -35,6 +41,7 @@ def main() -> None:
         WikipediaNikkei225Source(),
     ]
     universe = combine_sources(sources)
+    now = datetime.now(timezone.utc)
 
     out = Path(args.out)
     with open(out, "w", newline="", encoding="utf-8") as fh:
@@ -43,18 +50,23 @@ def main() -> None:
         for inst in universe:
             writer.writerow({f: getattr(inst, f) for f in _FIELDS})
 
+    init_universe_db(args.db)
+    as_of = now.date().isoformat()
+    save_universe_snapshot(args.db, as_of=as_of, instruments=universe)
+
     prov = out.with_suffix(".PROVENANCE.md")
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    retrieved = now.isoformat(timespec="seconds")
     prov.write_text(
         f"# Provenance: {out.name}\n\n"
-        f"- Retrieved: {now}\n"
+        f"- Retrieved: {retrieved}\n"
         f"- Sources: hand-curated `{args.base_csv}` + Wikipedia 'List of S&P 500 companies'"
         f" + Wikipedia 'STOXX Europe 600' + Wikipedia 'Nikkei 225'\n"
         f"- Count: {len(universe)} instruments (deduped by ticker)\n"
-        f"- Caveat: Wikipedia tables are unofficial and may change format; re-run to refresh.\n",
+        f"- Caveat: Wikipedia tables are unofficial and may change format; re-run to refresh.\n"
+        f"- Historized: snapshot archived in `{args.db}` (`universe_snapshots`, as_of={as_of}).\n",
         encoding="utf-8",
     )
-    print(f"Wrote {len(universe)} instruments to {out} (+ provenance)")
+    print(f"Wrote {len(universe)} instruments to {out} (+ provenance, + snapshot as_of={as_of} in {args.db})")
 
 
 if __name__ == "__main__":
