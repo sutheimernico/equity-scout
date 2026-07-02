@@ -9,5 +9,5 @@ DISCLAIMER = (
 )
 
 DEFAULT_DB_PATH = "equity_scout.db"
-DEFAULT_UNIVERSE_PATH = "data/universe_combined.csv"  # the full ~530-stock global universe
+DEFAULT_UNIVERSE_PATH = "data/universe_combined.csv"  # the full ~1200-stock global universe
 DEFAULT_FORWARD_DB_PATH = "forward_paper.db"  # forward paper-trading track record (Strang B)

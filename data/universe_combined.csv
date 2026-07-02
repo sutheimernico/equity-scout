@@ -157,7 +157,6 @@ COIN,Coinbase,US,US,USD,Financials
 CL,Colgate-Palmolive,US,US,USD,Consumer Staples
 CMCSA,Comcast,US,US,USD,Communication Services
 FIX,Comfort Systems USA,US,US,USD,Industrials
-CAG,Conagra Brands,US,US,USD,Consumer Staples
 COP,ConocoPhillips,US,US,USD,Energy
 ED,Consolidated Edison,US,US,USD,Utilities
 STZ,Constellation Brands,US,US,USD,Consumer Staples
@@ -200,7 +199,7 @@ DUK,Duke Energy,US,US,USD,Utilities
 DD,DuPont,US,US,USD,Materials
 ETN,Eaton Corporation,US,US,USD,Industrials
 EBAY,eBay Inc.,US,US,USD,Consumer Discretionary
-SATS,EchoStar,US,US,USD,Communication Services
+ECHO,EchoStar,US,US,USD,Communication Services
 ECL,Ecolab,US,US,USD,Materials
 EIX,Edison International,US,US,USD,Utilities
 EW,Edwards Lifesciences,US,US,USD,Health Care
@@ -270,7 +269,8 @@ HSIC,Henry Schein,US,US,USD,Health Care
 HSY,Hershey Company (The),US,US,USD,Consumer Staples
 HPE,Hewlett Packard Enterprise,US,US,USD,Information Technology
 HLT,Hilton Worldwide,US,US,USD,Consumer Discretionary
-HON,Honeywell,US,US,USD,Industrials
+HONA,Honeywell Aerospace,US,US,USD,Industrials
+HON,Honeywell Technologies,US,US,USD,Industrials
 HRL,Hormel Foods,US,US,USD,Consumer Staples
 HST,Host Hotels & Resorts,US,US,USD,Real Estate
 HWM,Howmet Aerospace,US,US,USD,Industrials
@@ -530,3 +530,663 @@ YUM,Yum! Brands,US,US,USD,Consumer Discretionary
 ZBRA,Zebra Technologies,US,US,USD,Information Technology
 ZBH,Zimmer Biomet,US,US,USD,Health Care
 ZTS,Zoetis,US,US,USD,Health Care
+ZURN.SW,Zurich Insurance Group,SW,EU,CHF,Insurance
+GSK.L,GSK plc,L,EU,GBP,Health Care
+RIO.L,Rio Tinto Group,L,EU,GBP,Basic Resources
+INGA.AS,ING Group,AS,EU,EUR,Banks
+UBSG.SW,UBS Group,SW,EU,CHF,Banks
+SAF.PA,Safran,PA,EU,EUR,Industrial Goods and Services
+DG.PA,Vinci,PA,EU,EUR,Construction and Materials
+PRU.L,Prudential plc,L,EU,GBP,Insurance
+BATS.L,British American Tobacco,L,EU,GBP,"Food, Beverage and Tobacco"
+MBG.DE,Mercedes-Benz Group,DE,EU,EUR,Automobiles and Parts
+HLI.L,Haleon,L,EU,GBP,Consumer Products and Services
+FERR.MI,Ferrari,MI,EU,EUR,Automobiles and Parts
+RMS.PA,Hermès,PA,EU,EUR,Consumer Products and Services
+ISP.MI,Intesa Sanpaolo,MI,EU,EUR,Banks
+HMB.ST,H&M,ST,EU,SEK,Retail
+PERP.PA,Pernod Ricard,PA,EU,EUR,"Food, Beverage and Tobacco"
+MICP.PA,Michelin,PA,EU,EUR,Automobiles and Parts
+BKT.MC,Bankinter,MC,EU,EUR,Banks
+CABK.MC,CaixaBank,MC,EU,EUR,Banks
+ENG.MC,Enagás,MC,EU,EUR,Utilities
+NTGY.MC,Naturgy,MC,EU,EUR,Utilities
+FER.AS,Ferrovial,AS,EU,EUR,Construction and Materials
+RED.MC,Redeia,MC,EU,EUR,Utilities
+ITX.MC,Inditex,MC,EU,EUR,Retail
+REP.MC,Repsol,MC,EU,EUR,Energy
+SAB.MC,Banco Sabadell,MC,EU,EUR,Banks
+ATCOa.ST,Atlas Copco,ST,EU,SEK,Industrial Goods and Services
+ERICb.ST,Ericsson,ST,EU,SEK,Telecommunications
+ALFA.ST,Alfa Laval,ST,EU,SEK,Industrial Goods and Services
+SAND.ST,Sandvik AB,ST,EU,SEK,Industrial Goods and Services
+FORTUM.HE,Fortum,HE,EU,EUR,Utilities
+GLEN.L,Glencore,L,EU,GBP,Basic Resources
+NG.L,National Grid,L,EU,GBP,Utilities
+LLOY.L,Lloyds Banking Group,L,EU,GBP,Banks
+CPG.L,Compass Group,L,EU,GBP,Travel and Leisure
+RKT.L,Reckitt,L,EU,GBP,"Personal Care, Drug and Grocery Stores"
+EXPN.L,Experian,L,EU,GBP,Industrial Goods and Services
+IMB.L,Imperial Brands,L,EU,GBP,"Food, Beverage and Tobacco"
+RR.L,Rolls-Royce Holdings,L,EU,GBP,Industrial Goods and Services
+LSEG.L,London Stock Exchange Group,L,EU,GBP,Financial Services
+IAG.L,International Airlines Group,L,EU,GBP,Travel and Leisure
+III.L,3i,L,EU,GBP,Financial Services
+HLMA.L,Halma plc,L,EU,GBP,Industrial Goods and Services
+SMT.L,Scottish Mortgage Investment Trust,L,EU,GBP,Financial Services
+MNG.L,M&G,L,EU,GBP,Financial Services
+SMIN.L,Smiths Group,L,EU,GBP,Industrial Goods and Services
+CRDA.L,Croda International,L,EU,GBP,Chemicals
+PHNX.L,Phoenix Group,L,EU,GBP,Insurance
+UTG.L,Unite Group,L,EU,GBP,Real Estate
+SGRO.L,Segro,L,EU,GBP,Real Estate
+BDEV.L,Barratt Developments,L,EU,GBP,Consumer Products and Services
+PSN.L,Persimmon plc,L,EU,GBP,Consumer Products and Services
+NXT.L,Next plc,L,EU,GBP,Retail
+KGF.L,Kingfisher plc,L,EU,GBP,Retail
+HOLN.SW,Holcim,SW,EU,CHF,Construction and Materials
+SRENH.SW,Swiss Re,SW,EU,CHF,Insurance
+LONN.SW,Lonza Group,SW,EU,CHF,Health Care
+GIVN.SW,Givaudan,SW,EU,CHF,Chemicals
+SIKA.SW,Sika,SW,EU,CHF,Construction and Materials
+STMN.SW,Straumann,SW,EU,CHF,Health Care
+PGHN.SW,Partners Group,SW,EU,CHF,Financial Services
+SOON.SW,Sonova,SW,EU,CHF,Health Care
+LISN.SW,Lindt & Sprüngli,SW,EU,CHF,"Food, Beverage and Tobacco"
+SCHP.SW,Schindler Group,SW,EU,CHF,Industrial Goods and Services
+UHR.SW,Swatch Group,SW,EU,CHF,Consumer Products and Services
+LOGN.SW,Logitech,SW,EU,CHF,Technology
+HELN.SW,Helvetia Insurance,SW,EU,CHF,Insurance
+BALN.SW,Baloise,SW,EU,CHF,Insurance
+GALE.SW,Galenica,SW,EU,CHF,Health Care
+EMSN.SW,Ems-Chemie,SW,EU,CHF,Chemicals
+ABBN.SW,ABB Ltd,SW,EU,CHF,Industrial Goods and Services
+ABN.AS,ABN AMRO,AS,EU,EUR,Banks
+AC.PA,Accor,PA,EU,EUR,Travel and Leisure
+ACS.MC,ACS Group,MC,EU,EUR,Construction and Materials
+ADEN.SW,Adecco,SW,EU,CHF,Industrial Goods and Services
+ADS.DE,Adidas,DE,EU,EUR,Consumer Products and Services
+ADM.L,Admiral Group,L,EU,GBP,Insurance
+ADYEN.AS,Adyen,AS,EU,EUR,Industrial Goods and Services
+AENA.MC,Aena,MC,EU,EUR,Travel and Leisure
+AGS.BR,Ageas,BR,EU,EUR,Insurance
+AIRP.PA,Air Liquide,PA,EU,EUR,Chemicals
+AIR.PA,Airbus,PA,EU,EUR,Industrial Goods and Services
+AKERBP.OL,Aker BP,OL,EU,NOK,Energy
+ALO.PA,Alstom,PA,EU,EUR,Industrial Goods and Services
+AIXA.DE,AIXTRON,DE,EU,EUR,Technology
+ALC.SW,Alcon,SW,EU,CHF,Health Care
+AMBU B.CO,Ambu,CO,EU,DKK,Health Care
+AAL.L,Anglo American plc,L,EU,GBP,Basic Resources
+ABI.BR,Anheuser-Busch InBev,BR,EU,EUR,"Food, Beverage and Tobacco"
+ANTO.L,Antofagasta plc,L,EU,GBP,Basic Resources
+AKE.PA,Arkema,PA,EU,EUR,Chemicals
+AHT.L,Ashtead Group,L,EU,GBP,Industrial Goods and Services
+ASMI.AS,ASM International,AS,EU,EUR,Technology
+ASSA B.ST,Assa Abloy,ST,EU,SEK,Construction and Materials
+ABF.L,Associated British Foods,L,EU,GBP,"Food, Beverage and Tobacco"
+AUTO.L,Auto Trader Group,L,EU,GBP,Media
+AV.L,Aviva,L,EU,GBP,Insurance
+CS.PA,AXA,PA,EU,EUR,Insurance
+AZE.BR,Azelis Group,BR,EU,EUR,Industrial Goods and Services
+BME.L,B&M European Value Retail,L,EU,GBP,Retail
+BA.L,BAE Systems,L,EU,GBP,Industrial Goods and Services
+BALD B.ST,Balder,ST,EU,SEK,Real Estate
+BBY.L,Balfour Beatty,L,EU,GBP,Construction and Materials
+BARC.L,Barclays,L,EU,GBP,Banks
+BOL.ST,Boliden AB,ST,EU,SEK,Basic Resources
+BBVA.MC,Banco Bilbao Vizcaya Argentaria,MC,EU,EUR,Banks
+SAN.MC,Banco Santander,MC,EU,EUR,Banks
+BARN.SW,Barry Callebaut,SW,EU,CHF,"Food, Beverage and Tobacco"
+BAS.DE,BASF,DE,EU,EUR,Chemicals
+BAYN.DE,Bayer,DE,EU,EUR,Health Care
+BEZ.L,Beazley,L,EU,GBP,Insurance
+BEI.DE,Beiersdorf,DE,EU,EUR,Consumer Products and Services
+BEB.SW,Belimo,SW,EU,CHF,Construction and Materials
+BKG.L,Berkeley Group Holdings,L,EU,GBP,Consumer Products and Services
+BNPP.PA,BNP Paribas,PA,EU,EUR,Banks
+BOL.PA,Bolloré,PA,EU,EUR,Industrial Goods and Services
+BP.L,BP,L,EU,GBP,Energy
+BNR.DE,Brenntag,DE,EU,EUR,Chemicals
+BT-A.L,BT Group,L,EU,GBP,Telecommunications
+BNZL.L,Bunzl,L,EU,GBP,Industrial Goods and Services
+BRBY.L,Burberry,L,EU,GBP,Consumer Products and Services
+BVI.PA,Bureau Veritas,PA,EU,EUR,Industrial Goods and Services
+AFX.DE,Carl Zeiss Meditec,DE,EU,EUR,Health Care
+CAPP.PA,Capgemini,PA,EU,EUR,Technology
+CARR.PA,Carrefour,PA,EU,EUR,Retail
+CAST.ST,Castellum,ST,EU,SEK,Real Estate
+CNA.L,Centrica,L,EU,GBP,Utilities
+CCH.SW,Coca-Cola HBC,SW,EU,CHF,"Food, Beverage and Tobacco"
+COLR.BR,Colruyt,BR,EU,EUR,"Personal Care, Drug and Grocery Stores"
+CBK.DE,Commerzbank,DE,EU,EUR,Banks
+CON.DE,Continental,DE,EU,EUR,Automobiles and Parts
+CTEC.L,ConvaTec,L,EU,GBP,Health Care
+1COV.DE,Covestro,DE,EU,EUR,Chemicals
+CAGR.PA,Crédit Agricole,PA,EU,EUR,Banks
+CPR.MI,Davide Campari-Milano,MI,EU,EUR,"Food, Beverage and Tobacco"
+DANO.PA,Danone,PA,EU,EUR,"Food, Beverage and Tobacco"
+DHER.DE,Delivery Hero,DE,EU,EUR,Retail
+DEMANT.CO,Demant,CO,EU,DKK,Health Care
+DLN.L,Derwent London,L,EU,GBP,Real Estate
+DB1.DE,Deutsche Börse,DE,EU,EUR,Financial Services
+DTE.DE,Deutsche Telekom,DE,EU,EUR,Telecommunications
+DHL.DE,DHL Group,DE,EU,EUR,Industrial Goods and Services
+DGE.L,Diageo,L,EU,GBP,"Food, Beverage and Tobacco"
+DPLM.L,Diploma,L,EU,GBP,Industrial Goods and Services
+DLG.L,Direct Line,L,EU,GBP,Insurance
+DOCM.SW,DocMorris,SW,EU,CHF,Health Care
+SMDS.L,DS Smith,L,EU,GBP,Industrial Goods and Services
+EZJ.L,EasyJet,L,EU,GBP,Travel and Leisure
+EDEN.PA,Edenred,PA,EU,EUR,Industrial Goods and Services
+EDP.LS,EDP - Energias de Portugal,LS,EU,EUR,Utilities
+EDPR.LS,EDP Renováveis,LS,EU,EUR,Utilities
+EFGI.PA,Eiffage,PA,EU,EUR,Construction and Materials
+ELUX-B.ST,Electrolux,ST,EU,SEK,Consumer Products and Services
+ELISA.HE,Elisa,HE,EU,EUR,Telecommunications
+EDV.L,Endeavour Mining,L,EU,GBP,Basic Resources
+ENI.MI,Eni,MI,EU,EUR,Energy
+ENEL.MI,Enel,MI,EU,EUR,Utilities
+ENT.L,Entain,L,EU,GBP,Travel and Leisure
+EOAN.DE,E.ON,DE,EU,EUR,Utilities
+EPI A.ST,Epiroc,ST,EU,SEK,Industrial Goods and Services
+EBS.VI,Erste Group,VI,EU,EUR,Banks
+ESLX.PA,EssilorLuxottica,PA,EU,EUR,Health Care
+ENX.AS,Euronext,AS,EU,EUR,Financial Services
+EVK.DE,Evonik Industries,DE,EU,EUR,Chemicals
+EVT.DE,Evotec,DE,EU,EUR,Health Care
+EXO.AS,Exor,AS,EU,EUR,Financial Services
+FRVIA.PA,Forvia,PA,EU,EUR,Automobiles and Parts
+FNTN.DE,Freenet,DE,EU,EUR,Telecommunications
+FME.DE,Fresenius Medical Care,DE,EU,EUR,Health Care
+GALP.LS,Galp Energia,LS,EU,EUR,Energy
+GAW.L,Games Workshop,L,EU,GBP,Consumer Products and Services
+G1A.DE,GEA Group,DE,EU,EUR,Industrial Goods and Services
+GEBN.SW,Geberit,SW,EU,CHF,Construction and Materials
+GFC.PA,Gecina,PA,EU,EUR,Real Estate
+GF.SW,Georg Fischer,SW,EU,CHF,Industrial Goods and Services
+GET.PA,Getlink,PA,EU,EUR,Industrial Goods and Services
+GLB.IR,Glanbia,IR,EU,EUR,"Food, Beverage and Tobacco"
+GN.CO,GN Store Nord,CO,EU,DKK,Health Care
+GFT.IR,Grafton Group,IR,EU,EUR,Industrial Goods and Services
+GRF.MC,Grifols,MC,EU,EUR,Health Care
+HNR.DE,Hannover Re,DE,EU,EUR,Insurance
+HAS.L,Hays,L,EU,GBP,Industrial Goods and Services
+HEI.DE,Heidelberg Materials,DE,EU,EUR,Construction and Materials
+HEN3.DE,Henkel,DE,EU,EUR,Consumer Products and Services
+HIK.L,Hikma Pharmaceuticals,L,EU,GBP,Health Care
+HWDN.L,Howden Joinery,L,EU,GBP,Retail
+BOSS.DE,Hugo Boss,DE,EU,EUR,Consumer Products and Services
+HUSQ B.ST,Husqvarna,ST,EU,SEK,Consumer Products and Services
+IBE.MC,Iberdrola,MC,EU,EUR,Utilities
+INCH.L,Inchcape,L,EU,GBP,Retail
+INDT.ST,Indutrade,ST,EU,SEK,Industrial Goods and Services
+IFX.DE,Infineon Technologies,DE,EU,EUR,Technology
+IHG.L,InterContinental Hotels Group,L,EU,GBP,Travel and Leisure
+ICP.L,Intermediate Capital Group,L,EU,GBP,Financial Services
+ITRK.L,Intertek,L,EU,GBP,Industrial Goods and Services
+IPN.PA,Ipsen,PA,EU,EUR,Health Care
+ITV.L,ITV,L,EU,GBP,Media
+SBRY.L,Sainsbury's,L,EU,GBP,"Personal Care, Drug and Grocery Stores"
+JD.L,JD Sports,L,EU,GBP,Retail
+JMT.LS,Jerónimo Martins,LS,EU,EUR,Retail
+BAER.SW,Julius Baer,SW,EU,CHF,Banks
+KBC.BR,KBC Group,BR,EU,EUR,Banks
+KER.PA,Kering,PA,EU,EUR,Consumer Products and Services
+KNEBV.HE,Kone,HE,EU,EUR,Industrial Goods and Services
+KPN.AS,KPN,AS,EU,EUR,Telecommunications
+LAND.L,Land Securities,L,EU,GBP,Real Estate
+LXS.DE,Lanxess,DE,EU,EUR,Chemicals
+LEG.DE,LEG Immobilien,DE,EU,EUR,Real Estate
+LDO.MI,Leonardo,MI,EU,EUR,Industrial Goods and Services
+LSG.OL,Lerøy Seafood,OL,EU,NOK,"Food, Beverage and Tobacco"
+LII.L,Liberty Global,L,EU,GBP,Telecommunications
+LIF.IR,LifeCo,IR,EU,EUR,Insurance
+LIN.L,Linde plc,L,EU,GBP,Chemicals
+LHA.DE,Lufthansa,DE,EU,EUR,Travel and Leisure
+LUMI.PA,Lumibird,PA,EU,EUR,Technology
+MAERSK B.CO,Maersk,CO,EU,DKK,Industrial Goods and Services
+MAN.DE,MAN SE,DE,EU,EUR,Industrial Goods and Services
+MB.MI,Mediobanca,MI,EU,EUR,Financial Services
+MELE.BR,Melexis,BR,EU,EUR,Technology
+MEL.MC,Meliá Hotels,MC,EU,EUR,Travel and Leisure
+MRL.MC,Merlin Properties,MC,EU,EUR,Real Estate
+METSO.HE,Metso,HE,EU,EUR,Industrial Goods and Services
+TIGO.ST,Millicom,ST,EU,SEK,Telecommunications
+MCG.L,Mobico Group,L,EU,GBP,Travel and Leisure
+MONC.MI,Moncler,MI,EU,EUR,Consumer Products and Services
+MNDI.L,Mondi,L,EU,GBP,Industrial Goods and Services
+MOR.DE,MorphoSys,DE,EU,EUR,Health Care
+MUV2.DE,Munich Re,DE,EU,EUR,Insurance
+MTX.DE,MTU Aero Engines,DE,EU,EUR,Industrial Goods and Services
+NWG.L,NatWest Group,L,EU,GBP,Banks
+NEM.DE,Nemetschek,DE,EU,EUR,Technology
+NEOEN.PA,Neoen,PA,EU,EUR,Utilities
+NSN.HE,Neste,HE,EU,EUR,Energy
+NEX.PA,Nexans,PA,EU,EUR,Industrial Goods and Services
+NEXI.MI,Nexi,MI,EU,EUR,Industrial Goods and Services
+NIBE B.ST,Nibe Industrier,ST,EU,SEK,Construction and Materials
+NN.AS,NN Group,AS,EU,EUR,Insurance
+NOKIA.HE,Nokia,HE,EU,EUR,Technology
+NDA FI.HE,Nordea,HE,EU,EUR,Banks
+NHY.OL,Norsk Hydro,OL,EU,NOK,Basic Resources
+NOV N.SW,Novartis,SW,EU,CHF,Health Care
+NOVO B.CO,Novo Nordisk,CO,EU,DKK,Health Care
+OCDO.L,Ocado,L,EU,GBP,Retail
+OCI.AS,OCI,AS,EU,EUR,Chemicals
+OERL.SW,Oerlikon,SW,EU,CHF,Industrial Goods and Services
+OMV.VI,OMV,VI,EU,EUR,Energy
+ONT.BR,Ontex,BR,EU,EUR,"Personal Care, Drug and Grocery Stores"
+ORA.PA,Orange S.A.,PA,EU,EUR,Telecommunications
+ORK.OL,Orkla ASA,OL,EU,NOK,"Food, Beverage and Tobacco"
+ORSTED.CO,Ørsted,CO,EU,DKK,Utilities
+PANDORA.CO,Pandora,CO,EU,DKK,Consumer Products and Services
+PBB.DE,Deutsche Pfandbriefbank,DE,EU,EUR,Banks
+P911.DE,Porsche,DE,EU,EUR,Automobiles and Parts
+PNL.AS,PostNL,AS,EU,EUR,Industrial Goods and Services
+PSN.PA,Publicis,PA,EU,EUR,Media
+PUM.DE,Puma,DE,EU,EUR,Consumer Products and Services
+QIA.AS,Qiagen,AS,EU,EUR,Health Care
+RBI.VI,Raiffeisen Bank International,VI,EU,EUR,Banks
+REC.MI,Recordati,MI,EU,EUR,Health Care
+RHM.DE,Rheinmetall,DE,EU,EUR,Industrial Goods and Services
+RIGN.SW,Transocean,SW,EU,CHF,Energy
+CFR.SW,Richemont,SW,EU,CHF,Consumer Products and Services
+ROL.L,Royal Mail,L,EU,GBP,Industrial Goods and Services
+RWE.DE,RWE,DE,EU,EUR,Utilities
+SGE.L,Sage Group,L,EU,GBP,Technology
+SGO.PA,Saint-Gobain,PA,EU,EUR,Construction and Materials
+SALM.OL,SalMar,OL,EU,NOK,"Food, Beverage and Tobacco"
+SAMPO.HE,Sampo Group,HE,EU,EUR,Insurance
+SANO.HE,Sanoma,HE,EU,EUR,Media
+SECU B.ST,Securitas AB,ST,EU,SEK,Industrial Goods and Services
+SU.PA,Schneider Electric,PA,EU,EUR,Industrial Goods and Services
+SCR.PA,SCOR SE,PA,EU,EUR,Insurance
+SGSN.SW,SGS S.A.,SW,EU,CHF,Industrial Goods and Services
+SIG.SW,SIG Group,SW,EU,CHF,Industrial Goods and Services
+SEB.ST,Skandinaviska Enskilda Banken,ST,EU,SEK,Banks
+SKA B.ST,Skanska,ST,EU,SEK,Construction and Materials
+SKF-B.ST,SKF,ST,EU,SEK,Industrial Goods and Services
+SKY.L,Sky Group,L,EU,GBP,Media
+SN.L,Smith & Nephew,L,EU,GBP,Health Care
+SOLB.BR,Solvay,BR,EU,EUR,Chemicals
+SSE.L,SSE plc,L,EU,GBP,Utilities
+SRB.OL,Storebrand,OL,EU,NOK,Insurance
+STER.HE,Stora Enso,HE,EU,EUR,Basic Resources
+STMPA.SW,STMicroelectronics,SW,EU,CHF,Technology
+SWED A.ST,Swedbank,ST,EU,SEK,Banks
+SWMA.ST,Swedish Match,ST,EU,SEK,"Food, Beverage and Tobacco"
+SCMN.SW,Swisscom,SW,EU,CHF,Telecommunications
+SHB B.ST,Svenska Handelsbanken,ST,EU,SEK,Banks
+SY1.DE,Symrise,DE,EU,EUR,Chemicals
+TATE.L,Tate & Lyle,L,EU,GBP,"Food, Beverage and Tobacco"
+TJW.L,Taylor Wimpey,L,EU,GBP,Consumer Products and Services
+TELIA.ST,Telia Company,ST,EU,SEK,Telecommunications
+TIT.MI,Telecom Italia,MI,EU,EUR,Telecommunications
+TEL2-B.ST,Tele2,ST,EU,SEK,Telecommunications
+TEL.OL,Telenor,OL,EU,NOK,Telecommunications
+TEMN.SW,Temenos Group,SW,EU,CHF,Technology
+TRN.MI,Terna,MI,EU,EUR,Utilities
+TSCO.L,Tesco,L,EU,GBP,Retail
+TKA.DE,ThyssenKrupp,DE,EU,EUR,Industrial Goods and Services
+TOM.AS,TomTom,AS,EU,EUR,Technology
+TTE.PA,TotalEnergies,PA,EU,EUR,Energy
+TRYG.CO,Tryg,CO,EU,DKK,Insurance
+TUI.DE,TUI Group,DE,EU,EUR,Travel and Leisure
+UMI.BR,Umicore,BR,EU,EUR,Chemicals
+UC.MI,UniCredit,MI,EU,EUR,Banks
+UPW.L,United Utilities,L,EU,GBP,Utilities
+UMG.AS,Universal Music Group,AS,EU,EUR,Media
+VALMT.HE,Valmet,HE,EU,EUR,Industrial Goods and Services
+VACN.SW,VAT Group,SW,EU,CHF,Industrial Goods and Services
+VESTAS.CO,Vestas,CO,EU,DKK,Energy
+VIV.PA,Vivendi,PA,EU,EUR,Media
+VOD.L,Vodafone,L,EU,GBP,Telecommunications
+VOLV B.ST,Volvo Group,ST,EU,SEK,Industrial Goods and Services
+VNA.DE,Vonovia,DE,EU,EUR,Real Estate
+WTB.L,Whitbread,L,EU,GBP,Travel and Leisure
+WKL.AS,Wolters Kluwer,AS,EU,EUR,Media
+WPP.L,WPP,L,EU,GBP,Media
+PSON.L,Pearson,L,EU,GBP,Media
+PNN.L,Pennon Group,L,EU,GBP,Utilities
+PIRC.MI,Pirelli,MI,EU,EUR,Automobiles and Parts
+PLPH.SW,PolyPeptide,SW,EU,CHF,Health Care
+PAH3.DE,Porsche SE,DE,EU,EUR,Automobiles and Parts
+PST.MI,Poste Italiane,MI,EU,EUR,Insurance
+PROX.BR,Proximus,BR,EU,EUR,Telecommunications
+PRY.MI,Prysmian,MI,EU,EUR,Industrial Goods and Services
+QLT.L,Quilter,L,EU,GBP,Financial Services
+FRA.DE,Rational,DE,EU,EUR,Industrial Goods and Services
+REL.L,RELX,L,EU,GBP,Media
+RCO.PA,Rémy Cointreau,PA,EU,EUR,"Food, Beverage and Tobacco"
+RNO.PA,Renault,PA,EU,EUR,Automobiles and Parts
+RTO.L,Rentokil Initial,L,EU,GBP,Industrial Goods and Services
+RXL.PA,Rexel,PA,EU,EUR,Industrial Goods and Services
+RMV.L,Rightmove,L,EU,GBP,Real Estate
+S4.L,S4 Capital,L,EU,GBP,Media
+SDZ.SW,Sandoz,SW,EU,CHF,Health Care
+SRT3.DE,Sartorius,DE,EU,EUR,Health Care
+SCHA.OL,Schibsted,OL,EU,NOK,Media
+SDR.L,Schroders,L,EU,GBP,Financial Services
+G24.DE,Scout24,DE,EU,EUR,Technology
+SVT.L,Severn Trent,L,EU,GBP,Utilities
+LIGHT.AS,Signify,AS,EU,EUR,Construction and Materials
+SIX2.DE,Sixt,DE,EU,EUR,Consumer Products and Services
+SKG.IR,Smurfit Kappa,IR,EU,EUR,Industrial Goods and Services
+SRG.MI,Snam,MI,EU,EUR,Energy
+GLE.PA,Société Générale,PA,EU,EUR,Banks
+SW.PA,Sodexo,PA,EU,EUR,Travel and Leisure
+SCT.L,Softcat,L,EU,GBP,Technology
+SOW.DE,Software,DE,EU,EUR,Technology
+SXS.L,Spectris,L,EU,GBP,Industrial Goods and Services
+SPX.L,Spirax-Sarco Engineering,L,EU,GBP,Industrial Goods and Services
+STJ.L,St. James's Place,L,EU,GBP,Financial Services
+STAN.L,Standard Chartered,L,EU,GBP,Banks
+STLAM.AS,Stellantis,AS,EU,EUR,Automobiles and Parts
+SWECO B.ST,Sweco,ST,EU,SEK,Construction and Materials
+SLHN.SW,Swiss Life,SW,EU,CHF,Insurance
+SPSN.SW,Swiss Prime Site,SW,EU,CHF,Real Estate
+TLX.DE,Talanx,DE,EU,EUR,Insurance
+TMV.DE,TeamViewer,DE,EU,EUR,Technology
+FTI.L,TechnipFMC,L,EU,GBP,Energy
+TEF.MC,Telefónica,MC,EU,EUR,Telecommunications
+TEP.PA,Teleperformance,PA,EU,EUR,Industrial Goods and Services
+TPG.L,Telecom Plus,L,EU,GBP,Telecommunications
+TGS.OL,TGS,OL,EU,NOK,Energy
+THL.PA,Thales,PA,EU,EUR,Industrial Goods and Services
+TOM.OL,Tomra,OL,EU,NOK,Industrial Goods and Services
+TPK.L,Travis Perkins,L,EU,GBP,Retail
+TREL B.ST,Trelleborg,ST,EU,SEK,Industrial Goods and Services
+8TRA.DE,Traton,DE,EU,EUR,Industrial Goods and Services
+UBI.PA,Ubisoft,PA,EU,EUR,Consumer Products and Services
+URW.PA,Unibail-Rodamco-Westfield,PA,EU,EUR,Real Estate
+UN01.DE,Uniper,DE,EU,EUR,Utilities
+UPM.HE,UPM-Kymmene,HE,EU,EUR,Basic Resources
+FR.PA,Valeo,PA,EU,EUR,Automobiles and Parts
+VK.PA,Vallourec,PA,EU,EUR,Basic Resources
+VAR1.DE,Varta,DE,EU,EUR,Industrial Goods and Services
+VIE.PA,Veolia,PA,EU,EUR,Utilities
+VER.VI,Verbund,VI,EU,EUR,Utilities
+VPLAY B.ST,Viaplay,ST,EU,SEK,Media
+VCT.PA,Vicat,PA,EU,EUR,Construction and Materials
+VIG.VI,Vienna Insurance Group,VI,EU,EUR,Insurance
+VITR.ST,Vitrolife,ST,EU,SEK,Health Care
+VOE.VI,Voestalpine,VI,EU,EUR,Basic Resources
+VPK.AS,Vopak,AS,EU,EUR,Industrial Goods and Services
+WDP.BR,Warehouses De Pauw,BR,EU,EUR,Real Estate
+WEIR.L,Weir Group,L,EU,GBP,Industrial Goods and Services
+WEND.PA,Wendel,PA,EU,EUR,Financial Services
+WIE.VI,Wienerberger,VI,EU,EUR,Construction and Materials
+WIHL.ST,Wihlborgs Fastigheter,ST,EU,SEK,Real Estate
+WISE.L,Wise,L,EU,GBP,Financial Services
+WLN.PA,Worldline,PA,EU,EUR,Industrial Goods and Services
+YAR.OL,Yara International,OL,EU,NOK,Chemicals
+ZAL.DE,Zalando,DE,EU,EUR,Retail
+ANA.MC,Acciona,MC,EU,EUR,Construction and Materials
+ANE.MC,Acciona Energía,MC,EU,EUR,Utilities
+ACX.MC,Acerinox,MC,EU,EUR,Basic Resources
+ADH.OL,Adevinta,OL,EU,NOK,Consumer Products and Services
+AF.PA,Air France-KLM,PA,EU,EUR,Travel and Leisure
+AKZA.AS,AkzoNobel,AS,EU,EUR,Chemicals
+ALLFG.MC,Allfunds Group,MC,EU,EUR,Financial Services
+AML.L,Aston Martin,L,EU,GBP,Automobiles and Parts
+AMS.VI,ams OSRAM,VI,EU,EUR,Technology
+ARGX.AS,Argenx,AS,EU,EUR,Health Care
+ARND.DE,Aroundtown,DE,EU,EUR,Real Estate
+ATOS.PA,Atos,PA,EU,EUR,Technology
+BPOST.BR,Bpost,BR,EU,EUR,Industrial Goods and Services
+BRNW.MI,Brunello Cucinelli,MI,EU,EUR,Consumer Products and Services
+BYG.L,Big Yellow Group,L,EU,GBP,Real Estate
+CASP.ST,Castellum,ST,EU,SEK,Real Estate
+CLN.SW,Clariant,SW,EU,CHF,Chemicals
+CTG.L,Computer Center,L,EU,GBP,Technology
+CTS.DE,CTS Eventim,DE,EU,EUR,Media
+DIA.MC,Dia,MC,EU,EUR,"Personal Care, Drug and Grocery Stores"
+DIE.BR,DIETEREN Group,BR,EU,EUR,Automobiles and Parts
+DSM.SW,DSM-Firmenich,SW,EU,CHF,Chemicals
+DTG.DE,Daimler Truck,DE,EU,EUR,Industrial Goods and Services
+EN.PA,Bouygues,PA,EU,EUR,Construction and Materials
+ENGI.PA,Engie,PA,EU,EUR,Utilities
+EVR.L,Evraz,L,EU,GBP,Basic Resources
+FALK.CO,Falck,CO,EU,DKK,Health Care
+FLOW.AS,Flow Traders,AS,EU,EUR,Financial Services
+FLTR.IR,Flutter Entertainment,IR,EU,EUR,Travel and Leisure
+FOR.MC,FCC,MC,EU,EUR,Construction and Materials
+GREG.L,Greggs,L,EU,GBP,Retail
+GWI.MI,Gruppo Campari,MI,EU,EUR,"Food, Beverage and Tobacco"
+IDP.MI,Interpump Group,MI,EU,EUR,Industrial Goods and Services
+IGGI.L,IG Group,L,EU,GBP,Financial Services
+IMI.L,IMI,L,EU,GBP,Industrial Goods and Services
+INDV.L,Indivior,L,EU,GBP,Health Care
+INF.L,Informa,L,EU,GBP,Media
+INP.L,Investec,L,EU,GBP,Financial Services
+IPX.PA,Ipsos,PA,EU,EUR,Media
+JMAT.L,Johnson Matthey,L,EU,GBP,Chemicals
+JUST.AS,Just Eat Takeaway,AS,EU,EUR,Retail
+KNIN.SW,Kuehne + Nagel,SW,EU,CHF,Industrial Goods and Services
+LANV.PA,Lanvin Group,PA,EU,EUR,Consumer Products and Services
+LGEN.L,Legal & General,L,EU,GBP,Insurance
+LUN.ST,Lundin Energy,ST,EU,SEK,Energy
+MKS.L,Marks & Spencer,L,EU,GBP,Retail
+MONY.L,Moneysupermarket.com,L,EU,GBP,Media
+MRW.L,Morrisons,L,EU,GBP,Retail
+NGG.L,National Grid,L,EU,GBP,Utilities
+8035.T,Tokyo Electron,TSE,JP,JPY,Unknown
+9202.T,ANA Holdings Inc.,TSE,JP,JPY,Air transport
+9201.T,"Japan Airlines Co., Ltd.",TSE,JP,JPY,Air transport
+7267.T,"Honda Motor Co., Ltd.",TSE,JP,JPY,Automotive
+7202.T,Isuzu Motors Ltd.,TSE,JP,JPY,Automotive
+7261.T,Mazda Motor Corp.,TSE,JP,JPY,Automotive
+7211.T,Mitsubishi Motors Corp.,TSE,JP,JPY,Automotive
+7201.T,"Nissan Motor Co., Ltd.",TSE,JP,JPY,Automotive
+7270.T,Subaru Corp.,TSE,JP,JPY,Automotive
+7269.T,Suzuki Motor Corp.,TSE,JP,JPY,Automotive
+7272.T,"Yamaha Motor Company, Ltd.",TSE,JP,JPY,Automotive
+8304.T,"Aozora Bank, Ltd.",TSE,JP,JPY,Banking
+8331.T,"The Chiba Bank, Ltd.",TSE,JP,JPY,Banking
+8354.T,"Fukuoka Financial Group, Inc.",TSE,JP,JPY,Banking
+8411.T,"Mizuho Financial Group, Inc.",TSE,JP,JPY,Banking
+8308.T,"Resona Holdings, Inc.",TSE,JP,JPY,Banking
+5831.T,Shizuoka Financial Group,TSE,JP,JPY,Banking
+8316.T,"Sumitomo Mitsui Financial Group, Inc.",TSE,JP,JPY,Banking
+8309.T,"Sumitomo Mitsui Trust Holdings, Inc.",TSE,JP,JPY,Banking
+7186.T,Yokohama Financial Group,TSE,JP,JPY,Banking
+3407.T,Asahi Kasei Corp.,TSE,JP,JPY,Chemicals
+4061.T,"Denka Co., Ltd.",TSE,JP,JPY,Chemicals
+4901.T,Fujifilm Holdings Corp.,TSE,JP,JPY,Chemicals
+4452.T,Kao Corp.,TSE,JP,JPY,Chemicals
+3405.T,"Kuraray Co., Ltd.",TSE,JP,JPY,Chemicals
+4188.T,Mitsubishi Chemical Holdings Corp.,TSE,JP,JPY,Chemicals
+4183.T,"Mitsui Chemicals, Inc.",TSE,JP,JPY,Chemicals
+4021.T,"Nissan Chemical Industries, Ltd.",TSE,JP,JPY,Chemicals
+6988.T,Nitto Denko,TSE,JP,JPY,Chemicals
+4004.T,Resonac Corp.,TSE,JP,JPY,Chemicals
+4063.T,"Shin-Etsu Chemical Co., Ltd.",TSE,JP,JPY,Chemicals
+4911.T,"Shiseido Co., Ltd.",TSE,JP,JPY,Chemicals
+4005.T,"Sumitomo Chemical Co., Ltd.",TSE,JP,JPY,Chemicals
+4043.T,Tokuyama Corporation,TSE,JP,JPY,Chemicals
+4042.T,Tosoh Corp.,TSE,JP,JPY,Chemicals
+4208.T,"Ube Industries, Ltd.",TSE,JP,JPY,Chemicals
+9433.T,KDDI Corp.,TSE,JP,JPY,Communications
+9432.T,Nippon Telegraph & Telephone Corp.,TSE,JP,JPY,Communications
+9434.T,SoftBank Corp.,TSE,JP,JPY,Communications
+1721.T,Comsys Holdings Corp.,TSE,JP,JPY,Construction
+1925.T,"Daiwa House Industry Co., Ltd.",TSE,JP,JPY,Construction
+1808.T,Haseko Corp.,TSE,JP,JPY,Construction
+1963.T,JGC Corporation,TSE,JP,JPY,Construction
+1812.T,Kajima Corp.,TSE,JP,JPY,Construction
+1802.T,Obayashi Corp.,TSE,JP,JPY,Construction
+1928.T,"Sekisui House, Ltd.",TSE,JP,JPY,Construction
+1803.T,Shimizu Corp.,TSE,JP,JPY,Construction
+1801.T,Taisei Corp.,TSE,JP,JPY,Construction
+6857.T,Advantest Corp.,TSE,JP,JPY,Electric machinery
+6770.T,"Alps Alpine Co., Ltd.",TSE,JP,JPY,Electric machinery
+7751.T,Canon Inc.,TSE,JP,JPY,Electric machinery
+6902.T,Denso Corp.,TSE,JP,JPY,Electric machinery
+6954.T,FANUC Corp.,TSE,JP,JPY,Electric machinery
+6504.T,"Fuji Electric Co., Ltd.",TSE,JP,JPY,Electric machinery
+6702.T,Fujitsu Ltd.,TSE,JP,JPY,Electric machinery
+6501.T,"Hitachi, Ltd.",TSE,JP,JPY,Electric machinery
+6861.T,Keyence Corp.,TSE,JP,JPY,Electric machinery
+6971.T,Kyocera Corp.,TSE,JP,JPY,Electric machinery
+6920.T,Lasertec,TSE,JP,JPY,Electric machinery
+6479.T,"MinebeaMitsumi, Inc.",TSE,JP,JPY,Electric machinery
+6503.T,Mitsubishi Electric Corp.,TSE,JP,JPY,Electric machinery
+6981.T,"Murata Manufacturing Co., Ltd.",TSE,JP,JPY,Electric machinery
+6701.T,NEC Corp.,TSE,JP,JPY,Electric machinery
+6594.T,Nidec,TSE,JP,JPY,Electric machinery
+6645.T,Omron Corp.,TSE,JP,JPY,Electric machinery
+6752.T,Panasonic Corp.,TSE,JP,JPY,Electric machinery
+6723.T,Renesas Electronics,TSE,JP,JPY,Electric machinery
+7752.T,"Ricoh Co., Ltd.",TSE,JP,JPY,Electric machinery
+6963.T,"Rohm Co., Ltd.",TSE,JP,JPY,Electric machinery
+7735.T,SCREEN Holdings,TSE,JP,JPY,Electric machinery
+6724.T,Seiko Epson Corp.,TSE,JP,JPY,Electric machinery
+6753.T,Sharp Corporation,TSE,JP,JPY,Electric machinery
+6526.T,Socionext Inc.,TSE,JP,JPY,Electric machinery
+6976.T,"Taiyo Yuden Co., Ltd.",TSE,JP,JPY,Electric machinery
+6762.T,TDK Corp.,TSE,JP,JPY,Electric machinery
+6506.T,"Yaskawa Electric Corporation, Limited",TSE,JP,JPY,Electric machinery
+6841.T,Yokogawa Electric Corp.,TSE,JP,JPY,Electric machinery
+9502.T,"Chubu Electric Power Co., Inc.",TSE,JP,JPY,Electric power
+9503.T,"The Kansai Electric Power Co., Inc.",TSE,JP,JPY,Electric power
+9501.T,"Tokyo Electric Power Company Holdings, Incorporated",TSE,JP,JPY,Electric power
+1332.T,Nissui Corporation,TSE,JP,JPY,Fishery
+2802.T,"Ajinomoto Co., Inc.",TSE,JP,JPY,Foods
+2502.T,"Asahi Group Holdings, Ltd.",TSE,JP,JPY,Foods
+2914.T,Japan Tobacco Inc.,TSE,JP,JPY,Foods
+2801.T,Kikkoman Corp.,TSE,JP,JPY,Foods
+2503.T,"Kirin Holdings Co, Ltd",TSE,JP,JPY,Foods
+2269.T,"Meiji Holdings Company, Limited",TSE,JP,JPY,Foods
+2282.T,NH Foods Ltd.,TSE,JP,JPY,Foods
+2871.T,Nichirei Corp.,TSE,JP,JPY,Foods
+2002.T,Nisshin Seifun Group Inc.,TSE,JP,JPY,Foods
+2501.T,Sapporo Holdings Ltd.,TSE,JP,JPY,Foods
+9532.T,"Osaka Gas Co., Ltd.",TSE,JP,JPY,Gas
+9531.T,"Tokyo Gas Co., Ltd.",TSE,JP,JPY,Gas
+5201.T,AGC Inc.,TSE,JP,JPY,Glass & ceramics
+5333.T,"NGK Insulators, Ltd.",TSE,JP,JPY,Glass & ceramics
+5214.T,"Nippon Electric Glass Co., Ltd.",TSE,JP,JPY,Glass & ceramics
+5233.T,Taiheiyo Cement Corp.,TSE,JP,JPY,Glass & ceramics
+5301.T,"Tokai Carbon Co., Ltd.",TSE,JP,JPY,Glass & ceramics
+5332.T,Toto Ltd.,TSE,JP,JPY,Glass & ceramics
+8750.T,"Dai-ichi Life Insurance Company, Limited",TSE,JP,JPY,Insurance
+8725.T,"MS&AD Insurance Group, Inc.",TSE,JP,JPY,Insurance
+8630.T,"Sompo Holdings, Inc.",TSE,JP,JPY,Insurance
+8795.T,"T&D Holdings, Inc.",TSE,JP,JPY,Insurance
+8766.T,"Tokio Marine Holdings, Inc.",TSE,JP,JPY,Insurance
+9147.T,Nippon Express Holdings Inc.,TSE,JP,JPY,Land transport
+9064.T,"Yamato Holdings Co., Ltd.",TSE,JP,JPY,Land transport
+6113.T,Amada Co. Ltd.,TSE,JP,JPY,Machinery
+6367.T,"Daikin Industries, Ltd.",TSE,JP,JPY,Machinery
+6361.T,Ebara Corp.,TSE,JP,JPY,Machinery
+6305.T,"Hitachi Construction Machinery Co., Ltd.",TSE,JP,JPY,Machinery
+7004.T,Kanadevia Corp.,TSE,JP,JPY,Machinery
+7013.T,IHI Corp.,TSE,JP,JPY,Machinery
+5631.T,"The Japan Steel Works, Ltd.",TSE,JP,JPY,Machinery
+6473.T,JTEKT Corp.,TSE,JP,JPY,Machinery
+6301.T,Komatsu Ltd.,TSE,JP,JPY,Machinery
+6326.T,Kubota Corp.,TSE,JP,JPY,Machinery
+7011.T,"Mitsubishi Heavy Industries, Ltd.",TSE,JP,JPY,Machinery
+6471.T,NSK Ltd.,TSE,JP,JPY,Machinery
+6472.T,NTN Corp.,TSE,JP,JPY,Machinery
+6103.T,"Okuma Holdings, Inc.",TSE,JP,JPY,Machinery
+6302.T,"Sumitomo Heavy Industries, Ltd.",TSE,JP,JPY,Machinery
+6273.T,SMC Corporation,TSE,JP,JPY,Machinery
+9107.T,"Kawasaki Kisen Kaisha, Ltd.",TSE,JP,JPY,Marine transport
+9104.T,"Mitsui O.S.K. Lines, Ltd.",TSE,JP,JPY,Marine transport
+9101.T,Nippon Yusen K.K.,TSE,JP,JPY,Marine transport
+1605.T,Inpex Corp.,TSE,JP,JPY,Mining
+5714.T,"Dowa Holdings Co., Ltd.",TSE,JP,JPY,Nonferrous metals
+5803.T,Fujikura Ltd.,TSE,JP,JPY,Nonferrous metals
+5801.T,"The Furukawa Electric Co., Ltd.",TSE,JP,JPY,Nonferrous metals
+5711.T,Mitsubishi Materials Corp.,TSE,JP,JPY,Nonferrous metals
+5706.T,"Mitsui Mining & Smelting Co., Ltd.",TSE,JP,JPY,Nonferrous metals
+3436.T,SUMCO Corp.,TSE,JP,JPY,Nonferrous metals
+5802.T,"Sumitomo Electric Industries, Ltd.",TSE,JP,JPY,Nonferrous metals
+5713.T,"Sumitomo Metal Mining Co., Ltd.",TSE,JP,JPY,Nonferrous metals
+8253.T,"Credit Saison Co., Ltd.",TSE,JP,JPY,Other financial services
+8697.T,Japan Exchange Group Inc.,TSE,JP,JPY,Other financial services
+8591.T,Orix Co.,TSE,JP,JPY,Other financial services
+7832.T,"Bandai Namco Holdings, Inc.",TSE,JP,JPY,Other manufacturing
+7912.T,"Dai Nippon Printing Co., Ltd.",TSE,JP,JPY,Other manufacturing
+7911.T,"Toppan Printing Co., Ltd.",TSE,JP,JPY,Other manufacturing
+7951.T,Yamaha Corporation,TSE,JP,JPY,Other manufacturing
+5020.T,Eneos Holdings,TSE,JP,JPY,Petroleum
+5019.T,"Idemitsu Kosan Co., Ltd",TSE,JP,JPY,Petroleum
+4503.T,Astellas Pharma Inc.,TSE,JP,JPY,Pharmaceuticals
+4519.T,"Chugai Pharmaceutical Co., Ltd.",TSE,JP,JPY,Pharmaceuticals
+4568.T,"Daiichi Sankyo Company, Limited",TSE,JP,JPY,Pharmaceuticals
+4523.T,"Eisai Co., Ltd.",TSE,JP,JPY,Pharmaceuticals
+4151.T,"Kyowa Hakko Kirin Co., Ltd.",TSE,JP,JPY,Pharmaceuticals
+4578.T,"Otsuka Holdings Co., Ltd.",TSE,JP,JPY,Pharmaceuticals
+4506.T,"Sumitomo Dainippon Pharma Co., Ltd.",TSE,JP,JPY,Pharmaceuticals
+4507.T,"Shionogi & Co., Ltd.",TSE,JP,JPY,Pharmaceuticals
+4502.T,Takeda Pharmaceutical Company Limited,TSE,JP,JPY,Pharmaceuticals
+6146.T,Disco Corporation Ltd.,TSE,JP,JPY,Precision instruments
+7741.T,Hoya Corporation,TSE,JP,JPY,Precision instruments
+4902.T,"Konica Minolta Holdings, Inc.",TSE,JP,JPY,Precision instruments
+7731.T,Nikon Corp.,TSE,JP,JPY,Precision instruments
+7733.T,Olympus Corp.,TSE,JP,JPY,Precision instruments
+4543.T,Terumo Corp.,TSE,JP,JPY,Precision instruments
+3861.T,Oji Holdings Corporation,TSE,JP,JPY,Pulp & paper
+9022.T,Central Japan Railway Company,TSE,JP,JPY,Railway/bus
+9020.T,East Japan Railway Company,TSE,JP,JPY,Railway/bus
+9008.T,Keio Corp.,TSE,JP,JPY,Railway/bus
+9009.T,"Keisei Electric Railway Co., Ltd.",TSE,JP,JPY,Railway/bus
+9007.T,"Odakyu Electric Railway Co., Ltd.",TSE,JP,JPY,Railway/bus
+9001.T,"Tobu Railway Co., Ltd.",TSE,JP,JPY,Railway/bus
+9005.T,Tokyu Corp.,TSE,JP,JPY,Railway/bus
+9021.T,West Japan Railway Company,TSE,JP,JPY,Railway/bus
+8802.T,"Mitsubishi Estate Co., Ltd.",TSE,JP,JPY,Real estate
+8801.T,"Mitsui Fudosan Co., Ltd",TSE,JP,JPY,Real estate
+8830.T,"Sumitomo Realty & Development Co., Ltd.",TSE,JP,JPY,Real estate
+8804.T,"Tokyo Tatemono Co., Ltd.",TSE,JP,JPY,Real estate
+3289.T,Tokyu Land Corp.,TSE,JP,JPY,Real estate
+8267.T,"Aeon Co., Ltd.",TSE,JP,JPY,Retail
+9983.T,"Fast Retailing Co., Ltd.",TSE,JP,JPY,Retail
+3099.T,Isetan Mitsukoshi Holdings Ltd.,TSE,JP,JPY,Retail
+3086.T,"J. Front Retailing Co., Ltd.",TSE,JP,JPY,Retail
+8252.T,"Marui Group Co., Ltd.",TSE,JP,JPY,Retail
+7453.T,"Muji Co., Ltd",TSE,JP,JPY,Retail
+9843.T,"Nitori Holdings Co., Ltd.",TSE,JP,JPY,Retail
+7532.T,Pan Pacific International Holdings Corp.,TSE,JP,JPY,Retail
+3382.T,"Seven & I Holdings Co., Ltd.",TSE,JP,JPY,Retail
+8233.T,"Takashimaya Co., Ltd.",TSE,JP,JPY,Retail
+3092.T,"ZOZO Co., Ltd",TSE,JP,JPY,Retail
+5108.T,Bridgestone Corp.,TSE,JP,JPY,Rubber
+5101.T,"The Yokohama Rubber Co., Ltd.",TSE,JP,JPY,Rubber
+8601.T,Daiwa Securities Group Inc.,TSE,JP,JPY,Securities
+8604.T,"Nomura Holdings, Inc.",TSE,JP,JPY,Securities
+6532.T,Baycurrent Inc.,TSE,JP,JPY,Services
+4751.T,CyberAgent Inc.,TSE,JP,JPY,Services
+2432.T,"Dena Co., Ltd.",TSE,JP,JPY,Services
+4324.T,Dentsu Inc.,TSE,JP,JPY,Services
+6178.T,"Japan Post Holdings Co., Ltd.",TSE,JP,JPY,Services
+9766.T,Konami Corp.,TSE,JP,JPY,Services
+4689.T,LY Corporation,TSE,JP,JPY,Services
+4385.T,Mercari Inc.,TSE,JP,JPY,Services
+2413.T,M3 Inc.,TSE,JP,JPY,Services
+3659.T,"Nexon Co., Ltd.",TSE,JP,JPY,Services
+7974.T,"Nintendo Co., Ltd.",TSE,JP,JPY,Services
+4307.T,Nomura Research Institute Ltd.,TSE,JP,JPY,Services
+4661.T,"Oriental Land Co., Ltd.",TSE,JP,JPY,Services
+4755.T,Rakuten Inc.,TSE,JP,JPY,Services
+6098.T,"Recruit Holdings Co., Ltd.",TSE,JP,JPY,Services
+9735.T,"Secom Co., Ltd.",TSE,JP,JPY,Services
+3697.T,SHIFT Inc.,TSE,JP,JPY,Services
+9602.T,"Toho Co., Ltd.",TSE,JP,JPY,Services
+4704.T,Trend Micro Inc.,TSE,JP,JPY,Services
+7012.T,"Kawasaki Heavy Industries, Ltd.",TSE,JP,JPY,Shipbuilding
+5411.T,"JFE Holdings, Inc.",TSE,JP,JPY,Steel
+5406.T,"Kobe Steel, Ltd.",TSE,JP,JPY,Steel
+5401.T,Nippon Steel Corp.,TSE,JP,JPY,Steel
+3401.T,Teijin Ltd.,TSE,JP,JPY,Textiles & apparel
+3402.T,"Toray Industries, Inc.",TSE,JP,JPY,Textiles & apparel
+8001.T,Itochu Corp.,TSE,JP,JPY,Trading companies
+8002.T,Marubeni Corp.,TSE,JP,JPY,Trading companies
+8058.T,Mitsubishi Corp.,TSE,JP,JPY,Trading companies
+8031.T,"Mitsui & Co., Ltd.",TSE,JP,JPY,Trading companies
+2768.T,Sojitz Corp.,TSE,JP,JPY,Trading companies
+8053.T,Sumitomo Corp.,TSE,JP,JPY,Trading companies
+8015.T,Toyota Tsusho Corp.,TSE,JP,JPY,Trading companies
