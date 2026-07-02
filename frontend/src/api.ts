@@ -35,11 +35,23 @@ export interface GateStats {
   by_region: Record<string, number>;
 }
 
+// See equity_scout.data_quality.build_data_quality_report. attempted=0 means no yfinance fetch
+// stats were wired for this run (e.g. a --provider fake run) — the error rate is not meaningful then.
+export interface DataQuality {
+  attempted: number;
+  info_failed: number;
+  closes_failed: number;
+  fetch_error_rate: number;
+  missing_fields: Record<string, number>;
+  gate_filtered: number;
+}
+
 export interface LatestRun {
   created_at?: string;
   universe_size?: number;
   gated_out: Record<string, string>;
   gate_stats: GateStats;
+  data_quality?: DataQuality;
   buckets: Record<string, Pick[]>;
   bucket_weights: BucketWeights;
   disclaimer: string;

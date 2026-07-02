@@ -5,12 +5,15 @@ tests stay instant and deterministic.
 """
 from __future__ import annotations
 
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 
 from equity_scout.data.provider import MarketDataProvider
 from equity_scout.models import Instrument, Quote
+
+logger = logging.getLogger(__name__)
 
 
 def retry_delays(attempts: int, base: float = 0.5, cap: float = 8.0) -> list[float]:
@@ -33,6 +36,7 @@ def with_retry(
             return fn()
         except Exception as exc:  # noqa: BLE001 - provider errors are opaque; retry then surface
             last_exc = exc
+            logger.warning("with_retry: attempt %d/%d failed: %r", i + 1, attempts, exc)
             if i < len(delays):
                 sleep(delays[i])
     assert last_exc is not None

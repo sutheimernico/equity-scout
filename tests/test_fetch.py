@@ -35,6 +35,20 @@ def test_with_retry_reraises_after_exhaustion():
         with_retry(always_fails, attempts=2, sleep=lambda _: None)
 
 
+def test_with_retry_logs_each_failed_attempt(caplog):
+    # The broad except used to fail silently; every attempt must now be visible in the logs.
+    def always_fails():
+        raise ValueError("nope")
+
+    with caplog.at_level("WARNING"):
+        with pytest.raises(ValueError):
+            with_retry(always_fails, attempts=3, sleep=lambda _: None)
+
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 3
+    assert all("attempt" in r.message for r in warnings)
+
+
 def test_fetch_all_preserves_order_parallel_and_serial():
     universe = [Instrument(t, t, "US", "US", "USD", "Tech") for t in ("A", "B", "C")]
     provider = FakeProvider({t: dict(trailing_pe=float(i)) for i, t in enumerate(("A", "B", "C"))})

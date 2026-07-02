@@ -60,3 +60,4 @@ class RunResult:
     gated_out: dict[str, str]  # ticker -> rejection reason
     buckets: dict[str, list[Pick]] = field(default_factory=dict)
     gate_stats: dict = field(default_factory=dict)  # {total_gated, by_reason, by_region}
+    data_quality: dict = field(default_factory=dict)  # see equity_scout.data_quality

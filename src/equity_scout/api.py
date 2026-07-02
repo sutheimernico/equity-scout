@@ -85,6 +85,7 @@ def create_app(
             "universe_size": run.universe_size,
             "gated_out": run.gated_out,
             "gate_stats": run.gate_stats,
+            "data_quality": run.data_quality,
             "buckets": {b: [asdict(p) for p in picks] for b, picks in run.buckets.items()},
             "bucket_weights": BUCKET_WEIGHTS,
             "disclaimer": DISCLAIMER,

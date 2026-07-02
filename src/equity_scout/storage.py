@@ -23,10 +23,12 @@ def init_db(db_path: str | Path) -> None:
             );
             """
         )
-        # Defensive migration for DBs created before gate_stats existed.
+        # Defensive migration for DBs created before gate_stats/data_quality existed.
         cols = [r[1] for r in con.execute("PRAGMA table_info(runs)")]
         if "gate_stats" not in cols:
             con.execute("ALTER TABLE runs ADD COLUMN gate_stats TEXT NOT NULL DEFAULT '{}'")
+        if "data_quality" not in cols:
+            con.execute("ALTER TABLE runs ADD COLUMN data_quality TEXT NOT NULL DEFAULT '{}'")
 
 
 def _pick_from_dict(d: dict) -> Pick:
@@ -41,22 +43,22 @@ def save_run(db_path: str | Path, run: RunResult) -> None:
     )
     with sqlite3.connect(db_path) as con:
         con.execute(
-            "INSERT INTO runs (created_at, universe_size, gated_out, buckets, gate_stats) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO runs (created_at, universe_size, gated_out, buckets, gate_stats, data_quality) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             (run.created_at, run.universe_size, json.dumps(run.gated_out), buckets_json,
-             json.dumps(run.gate_stats)),
+             json.dumps(run.gate_stats), json.dumps(run.data_quality)),
         )
 
 
 def load_latest_run(db_path: str | Path) -> RunResult | None:
     with sqlite3.connect(db_path) as con:
         row = con.execute(
-            "SELECT created_at, universe_size, gated_out, buckets, gate_stats FROM runs "
+            "SELECT created_at, universe_size, gated_out, buckets, gate_stats, data_quality FROM runs "
             "ORDER BY id DESC LIMIT 1"
         ).fetchone()
     if row is None:
         return None
-    created_at, universe_size, gated_out, buckets, gate_stats = row
+    created_at, universe_size, gated_out, buckets, gate_stats, data_quality = row
     parsed = json.loads(buckets)
     buckets_obj = {b: [_pick_from_dict(p) for p in picks] for b, picks in parsed.items()}
     return RunResult(
@@ -65,6 +67,7 @@ def load_latest_run(db_path: str | Path) -> RunResult | None:
         gated_out=json.loads(gated_out),
         buckets=buckets_obj,
         gate_stats=json.loads(gate_stats),
+        data_quality=json.loads(data_quality),
     )
 
 

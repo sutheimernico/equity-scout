@@ -8,7 +8,7 @@ import {
   type PortfolioState,
   type RunSummary,
 } from "../api";
-import { BUCKET_LABELS } from "../format";
+import { BUCKET_LABELS, pctAbs } from "../format";
 import { GatedOutList } from "./GatedOutList";
 import { MethodologyNote } from "./MethodologyNote";
 import { PickCard } from "./PickCard";
@@ -55,6 +55,7 @@ export function FunnelView() {
   const gate = run.gate_stats ?? { total_gated: 0, by_region: {}, by_reason: {} };
   const passed = (run.universe_size ?? 0) - gate.total_gated;
   const availableBuckets = BUCKET_ORDER.filter((b) => run.buckets[b]);
+  const dataQuality = run.data_quality;
 
   return (
     <>
@@ -72,6 +73,13 @@ export function FunnelView() {
         <StatTile label="Daten ok" value={String(passed)} sub="genug Daten zum Ranken" />
         <StatTile label="Aussortiert" value={String(gate.total_gated)} sub="zu dünne/ungültige Daten" />
         <StatTile label="Buckets" value={String(availableBuckets.length)} sub="Risiko-Profile" />
+        {!!dataQuality?.attempted && (
+          <StatTile
+            label="Fetch-Fehlerquote"
+            value={pctAbs(dataQuality.fetch_error_rate)}
+            sub={`${dataQuality.info_failed + dataQuality.closes_failed} von ${dataQuality.attempted} Abrufen`}
+          />
+        )}
       </div>
 
       <MethodologyNote />

@@ -14,7 +14,7 @@ from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_UNIVERSE_PATH, DISCL
 from equity_scout.data.cache import CachedProvider, QuoteCache
 from equity_scout.data.fake_provider import FakeProvider
 from equity_scout.data.news import YFinanceNews
-from equity_scout.data.yf_provider import YFinanceProvider
+from equity_scout.data.yf_provider import FetchStats, YFinanceProvider
 from equity_scout.pipeline import run_pipeline
 from equity_scout.storage import init_db, save_run
 from equity_scout.universe import load_universe
@@ -39,7 +39,8 @@ def main() -> None:
 
     now = datetime.now(timezone.utc)
     universe = load_universe(args.universe)
-    base = YFinanceProvider() if args.provider == "yfinance" else FakeProvider()
+    fetch_stats = FetchStats() if args.provider == "yfinance" else None
+    base = YFinanceProvider(stats=fetch_stats) if args.provider == "yfinance" else FakeProvider()
     if args.provider == "yfinance" and not args.no_cache:
         provider = CachedProvider(base, QuoteCache(args.cache_db), run_date=now.date().isoformat())
     else:
@@ -52,11 +53,19 @@ def main() -> None:
         universe, provider, analysis=analysis, top_n=args.top_n,
         created_at=now.isoformat(timespec="seconds"), max_workers=args.max_workers,
         llm_top_n=args.llm_top_n, news=news, news_top_n=args.news_top_n,
+        fetch_stats=fetch_stats,
     )
     init_db(args.db)
     save_run(args.db, run)
 
     print(f"\nRun {run.created_at} — universe {run.universe_size}, gated out {len(run.gated_out)}")
+    dq = run.data_quality
+    if dq.get("attempted"):
+        print(
+            f"Data quality: {dq['attempted']} fetched, "
+            f"{dq['info_failed']} info-failures, {dq['closes_failed']} price-failures "
+            f"(error rate {dq['fetch_error_rate']:.1%})"
+        )
     for bucket, picks in run.buckets.items():
         print(f"\n[{bucket}]")
         for p in picks:

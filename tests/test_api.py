@@ -13,7 +13,8 @@ def test_latest_endpoint_returns_buckets(tmp_path):
     inst = Instrument("AAPL", "Apple", "NASDAQ", "US", "USD", "Tech")
     pick = Pick(inst, "balanced", 1, 0.7,
                 {"value": 0.6, "quality": 0.7, "momentum": 0.5, "growth": 0.5}, thesis="ok")
-    save_run(db, RunResult("2026-06-24T10:00:00", 10, {}, {"balanced": [pick]}))
+    save_run(db, RunResult("2026-06-24T10:00:00", 10, {}, {"balanced": [pick]},
+                           data_quality={"attempted": 10, "fetch_error_rate": 0.1}))
 
     client = TestClient(create_app(str(db)))
     resp = client.get("/api/latest")
@@ -24,6 +25,8 @@ def test_latest_endpoint_returns_buckets(tmp_path):
     # bucket weights are exposed so the dashboard can show score transparency (percentile × weight)
     assert "bucket_weights" in body
     assert set(body["bucket_weights"]) == {"defensive", "balanced", "aggressive"}
+    # data-quality report (fetch reliability + completeness) is surfaced for the dashboard
+    assert body["data_quality"] == {"attempted": 10, "fetch_error_rate": 0.1}
 
 
 def test_latest_endpoint_empty_db_still_has_disclaimer(tmp_path):

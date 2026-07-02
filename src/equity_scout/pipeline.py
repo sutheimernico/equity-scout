@@ -6,6 +6,8 @@ from equity_scout.buckets import assign_buckets
 from equity_scout.data.fetch import fetch_all
 from equity_scout.data.news import NewsProvider, attach_news
 from equity_scout.data.provider import MarketDataProvider
+from equity_scout.data.yf_provider import FetchStats
+from equity_scout.data_quality import build_data_quality_report
 from equity_scout.factors import score_factors
 from equity_scout.gate import apply_gate, summarize_gate
 from equity_scout.models import Instrument, RunResult
@@ -22,6 +24,7 @@ def run_pipeline(
     llm_top_n: int | None = None,
     news: NewsProvider | None = None,
     news_top_n: int | None = 5,
+    fetch_stats: FetchStats | None = None,
 ) -> RunResult:
     quotes = fetch_all(provider, universe, max_workers=max_workers)
     passed, rejected = apply_gate(quotes, min_metrics=min_metrics)
@@ -35,4 +38,5 @@ def run_pipeline(
         gated_out=rejected,
         buckets=buckets,
         gate_stats=summarize_gate(rejected, universe),
+        data_quality=build_data_quality_report(quotes, rejected, fetch_stats),
     )
