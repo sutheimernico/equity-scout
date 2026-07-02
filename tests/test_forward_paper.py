@@ -27,6 +27,20 @@ class _Fixed:
         return [TargetWeight(t, w) for t, w in self._weights.items()]
 
 
+class _Recorder:
+    """Records what `decide` was actually shown, so the look-ahead boundary is testable."""
+
+    def __init__(self, name: str = "recorder") -> None:
+        self.name = name
+        self.seen_as_of: list = []
+        self.seen_latest_visible: list = []
+
+    def decide(self, as_of, market):  # noqa: ANN001 - matches the Strategy protocol
+        self.seen_as_of.append(as_of)
+        self.seen_latest_visible.append(market.latest_date)
+        return []
+
+
 def _sub_panel(panel: PricePanel, n: int) -> PricePanel:
     return PricePanel(panel.closes.iloc[:n])
 
@@ -60,6 +74,20 @@ def test_second_advance_drifts_equity_with_realised_return(wavy_panel: PricePane
     assert acc2.benchmark_equity == pytest.approx(10_000.0 * spy_factor)
     assert val2 is not None
     assert val2.created_at == late.dates[-1].date().isoformat()
+
+
+def test_decide_never_sees_todays_own_close(wavy_panel: PricePanel) -> None:
+    """The backtest engine's MarketView(panel, date) excludes `date` itself (see engine.py); the
+    forward account's decision must have the exact same boundary, or it gets a one-day look-ahead
+    edge the backtest never had — this was the bug (MarketView(panel, today + 1 day))."""
+    strat = _Recorder()
+    today = wavy_panel.dates[-1]
+    yesterday = wavy_panel.dates[-2]
+
+    advance_account(ForwardAccount.fresh("recorder"), strat, wavy_panel)
+
+    assert strat.seen_as_of == [today]  # matches the engine: as_of == the rebalance day itself
+    assert strat.seen_latest_visible == [yesterday]  # but the data visible stops one day earlier
 
 
 def test_advance_without_new_date_is_idempotent(wavy_panel: PricePanel) -> None:

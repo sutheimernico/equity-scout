@@ -6,9 +6,15 @@ real out-of-sample track record accumulates from today on. The strategy stays st
 `decide(as_of, market)` runs here as in the backtest; only the account carries state.
 
 Each `advance_account` step: drift the held weights with the realised return since the last step
-(same formula as the engine), let the strategy pick new targets from data up to today, charge cost on
-the turnover, and emit a valuation snapshot. Advancing twice on the same panel date is a no-op
-(idempotent), so a daily cron or a manual run is safe to repeat.
+(same formula as the engine, marked to today's close), let the strategy pick new targets from data
+strictly BEFORE today, charge cost on the turnover, and emit a valuation snapshot. The decision must
+not see today's own close: `engine.run_backtest` never lets `decide` see the same day's close that
+becomes the rebalance's execution price (its `MarketView(panel, date)` excludes `date` itself) — it
+implicitly assumes a market-on-close order placed during the day, before today's close is known.
+Feeding today's close into the decision here, then also using it as the execution price, would give
+the forward account a one-day look-ahead edge the backtest never had, so the two would no longer be
+comparable. Advancing twice on the same panel date is a no-op (idempotent), so a daily cron or a
+manual run is safe to repeat.
 """
 from __future__ import annotations
 
@@ -111,8 +117,11 @@ def advance_account(
             }
         benchmark_equity *= 1.0 + _asset_return(closes, account.benchmark_ticker, last, today)
 
-    # 2. Strategy decides new targets from data up to and including today.
-    view = MarketView(panel, today + pd.Timedelta(days=1))
+    # 2. Strategy decides new targets from data strictly BEFORE today — same convention as the
+    # engine's MarketView(panel, date), which the backtest never lets peek at the rebalance day's
+    # own close. The new targets still take effect (and get marked to market) at today's close on
+    # the *next* advance; only the decision itself must not see it first.
+    view = MarketView(panel, today)
     targets = weights_dict(normalise_weights(strategy.decide(view.as_of, view)))
 
     # 3. Charge cost on the rebalance turnover (same convention as the engine).
