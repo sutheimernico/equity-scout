@@ -26,8 +26,24 @@ class FakeAnalysis:
         )
 
 
+# Prefix every degraded-path message starts with, so a caller (or a human scanning the dashboard)
+# can tell "the LLM has nothing to say" apart from "the CLI is broken" at a glance, and — if ever
+# needed — detect the state programmatically via str.startswith() without a new Pick field.
+THESIS_UNAVAILABLE_PREFIX = "These nicht verfügbar"
+
+
+def _unavailable(reason: str) -> str:
+    return f"{THESIS_UNAVAILABLE_PREFIX} ({reason})."
+
+
 class ClaudeCliAnalysis:
-    """Real impl: one `claude -p` call per finalist returning a short thesis."""
+    """Real impl: one `claude -p` call per finalist returning a short thesis.
+
+    A non-zero exit is a failure regardless of what (if anything) landed on stdout — the CLI can
+    print an error message to stdout, and silently adopting that as "the thesis" would be worse than
+    an honest gap. Every failure mode (missing binary, timeout, non-zero exit, empty output) degrades
+    to an explicit `_unavailable(...)` message instead of empty/garbage text.
+    """
 
     def __init__(self, model: str | None = None, timeout_s: int = 120) -> None:
         self._model = model
@@ -49,9 +65,17 @@ class ClaudeCliAnalysis:
             result = subprocess.run(
                 cmd, capture_output=True, text=True, timeout=self._timeout_s
             )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            return f"No thesis produced ({type(exc).__name__})."
-        return result.stdout.strip() or "No thesis produced."
+        except subprocess.TimeoutExpired:
+            return _unavailable(f"Timeout nach {self._timeout_s}s")
+        except OSError as exc:
+            return _unavailable(f"CLI nicht ausführbar: {exc.strerror or type(exc).__name__}")
+
+        if result.returncode != 0:
+            detail = result.stderr.strip() or f"exit code {result.returncode}"
+            return _unavailable(detail)
+
+        thesis = result.stdout.strip()
+        return thesis if thesis else _unavailable("leere Antwort")
 
 
 def attach_theses(
