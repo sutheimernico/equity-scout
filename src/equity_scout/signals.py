@@ -113,7 +113,8 @@ _COMPOSITE_WEIGHTS = {"dip_quality": 0.40, "value_gap": 0.35, "momentum": 0.25}
 
 
 def composite_score(readings: list[SignalReading]) -> float:
-    """Weighted mean of known sub-signals in [0, 1]. Unknown names are ignored."""
+    """Weighted sum of known sub-signals in [0, 1]; a missing sub-signal contributes 0.
+    Unknown names are ignored."""
     return round(
         sum(_COMPOSITE_WEIGHTS[r.name] * r.score for r in readings if r.name in _COMPOSITE_WEIGHTS),
         4,

@@ -46,6 +46,13 @@ def test_dip_quality_missing_quality_percentile_scores_zero():
     assert dip_quality({}, plan).score == 0.0
 
 
+def test_dip_quality_depth_saturates_beyond_full_dip():
+    plan = compute_entry_plan("FFF", *downtrend_history(end=55.0))
+    # precondition: fixture is clearly beyond the -30% saturation threshold
+    assert plan.drawdown_from_high < -0.30
+    assert dip_quality({"quality": 1.0}, plan).score == 1.0
+
+
 def test_value_gap_rewards_discount_below_anchor_in_cheap_stock():
     plan = compute_entry_plan("AAA", *downtrend_history())  # price well below sma200
     cheap = value_gap({"value": 0.9}, plan)
@@ -73,6 +80,15 @@ def test_value_gap_zero_without_sma200_data():
 
     reading = value_gap({"value": 0.9}, replace(plan, sma200=None))
     assert reading.score == 0.0
+
+
+def test_value_gap_discount_saturates_beyond_full_gap():
+    plan = compute_entry_plan("GGG", *downtrend_history(end=55.0))
+    assert plan.sma200 is not None
+    # precondition: fixture is clearly beyond the -20% saturation threshold
+    assert plan.price / plan.sma200 - 1.0 < -0.20
+    # discount saturated at 1.0 -> factor (0.3 + 0.7*1.0) == 1.0, so score == value percentile
+    assert value_gap({"value": 1.0}, plan).score == 1.0
 
 
 def stabilized_history() -> tuple[list[float], list[float], list[float]]:
@@ -117,9 +133,24 @@ def test_composite_is_weighted_mean_in_unit_interval():
     assert composite_score(zeros) == 0.0
 
 
+def test_composite_weight_assignment_per_signal():
+    # Isolate each weight: only one signal at 1.0, the others at 0.0.
+    def only(name: str) -> float:
+        return composite_score(
+            [
+                SignalReading(n, 1.0 if n == name else 0.0, "r")
+                for n in ("dip_quality", "value_gap", "momentum")
+            ]
+        )
+
+    assert only("dip_quality") == 0.40
+    assert only("value_gap") == 0.35
+    assert only("momentum") == 0.25
+
+
 def test_composite_ignores_unknown_signal_names():
     readings = [
         SignalReading("dip_quality", 1.0, "r"),
         SignalReading("someday_ml", 1.0, "r"),
     ]
-    assert 0.0 < composite_score(readings) < 1.0
+    assert composite_score(readings) == 0.40
