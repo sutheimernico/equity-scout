@@ -42,3 +42,35 @@ def dip_quality(breakdown: dict[str, float], plan: EntryPlan) -> SignalReading:
         f"Qualitäts-Perzentil im Funnel: {quality * 100:.0f}."
     )
     return SignalReading("dip_quality", score, reason)
+
+
+# A 20% discount to the 200-day SMA counts as a "full" value gap.
+_FULL_GAP_DISCOUNT = 0.20
+
+
+def value_gap(breakdown: dict[str, float], plan: EntryPlan) -> SignalReading:
+    """Price notably below the long-term anchor in a stock the funnel ranks cheap.
+
+    Only fires below the 200-day SMA — above it there is no gap by definition.
+    score = value percentile x (0.3 + 0.7 x discount), discount saturating at -20%.
+    The 0.3 floor keeps 'just crossed under the anchor' from scoring zero.
+    """
+    value = float(breakdown.get("value", 0.0))
+    if plan.sma200 is None or plan.sma200 <= 0:
+        return SignalReading(
+            "value_gap", 0.0, "Kein 200-Tage-Schnitt verfügbar (zu wenig Kurshistorie)."
+        )
+    rel = plan.price / plan.sma200 - 1.0
+    if rel > 0:
+        return SignalReading(
+            "value_gap",
+            0.0,
+            f"Kurs {rel * 100:+.1f} % über dem 200-Tage-Schnitt — keine Bewertungslücke.",
+        )
+    discount = min(-rel / _FULL_GAP_DISCOUNT, 1.0)
+    score = round(value * (0.3 + 0.7 * discount), 4)
+    reason = (
+        f"Kurs {rel * 100:+.1f} % unter dem 200-Tage-Schnitt; "
+        f"Value-Perzentil im Funnel: {value * 100:.0f}."
+    )
+    return SignalReading("value_gap", score, reason)

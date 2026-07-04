@@ -216,7 +216,12 @@ git commit -m "feat: add SignalReading and dip-quality entry sub-signal"
 - Modify: `src/equity_scout/signals.py`
 - Test: `tests/test_signals.py`
 
-- [ ] **Step 1: Write the failing tests** (append to `tests/test_signals.py`; reuse the history helpers from Task 2)
+- [x] **Step 1: Write the failing tests** (append to `tests/test_signals.py`; reuse the history helpers from Task 2)
+
+Deviation: `from equity_scout.signals import value_gap` was added to the existing top-of-file
+import line (`from equity_scout.signals import SignalReading, dip_quality, value_gap`)
+instead of a second mid-file import statement — ruff's E402 (module-level import not at
+top of file) fails the gate otherwise.
 
 ```python
 from equity_scout.signals import value_gap
@@ -251,12 +256,12 @@ def test_value_gap_zero_without_sma200_data():
     assert reading.score == 0.0
 ```
 
-- [ ] **Step 2: Run tests to verify the new ones fail**
+- [x] **Step 2: Run tests to verify the new ones fail**
 
 Run: `python -m pytest tests/test_signals.py -v`
 Expected: Task-2 tests PASS, new tests FAIL with `ImportError: cannot import name 'value_gap'`.
 
-- [ ] **Step 3: Write the implementation** (append to `signals.py`)
+- [x] **Step 3: Write the implementation** (append to `signals.py`)
 
 ```python
 # A 20% discount to the 200-day SMA counts as a "full" value gap.
@@ -291,11 +296,11 @@ def value_gap(breakdown: dict[str, float], plan: EntryPlan) -> SignalReading:
     return SignalReading("value_gap", score, reason)
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_signals.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 python -m pytest -q && ruff check .
