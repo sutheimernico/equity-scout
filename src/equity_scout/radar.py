@@ -6,6 +6,7 @@ runs and stored runs feed the same code path.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 from equity_scout.entry import EntryPlan, compute_entry_plan
@@ -28,7 +29,9 @@ class WatchlistEntry:
     price: float
     entry_zone_low: float
     entry_zone_high: float
-    proximity: float  # price / zone_high - 1.0; <= 0 means at or inside the zone
+    # price / zone_high - 1.0; <= 0 means at or below the zone's upper edge
+    # (in_zone is the containment check)
+    proximity: float
     in_zone: bool
     composite: float
     readings: list[SignalReading]
@@ -46,7 +49,9 @@ def entry_zone(plan: EntryPlan) -> tuple[float, float] | None:
     """Derive [low, high] from the plan's support levels, capped at the 200-day SMA.
 
     high = best (highest) support, but never above the long-term anchor
-    low  = worst (lowest) support minus one ATR of buffer (if ATR is known)
+    low  = worst (lowest) support minus one ATR of buffer (if ATR is known),
+           capped at 20% below the lowest support so an oversized ATR (deep-drawdown,
+           high-vol names) can never push the zone negative
     None when the plan has no support levels at all (degenerate history).
     """
     supports = [lvl.price for lvl in plan.levels if lvl.kind == "support"]
@@ -55,10 +60,12 @@ def entry_zone(plan: EntryPlan) -> tuple[float, float] | None:
     high = max(supports)
     if plan.sma200 is not None:
         high = min(high, plan.sma200)
-    low = min(supports) - (plan.atr or 0.0)
+    low = max(min(supports) - (plan.atr or 0.0), min(supports) * 0.8)
+    # Round before the degenerate check so a sub-cent band cannot collapse to low == high.
+    low, high = round(low, 2), round(high, 2)
     if low >= high:  # single tight support cluster: pad a 2% band below
-        low = high * 0.98
-    return round(low, 2), round(high, 2)
+        low = round(high * 0.98, 2)
+    return low, high
 
 
 def build_watchlist(
@@ -70,7 +77,10 @@ def build_watchlist(
     for pick in finalists:
         ticker = pick["ticker"]
         closes, highs, lows = histories.get(ticker, ([], [], []))
-        if len([c for c in closes if c and c > 0]) < 2:
+        # Mirror entry.py's cleaning: non-finite values (inf/nan from a bad feed) must not
+        # pass the guard, or compute_entry_plan raises and one bad ticker kills the run.
+        usable = [c for c in closes if isinstance(c, (int, float)) and math.isfinite(c) and c > 0]
+        if len(usable) < 2:
             skipped[ticker] = "keine verwertbare Kurshistorie"
             continue
         plan = compute_entry_plan(ticker, closes, highs, lows)

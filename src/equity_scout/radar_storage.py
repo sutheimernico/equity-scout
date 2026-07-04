@@ -55,6 +55,7 @@ def save_watchlist(db_path: str, watchlist: Watchlist) -> int:
                 for r in e.readings
             ],
         )
+        assert cursor.lastrowid is not None  # guaranteed after a successful INSERT
         return int(cursor.lastrowid)
 
 
