@@ -24,6 +24,8 @@ out-of-sample; the honest takeaway is process/risk, not alpha (see `docs/researc
 
 ![ML meta-model — should you follow the signal at all? OOS vs holding SPY](docs/img/ml-meta.png)
 
+![Stock screener — global factor funnel into risk buckets, no ML, no advice](docs/img/screener.png)
+
 The dashboard needs a locally running backend (FastAPI + SQLite + yfinance) — there is no hosted
 demo. Start it with the quickstart below.
 
