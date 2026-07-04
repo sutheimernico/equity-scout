@@ -20,6 +20,13 @@ about the current numbers via a local **Ollama** model (no data leaves the machi
 **Research assistant — not investment advice, no edge promise.** Every result is after-cost and
 out-of-sample; the honest takeaway is process/risk, not alpha (see `docs/research/`).
 
+![Strategies dashboard — six systematics measured honestly against 60/40](docs/img/strategies.png)
+
+![ML meta-model — should you follow the signal at all? OOS vs holding SPY](docs/img/ml-meta.png)
+
+The dashboard needs a locally running backend (FastAPI + SQLite + yfinance) — there is no hosted
+demo. Start it with the quickstart below.
+
 Docs: strategy/ML plan `docs/superpowers/plans/2026-06-24-multi-strategy-v2.md`,
 research `docs/research/2026-06-24-strategy-ml-data-research.md`,
 funnel design `docs/superpowers/specs/2026-06-24-equity-scout-design.md`.
