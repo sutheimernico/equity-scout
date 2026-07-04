@@ -483,7 +483,7 @@ git commit -m "feat: add static composite entry score (pre-ML placeholder)"
 - Create: `src/equity_scout/radar.py`
 - Test: `tests/test_radar.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Tests for entry-zone derivation and the watchlist builder."""
@@ -544,12 +544,19 @@ def test_watchlist_entry_carries_readings_zone_and_proximity():
     assert abs(entry.proximity - (entry.price / entry.entry_zone_high - 1.0)) < 1e-9
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_radar.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'equity_scout.radar'`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
+
+Deviation: `proximity` is assigned the raw `plan.price / high - 1.0` (no `round(..., 4)`).
+The plan's own test (`test_watchlist_entry_carries_readings_zone_and_proximity`) asserts
+`abs(entry.proximity - (entry.price / entry.entry_zone_high - 1.0)) < 1e-9`, which the
+rounded value fails by ~1.4e-5 — an internal inconsistency between the plan's test and its
+implementation snippet, not a real-codebase conflict. Dropping the rounding satisfies the
+test's tolerance; nothing in the field's docstring required rounding.
 
 ```python
 """Watchlist builder: funnel finalists -> entry zones + sub-signal readings.
@@ -658,11 +665,11 @@ def build_watchlist(
     return Watchlist(created_at=created_at, entries=entries, skipped=skipped)
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_radar.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 python -m pytest -q && ruff check .
