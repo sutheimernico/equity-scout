@@ -1015,7 +1015,14 @@ git commit -m "feat: add radar CLI producing watchlist snapshot and JSON artifac
 - Modify: `src/equity_scout/api.py` (inside `create_app`, next to the `/api/latest` route)
 - Test: `tests/test_api.py` (append; follow the file's existing TestClient/fixture style)
 
-- [ ] **Step 1: Write the failing test** (append to `tests/test_api.py`, reusing its existing app/client fixture pattern — read the file first and match it; the sketch below shows intent, adapt fixture names to what exists)
+Deviation: the test as written and placed above `test_latest_endpoint_migrates_pre_data_quality_db`,
+reusing the file's already-imported top-level `TestClient`/`create_app` (no local re-import) and its
+`create_app(str(db))` positional-arg call style rather than the sketch's `db_path=` kwarg + local
+imports. Also added an explicit `assert "disclaimer" in empty.json()` on the empty-DB branch (the
+plan's sketch only asserted it on the populated branch) per the self-review requirement to cover the
+disclaimer in both cases.
+
+- [x] **Step 1: Write the failing test** (append to `tests/test_api.py`, reusing its existing app/client fixture pattern — read the file first and match it; the sketch below shows intent, adapt fixture names to what exists)
 
 ```python
 def test_radar_endpoint_returns_latest_watchlist_or_empty(tmp_path):
@@ -1046,12 +1053,12 @@ def test_radar_endpoint_returns_latest_watchlist_or_empty(tmp_path):
     assert "disclaimer" in body
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_api.py -v -k radar`
 Expected: FAIL — 404 on `/api/radar`.
 
-- [ ] **Step 3: Implement the route** (inside `create_app`, mirroring the closure style of the existing routes; MUST be added before the `StaticFiles` mount at the bottom)
+- [x] **Step 3: Implement the route** (inside `create_app`, mirroring the closure style of the existing routes; MUST be added before the `StaticFiles` mount at the bottom)
 
 ```python
     @app.get("/api/radar")
@@ -1062,11 +1069,14 @@ Expected: FAIL — 404 on `/api/radar`.
 
 Add the import at the top of `api.py`: `from equity_scout.radar_storage import load_latest_watchlist`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+Placed right above the `/api/history` route (next to `/api/latest`, per the file-list instruction),
+which is well before the `StaticFiles` mount at the bottom of `create_app` — verified.
+
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_api.py -v` — expected: all PASS (old and new).
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 python -m pytest -q && ruff check .

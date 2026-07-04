@@ -123,6 +123,32 @@ def test_entry_endpoint_accepts_dotted_ticker(tmp_path, monkeypatch):
     assert body["plan"]["ticker"] == "BRK.B"
 
 
+def test_radar_endpoint_returns_latest_watchlist_or_empty(tmp_path):
+    from equity_scout.radar import build_watchlist
+    from equity_scout.radar_storage import save_watchlist
+    from tests.test_radar import _finalist
+    from tests.test_signals import downtrend_history
+
+    db = str(tmp_path / "radar.db")
+    client = TestClient(create_app(db))
+    empty = client.get("/api/radar")
+    assert empty.status_code == 200
+    assert empty.json()["watchlist"] is None
+    assert "disclaimer" in empty.json()
+
+    save_watchlist(
+        db,
+        build_watchlist(
+            [_finalist("DIP")], {"DIP": downtrend_history()}, created_at="2026-07-04T12:00:00"
+        ),
+    )
+    loaded = client.get("/api/radar")
+    assert loaded.status_code == 200
+    body = loaded.json()
+    assert body["watchlist"]["entries"][0]["ticker"] == "DIP"
+    assert "disclaimer" in body
+
+
 def test_latest_endpoint_migrates_pre_data_quality_db(tmp_path):
     """DBs written before the data_quality column existed must not 500 the read API."""
     import sqlite3

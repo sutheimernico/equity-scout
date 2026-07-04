@@ -16,6 +16,7 @@ from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
 from equity_scout.forward_storage import load_all_accounts
 from equity_scout.forward_storage import load_valuations as load_forward_valuations
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
+from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.storage import init_db, load_latest_run, load_run_summaries
 from equity_scout.ml.ledger import DEFAULT_LEDGER_PATH, champion
 from equity_scout.ml.research_view import research_summary
@@ -94,6 +95,11 @@ def create_app(
             "disclaimer": DISCLAIMER,
         }
         return JSONResponse(payload)
+
+    @app.get("/api/radar")
+    def radar() -> JSONResponse:
+        watchlist = load_latest_watchlist(db_path)
+        return JSONResponse({"watchlist": watchlist, "disclaimer": DISCLAIMER})
 
     @app.get("/api/history")
     def history(limit: int = 20) -> JSONResponse:
