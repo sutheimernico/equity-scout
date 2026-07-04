@@ -21,7 +21,7 @@ from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.entry import fetch_entry_history
 from equity_scout.radar import History, build_watchlist
 from equity_scout.radar_storage import save_watchlist
-from equity_scout.storage import load_latest_run
+from equity_scout.storage import init_db, load_latest_run
 
 
 def _finalists_from_run(run: dict) -> list[dict]:
@@ -46,9 +46,13 @@ def run_radar(
     db_path: str,
     json_out: str | None,
     created_at: str,
-    fetch_history: Callable[[str], History] = fetch_entry_history,
+    fetch_history: Callable[[str], History] | None = None,
 ) -> int:
     """Build, persist and (optionally) export the watchlist. Returns entry count."""
+    if fetch_history is None:
+        # Resolved at call time, not as a def-time default: tests monkeypatch
+        # scripts.run_radar.fetch_entry_history, which a bound default would ignore.
+        fetch_history = fetch_entry_history
     finalists = _finalists_from_run(run)
     histories = {f["ticker"]: fetch_history(f["ticker"]) for f in finalists}
     watchlist = build_watchlist(finalists, histories, created_at=created_at)
@@ -66,6 +70,9 @@ def main() -> int:
     parser.add_argument("--db", default=DEFAULT_DB_PATH)
     parser.add_argument("--json-out", default=None)
     args = parser.parse_args()
+    # Idempotent, same init-before-use pattern as run_scout.py: a DB the scout never touched
+    # has no `runs` table, and load_latest_run would crash instead of hitting the hint below.
+    init_db(args.db)
     run = load_latest_run(args.db)
     if run is None:
         print("No screener run found — run scripts/run_scout.py first.", file=sys.stderr)
