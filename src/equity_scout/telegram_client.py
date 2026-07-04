@@ -12,12 +12,17 @@ from __future__ import annotations
 
 import json
 import sys
+import urllib.error
 import urllib.request
 from collections.abc import Callable
 
 API = "https://api.telegram.org/bot{token}/{method}"
 ACTIONS = ("buy", "pass", "later")
 _BUTTON_LABELS = {"buy": "✅ Kaufen", "pass": "❌ Ablehnen", "later": "⏸ Später"}
+
+
+class TelegramError(RuntimeError):
+    """Bot API failure with Telegram's actual reason (HTTP error body or ok=false description)."""
 
 
 def load_telegram_config(env: dict) -> dict | None:
@@ -35,14 +40,25 @@ def load_telegram_config(env: dict) -> dict | None:
 
 
 def _api(token: str, method: str, params: dict, timeout: float = 35.0) -> dict:
-    """Single POST to the Bot API. No retry — callers decide what failure means."""
+    """Single POST to the Bot API. No retry — callers decide what failure means.
+
+    Raises TelegramError with Telegram's own reason: HTTP errors carry it in the
+    response body, and the API also reports failures as 200 + {"ok": false}.
+    """
     request = urllib.request.Request(
         API.format(token=token, method=method),
         data=json.dumps(params).encode("utf-8"),
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(request, timeout=timeout) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise TelegramError(f"{method} failed with HTTP {exc.code}: {body}") from exc
+    if not payload.get("ok"):
+        raise TelegramError(f"{method} failed: {payload.get('description', 'unknown')}")
+    return payload
 
 
 def build_decision_keyboard(pitch_id: int) -> dict:
@@ -91,6 +107,8 @@ def extract_decision(update: dict, chat_id: int) -> tuple[str, int, str] | None:
     try:
         pitch_id = int(raw_id)
     except ValueError:
+        return None
+    if pitch_id < 0:
         return None
     return action, pitch_id, str(cq.get("id", ""))
 

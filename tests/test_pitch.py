@@ -39,8 +39,21 @@ def test_build_pitch_falls_back_deterministically_on_chat_error():
 
     pitch = build_pitch(ENTRY, ask=broken)
     assert PITCH_LLM_UNAVAILABLE_PREFIX in pitch
+    assert "Signalgründe siehe unten." in pitch
     assert "52-Wochen-Hoch" in pitch  # readings' reasons carry the pitch instead
     assert "Score 59/100" in pitch
+
+
+def test_build_pitch_fallback_without_readings_names_missing_details():
+    def broken(question, context):
+        raise ChatError("ollama down")
+
+    entry = dict(ENTRY)
+    entry["readings"] = []
+    pitch = build_pitch(entry, ask=broken)
+    assert PITCH_LLM_UNAVAILABLE_PREFIX in pitch
+    assert "Keine Signaldetails verfügbar." in pitch
+    assert "Signalgründe siehe unten" not in pitch
 
 
 def test_build_pitch_stays_under_telegram_limit():
@@ -52,3 +65,6 @@ def test_build_pitch_stays_under_telegram_limit():
     ]
     pitch = build_pitch(entry, ask=lambda q, c: "X" * 5000)
     assert len(pitch) <= 4000  # Telegram hard limit is 4096; headroom for edits
+    # truncation must cut the middle, never the frame: header and disclaimer survive
+    assert pitch.startswith("📈 EXE — Example Corp")
+    assert pitch.endswith("Keine Anlageberatung.")

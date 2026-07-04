@@ -13,7 +13,10 @@ from collections.abc import Callable
 from equity_scout.chat import ChatError, ask_ollama
 
 PITCH_LLM_UNAVAILABLE_PREFIX = "(Automatische Kurzeinschätzung nicht verfügbar)"
-_LIMIT = 4000  # Telegram hard limit 4096; keep headroom for the decision edit suffix
+# Telegram's 4096 hard limit counts UTF-16 code units, not Python chars; the 96-unit
+# headroom absorbs astral-plane emoji (2 units each) plus the decision edit suffix.
+_LIMIT = 4000
+_FOOTER = "Keine Anlageberatung."
 
 _QUESTION = (
     "Fasse in maximal zwei deutschen Sätzen zusammen, was dieses Unternehmen macht und "
@@ -45,8 +48,14 @@ def build_pitch(entry: dict, ask: Callable[[str, str], str] = _ask_default) -> s
     try:
         summary = ask(_QUESTION, facts).strip()
     except ChatError:
-        summary = f"{PITCH_LLM_UNAVAILABLE_PREFIX} — Signalgründe siehe unten."
-    text = f"{header}\n\n{summary}\n\n{facts}\n\nKeine Anlageberatung."
-    if len(text) > _LIMIT:
-        text = text[: _LIMIT - 1] + "…"
-    return text
+        detail = (
+            "Signalgründe siehe unten." if entry["readings"] else "Keine Signaldetails verfügbar."
+        )
+        summary = f"{PITCH_LLM_UNAVAILABLE_PREFIX} — {detail}"
+    # Over-long pitches lose middle content, never the frame: header and disclaimer
+    # must survive so a truncated message still names the stock and stays honest.
+    middle = f"{summary}\n\n{facts}"
+    budget = _LIMIT - len(header) - len(_FOOTER) - 4  # 4 = the two "\n\n" separators
+    if len(middle) > budget:
+        middle = middle[: budget - 1] + "…"
+    return f"{header}\n\n{middle}\n\n{_FOOTER}"
