@@ -836,7 +836,16 @@ git commit -m "feat: persist radar watchlists and append-only signal readings"
 
 Before writing: skim `scripts/run_scout.py` and `storage.load_latest_run` for the exact shape of a stored run (`buckets` is `{bucket_name: [pick_dict, ...]}` where each pick dict is `dataclasses.asdict(Pick)` — instrument nested under `"instrument"`). The `_finalists_from_run` helper below flattens that shape; if the actual stored shape differs, adapt the helper (and its test) to reality — reality wins over this plan.
 
-- [ ] **Step 1: Write the failing tests**
+Deviation: `load_latest_run(db_path)` returns `RunResult | None` (a frozen dataclass), not a
+plain dict — the plan's `main()` sketch called `run.get("buckets", {})` on it directly, which
+would `AttributeError` (`RunResult` has no `.get`). `_finalists_from_run` and `run_radar` stay
+dict-based exactly as written (the CLI test builds `_stored_run()` as a plain dict and never
+touches `load_latest_run`, so no test change was needed); only `main()` was adapted to convert
+with `dataclasses.asdict(run)` before calling `run_radar`, matching the JSON-round-trip shape
+`_finalists_from_run` already expects (`Pick`'s fields — `instrument`, `bucket`, `composite`,
+`breakdown`, ... — match the stubbed pick dict in the test verbatim).
+
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """CLI end-to-end with fakes: stored run -> watchlist in DB + JSON artifact."""
@@ -892,12 +901,12 @@ def test_run_radar_writes_db_snapshot_and_json_artifact(tmp_path):
     assert artifact["entries"][0]["entry_zone_high"] > 0
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_run_radar.py -v`
 Expected: FAIL — cannot import from `scripts.run_radar`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """Radar CLI: latest funnel run -> entry-signal watchlist.
@@ -972,8 +981,10 @@ def main() -> int:
     if run is None:
         print("No screener run found — run scripts/run_scout.py first.", file=sys.stderr)
         return 1
+    # load_latest_run returns a RunResult dataclass, not a plain dict — round-trip it so
+    # run_radar()/_finalists_from_run() stay dict-only (see deviation note above Step 1).
     created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    count = run_radar(run, db_path=args.db, json_out=args.json_out, created_at=created_at)
+    count = run_radar(asdict(run), db_path=args.db, json_out=args.json_out, created_at=created_at)
     print(f"Watchlist saved: {count} entries.")
     return 0
 
@@ -984,11 +995,11 @@ if __name__ == "__main__":
 
 Note: if `load_latest_run` returns something other than a plain dict (check its signature in `storage.py`), adapt the `main()` wiring — `run_radar()` itself must keep taking a plain dict.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_run_radar.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 python -m pytest -q && ruff check .
