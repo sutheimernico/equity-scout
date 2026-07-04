@@ -105,3 +105,16 @@ def momentum(
             f"Momentum-Perzentil {mom * 100:.0f} wird gedämpft."
         )
     return SignalReading("momentum", score, reason)
+
+
+# Static combiner weights — PLACEHOLDER until the ML layer (Phase 4) learns the
+# weighting. Dip-quality leads: "quality at a discount" is the copilot's core style.
+_COMPOSITE_WEIGHTS = {"dip_quality": 0.40, "value_gap": 0.35, "momentum": 0.25}
+
+
+def composite_score(readings: list[SignalReading]) -> float:
+    """Weighted mean of known sub-signals in [0, 1]. Unknown names are ignored."""
+    return round(
+        sum(_COMPOSITE_WEIGHTS[r.name] * r.score for r in readings if r.name in _COMPOSITE_WEIGHTS),
+        4,
+    )

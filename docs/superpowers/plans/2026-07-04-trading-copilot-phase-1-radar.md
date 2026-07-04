@@ -415,7 +415,10 @@ git commit -m "feat: add momentum anti-falling-knife sub-signal"
 - Modify: `src/equity_scout/signals.py`
 - Test: `tests/test_signals.py`
 
-- [ ] **Step 1: Write the failing tests** (append)
+- [x] **Step 1: Write the failing tests** (append)
+
+Deviation: `composite_score` was added to the existing top-of-file import line instead of
+a second mid-file import statement — same E402 reason as Tasks 3-4.
 
 ```python
 from equity_scout.signals import composite_score
@@ -440,11 +443,11 @@ def test_composite_ignores_unknown_signal_names():
     assert 0.0 < composite_score(readings) < 1.0
 ```
 
-- [ ] **Step 2: Run tests to verify the new ones fail**
+- [x] **Step 2: Run tests to verify the new ones fail**
 
 Run: `python -m pytest tests/test_signals.py -v` — expected: `ImportError: cannot import name 'composite_score'`.
 
-- [ ] **Step 3: Write the implementation** (append)
+- [x] **Step 3: Write the implementation** (append)
 
 ```python
 # Static combiner weights — PLACEHOLDER until the ML layer (Phase 4) learns the
@@ -460,11 +463,11 @@ def composite_score(readings: list[SignalReading]) -> float:
     )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_signals.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 python -m pytest -q && ruff check .

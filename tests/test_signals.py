@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from equity_scout.entry import compute_entry_plan
-from equity_scout.signals import SignalReading, dip_quality, momentum, value_gap
+from equity_scout.signals import SignalReading, composite_score, dip_quality, momentum, value_gap
 
 
 def downtrend_history(
@@ -104,3 +104,22 @@ def test_momentum_missing_percentile_scores_zero():
     closes, highs, lows = stabilized_history()
     plan = compute_entry_plan("CCC", closes, highs, lows)
     assert momentum({}, plan, closes).score == 0.0
+
+
+def test_composite_is_weighted_mean_in_unit_interval():
+    readings = [
+        SignalReading("dip_quality", 1.0, "r"),
+        SignalReading("value_gap", 1.0, "r"),
+        SignalReading("momentum", 1.0, "r"),
+    ]
+    assert composite_score(readings) == 1.0
+    zeros = [SignalReading(r.name, 0.0, "r") for r in readings]
+    assert composite_score(zeros) == 0.0
+
+
+def test_composite_ignores_unknown_signal_names():
+    readings = [
+        SignalReading("dip_quality", 1.0, "r"),
+        SignalReading("someday_ml", 1.0, "r"),
+    ]
+    assert 0.0 < composite_score(readings) < 1.0
