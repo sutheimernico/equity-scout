@@ -16,7 +16,7 @@ from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
 from equity_scout.forward_storage import load_all_accounts
 from equity_scout.forward_storage import load_valuations as load_forward_valuations
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
-from equity_scout.storage import load_latest_run, load_run_summaries
+from equity_scout.storage import init_db, load_latest_run, load_run_summaries
 from equity_scout.ml.ledger import DEFAULT_LEDGER_PATH, champion
 from equity_scout.ml.research_view import research_summary
 from equity_scout.strategy_service import BENCHMARK_NAME, build_ml_report, build_reports
@@ -30,6 +30,9 @@ def create_app(
     ledger: str = DEFAULT_LEDGER_PATH,
     forward_db: str = DEFAULT_FORWARD_DB_PATH,
 ) -> FastAPI:
+    # The read API may face a DB written before a schema migration (e.g. the
+    # data_quality column); init_db is idempotent and carries the migrations.
+    init_db(db_path)
     app = FastAPI(title="equity-scout")
     reports_cache: dict[str, object] = {}  # built once per process (backtests are deterministic)
 
