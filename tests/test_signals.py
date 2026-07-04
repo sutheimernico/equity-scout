@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from equity_scout.entry import compute_entry_plan
-from equity_scout.signals import SignalReading, dip_quality, value_gap
+from equity_scout.signals import SignalReading, dip_quality, momentum, value_gap
 
 
 def downtrend_history(
@@ -73,3 +73,34 @@ def test_value_gap_zero_without_sma200_data():
 
     reading = value_gap({"value": 0.9}, replace(plan, sma200=None))
     assert reading.score == 0.0
+
+
+def stabilized_history() -> tuple[list[float], list[float], list[float]]:
+    """Decline, then a flat-to-rising tail: dip that has stopped falling."""
+    closes, highs, lows = downtrend_history(n=230)
+    tail_start = closes[-1]
+    tail = [tail_start * (1.0 + 0.001 * i) for i in range(30)]
+    closes = closes + tail
+    highs = [c * 1.01 for c in closes]
+    lows = [c * 0.99 for c in closes]
+    return closes, highs, lows
+
+
+def test_momentum_prefers_stabilized_over_falling_knife():
+    s_closes, s_highs, s_lows = stabilized_history()
+    f_closes, f_highs, f_lows = downtrend_history()
+    stable = momentum(
+        {"momentum": 0.6}, compute_entry_plan("AAA", s_closes, s_highs, s_lows), s_closes
+    )
+    knife = momentum(
+        {"momentum": 0.6}, compute_entry_plan("BBB", f_closes, f_highs, f_lows), f_closes
+    )
+    assert stable.name == "momentum"
+    assert 0.0 <= knife.score < stable.score <= 1.0
+    assert "fällt weiter" in knife.reason or "20-Tage" in knife.reason
+
+
+def test_momentum_missing_percentile_scores_zero():
+    closes, highs, lows = stabilized_history()
+    plan = compute_entry_plan("CCC", closes, highs, lows)
+    assert momentum({}, plan, closes).score == 0.0

@@ -316,7 +316,10 @@ git commit -m "feat: add value-gap entry sub-signal"
 - Modify: `src/equity_scout/signals.py`
 - Test: `tests/test_signals.py`
 
-- [ ] **Step 1: Write the failing tests** (append)
+- [x] **Step 1: Write the failing tests** (append)
+
+Deviation: `momentum` was added to the existing top-of-file import line instead of a
+second mid-file import statement — same E402 reason as Task 3.
 
 ```python
 from equity_scout.signals import momentum
@@ -353,12 +356,12 @@ def test_momentum_missing_percentile_scores_zero():
     assert momentum({}, plan, closes).score == 0.0
 ```
 
-- [ ] **Step 2: Run tests to verify the new ones fail**
+- [x] **Step 2: Run tests to verify the new ones fail**
 
 Run: `python -m pytest tests/test_signals.py -v`
 Expected: new tests FAIL with `ImportError: cannot import name 'momentum'`.
 
-- [ ] **Step 3: Write the implementation** (append; add `from equity_scout.entry import EntryPlan, sma` to the existing import — one import line total)
+- [x] **Step 3: Write the implementation** (append; add `from equity_scout.entry import EntryPlan, sma` to the existing import — one import line total)
 
 ```python
 # Falling knives keep a fraction of their momentum score, not zero: the funnel's 6m
@@ -392,11 +395,11 @@ def momentum(
     return SignalReading("momentum", score, reason)
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_signals.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 python -m pytest -q && ruff check .

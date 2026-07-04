@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from equity_scout.entry import EntryPlan
+from equity_scout.entry import EntryPlan, sma
 
 # A -30% drawdown (or deeper) counts as a "full" dip; shallower dips scale linearly.
 _FULL_DIP_DRAWDOWN = 0.30
@@ -74,3 +74,34 @@ def value_gap(breakdown: dict[str, float], plan: EntryPlan) -> SignalReading:
         f"Value-Perzentil im Funnel: {value * 100:.0f}."
     )
     return SignalReading("value_gap", score, reason)
+
+
+# Falling knives keep a fraction of their momentum score, not zero: the funnel's 6m
+# momentum percentile still carries information; the stabilization filter dampens it.
+_KNIFE_DAMPING = 0.3
+
+
+def momentum(
+    breakdown: dict[str, float], plan: EntryPlan, closes: list[float]
+) -> SignalReading:
+    """Trend filter against catching falling knives.
+
+    Uses the funnel's 6m momentum percentile, damped to 30% while the price still
+    sits below its 20-day SMA (i.e. the dip has not stabilized yet).
+    """
+    mom = float(breakdown.get("momentum", 0.0))
+    sma20 = sma(closes, window=20)
+    stabilized = sma20 is not None and plan.price >= sma20
+    if stabilized:
+        score = round(mom, 4)
+        reason = (
+            f"Kurs auf/über dem 20-Tage-Schnitt (stabilisiert); "
+            f"Momentum-Perzentil im Funnel: {mom * 100:.0f}."
+        )
+    else:
+        score = round(mom * _KNIFE_DAMPING, 4)
+        reason = (
+            f"Kurs unter dem 20-Tage-Schnitt — fällt weiter (fallendes Messer); "
+            f"Momentum-Perzentil {mom * 100:.0f} wird gedämpft."
+        )
+    return SignalReading("momentum", score, reason)
