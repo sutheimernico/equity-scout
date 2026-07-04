@@ -687,7 +687,7 @@ Follows the repo's storage pattern exactly (see `storage.py`): raw `sqlite3`, id
 - Create: `src/equity_scout/radar_storage.py`
 - Test: `tests/test_radar_storage.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Round-trip tests for radar persistence (tmp_path SQLite, as in test_storage.py)."""
@@ -736,12 +736,12 @@ def test_save_appends_signal_readings_rows(tmp_path):
     assert count == 6  # 2 snapshots x 1 ticker x 3 readings
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_radar_storage.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'equity_scout.radar_storage'`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """SQLite persistence for radar watchlists.
@@ -814,11 +814,11 @@ def load_latest_watchlist(db_path: str = DEFAULT_DB_PATH) -> dict | None:
     return json.loads(row[0]) if row else None
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_radar_storage.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 python -m pytest -q && ruff check .
