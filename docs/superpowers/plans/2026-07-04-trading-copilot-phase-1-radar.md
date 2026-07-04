@@ -1088,21 +1088,21 @@ git commit -m "feat: expose latest radar watchlist via GET /api/radar"
 
 ### Task 10: Phase gate — full verification + plan outcome
 
-- [ ] **Step 1: Full gate**
+- [x] **Step 1: Full gate**
 
 Run: `python -m pytest -q && ruff check .`
 Expected: entire suite green (was ~200+ tests before this phase; now more), ruff clean. If anything is red: fix before proceeding — never close a phase red.
 
-- [ ] **Step 2: Real-world smoke (uses network; skip gracefully if offline)**
+- [x] **Step 2: Real-world smoke (uses network; skip gracefully if offline)**
 
 Run: `python scripts/run_radar.py --db equity_scout.db --json-out /tmp/watchlist.json`
 Expected: either `Watchlist saved: N entries.` (N > 0, JSON artifact valid) — or exit 1 with the "run scripts/run_scout.py first" hint (then run `python scripts/run_scout.py` once and retry). Record the observed output in the outcome section.
 
-- [ ] **Step 3: Append outcome section to THIS plan document**
+- [x] **Step 3: Append outcome section to THIS plan document**
 
 Add at the bottom: what was implemented, deviations from the plan (e.g. the stored-run shape in Task 8), open follow-ups, and the smoke-test evidence from Step 2.
 
-- [ ] **Step 4: Log and commit**
+- [x] **Step 4: Log and commit**
 
 ```bash
 git add docs/superpowers/plans/2026-07-04-trading-copilot-phase-1-radar.md AUTOPILOT_LOG.md
@@ -1121,3 +1121,44 @@ git commit -m "docs: record phase-1 radar outcome"
 - Spec §5.2/§6/§7 (ML, notifications, lanes): explicitly OUT of Phase 1 — Phases 2–4.
 - Placeholder scan: the one intentional placeholder is `_COMPOSITE_WEIGHTS` (documented as Phase-4 replacement target) — that is a design decision, not a plan gap.
 - Type consistency: `History` tuple alias defined once in `radar.py` and imported by the CLI; `SignalReading` names are string literals in three places (signals, weights dict, tests) — kept as literals to match the repo's plain-data style.
+
+---
+
+## Outcome (2026-07-05, phase closed)
+
+**Implemented (11 commits, `b31c22f..c4b90fd` on `feat/trading-copilot-phase-1`):**
+`signals.py` (SignalReading + dip_quality/value_gap/momentum + static composite),
+`radar.py` (entry zones, Watchlist/WatchlistEntry incl. `zone_note` + `breakdown`,
+build_watchlist), `radar_storage.py` (watchlist snapshots + append-only
+signal_readings with `watchlist_id` FK + `breakdown` JSON, defensive migration),
+`scripts/run_radar.py` (CLI, DI-injectable history fetch), `GET /api/radar`.
+Suite grew 220 → 241 tests, pytest + ruff green throughout; every commit gated.
+
+**Process:** three work packages, each through spec-compliance + code-quality review
+with fix rounds, then a whole-diff final review with a fast-follow before close.
+Review rounds caught and fixed: untested composite weights / saturation clamps,
+inf-history crash, negative entry-zone-low under oversized ATR, CLI crash on
+uninitialized DB, def-time-bound fetch default defeating test injection (real
+network in a test), in_zone/reference_note contradiction (~15% of paths),
+signal_readings missing FK + factor-breakdown context.
+
+**Deviations from plan text (all noted inline at their tasks):**
+- Task 1 resolved as NO-OP — artifacts were never tracked; `.gitignore` already covered them.
+- Test imports consolidated top-of-file (plan's mid-file imports hit ruff E402).
+- `load_latest_run` returns a `RunResult` dataclass, not a dict — `main()` converts via `asdict`.
+- `proximity` rounding: plan's test and impl snippets contradicted; resolved as `round(..., 4)` with matching test.
+- `WatchlistEntry.reference_note` replaced by zone-derived `zone_note` (final-review finding).
+
+**Smoke evidence (live yfinance, local `equity_scout.db`):** two runs, each
+`Watchlist saved: 30 entries.`, 0 skipped; composites 0.09–0.59, 4/30 in zone,
+proximity signs consistent with `in_zone`. Post-migration run confirmed: 90 new
+readings rows carry `watchlist_id`/`breakdown`, 90 legacy rows preserved with NULLs
+(pre-migration DB backed up to session scratchpad).
+
+**Open follow-ups (deliberate, not defects):**
+- `--max-workers` parallel history fetch → Phase 5 (CI latency).
+- `/api/radar` empty state is `{"watchlist": null}` by contract ("no snapshot yet") — frontend must null-check (Phase 6).
+- `zone_note()` trusts its `in_zone` argument; compute internally if a second caller appears.
+- Cross-module test fixture imports instead of `conftest.py` — consolidate if radar tests keep growing.
+- dip_quality's "no fundamental deterioration" is a documented current-quality proxy until per-ticker
+  quality history accumulates in `signal_readings` (then: real trend check, Phase 4).

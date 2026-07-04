@@ -74,3 +74,10 @@
   on stated grounds, flagged Rank-IC tracking as the correctly-scoped future step. 7 atomic commits,
   23 new tests (183 → 206), pytest + ruff green throughout, FE typecheck/build green. Branch
   autopilot/work. New dependency: none (stdlib `logging`/`threading` only).
+- 2026-07-05 — Trading-Copilot Phase 1 (radar core) done interactively via subagent-driven flow:
+  entry sub-signals (dip-quality/value-gap/momentum + static composite), entry zones + watchlist
+  (zone-consistent notes, factor breakdown carried through), append-only signal_readings with
+  watchlist FK (ML training seed), radar CLI + GET /api/radar. 11 commits, 220 → 241 tests,
+  pytest + ruff green throughout; 2 live smoke runs (30 entries, 0 skipped); schema migration
+  verified against live DB. Branch feat/trading-copilot-phase-1. New dependency: none.
+  Spec: docs/superpowers/specs/2026-07-04-trading-copilot-design.md; next: Phase 2 (notifications/inbox).
