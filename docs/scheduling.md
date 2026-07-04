@@ -10,7 +10,7 @@ Pick ONE scheduler.
 
 ```cron
 # Daily at 07:00 local time
-0 7 * * * /home/nicosutheimer/private/equity-scout/scripts/scheduled_run.sh >> ~/equity-scout-cron.log 2>&1
+0 7 * * * /path/to/equity-scout/scripts/scheduled_run.sh >> ~/equity-scout-cron.log 2>&1
 ```
 
 Install with `crontab -e`.
@@ -24,7 +24,7 @@ Description=equity-scout scheduled run
 
 [Service]
 Type=oneshot
-ExecStart=/home/nicosutheimer/private/equity-scout/scripts/scheduled_run.sh
+ExecStart=/path/to/equity-scout/scripts/scheduled_run.sh
 ```
 
 `~/.config/systemd/user/equity-scout.timer`:
