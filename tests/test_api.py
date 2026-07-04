@@ -121,3 +121,24 @@ def test_entry_endpoint_accepts_dotted_ticker(tmp_path, monkeypatch):
     body = resp.json()
     assert body["available"] is True
     assert body["plan"]["ticker"] == "BRK.B"
+
+
+def test_latest_endpoint_migrates_pre_data_quality_db(tmp_path):
+    """DBs written before the data_quality column existed must not 500 the read API."""
+    import sqlite3
+
+    db = tmp_path / "old-schema.db"
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "CREATE TABLE runs ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL, "
+            "universe_size INTEGER NOT NULL, gated_out TEXT NOT NULL, "
+            "buckets TEXT NOT NULL, gate_stats TEXT NOT NULL DEFAULT '{}')"
+        )
+        con.execute(
+            "INSERT INTO runs (created_at, universe_size, gated_out, buckets) "
+            "VALUES ('2026-01-01T00:00:00Z', 1, '[]', '{}')"
+        )
+    client = TestClient(create_app(str(db)))
+    resp = client.get("/api/latest")
+    assert resp.status_code == 200
