@@ -11,13 +11,14 @@ import math
 from dataclasses import dataclass
 
 
-def _clean(values: list[float]) -> list[float]:
+def clean_prices(values: list[float]) -> list[float]:
+    """Drop non-finite/non-positive values (inf/nan/0 from a bad feed row)."""
     return [v for v in values if isinstance(v, (int, float)) and math.isfinite(v) and v > 0]
 
 
 def sma(closes: list[float], window: int) -> float | None:
     """Simple moving average of the last `window` closes (or all, if fewer). None if empty."""
-    clean = _clean(closes)
+    clean = clean_prices(closes)
     if not clean:
         return None
     tail = clean[-window:]
@@ -33,7 +34,7 @@ def fib_levels(high: float, low: float) -> dict[str, float]:
 
 def recent_swing_low(closes: list[float], k: int = 5) -> float | None:
     """Most recent local minimum: a close strictly lower than the k closes on each side."""
-    clean = _clean(closes)
+    clean = clean_prices(closes)
     n = len(clean)
     for i in range(n - k - 1, k - 1, -1):
         window = clean[i - k : i + k + 1]
@@ -112,12 +113,12 @@ def compute_entry_plan(
     ticker: str, closes: list[float], highs: list[float], lows: list[float]
 ) -> EntryPlan:
     """Build the full reference-level + tranche plan from 1y of daily OHLC closes."""
-    clean = _clean(closes)
+    clean = clean_prices(closes)
     if len(clean) < 2:
         raise ValueError("compute_entry_plan needs at least 2 valid closes")
     price = clean[-1]
-    clean_highs = _clean(highs)
-    clean_lows = _clean(lows)
+    clean_highs = clean_prices(highs)
+    clean_lows = clean_prices(lows)
     high_52w = max(clean_highs) if clean_highs else price
     low_52w = min(clean_lows) if clean_lows else price
     sma200 = sma(closes, window=200)

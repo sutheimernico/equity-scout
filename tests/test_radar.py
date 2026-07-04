@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
+
 from equity_scout.entry import compute_entry_plan
-from equity_scout.radar import Watchlist, build_watchlist, entry_zone
+from equity_scout.radar import Watchlist, build_watchlist, entry_zone, zone_note
 from tests.test_signals import downtrend_history, stabilized_history
 
 
@@ -75,4 +77,35 @@ def test_watchlist_entry_carries_readings_zone_and_proximity():
     assert entry.entry_zone_low < entry.entry_zone_high
     assert entry.in_zone == (entry.entry_zone_low <= entry.price <= entry.entry_zone_high)
     # proximity: relative distance of price to the zone's upper edge (<= 0 means at/inside)
-    assert abs(entry.proximity - (entry.price / entry.entry_zone_high - 1.0)) < 1e-9
+    assert entry.proximity == round(entry.price / entry.entry_zone_high - 1.0, 4)
+    assert entry.breakdown == _finalist("DIP")["breakdown"]
+
+
+def test_zone_note_in_zone_states_the_band():
+    assert zone_note(87.0, 85.0, 90.0, True, -0.0333) == "Kurs in der Entry-Zone (85.00–90.00)."
+
+
+def test_zone_note_below_zone_flags_it():
+    assert zone_note(80.0, 85.0, 90.0, False, -0.1111) == (
+        "Kurs unter der Entry-Zone — tiefer als die Support-Levels."
+    )
+
+
+def test_zone_note_above_zone_reports_proximity():
+    assert zone_note(95.0, 85.0, 90.0, False, 0.0556) == "Kurs +5.6 % über der Entry-Zone."
+
+
+@pytest.mark.parametrize(
+    "price, low, high",
+    [
+        (87.0, 85.0, 90.0),    # inside the zone
+        (80.0, 85.0, 90.0),    # below the zone
+        (95.0, 85.0, 90.0),    # above the zone
+        (84.95, 85.16, 90.91),  # the exact contradiction case from the review finding
+    ],
+)
+def test_zone_note_never_contradicts_in_zone(price, low, high):
+    in_zone = low <= price <= high
+    proximity = round(price / high - 1.0, 4)
+    note = zone_note(price, low, high, in_zone, proximity)
+    assert ("in der Entry-Zone" in note) == in_zone

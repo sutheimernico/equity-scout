@@ -33,6 +33,11 @@ def dip_quality(breakdown: dict[str, float], plan: EntryPlan) -> SignalReading:
 
     depth  = drawdown from the 52w high, saturating at -30%
     score  = depth x quality percentile (no quality data -> 0, honestly)
+
+    v1 PROXY: the spec (§5.1) wants "no fundamental deterioration through the dip" — a
+    trend over time — but that needs per-ticker quality history, which only starts
+    accumulating now that signal_readings persists breakdowns; the current quality
+    percentile stands in until that history is deep enough to check the trend directly.
     """
     quality = float(breakdown.get("quality", 0.0))
     depth = min(max(-plan.drawdown_from_high, 0.0) / _FULL_DIP_DRAWDOWN, 1.0)

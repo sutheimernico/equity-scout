@@ -6,10 +6,9 @@ runs and stored runs feed the same code path.
 """
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 
-from equity_scout.entry import EntryPlan, compute_entry_plan
+from equity_scout.entry import EntryPlan, clean_prices, compute_entry_plan
 from equity_scout.signals import (
     SignalReading,
     composite_score,
@@ -35,7 +34,8 @@ class WatchlistEntry:
     in_zone: bool
     composite: float
     readings: list[SignalReading]
-    reference_note: str  # EntryPlan.reference_note, carried through for the UI/pitch
+    zone_note: str  # German zone-status note, derived from the same values as in_zone below
+    breakdown: dict[str, float]  # finalist's full funnel breakdown (incl. growth/low_vol) for ML context
 
 
 @dataclass(frozen=True)
@@ -68,6 +68,17 @@ def entry_zone(plan: EntryPlan) -> tuple[float, float] | None:
     return low, high
 
 
+def zone_note(price: float, low: float, high: float, in_zone: bool, proximity: float) -> str:
+    """German zone-status note, built from the exact values that produced `in_zone` — cannot
+    contradict it (unlike entry.py's independent near_reference/reference_note, which compares
+    against different levels and disagrees with in_zone ~15% of the time)."""
+    if in_zone:
+        return f"Kurs in der Entry-Zone ({low:.2f}–{high:.2f})."
+    if price < low:
+        return "Kurs unter der Entry-Zone — tiefer als die Support-Levels."
+    return f"Kurs {proximity * 100:+.1f} % über der Entry-Zone."
+
+
 def build_watchlist(
     finalists: list[dict], histories: dict[str, History], created_at: str
 ) -> Watchlist:
@@ -77,9 +88,10 @@ def build_watchlist(
     for pick in finalists:
         ticker = pick["ticker"]
         closes, highs, lows = histories.get(ticker, ([], [], []))
-        # Mirror entry.py's cleaning: non-finite values (inf/nan from a bad feed) must not
-        # pass the guard, or compute_entry_plan raises and one bad ticker kills the run.
-        usable = [c for c in closes if isinstance(c, (int, float)) and math.isfinite(c) and c > 0]
+        # Same predicate compute_entry_plan uses internally (imported, not duplicated): a
+        # non-finite value (inf/nan from a bad feed) must not pass the guard, or
+        # compute_entry_plan raises and one bad ticker kills the run.
+        usable = clean_prices(closes)
         if len(usable) < 2:
             skipped[ticker] = "keine verwertbare Kurshistorie"
             continue
@@ -95,6 +107,8 @@ def build_watchlist(
             value_gap(breakdown, plan),
             momentum(breakdown, plan, closes),
         ]
+        proximity = round(plan.price / high - 1.0, 4)
+        in_zone = low <= plan.price <= high
         entries.append(
             WatchlistEntry(
                 ticker=ticker,
@@ -103,11 +117,12 @@ def build_watchlist(
                 price=plan.price,
                 entry_zone_low=low,
                 entry_zone_high=high,
-                proximity=plan.price / high - 1.0,
-                in_zone=low <= plan.price <= high,
+                proximity=proximity,
+                in_zone=in_zone,
                 composite=composite_score(readings),
                 readings=readings,
-                reference_note=plan.reference_note,
+                zone_note=zone_note(plan.price, low, high, in_zone, proximity),
+                breakdown=breakdown,
             )
         )
     entries.sort(key=lambda e: e.composite, reverse=True)
