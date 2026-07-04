@@ -39,6 +39,11 @@
 
 ### Task 1: Repo hygiene — untrack runtime artifacts
 
+> **RESOLVED AS NO-OP (2026-07-04, verified during execution):** `git ls-files` shows no
+> tracked `*.log`/`*.db`; `.gitignore` already contains `*.db` and `*.log` and
+> `git status --ignored` confirms all root artifacts are ignored. The status-sweep
+> finding that flagged them was wrong about tracking. Nothing to do.
+
 The repo is public; committed logs/DBs (`api.log`, `forward.log`, `research.log`, `research_ledger.db`, `equity_scout.db`, `equity_scout_cache.db`, `forward_paper.db`) are run byproducts and must leave tracking. Files stay on disk (`--cached`), only git tracking changes.
 
 **Files:**
@@ -85,7 +90,7 @@ git commit -m "chore: untrack runtime artifacts (logs, sqlite dbs) for public re
 - Create: `src/equity_scout/signals.py`
 - Test: `tests/test_signals.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Tests for entry sub-signals. Histories are synthetic and deterministic."""
@@ -136,12 +141,12 @@ def test_dip_quality_missing_quality_percentile_scores_zero():
     assert dip_quality({}, plan).score == 0.0
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest tests/test_signals.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'equity_scout.signals'` (or ImportError).
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """Entry sub-signals: transparent, rule-based scores in [0, 1] with readable reasons.
@@ -190,12 +195,12 @@ def dip_quality(breakdown: dict[str, float], plan: EntryPlan) -> SignalReading:
     return SignalReading("dip_quality", score, reason)
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_signals.py -v`
 Expected: 3 PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 python -m pytest -q && ruff check .
