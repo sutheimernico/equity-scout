@@ -4,6 +4,7 @@ import { fetchRadar, type RadarResponse, type WatchlistEntry } from "../api";
 import { BUCKET_LABELS, pct, toPercent } from "../format";
 import { Bar } from "./ui/Bar";
 import { Chip } from "./ui/Chip";
+import { DisclaimerBar } from "./ui/DisclaimerBar";
 import { Disclosure } from "./ui/Disclosure";
 
 // Radar sub-signal names → German labels (the three readings behind each composite score).
@@ -163,8 +164,7 @@ export function RadarPanel() {
         </div>
       )}
 
-      {/* Task 7 will formalize this as <DisclaimerBar/>; kept inline so the surface stays honest standalone. */}
-      <p className="surface-disclaimer">{data.disclaimer}</p>
+      <DisclaimerBar text={data.disclaimer} />
     </>
   );
 }

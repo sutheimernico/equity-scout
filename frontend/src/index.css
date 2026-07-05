@@ -458,6 +458,14 @@ code {
   background: var(--accent-subtle);
   border-color: var(--border-strong);
 }
+/* Hairline divider between the copilot tabs and the research tabs. */
+.nav-sep {
+  align-self: center;
+  width: 1px;
+  height: 1.25rem;
+  background: var(--border-strong);
+  flex: none;
+}
 .tabbar.wrap {
   flex-wrap: wrap;
   gap: var(--space-4) var(--space-5);

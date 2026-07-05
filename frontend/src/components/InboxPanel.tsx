@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { decidePitch, fetchInbox, type InboxResponse, type Pitch } from "../api";
 import { toPercent } from "../format";
+import { DisclaimerBar } from "./ui/DisclaimerBar";
 
 // ISO timestamp → compact "YYYY-MM-DD HH:MM" (backend emits tz-aware isoformat).
 function formatStamp(iso: string): string {
@@ -176,8 +177,7 @@ export function InboxPanel() {
         </div>
       )}
 
-      {/* Task 7 will formalize this as <DisclaimerBar/>; kept inline so the surface stays honest standalone. */}
-      <p className="surface-disclaimer">{data.disclaimer}</p>
+      <DisclaimerBar text={data.disclaimer} />
     </>
   );
 }

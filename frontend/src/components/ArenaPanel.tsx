@@ -4,6 +4,7 @@ import { fetchArena, type ArenaResponse, type Lane, type LanePosition, type Lane
 import { eur, num, pct } from "../format";
 import { EquityChart, type ChartSeries } from "./EquityChart";
 import { StatTile } from "./StatTile";
+import { DisclaimerBar } from "./ui/DisclaimerBar";
 
 // Lane id → German label + race color (nico = violet, autopilot = phosphor accent).
 const LANE_LABELS: Record<string, string> = { nico: "Du", autopilot: "Autopilot" };
@@ -196,8 +197,7 @@ export function ArenaPanel() {
         ))}
       </div>
 
-      {/* Task 7 will formalize this as <DisclaimerBar/>; kept inline so the surface stays honest standalone. */}
-      <p className="surface-disclaimer">{data.disclaimer}</p>
+      <DisclaimerBar text={data.disclaimer} />
     </>
   );
 }

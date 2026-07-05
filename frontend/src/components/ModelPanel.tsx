@@ -4,6 +4,7 @@ import { fetchModel, type ModelResponse, type RegistryEntry } from "../api";
 import { num, pct, pctAbs } from "../format";
 import { Badge } from "./ui/Badge";
 import { Bar } from "./ui/Bar";
+import { DisclaimerBar } from "./ui/DisclaimerBar";
 import { Metric } from "./ui/Metric";
 
 // OOS metric key → German label + formatter. A null metric renders "—", never a fabricated number.
@@ -164,8 +165,7 @@ export function ModelPanel() {
         )}
       </section>
 
-      {/* Task 7 will formalize this as <DisclaimerBar/>; kept inline so the surface stays honest standalone. */}
-      <p className="surface-disclaimer">{data.disclaimer}</p>
+      <DisclaimerBar text={data.disclaimer} />
     </>
   );
 }

@@ -1,17 +1,27 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
+import { ArenaPanel } from "./components/ArenaPanel";
 import { ChatPanel } from "./components/ChatPanel";
 import { FunnelView } from "./components/FunnelView";
+import { InboxPanel } from "./components/InboxPanel";
 import { MLSection } from "./components/MLSection";
+import { ModelPanel } from "./components/ModelPanel";
+import { RadarPanel } from "./components/RadarPanel";
 import { StrategyDashboard } from "./components/StrategyDashboard";
 
-type View = "strategies" | "ml" | "funnel" | "chat";
+type View = "arena" | "radar" | "inbox" | "model" | "strategies" | "ml" | "funnel" | "chat";
 
-const NAV: { key: View; label: string }[] = [
-  { key: "strategies", label: "Strategien" },
-  { key: "ml", label: "Machine Learning" },
-  { key: "funnel", label: "Aktien-Screener" },
-  { key: "chat", label: "Assistent" },
+// Copilot surfaces lead (Arena is the headline + default); a separator splits them from the
+// research views. `group` change between adjacent items renders the hairline divider.
+const NAV: { key: View; label: string; group: "copilot" | "research" }[] = [
+  { key: "arena", label: "Arena", group: "copilot" },
+  { key: "radar", label: "Radar", group: "copilot" },
+  { key: "inbox", label: "Inbox", group: "copilot" },
+  { key: "model", label: "Modell", group: "copilot" },
+  { key: "strategies", label: "Strategien", group: "research" },
+  { key: "ml", label: "Machine Learning", group: "research" },
+  { key: "funnel", label: "Aktien-Screener", group: "research" },
+  { key: "chat", label: "Assistent", group: "research" },
 ];
 
 // Reveal-on-scroll: one global observer fades in any `.reveal` element as it enters the viewport.
@@ -54,7 +64,7 @@ function useRevealOnScroll() {
 }
 
 export default function App() {
-  const [view, setView] = useState<View>("strategies");
+  const [view, setView] = useState<View>("arena");
   useRevealOnScroll();
 
   return (
@@ -65,20 +75,28 @@ export default function App() {
           equity-scout<span className="dot">.</span>
         </span>
         <nav className="nav">
-          {NAV.map((item) => (
-            <button
-              key={item.key}
-              className={view === item.key ? "nav-link active" : "nav-link"}
-              onClick={() => setView(item.key)}
-            >
-              {item.label}
-            </button>
+          {NAV.map((item, i) => (
+            <Fragment key={item.key}>
+              {i > 0 && NAV[i - 1].group !== item.group && (
+                <span className="nav-sep" aria-hidden="true" />
+              )}
+              <button
+                className={view === item.key ? "nav-link active" : "nav-link"}
+                onClick={() => setView(item.key)}
+              >
+                {item.label}
+              </button>
+            </Fragment>
           ))}
         </nav>
       </header>
 
       <main className="content">
         <div className="view" key={view}>
+          {view === "arena" && <ArenaPanel />}
+          {view === "radar" && <RadarPanel />}
+          {view === "inbox" && <InboxPanel />}
+          {view === "model" && <ModelPanel />}
           {view === "strategies" && <StrategyDashboard />}
           {view === "ml" && <MLSection />}
           {view === "funnel" && <FunnelView />}
