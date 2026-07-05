@@ -918,7 +918,7 @@ Gate: 265 passed (258 baseline + 7), ruff clean. Commit `8e37d8f`.
 - Create: `scripts/run_receiver.py`
 - Test: `tests/test_run_receiver.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Receiver loop: canned updates -> inbox decisions + telegram acks (all fakes)."""
@@ -1000,11 +1000,11 @@ def test_process_round_ignores_foreign_and_malformed_updates(tmp_path):
     assert load_pitches(db)[0]["status"] == "open"
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_run_receiver.py -v` — expected: import error.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """Decision receiver: long-polls Telegram for button presses, records them.
@@ -1109,17 +1109,19 @@ if __name__ == "__main__":
 
 Fix the duplicate-press ack text during implementation: use exactly `"Bereits entschieden."` (the test asserts the substring "bereits entschieden" case-insensitively adjust the test to match the final wording — pick ONE wording and align test + code).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/test_run_receiver.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 .venv/bin/python -m pytest && .venv/bin/ruff check .
 git add scripts/run_receiver.py tests/test_run_receiver.py
 git commit -m "feat: add long-polling decision receiver recording one-tap verdicts"
 ```
+
+**Outcome:** Implemented per plan with the two documented ack-wording fixes: the duplicate/unknown-decision ack is exactly `"Bereits entschieden."` (the plan's draft `"Bereits entschieden oder unbekannt — bereits entschieden?"` had a duplicated phrase; `decide_pitch`'s bool already conflates "already decided" and "unknown id" into one False, so one clean ack covers both). The draft test's lowercase substring assertion was replaced with an exact-match assertion on the final string. `_pitch_by_id` kept the `load_pitches(db_path, limit=1000)` linear scan verbatim, now with a comment noting it is fine at personal-inbox scale. Gate: 271 passed (268 baseline + 3), ruff clean.
 
 ---
 
