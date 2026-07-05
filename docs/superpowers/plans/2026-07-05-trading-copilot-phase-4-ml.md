@@ -300,11 +300,11 @@ The honesty centerpiece. Table `entry_predictions(id PK, created_at, model_versi
 
 `run_train_entry`: load/refresh a stock+SPY `PricePanel` (reuse `data/etf_panel.load_etf_panel` with a distinct snapshot path, tickers from the latest universe/watchlist or a `--tickers` list), `build_backfill_dataset`, `walk_forward_evaluate` for the configured model kind(s), `train_entry_model` on the full set, `register_challenger` with the OOS metrics, `promote_if_better`. Print an honest German summary (OOS AUC/Brier/Rank-IC, promoted yes/no). This is the nightly-retrain entrypoint (Phase 5 wires it to cron). `run_resolve_predictions`: `due_predictions`, fetch realized relative returns via an injectable `fetch_prices` (default `load_etf_panel` for the due tickers + SPY over the needed window), `resolve_prediction` each. Both: `run_*()` core takes injected data/fetch seams (no network in tests), `main()` thin argparse; datetime.now only in main().
 
-- [ ] **Step 1: Failing tests** — inject a synthetic panel / fetch fake: train CLI builds a dataset, evaluates, registers a model, promotes the first one, exit 0; second run registers v2 and promotes only if better (assert champion logic end-to-end); resolve CLI resolves due predictions via the fake and leaves not-yet-due ones open; both `main()` paths with monkeypatched loaders (no network), exit 0. Follow `tests/test_run_lanes.py` patterns.
-- [ ] **Step 2: Run → fail.**
-- [ ] **Step 3: Implement both CLIs.**
-- [ ] **Step 4: Run → pass.**
-- [ ] **Step 5: Commit** `feat: add entry-model train and prediction-resolve CLIs`.
+- [x] **Step 1: Failing tests** — inject a synthetic panel / fetch fake: train CLI builds a dataset, evaluates, registers a model, promotes the first one, exit 0; second run registers v2 and promotes only if better (assert champion logic end-to-end); resolve CLI resolves due predictions via the fake and leaves not-yet-due ones open; both `main()` paths with monkeypatched loaders (no network), exit 0. Follow `tests/test_run_lanes.py` patterns.
+- [x] **Step 2: Run → fail.**
+- [x] **Step 3: Implement both CLIs.**
+- [x] **Step 4: Run → pass.**
+- [x] **Step 5: Commit** `feat: add entry-model train and prediction-resolve CLIs`.
 
 ---
 
