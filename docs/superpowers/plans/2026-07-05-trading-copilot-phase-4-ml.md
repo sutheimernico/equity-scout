@@ -220,11 +220,11 @@ git commit -m "feat: add relative-return labels and OOS classification metrics"
 
 Feature row for one (ticker, as_of) from PAST prices only. Combines: the market-regime columns (reuse `ml.features.regime_features` on the benchmark — same value for every ticker on a date, that's fine, it's market context) and per-stock price geometry: `mom_1m`/`mom_3m`/`mom_6m` (trailing returns), `dist_sma200` (price/200d-mean − 1), `drawdown_1y` (price/252d-max − 1), `vol_3m` (annualized 63d stdev). NO fundamentals. `FEATURE_COLUMNS` is the ordered, single-source feature list.
 
-- [ ] **Step 1: Write the failing tests** — assert: `build_feature_row(stock_closes, market_context_row, as_of)` returns a dict with exactly `FEATURE_COLUMNS` keys; a deep-drawdown synthetic series yields negative `drawdown_1y` and `dist_sma200`; insufficient history (`< 252` closes before `as_of`) returns `None` (honest: can't build a full feature row); momentum signs correct on monotone up/down series. Full test code following the `entry.py`/`signals.py` synthetic-history style.
-- [ ] **Step 2: Run → fail.**
-- [ ] **Step 3: Implement** — `FEATURE_COLUMNS: tuple[str, ...]` (market-context names from a documented subset of `regime_features` + the per-stock names), `build_feature_row(stock: pd.Series, context: dict[str, float], as_of: pd.Timestamp) -> dict | None`, and `market_context(panel, benchmark="SPY") -> pd.DataFrame` (thin wrapper over `regime_features` selecting the reused columns). Pure; all rolling windows use only data at/asof `as_of`. Document the no-fundamentals invariant in the module docstring.
-- [ ] **Step 4: Run → pass.**
-- [ ] **Step 5: Commit** `feat: add price-derived entry feature builder (no fundamentals)`.
+- [x] **Step 1: Write the failing tests** — assert: `build_feature_row(stock_closes, market_context_row, as_of)` returns a dict with exactly `FEATURE_COLUMNS` keys; a deep-drawdown synthetic series yields negative `drawdown_1y` and `dist_sma200`; insufficient history (`< 252` closes before `as_of`) returns `None` (honest: can't build a full feature row); momentum signs correct on monotone up/down series. Full test code following the `entry.py`/`signals.py` synthetic-history style.
+- [x] **Step 2: Run → fail.**
+- [x] **Step 3: Implement** — `FEATURE_COLUMNS: tuple[str, ...]` (market-context names from a documented subset of `regime_features` + the per-stock names), `build_feature_row(stock: pd.Series, context: dict[str, float], as_of: pd.Timestamp) -> dict | None`, and `market_context(panel, benchmark="SPY") -> pd.DataFrame` (thin wrapper over `regime_features` selecting the reused columns). Pure; all rolling windows use only data at/asof `as_of`. Document the no-fundamentals invariant in the module docstring. (Market-context columns are `mkt_`-prefixed in the row to avoid the `mom_3m` name collision with the per-stock momentum.)
+- [x] **Step 4: Run → pass.**
+- [x] **Step 5: Commit** `feat: add price-derived entry feature builder (no fundamentals)`.
 
 ---
 
