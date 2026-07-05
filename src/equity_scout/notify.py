@@ -5,14 +5,19 @@ in_zone AND composite >= threshold AND ticker outside its cooldown window.
 Cooldown compares ISO-8601 strings via date arithmetic (timezone-aware).
 The send seam is (pitch_id, text) -> telegram_message_id so tests and the
 no-token dry mode never touch the network; send=None records inbox rows only.
+A NULL telegram_message_id means "no sender configured OR the send failed" —
+either way the pitch lives in the inbox (source of truth), and the next run
+re-qualifies the ticker once its cooldown has elapsed.
 """
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
 from equity_scout.inbox_storage import create_pitch, last_pitch_at as _last_pitch_at
 from equity_scout.inbox_storage import set_message_id
+from equity_scout.telegram_client import TelegramError
 
 DEFAULT_THRESHOLD = 0.45
 DEFAULT_COOLDOWN_DAYS = 7
@@ -57,7 +62,8 @@ def notify_watchlist(
 
     Returns the number of pitches created. The inbox row is written BEFORE the
     send so a Telegram failure can never lose a pitch — the dashboard inbox is
-    the source of truth; Telegram is a delivery channel.
+    the source of truth; Telegram is a delivery channel. A failed send is warned
+    to stderr and the batch CONTINUES: one bad candidate must not silence the rest.
     """
     candidates = select_candidates(
         watchlist,
@@ -80,5 +86,11 @@ def notify_watchlist(
             created_at=now,
         )
         if send is not None:
-            set_message_id(db_path, pitch_id, send(pitch_id, text))
+            try:
+                set_message_id(db_path, pitch_id, send(pitch_id, text))
+            except TelegramError as err:
+                print(
+                    f"Warnung: Telegram-Versand für {entry['ticker']} fehlgeschlagen: {err}",
+                    file=sys.stderr,
+                )
     return len(candidates)

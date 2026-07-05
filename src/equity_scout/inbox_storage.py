@@ -76,6 +76,7 @@ def decide_pitch(db_path: str, pitch_id: int, action: str, *, decided_at: str) -
 
 
 def set_message_id(db_path: str, pitch_id: int, message_id: int) -> None:
+    init_inbox_db(db_path)
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             "UPDATE pitches SET telegram_message_id = ? WHERE id = ?", (message_id, pitch_id)
@@ -83,6 +84,9 @@ def set_message_id(db_path: str, pitch_id: int, message_id: int) -> None:
 
 
 def last_pitch_at(db_path: str, ticker: str) -> str | None:
+    # SQL MAX() on TEXT compares lexicographically. That is only chronologically
+    # correct because ALL writers produce UTC "+00:00" ISO-8601 strings
+    # (run_notify's main() does); never mix timezone offsets in created_at.
     init_inbox_db(db_path)
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(

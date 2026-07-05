@@ -35,6 +35,12 @@ def test_create_and_load_open_pitch(tmp_path):
     assert len(pitches) == 1
     p = pitches[0]
     assert (p["id"], p["ticker"], p["status"], p["decided_at"]) == (pitch_id, "EXE", "open", None)
+    # Pin the value columns field-by-field: swapped zone_low/zone_high (or
+    # price/composite) in a caller's create_pitch call must not survive the suite.
+    assert p["zone_low"] == 84.77
+    assert p["zone_high"] == 103.01
+    assert p["price"] == 90.72
+    assert p["composite"] == 0.592
 
 
 def test_decide_pitch_transitions_only_from_open(tmp_path):

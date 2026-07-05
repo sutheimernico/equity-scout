@@ -9,6 +9,7 @@ from equity_scout.notify import notify_watchlist, select_candidates
 from equity_scout.radar import Watchlist, WatchlistEntry
 from equity_scout.radar_storage import save_watchlist
 from equity_scout.signals import SignalReading
+from equity_scout.telegram_client import TelegramError
 from scripts.run_notify import main
 
 NOW = "2026-07-05T12:00:00+00:00"
@@ -63,6 +64,19 @@ def test_select_candidates_repitches_after_cooldown():
     assert [e["ticker"] for e in picked] == ["COLD"]
 
 
+def test_select_candidates_repitches_exactly_at_cooldown_boundary():
+    """last pitch EXACTLY cooldown_days ago -> the boundary day is free again (strict `<`)."""
+    watchlist = {"created_at": NOW, "entries": [_entry("EDGE")]}
+    picked = select_candidates(
+        watchlist,
+        last_pitch_at=lambda t: "2026-06-28T12:00:00+00:00",  # NOW minus exactly 7 days
+        threshold=0.45,
+        cooldown_days=7,
+        now=NOW,
+    )
+    assert [e["ticker"] for e in picked] == ["EDGE"]
+
+
 def test_notify_watchlist_creates_pitches_and_sends(tmp_path):
     db = str(tmp_path / "inbox.db")
     watchlist = {"created_at": NOW, "entries": [_entry("YES"), _entry("LOW", composite=0.1)]}
@@ -85,10 +99,44 @@ def test_notify_watchlist_creates_pitches_and_sends(tmp_path):
     pitches = load_pitches(db)
     assert len(pitches) == 1
     assert pitches[0]["ticker"] == "YES"
+    # Pin the zone mapping field-by-field: entry_zone_low -> zone_low and
+    # entry_zone_high -> zone_high; a swap in the create_pitch call must fail here.
+    assert pitches[0]["zone_low"] == 95.0
+    assert pitches[0]["zone_high"] == 105.0
     # fake_send returns 500 + pitch_id; the plan's original assertion
     # (`501 + id - 1`) was an awkward way of writing the same identity.
     assert pitches[0]["telegram_message_id"] == 500 + pitches[0]["id"]
     assert sent == [(pitches[0]["id"], "PITCH YES")]
+
+
+def test_notify_watchlist_continues_after_telegram_error(tmp_path, capsys):
+    """A failed send must not abort the batch: the row keeps message_id NULL, a
+    German warning goes to stderr, and later candidates are still pitched + sent."""
+    db = str(tmp_path / "inbox.db")
+    watchlist = {"created_at": NOW, "entries": [_entry("BOOM"), _entry("OKAY")]}
+    sent: list[int] = []
+
+    def flaky_send(pitch_id: int, text: str) -> int:
+        if "BOOM" in text:
+            raise TelegramError("chat not found")
+        sent.append(pitch_id)
+        return 900 + pitch_id
+
+    count = notify_watchlist(
+        db,
+        watchlist,
+        build=lambda entry: f"PITCH {entry['ticker']}",
+        send=flaky_send,
+        threshold=0.45,
+        cooldown_days=7,
+        now=NOW,
+    )
+    assert count == 2
+    assert "Warnung: Telegram-Versand für BOOM fehlgeschlagen" in capsys.readouterr().err
+    by_ticker = {p["ticker"]: p for p in load_pitches(db)}
+    assert by_ticker["BOOM"]["telegram_message_id"] is None  # row survives the failed send
+    assert by_ticker["OKAY"]["telegram_message_id"] == 900 + by_ticker["OKAY"]["id"]
+    assert sent == [by_ticker["OKAY"]["id"]]
 
 
 def test_notify_watchlist_without_send_still_creates_inbox_rows(tmp_path):
@@ -152,6 +200,30 @@ def test_main_writes_inbox_only_without_telegram_config(tmp_path, monkeypatch, c
     pitches = load_pitches(db)
     assert len(pitches) == 1
     assert pitches[0]["ticker"] == "YES"
+    assert pitches[0]["telegram_message_id"] is None
+
+
+def test_main_dry_run_never_sends_even_with_telegram_config(tmp_path, monkeypatch, capsys):
+    """--dry-run with full COPILOT_TG_* config -> inbox-only; send_message must never run."""
+    db = str(tmp_path / "run.db")
+    _seed_watchlist_db(db)
+    monkeypatch.setenv("COPILOT_TG_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("COPILOT_TG_CHAT_ID", "4242")
+
+    def fail_loudly(*args, **kwargs):
+        raise AssertionError("send_message must not be called with --dry-run")
+
+    monkeypatch.setattr(run_notify_mod, "send_message", fail_loudly)
+    monkeypatch.setattr(run_notify_mod, "build_pitch", lambda entry: f"PITCH {entry['ticker']}")
+    monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db, "--dry-run"])
+
+    assert main() == 0
+
+    out = capsys.readouterr().out
+    assert "Telegram not configured" in out  # dry-run reuses the inbox-only message
+    assert "Pitches created: 1." in out
+    pitches = load_pitches(db)
+    assert len(pitches) == 1
     assert pitches[0]["telegram_message_id"] is None
 
 
