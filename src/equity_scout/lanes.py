@@ -101,12 +101,13 @@ def apply_exits(
             positions[ticker] = replace(positions[ticker], last_price=price)
             continue
         fill = price * (1 - slip)
-        proceeds = positions[ticker].shares * fill * (1 - fee_rate)
+        shares = positions[ticker].shares
+        proceeds = shares * fill * (1 - fee_rate)  # raw shares for the cash math
         cash += proceeds
         trades.append(
             TradeRecord(
                 created_at=now, lane=lane, ticker=ticker, side="sell",
-                shares=positions[ticker].shares, fill_price=round(fill, 4),
+                shares=round(shares, 4), fill_price=round(fill, 4),
                 cost=round(proceeds, 2), reason=reason,
             )
         )
@@ -138,7 +139,7 @@ def execute_buys(
     target_value = portfolio.initial_capital * position_fraction
     for order in orders:
         price = prices.get(order.ticker)
-        if order.ticker in positions or not price or price <= 0:
+        if order.ticker in positions or price is None or price <= 0:
             continue
         total_cost = target_value * (1 + fee_rate)
         if cash < total_cost:
