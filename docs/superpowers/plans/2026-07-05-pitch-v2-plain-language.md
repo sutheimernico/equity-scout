@@ -154,9 +154,9 @@ Rules:
 
 `notify_watchlist` builds the pitch via `build=build_pitch`. Add an injectable `enrich: Callable[[str], Fundamentals] | None` (default `fundamentals.fetch_fundamentals`) so each candidate's fundamentals are fetched once and passed to the pitch builder. In tests inject a fake enrich (no network). `run_notify.main()` uses the real `fetch_fundamentals`; the fetch is the only new network and stays in `main()`/the seam, not in pure code.
 
-- [ ] **Step 1:** failing test — `notify_watchlist` with a fake `enrich` returning a known `Fundamentals` produces a pitch containing the analyst line; with `enrich` returning all-None → the honest-absence line; enrich is called once per candidate. Keep the existing selection/cooldown/resilience tests green.
-- [ ] **Step 2–4:** implement (thread `enrich` through; `build` becomes `lambda entry: build_pitch(entry, enrich(entry["ticker"]))` or an explicit two-arg build), run, gate.
-- [ ] **Step 5:** commit `feat: enrich notifications with fundamentals for the new pitch`.
+- [x] **Step 1:** failing test — `notify_watchlist` with a fake `enrich` returning a known `Fundamentals` produces a pitch containing the analyst line; with `enrich` returning all-None → the honest-absence line; enrich is called once per candidate. Keep the existing selection/cooldown/resilience tests green.
+- [x] **Step 2–4:** implement (thread `enrich` through; `build` becomes `lambda entry: build_pitch(entry, enrich(entry["ticker"]))` or an explicit two-arg build), run, gate.
+- [x] **Step 5:** commit `feat: enrich notifications with fundamentals for the new pitch`.
 
 ---
 

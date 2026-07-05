@@ -15,6 +15,7 @@ import sys
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
+from equity_scout.fundamentals import Fundamentals, fetch_fundamentals
 from equity_scout.inbox_storage import create_pitch, last_pitch_at as _last_pitch_at
 from equity_scout.inbox_storage import set_message_id
 from equity_scout.telegram_client import TelegramError
@@ -52,18 +53,21 @@ def notify_watchlist(
     db_path: str,
     watchlist: dict,
     *,
-    build: Callable[[dict], str],
+    build: Callable[[dict, Fundamentals | None], str],
     send: Callable[[int, str], int] | None,
+    enrich: Callable[[str], Fundamentals] | None = fetch_fundamentals,
     threshold: float = DEFAULT_THRESHOLD,
     cooldown_days: int = DEFAULT_COOLDOWN_DAYS,
     now: str,
 ) -> int:
     """Create inbox pitches (and send them, if a sender is configured).
 
-    Returns the number of pitches created. The inbox row is written BEFORE the
-    send so a Telegram failure can never lose a pitch — the dashboard inbox is
-    the source of truth; Telegram is a delivery channel. A failed send is warned
-    to stderr and the batch CONTINUES: one bad candidate must not silence the rest.
+    Returns the number of pitches created. Each candidate's fundamentals are fetched
+    once via `enrich` (default the live yfinance seam; `None` to skip) and passed to
+    the pitch builder. The inbox row is written BEFORE the send so a Telegram failure
+    can never lose a pitch — the dashboard inbox is the source of truth; Telegram is a
+    delivery channel. A failed send is warned to stderr and the batch CONTINUES: one
+    bad candidate must not silence the rest.
     """
     candidates = select_candidates(
         watchlist,
@@ -74,7 +78,8 @@ def notify_watchlist(
     )
     watchlist_id = watchlist.get("watchlist_id")  # top-level snapshot id from radar_storage
     for entry in candidates:
-        text = build(entry)
+        fundamentals = enrich(entry["ticker"]) if enrich is not None else None
+        text = build(entry, fundamentals)
         pitch_id = create_pitch(
             db_path,
             ticker=entry["ticker"],

@@ -4,8 +4,10 @@ from __future__ import annotations
 import sys
 
 import scripts.run_notify as run_notify_mod
+from equity_scout.fundamentals import Fundamentals
 from equity_scout.inbox_storage import create_pitch, load_pitches
 from equity_scout.notify import notify_watchlist, select_candidates
+from equity_scout.pitch import build_pitch
 from equity_scout.radar import Watchlist, WatchlistEntry
 from equity_scout.radar_storage import save_watchlist
 from equity_scout.signals import SignalReading
@@ -13,6 +15,11 @@ from equity_scout.telegram_client import TelegramError
 from scripts.run_notify import main
 
 NOW = "2026-07-05T12:00:00+00:00"
+
+
+def _no_fund(ticker: str) -> Fundamentals:
+    """Offline enrich seam: never touches the network in tests."""
+    return Fundamentals(None, None, None, None)
 
 
 def _entry(ticker: str, composite: float = 0.6, in_zone: bool = True) -> dict:
@@ -93,8 +100,9 @@ def test_notify_watchlist_creates_pitches_and_sends(tmp_path):
     count = notify_watchlist(
         db,
         watchlist,
-        build=lambda entry: f"PITCH {entry['ticker']}",
+        build=lambda entry, fund: f"PITCH {entry['ticker']}",
         send=fake_send,
+        enrich=_no_fund,
         threshold=0.45,
         cooldown_days=7,
         now=NOW,
@@ -131,8 +139,9 @@ def test_notify_watchlist_continues_after_telegram_error(tmp_path, capsys):
     count = notify_watchlist(
         db,
         watchlist,
-        build=lambda entry: f"PITCH {entry['ticker']}",
+        build=lambda entry, fund: f"PITCH {entry['ticker']}",
         send=flaky_send,
+        enrich=_no_fund,
         threshold=0.45,
         cooldown_days=7,
         now=NOW,
@@ -149,7 +158,8 @@ def test_notify_watchlist_without_send_still_creates_inbox_rows(tmp_path):
     db = str(tmp_path / "inbox.db")
     watchlist = {"created_at": NOW, "entries": [_entry("YES")]}
     count = notify_watchlist(
-        db, watchlist, build=lambda e: "P", send=None, threshold=0.45, cooldown_days=7, now=NOW
+        db, watchlist, build=lambda e, f: "P", send=None, enrich=_no_fund,
+        threshold=0.45, cooldown_days=7, now=NOW,
     )
     assert count == 1
     assert load_pitches(db)[0]["telegram_message_id"] is None
@@ -163,9 +173,50 @@ def test_notify_respects_cooldown_from_own_previous_run(tmp_path):
     )
     watchlist = {"created_at": NOW, "entries": [_entry("YES")]}
     count = notify_watchlist(
-        db, watchlist, build=lambda e: "P", send=None, threshold=0.45, cooldown_days=7, now=NOW
+        db, watchlist, build=lambda e, f: "P", send=None, enrich=_no_fund,
+        threshold=0.45, cooldown_days=7, now=NOW,
     )
     assert count == 0
+
+
+def _build_with_stub_llm(entry, fundamentals):
+    """Real pitch layout, injected offline LLM seam so the notify path stays network-free."""
+    return build_pitch(entry, fundamentals, ask=lambda question, context: "stub")
+
+
+def test_notify_watchlist_enriches_pitch_with_analyst_consensus(tmp_path):
+    """Task 4: a fake enrich feeds each candidate's fundamentals into the pitch — the
+    stored pitch carries the third-party analyst line, and enrich runs once per candidate."""
+    db = str(tmp_path / "inbox.db")
+    watchlist = {"created_at": NOW, "entries": [_entry("YES"), _entry("ALSO")]}
+    calls: list[str] = []
+
+    def fake_enrich(ticker: str) -> Fundamentals:
+        calls.append(ticker)
+        return Fundamentals(trailing_pe=18.4, analyst_target=120.0, analyst_count=8, currency="USD")
+
+    count = notify_watchlist(
+        db, watchlist, build=_build_with_stub_llm, send=None, enrich=fake_enrich,
+        threshold=0.45, cooldown_days=7, now=NOW,
+    )
+    assert count == 2
+    assert calls == ["YES", "ALSO"]  # fetched once per candidate, in order
+    pitch = {p["ticker"]: p["pitch"] for p in load_pitches(db)}["YES"]
+    assert "Analystensicht: Ø-Kursziel 120.00 USD (8 Schätzungen)" in pitch
+
+
+def test_notify_watchlist_renders_honest_absence_when_enrich_is_empty(tmp_path):
+    """All-None fundamentals -> the honest-absence line, never a fabricated target."""
+    db = str(tmp_path / "inbox.db")
+    watchlist = {"created_at": NOW, "entries": [_entry("YES")]}
+    count = notify_watchlist(
+        db, watchlist, build=_build_with_stub_llm, send=None, enrich=_no_fund,
+        threshold=0.45, cooldown_days=7, now=NOW,
+    )
+    assert count == 1
+    pitch = load_pitches(db)[0]["pitch"]
+    assert "keine Schätzung verfügbar" in pitch
+    assert "Ø-Kursziel" not in pitch
 
 
 def _seed_watchlist_db(db: str, ticker: str = "YES", composite: float = 0.6) -> int:
@@ -195,8 +246,11 @@ def test_main_writes_inbox_only_without_telegram_config(tmp_path, monkeypatch, c
     monkeypatch.delenv("COPILOT_TG_BOT_TOKEN", raising=False)
     monkeypatch.delenv("COPILOT_TG_CHAT_ID", raising=False)
     # build_pitch's default `ask` seam calls the (possibly unreachable) local Ollama
-    # server; fake it out so this CLI test never touches the network.
-    monkeypatch.setattr(run_notify_mod, "build_pitch", lambda entry: f"PITCH {entry['ticker']}")
+    # server and enrich hits yfinance; fake both so this CLI test never touches the network.
+    monkeypatch.setattr(
+        run_notify_mod, "build_pitch", lambda entry, fund: f"PITCH {entry['ticker']}"
+    )
+    monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
     monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db])
 
     assert main() == 0
@@ -224,7 +278,10 @@ def test_main_dry_run_never_sends_even_with_telegram_config(tmp_path, monkeypatc
         raise AssertionError("send_message must not be called with --dry-run")
 
     monkeypatch.setattr(run_notify_mod, "send_message", fail_loudly)
-    monkeypatch.setattr(run_notify_mod, "build_pitch", lambda entry: f"PITCH {entry['ticker']}")
+    monkeypatch.setattr(
+        run_notify_mod, "build_pitch", lambda entry, fund: f"PITCH {entry['ticker']}"
+    )
+    monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
     monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db, "--dry-run"])
 
     assert main() == 0

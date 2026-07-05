@@ -16,6 +16,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 
 from equity_scout.constants import DEFAULT_DB_PATH
+from equity_scout.fundamentals import fetch_fundamentals
 from equity_scout.notify import DEFAULT_COOLDOWN_DAYS, DEFAULT_THRESHOLD, notify_watchlist
 from equity_scout.pitch import build_pitch
 from equity_scout.radar_storage import load_latest_watchlist
@@ -59,7 +60,7 @@ def main() -> int:
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     count = notify_watchlist(
-        args.db, watchlist, build=build_pitch, send=send,
+        args.db, watchlist, build=build_pitch, send=send, enrich=fetch_fundamentals,
         threshold=args.threshold, cooldown_days=args.cooldown_days, now=now,
     )
     print(f"Pitches created: {count}.")
