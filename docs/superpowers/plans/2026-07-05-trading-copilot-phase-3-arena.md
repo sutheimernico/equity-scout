@@ -727,15 +727,22 @@ The CLI advances both lanes in one run. Sequence per run (shared `now`, shared `
 
 `run_lanes(db_path, *, now, fetch_price, threshold, rules, position_fraction, fee_rate, slippage_bps) -> dict` (summary per lane: counts + valuation) so tests never touch argparse; `main()` is the thin argparse shell (`--db`, `--threshold` default 0.45, `--position-fraction`, `--profit-target`, `--stop-loss`, `--max-holding-days`, all defaulting to the module constants).
 
-- [ ] **Step 1: Write the failing tests** — cover: (a) end-to-end with fakes: seed a watchlist (via `radar_storage.save_watchlist`) + one decided buy pitch (via `inbox_storage.create_pitch` + `decide_pitch`) + fake `fetch_price` returning fixed prices; assert lane nico bought exactly the pitch ticker (trade row with pitch_id), lane autopilot bought the watchlist candidate, both lanes have a valuation row for `now[:10]`, both portfolios persisted; (b) idempotency: second `run_lanes` same day → no duplicate buys (pitch now executed, candidate now held), still one valuation row per lane (updated); (c) missing watchlist AND no pitches → run succeeds with zero trades (no crash); (d) `main()` happy path with monkeypatched `scripts.run_lanes._fetch_spot` (no network) + exit 0. Write complete test code following `tests/test_notify.py`'s established patterns (seeded DB, monkeypatch, capsys).
+- [x] **Step 1: Write the failing tests** — cover: (a) end-to-end with fakes: seed a watchlist (via `radar_storage.save_watchlist`) + one decided buy pitch (via `inbox_storage.create_pitch` + `decide_pitch`) + fake `fetch_price` returning fixed prices; assert lane nico bought exactly the pitch ticker (trade row with pitch_id), lane autopilot bought the watchlist candidate, both lanes have a valuation row for `now[:10]`, both portfolios persisted; (b) idempotency: second `run_lanes` same day → no duplicate buys (pitch now executed, candidate now held), still one valuation row per lane (updated); (c) missing watchlist AND no pitches → run succeeds with zero trades (no crash); (d) `main()` happy path with monkeypatched `scripts.run_lanes._fetch_spot` (no network) + exit 0. Write complete test code following `tests/test_notify.py`'s established patterns (seeded DB, monkeypatch, capsys).
 
-- [ ] **Step 2: Run tests to verify they fail** — expected import error.
+- [x] **Step 2: Run tests to verify they fail** — expected import error.
 
-- [ ] **Step 3: Write the implementation** — complete `scripts/run_lanes.py` per the sequence above. Fairness in code: ONE `now`, ONE `prices` dict, ONE parameter set, both lanes advanced by the same loop body (`for lane, portfolio, orders in ...`). No network at import time; yfinance behind the lazy `_fetch_spot`.
+- [x] **Step 3: Write the implementation** — complete `scripts/run_lanes.py` per the sequence above. Fairness in code: ONE `now`, ONE `prices` dict, ONE parameter set, both lanes advanced by the same loop body (`for lane, portfolio, orders in ...`). No network at import time; yfinance behind the lazy `_fetch_spot`.
 
-- [ ] **Step 4: Run tests to verify they pass** — `.venv/bin/python -m pytest tests/test_run_lanes.py -v`
+> **Deviations (Task 4):**
+> 1. **Fairness dataclass:** the shared parameter set is a frozen `LaneParams(rules, position_fraction, fee_rate, slippage_bps)` built once in `run_lanes`; the loop `for lane, portfolio, orders in ((LANE_NICO, nico, lane_a), (LANE_AUTOPILOT, autopilot, lane_b))` advances both lanes with ONE `now` and ONE `prices` dict.
+> 2. **Benchmark init (added):** the plan sequence (`apply_exits → execute_buys → mark_to_market`) never initialises `benchmark_shares`, so "vs SPY" would be a flat line forever. `run_lanes` now buys-and-holds SPY from day one (`benchmark_shares = initial_capital / spy` when 0.0, mirroring `portfolio.advance`) before `mark_to_market`, identically for both lanes; it persists via the JSON snapshot.
+> 3. **Pitch has no `name` column:** `inbox_storage.load_pitches` rows carry no name, so lane A's `BuyOrder.name` falls back to the ticker (`pitch.get("name", pitch["ticker"])`).
+> 4. **argparse scope:** per the plan's stated arg list, `main()` exposes `--db/--threshold/--position-fraction/--profit-target/--stop-loss/--max-holding-days` only; `fee_rate`/`slippage_bps` keep `LaneParams` defaults (no flags).
+> 5. **Unpriced tickers dropped** from `prices` (not stored as `None`) so `mark_to_market`'s `prices.get(t, cost_basis)` fallback cannot return `None` and crash.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 4: Run tests to verify they pass** — `.venv/bin/python -m pytest tests/test_run_lanes.py -v`
+
+- [x] **Step 5: Gate and commit**
 
 ```bash
 .venv/bin/python -m pytest && .venv/bin/ruff check .
