@@ -268,11 +268,11 @@ Wrap the reused `_build_model` + StandardScaler. `EntryModel` holds the fitted s
 
 SQLite table `entry_models(version INTEGER PK AUTOINCREMENT, created_at, model_kind TEXT, feature_columns TEXT, n_train INTEGER, metrics_json TEXT, is_champion INTEGER DEFAULT 0, artifact BLOB)`. The fitted `EntryModel` is `pickle`d into `artifact`. `register_challenger(db, model, *, metrics, now) -> version`. `champion(db) -> (version, EntryModel, metrics) | None`. `promote_if_better(db, version, *, metric_key="auc") -> bool` — compares the candidate's OOS metric to the current champion's; promotes (sets `is_champion`, unsets the old) ONLY if strictly greater (None/degenerate champion → auto-promote the first trained model). `registry_summary(db) -> dict` (version list with metrics + created_at + champion flag, newest first) for the API.
 
-- [ ] **Step 1: Failing tests** (tmp_path): register two models, promote; champion round-trips the pickled model and can `.score_row`; a worse challenger does NOT displace the champion; the first model auto-promotes; `promote_if_better` is idempotent; `registry_summary` shape. Pickle a tiny real `EntryModel` trained on a 20-row synthetic set. Full test code.
-- [ ] **Step 2: Run → fail.**
-- [ ] **Step 3: Implement.** Guard pickle load with a clear error if the class shape changed. `metric_key` comparison treats `None` as −inf (an un-scored challenger never wins). Champion flip is one transaction.
-- [ ] **Step 4: Run → pass.**
-- [ ] **Step 5: Commit** `feat: add versioned entry-model registry with champion/challenger promotion`.
+- [x] **Step 1: Failing tests** (tmp_path): register two models, promote; champion round-trips the pickled model and can `.score_row`; a worse challenger does NOT displace the champion; the first model auto-promotes; `promote_if_better` is idempotent; `registry_summary` shape. Pickle a tiny real `EntryModel` trained on a 20-row synthetic set. Full test code.
+- [x] **Step 2: Run → fail.**
+- [x] **Step 3: Implement.** Guard pickle load with a clear error if the class shape changed. `metric_key` comparison treats `None` as −inf (an un-scored challenger never wins). Champion flip is one transaction.
+- [x] **Step 4: Run → pass.**
+- [x] **Step 5: Commit** `feat: add versioned entry-model registry with champion/challenger promotion`.
 
 ---
 
