@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import datetime
 
+from equity_scout.models import Instrument
 from equity_scout.portfolio import Portfolio, Position
 
 LANE_NICO = "nico"
@@ -111,3 +112,65 @@ def apply_exits(
         )
         del positions[ticker]
     return replace(portfolio, cash=cash, positions=positions), trades
+
+
+def execute_buys(
+    portfolio: Portfolio,
+    orders: list[BuyOrder],
+    prices: dict[str, float],
+    *,
+    now: str,
+    lane: str,
+    position_fraction: float = DEFAULT_POSITION_FRACTION,
+    fee_rate: float = DEFAULT_FEE_RATE,
+    slippage_bps: float = DEFAULT_SLIPPAGE_BPS,
+) -> tuple[Portfolio, list[TradeRecord]]:
+    """Open a fixed-fraction position per order. Skips held/unpriced/underfunded.
+
+    Same fill model as portfolio.advance: buys fill above the quote by slippage,
+    fees on top of the position value. The skipped-order cases are silent by design —
+    a pending pitch stays pending and is retried on the next run.
+    """
+    slip = slippage_bps / 10_000.0
+    cash = portfolio.cash
+    positions = dict(portfolio.positions)
+    trades: list[TradeRecord] = []
+    target_value = portfolio.initial_capital * position_fraction
+    for order in orders:
+        price = prices.get(order.ticker)
+        if order.ticker in positions or not price or price <= 0:
+            continue
+        total_cost = target_value * (1 + fee_rate)
+        if cash < total_cost:
+            continue
+        fill = price * (1 + slip)
+        shares = target_value / fill
+        cash -= total_cost
+        instrument = Instrument(order.ticker, order.name, "", "", "", "")
+        positions[order.ticker] = Position(instrument, shares, fill, now, last_price=price)
+        trades.append(
+            TradeRecord(
+                created_at=now, lane=lane, ticker=order.ticker, side="buy",
+                shares=round(shares, 4), fill_price=round(fill, 4),
+                cost=round(total_cost, 2), reason=order.reason, pitch_id=order.pitch_id,
+            )
+        )
+    return replace(portfolio, cash=cash, positions=positions), trades
+
+
+def lane_b_orders(
+    watchlist: dict, *, held_tickers: set[str], threshold: float
+) -> list[BuyOrder]:
+    """Autopilot candidates: in-zone watchlist entries at/above threshold, not held."""
+    return [
+        BuyOrder(
+            ticker=entry["ticker"],
+            name=entry.get("name", entry["ticker"]),
+            score=entry["composite"],
+            reason=f"Autopilot: Score {round(entry['composite'] * 100)}/100 — {entry['zone_note']}",
+            pitch_id=None,
+        )
+        for entry in watchlist.get("entries", [])
+        if entry["in_zone"] and entry["composite"] >= threshold
+        and entry["ticker"] not in held_tickers
+    ]

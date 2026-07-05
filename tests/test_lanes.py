@@ -1,15 +1,20 @@
 """Lane engine tests — pure functions, synthetic portfolios, no network."""
 from __future__ import annotations
 
+from dataclasses import replace
+
 from equity_scout.lanes import (
     LANE_AUTOPILOT,
     LANE_NICO,
+    BuyOrder,
     ExitRules,
     TradeRecord,
     apply_exits,
+    execute_buys,
+    lane_b_orders,
 )
 from equity_scout.models import Instrument
-from equity_scout.portfolio import Portfolio, Position
+from equity_scout.portfolio import Portfolio, Position, new_portfolio
 
 NOW = "2026-07-05T14:00:00+00:00"
 RULES = ExitRules()  # defaults: profit_target=0.20, stop_loss=0.15, max_holding_days=180
@@ -79,3 +84,57 @@ def test_exit_boundary_is_exclusive():
     )
     assert "EDGE" in updated.positions  # exactly +20% is NOT yet an exit (> not >=)
     assert trades == []
+
+
+def _order(ticker: str, pitch_id: int | None = None, score: float = 0.6) -> BuyOrder:
+    return BuyOrder(ticker=ticker, name=f"{ticker} Corp", score=score,
+                    reason="Testgrund", pitch_id=pitch_id)
+
+
+def test_execute_buys_fills_with_slippage_and_links_pitch():
+    portfolio = new_portfolio(initial_capital=10_000.0)
+    updated, trades = execute_buys(
+        portfolio, [_order("NEW", pitch_id=7)], {"NEW": 100.0}, now=NOW, lane=LANE_NICO
+    )
+    position = updated.positions["NEW"]
+    assert position.cost_basis > 100.0  # buys fill above the quote
+    assert abs(position.shares * position.cost_basis - 500.0) < 0.01  # 5% of capital
+    assert updated.cash < 10_000.0 - 500.0  # fees on top
+    trade = trades[0]
+    assert (trade.side, trade.pitch_id) == ("buy", 7)
+
+
+def test_execute_buys_skips_held_unpriced_and_underfunded():
+    portfolio = new_portfolio(initial_capital=10_000.0)
+    portfolio, _ = execute_buys(
+        portfolio, [_order("HELD")], {"HELD": 100.0}, now=NOW, lane=LANE_NICO
+    )
+    poor = replace(portfolio, cash=100.0)
+    updated, trades = execute_buys(
+        poor,
+        [_order("HELD"), _order("DARK"), _order("POOR")],
+        {"HELD": 100.0, "POOR": 50.0},
+        now=NOW,
+        lane=LANE_NICO,
+    )
+    assert set(updated.positions) == {"HELD"}
+    assert trades == []
+
+
+def test_lane_b_orders_from_watchlist():
+    watchlist = {
+        "entries": [
+            {"ticker": "YES", "name": "Yes Corp", "in_zone": True, "composite": 0.6,
+             "zone_note": "In der Zone."},
+            {"ticker": "HELD", "name": "Held Corp", "in_zone": True, "composite": 0.9,
+             "zone_note": "In der Zone."},
+            {"ticker": "LOW", "name": "Low Corp", "in_zone": True, "composite": 0.2,
+             "zone_note": "In der Zone."},
+            {"ticker": "OUT", "name": "Out Corp", "in_zone": False, "composite": 0.9,
+             "zone_note": "Drüber."},
+        ]
+    }
+    orders = lane_b_orders(watchlist, held_tickers={"HELD"}, threshold=0.45)
+    assert [o.ticker for o in orders] == ["YES"]
+    assert orders[0].pitch_id is None
+    assert orders[0].score == 0.6

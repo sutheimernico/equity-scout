@@ -274,7 +274,7 @@ git commit -m "feat: add lane exit engine with structured trade records"
 - Modify: `src/equity_scout/lanes.py`
 - Test: `tests/test_lanes.py`
 
-- [ ] **Step 1: Write the failing tests** (append)
+- [x] **Step 1: Write the failing tests** (append)
 
 ```python
 from equity_scout.lanes import BuyOrder, execute_buys, lane_b_orders
@@ -337,11 +337,11 @@ def test_lane_b_orders_from_watchlist():
 
 Also import `replace` at the top of the test file (`from dataclasses import replace`).
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_lanes.py -v` — expected: ImportError on `execute_buys`.
 
-- [ ] **Step 3: Write the implementation** (append to `lanes.py`)
+- [x] **Step 3: Write the implementation** (append to `lanes.py`)
 
 ```python
 def execute_buys(
@@ -406,9 +406,13 @@ def lane_b_orders(
     ]
 ```
 
-- [ ] **Step 4: Run tests to verify they pass** — `.venv/bin/python -m pytest tests/test_lanes.py -v`
+> **Deviation:** re-added `from equity_scout.models import Instrument` to `lanes.py`'s
+> top-of-file imports here (removed in Task 1 — see that task's deviation note) since
+> `execute_buys` now constructs `Instrument` for new positions.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 4: Run tests to verify they pass** — `.venv/bin/python -m pytest tests/test_lanes.py -v`
+
+- [x] **Step 5: Gate and commit**
 
 ```bash
 .venv/bin/python -m pytest && .venv/bin/ruff check .
