@@ -168,3 +168,30 @@ def test_latest_endpoint_migrates_pre_data_quality_db(tmp_path):
     client = TestClient(create_app(str(db)))
     resp = client.get("/api/latest")
     assert resp.status_code == 200
+
+
+def test_inbox_endpoints_list_and_decide(tmp_path):
+    from equity_scout.inbox_storage import create_pitch
+
+    db = str(tmp_path / "inbox.db")
+    client = TestClient(create_app(db))
+
+    pitch_id = create_pitch(
+        db, ticker="EXE", watchlist_id=1, price=90.0, composite=0.6,
+        zone_low=85.0, zone_high=95.0, pitch="P", created_at="2026-07-05T10:00:00+00:00",
+    )
+    listing = client.get("/api/inbox")
+    assert listing.status_code == 200
+    assert listing.json()["pitches"][0]["ticker"] == "EXE"
+    assert "disclaimer" in listing.json()
+
+    ok = client.post(f"/api/inbox/{pitch_id}/decision", json={"action": "buy"})
+    assert ok.status_code == 200
+    assert client.get("/api/inbox").json()["pitches"][0]["status"] == "buy"
+
+    conflict = client.post(f"/api/inbox/{pitch_id}/decision", json={"action": "pass"})
+    assert conflict.status_code == 409
+    unknown = client.post("/api/inbox/999/decision", json={"action": "buy"})
+    assert unknown.status_code == 409
+    invalid = client.post(f"/api/inbox/{pitch_id}/decision", json={"action": "explode"})
+    assert invalid.status_code == 422

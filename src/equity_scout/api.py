@@ -1,12 +1,14 @@
-"""Read-only API for the dashboard. Serves the latest run snapshot + strategy reports + disclaimer."""
+"""API for the dashboard. Serves the latest run snapshot + strategy reports + disclaimer,
+plus the decision inbox (GET listing, POST one-tap buy/pass/later decisions)."""
 from __future__ import annotations
 
 import os
 import re
 from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -15,9 +17,11 @@ from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_FORWARD_DB_PATH, DIS
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
 from equity_scout.forward_storage import load_all_accounts
 from equity_scout.forward_storage import load_valuations as load_forward_valuations
+from equity_scout.inbox_storage import decide_pitch, load_pitches
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.storage import init_db, load_latest_run, load_run_summaries
+from equity_scout.telegram_client import ACTIONS
 from equity_scout.ml.ledger import DEFAULT_LEDGER_PATH, champion
 from equity_scout.ml.research_view import research_summary
 from equity_scout.strategy_service import BENCHMARK_NAME, build_ml_report, build_reports
@@ -230,6 +234,23 @@ def create_app(
         except ChatError as exc:
             return JSONResponse({"error": str(exc)}, status_code=503)
         return JSONResponse({"answer": answer})
+
+    @app.get("/api/inbox")
+    def inbox() -> JSONResponse:
+        return JSONResponse({"pitches": load_pitches(db_path), "disclaimer": DISCLAIMER})
+
+    @app.post("/api/inbox/{pitch_id}/decision")
+    def inbox_decision(pitch_id: int, body: dict) -> JSONResponse:
+        # Mirrors POST /api/chat's idiom: plain dict body + manual validation (no pydantic
+        # model elsewhere in this file). Action validity and pitch-state conflicts are
+        # deliberately distinct error paths, so they need checking in this order.
+        action = str((body or {}).get("action", ""))
+        if action not in ACTIONS:
+            return JSONResponse({"error": "Ungültige Aktion."}, status_code=422)
+        decided_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        if not decide_pitch(db_path, pitch_id, action, decided_at=decided_at):
+            raise HTTPException(status_code=409, detail="Pitch unbekannt oder bereits entschieden.")
+        return JSONResponse({"ok": True, "disclaimer": DISCLAIMER})
 
     # Serve the built React dashboard. Mounted at "/" LAST so the /api/* routes above win.
     # Run `cd frontend && npm install && npm run build` to produce dist/.

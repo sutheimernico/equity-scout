@@ -1280,7 +1280,7 @@ git add src/equity_scout/digest.py scripts/run_digest.py tests/test_digest.py
 git commit -m "feat: add daily inbox digest with smtp transport seam"
 ```
 
-**Outcome:** `src/equity_scout/digest.py` implemented verbatim. One deviation, in the test file: the plan's draft `test_build_digest_empty_state` asserted the mixed-case substring `"keine offenen Pitches"` against `text.lower()` — an all-lowercase string can never contain that capital `P`, so the assertion was unsatisfiable regardless of implementation. Fixed the needle to the all-lowercase `"keine offenen pitches"`; `build_digest`'s rendered text (`"Aktuell keine offenen Pitches."`) is unchanged. `scripts/run_digest.py` implemented per the Task 6 prose spec (thin CLI, `--db` flag, `date_label` from `datetime.now(timezone.utc)`, exit 0 both paths); added the `main()` unconfigured-path test per the Step-3 instruction (seeded one open pitch, cleared all five SMTP/DIGEST_TO env vars via `monkeypatch.delenv`, asserted exit 0 + the pitch's ticker + "SMTP not configured" on stdout — no network, no fake SMTP class needed for this path). Gate: 276 passed (271 baseline + 5), ruff clean.
+**Outcome:** `src/equity_scout/digest.py` implemented verbatim. One deviation, in the test file: the plan's draft `test_build_digest_empty_state` asserted the mixed-case substring `"keine offenen Pitches"` against `text.lower()` — an all-lowercase string can never contain that capital `P`, so the assertion was unsatisfiable regardless of implementation. Fixed the needle to the all-lowercase `"keine offenen pitches"`; `build_digest`'s rendered text (`"Aktuell keine offenen Pitches."`) is unchanged. `scripts/run_digest.py` implemented per the Task 6 prose spec (thin CLI, `--db` flag, `date_label` from `datetime.now(timezone.utc)`, exit 0 both paths); added the `main()` unconfigured-path test per the Step-3 instruction (seeded one open pitch, cleared all five SMTP/DIGEST_TO env vars via `monkeypatch.delenv`, asserted exit 0 + the pitch's ticker + "SMTP not configured" on stdout — no network, no fake SMTP class needed for this path). Gate: 276 passed (271 baseline + 5), ruff clean. Commit `60b45a3`.
 
 ---
 
@@ -1290,7 +1290,7 @@ git commit -m "feat: add daily inbox digest with smtp transport seam"
 - Modify: `src/equity_scout/api.py`
 - Test: `tests/test_api.py` (append; match existing style, incl. how `POST /api/chat` parses its body — mirror that pattern for the decision POST)
 
-- [ ] **Step 1: Write the failing tests** (sketch — adapt fixture style to the file)
+- [x] **Step 1: Write the failing tests** (sketch — adapt fixture style to the file)
 
 ```python
 def test_inbox_endpoints_list_and_decide(tmp_path):
@@ -1319,11 +1319,11 @@ def test_inbox_endpoints_list_and_decide(tmp_path):
     assert invalid.status_code == 422
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_api.py -v -k inbox` — expected: 404s.
 
-- [ ] **Step 3: Implement the routes** (closures in `create_app`, before the StaticFiles mount; imports top-of-file)
+- [x] **Step 3: Implement the routes** (closures in `create_app`, before the StaticFiles mount; imports top-of-file)
 
 ```python
     @app.get("/api/inbox")
@@ -1340,17 +1340,19 @@ Run: `.venv/bin/python -m pytest tests/test_api.py -v -k inbox` — expected: 40
 
 with a `DecisionPayload` pydantic model (`action: Literal["buy", "pass", "later"]`) — FastAPI then yields the 422 for invalid actions automatically. Match how `POST /api/chat` declares its payload; if it uses a plain dict + manual validation instead of pydantic, follow THAT idiom and return 422 manually.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/test_api.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 .venv/bin/python -m pytest && .venv/bin/ruff check .
 git add src/equity_scout/api.py tests/test_api.py
 git commit -m "feat: expose decision inbox via GET /api/inbox and decision POST"
 ```
+
+**Outcome:** One deviation from the plan's Step-3 sketch, per its own instruction: `POST /api/chat` in this codebase takes a plain `body: dict` with manual validation (400 on empty question), not a pydantic model — no route in `api.py` uses pydantic today. Followed that idiom instead of the `DecisionPayload` sketch: `inbox_decision(pitch_id: int, body: dict)` reads `body.get("action")`, returns `JSONResponse(..., status_code=422)` manually when it is not in `telegram_client.ACTIONS`, and only then calls `decide_pitch` — whose `False` (unknown id or already-decided) maps to `HTTPException(409)`, exactly as the plan's sketch had it. `ACTIONS` and `decide_pitch`/`load_pitches` were added as top-of-file imports (both are lightweight sqlite/stdlib modules, consistent with most other imports in this file — the few lazy in-function imports elsewhere are for optional/heavy deps like `chat.ask_ollama` and `entry`, which doesn't apply here). Test appended verbatim from the plan's sketch, with a local `from equity_scout.inbox_storage import create_pitch` inside the test function, matching the file's existing convention (e.g. `test_radar_endpoint_returns_latest_watchlist_or_empty`). Module docstring's stale "Read-only API" claim updated to mention the inbox decision POST, since it is no longer accurate. Gate: 277 passed (276 baseline + 1), ruff clean.
 
 ---
 
