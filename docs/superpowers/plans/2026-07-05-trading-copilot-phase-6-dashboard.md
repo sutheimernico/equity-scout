@@ -231,9 +231,9 @@ Consumes `ArenaResponse`. This is the showpiece — "Du vs. Autopilot vs. Markt"
 
 Consumes `ModelResponse`. An honesty-forward panel. Top: a prominent German banner — "Der Score bewertet die Einstiegs-Attraktivität (Out-of-Sample), ist keine Prognose und keine Anlageberatung." Champion card: version, model_kind, created_at, and the OOS `metrics` (AUC/Brier/Rank-IC — label AUC "Trefferwahrscheinlichkeit (AUC, OOS)", show `null` metrics honestly as "—" not a fake number). Registry: a compact table of `registry` versions (version, created_at, model_kind, n_train, key metric, champion flag as a `Badge`). Resolved-prediction stats: `n_resolved`/`n_open`, `hit_rate` (or "noch keine aufgelösten Vorhersagen" when `n_resolved === 0`), `rank_ic`, and `by_score_bucket` as a small bar set (mean realized relative return per score bucket — the honest "does a higher score actually pay off" view; positive green / negative red). `drift` is null in v1 → omit or show "—". `available === false` → "Noch kein Modell trainiert — `run_train_entry.py` ausführen."
 
-- [ ] **Step 1: Build the component** (null-safe metric rendering — never fabricate a number for `null`; `by_score_bucket` may be empty → honest empty note). Reuse `ui/Metric`, `ui/Bar`, `Badge`, `format`.
-- [ ] **Step 2: Gate** typecheck + build (add Model nav entry + mount). Green.
-- [ ] **Step 3: Commit** `feat(ui): add model surface (champion, registry, resolved-prediction honesty)`.
+- [x] **Step 1: Build the component** (null-safe metric rendering — never fabricate a number for `null`; `by_score_bucket` may be empty → honest empty note). Reuse `ui/Metric`, `ui/Bar`, `Badge`, `format`.
+- [ ] **Step 2: Gate** typecheck + build — `npm run typecheck` clean. **App-wiring (Model nav entry + mount) + the `npm run build` gate are deferred to Task 7** to avoid repeated App edits; the component is exported and will build-render there.
+- [x] **Step 3: Commit** `feat(ui): add model surface (champion, registry, resolved-prediction honesty)`.
 
 ---
 
