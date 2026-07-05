@@ -45,7 +45,7 @@ Exact endpoint shapes are in the spec recon; each surface task restates the fiel
 
 **Design direction (commit to it — this is the identity):** dark, data-dense, restrained motion; sibling to the portfolio's "Kinetic Terminal". Near-black blue-violet base, phosphor-green primary signal, amber attention, tabular mono numerals, hairline borders.
 
-- [ ] **Step 1: Rewrite the `:root` token block** in `index.css` (replace the existing light tokens; keep the SAME variable NAMES so every component reskins for free — only add new ones):
+- [x] **Step 1: Rewrite the `:root` token block** in `index.css` (replace the existing light tokens; keep the SAME variable NAMES so every component reskins for free — only add new ones):
 
 ```css
 :root {
@@ -89,9 +89,9 @@ body { background: var(--bg-base); color: var(--text); font-family: var(--font-s
 .tnum, .num, td.num, .metric-value { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 ```
 
-- [ ] **Step 2: Restyle the shell** — `.topbar` (sticky, hairline bottom border, brand in mono with a phosphor dot), `.nav`/`.nav-link` (pill tabs; active = `--accent-subtle` bg + `--accent` text; hover lift), `.content`/`.view`, generic `.card`/`.panel` (`--bg-surface`, `--border-soft`, `--raised`), and the `.aurora` (retune to a faint phosphor/violet drift on the dark base, keep `aria-hidden` + reduced-motion). Numbers everywhere use the mono/tnum treatment.
+- [x] **Step 2: Restyle the shell** — `.topbar` (sticky, hairline bottom border, brand in mono with a phosphor dot), `.nav`/`.nav-link` (pill tabs; active = `--accent-subtle` bg + `--accent` text; hover lift), `.content`/`.view`, generic `.card`/`.panel` (`--bg-surface`, `--border-soft`, `--raised`), and the `.aurora` (retune to a faint phosphor/violet drift on the dark base, keep `aria-hidden` + reduced-motion). Numbers everywhere use the mono/tnum treatment.
 
-- [ ] **Step 3: Add responsive breakpoints** at the bottom of `index.css`:
+- [x] **Step 3: Add responsive breakpoints** at the bottom of `index.css`:
 
 ```css
 @media (max-width: 720px) {
@@ -103,8 +103,8 @@ body { background: var(--bg-base); color: var(--text); font-family: var(--font-s
 }
 ```
 
-- [ ] **Step 4: Gate** — `cd frontend && npm run typecheck && npm run build`. Both clean. The existing four views now render in the dark identity (build succeeds; no component code changed).
-- [ ] **Step 5: Commit** `feat(ui): dark trading-terminal design system reskinning the dashboard`.
+- [x] **Step 4: Gate** — `cd frontend && npm run typecheck && npm run build`. Both clean. The existing four views now render in the dark identity (build succeeds; no component code changed).
+- [x] **Step 5: Commit** `feat(ui): dark trading-terminal design system reskinning the dashboard`.
 
 ---
 

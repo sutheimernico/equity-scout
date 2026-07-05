@@ -1,59 +1,74 @@
-/* Design tokens — light theme: clean white surfaces, purple accent, generous rounding and
-   whitespace. Hierarchy comes from soft shadows + airy spacing, not heavy borders. */
+/* Design tokens — dark trading-terminal identity: near-black blue-violet base, phosphor-green
+   primary signal, amber attention, tabular mono numerals, hairline borders. Every component styles
+   through these vars, so this block reskins the whole dashboard for free. Legacy token names
+   (--text-primary/--text-secondary/--text-base/--border) are kept as aliases onto the new palette
+   because existing rules reference them; new work uses the semantic names below. */
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  --bg-base: #f6f6fb; /* page canvas, faint lilac-grey */
-  --bg-surface: #ffffff; /* cards, panels */
-  --bg-elevated: #ffffff;
-  --bg-inset: #f0eefb; /* bar tracks, insets — faint purple tint */
+  /* surfaces — near-black with a blue-violet tint */
+  --bg-base: #08080f;
+  --bg-surface: #10101c;
+  --bg-inset: #171726;
+  --bg-raised: #1c1c2e;
 
-  --border: rgba(20, 16, 50, 0.08);
-  --border-soft: rgba(20, 16, 50, 0.05);
-  --border-strong: rgba(20, 16, 50, 0.14);
+  /* hairline borders */
+  --border-faint: rgba(180, 190, 255, 0.06);
+  --border-soft: rgba(180, 190, 255, 0.1);
+  --border-strong: rgba(180, 190, 255, 0.18);
 
-  --text-primary: #1b1733; /* near-black, slightly purple */
-  --text-secondary: #5a5570;
-  --text-muted: #9b96ad;
+  /* text */
+  --text-strong: #eef0ff;
+  --text: #b9bcd6;
+  --text-muted: #6f7296;
 
-  --accent: #7c5cff;
-  --accent-hover: #6a47f5;
-  --accent-subtle: rgba(124, 92, 255, 0.1);
+  /* accents — phosphor terminal */
+  --accent: #3ef2a0; /* primary: brand + positive signal */
+  --accent-hover: #5cf7b3;
+  --accent-subtle: rgba(62, 242, 160, 0.12);
+  --violet: #8b6cff; /* secondary: brand continuity w/ portfolio */
+  --violet-subtle: rgba(139, 108, 255, 0.14);
 
-  --positive: #15a35b;
-  --negative: #e0455a;
-  --warning: #e08600;
+  --positive: #3ef2a0;
+  --negative: #ff5470;
+  --warning: #f5b23e;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    sans-serif;
+  /* type */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, monospace;
 
   --text-xs: 0.75rem;
-  --text-sm: 0.8125rem;
-  --text-base: 0.875rem;
+  --text-sm: 0.875rem;
   --text-md: 1rem;
   --text-lg: 1.25rem;
   --text-xl: 1.875rem;
 
   --space-1: 4px;
   --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 18px;
-  --space-5: 28px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
   --space-6: 40px;
 
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 22px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
   --radius-pill: 9999px;
 
-  /* Soft, visible elevation on light — clean card lift. */
-  --raised: 0 1px 2px rgba(20, 16, 50, 0.04), 0 6px 20px -8px rgba(20, 16, 50, 0.1);
-  --raised-hover: 0 2px 4px rgba(20, 16, 50, 0.05), 0 12px 28px -8px rgba(124, 92, 255, 0.22);
-  --ease: cubic-bezier(0.2, 0, 0, 1);
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --dur-fast: 180ms;
-  --dur-mid: 320ms;
-  --dur-slow: 640ms;
+  /* Elevation for the dark base — deep drop + a faint top highlight. */
+  --raised: 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 24px rgba(0, 0, 0, 0.45);
+  --raised-hover: 0 1px 0 rgba(255, 255, 255, 0.05), 0 12px 32px rgba(0, 0, 0, 0.55);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur-mid: 240ms;
+  --dur-slow: 420ms;
+
+  /* Legacy aliases — existing rules reference these; map onto the dark palette. */
+  --text-primary: var(--text-strong);
+  --text-secondary: var(--text);
+  --text-base: var(--text-sm);
+  --border: var(--border-soft);
 }
 
 * {
@@ -64,10 +79,14 @@ body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
   background: var(--bg-base);
-  color: var(--text-primary);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
-.tnum {
+.tnum,
+.num,
+td.num,
+.metric-value {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -78,17 +97,19 @@ body {
   gap: var(--space-3);
   height: 64px;
   padding: 0 var(--space-6);
-  background: rgba(246, 246, 251, 0.85);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
+  background: rgba(8, 8, 15, 0.72);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-soft);
   position: sticky;
   top: 0;
   z-index: 10;
 }
 .topbar .brand {
+  font-family: var(--font-mono);
   font-weight: 600;
   font-size: var(--text-md);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  color: var(--text-strong);
 }
 .topbar .brand .dot {
   color: var(--accent);
@@ -205,15 +226,26 @@ select.region {
 }
 .card {
   background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
   box-shadow: var(--raised);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
   cursor: pointer;
-  transition: box-shadow 180ms var(--ease), transform 180ms var(--ease);
+  transition: box-shadow 180ms var(--ease), transform 180ms var(--ease),
+    border-color 180ms var(--ease);
 }
 .card:hover {
   box-shadow: var(--raised-hover);
+  border-color: var(--border-strong);
   transform: translateY(-2px);
+}
+/* Generic non-interactive surface panel (no hover lift) — for the copilot surfaces. */
+.panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--raised);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
 }
 .card-head {
   display: flex;
@@ -406,21 +438,25 @@ code {
 .nav-link {
   appearance: none;
   background: none;
-  border: none;
+  border: 1px solid transparent;
   font: inherit;
   font-weight: 500;
   color: var(--text-secondary);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: background 150ms var(--ease), color 150ms var(--ease);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 .nav-link:hover {
-  color: var(--text-primary);
+  color: var(--text-strong);
+  background: var(--bg-inset);
+  transform: translateY(-1px);
 }
 .nav-link.active {
   color: var(--accent);
   background: var(--accent-subtle);
+  border-color: var(--border-strong);
 }
 .tabbar.wrap {
   flex-wrap: wrap;
@@ -1085,10 +1121,10 @@ code {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(38vw 38vw at 18% 22%, rgba(124, 92, 255, 0.16), transparent 60%),
-    radial-gradient(34vw 34vw at 82% 26%, rgba(167, 139, 250, 0.14), transparent 60%),
-    radial-gradient(44vw 44vw at 62% 84%, rgba(196, 181, 253, 0.13), transparent 62%);
-  filter: blur(28px);
+    radial-gradient(40vw 40vw at 16% 18%, rgba(62, 242, 160, 0.08), transparent 60%),
+    radial-gradient(36vw 36vw at 84% 24%, rgba(139, 108, 255, 0.1), transparent 60%),
+    radial-gradient(46vw 46vw at 64% 86%, rgba(139, 108, 255, 0.07), transparent 62%);
+  filter: blur(34px);
   animation: aurora-drift 26s ease-in-out infinite alternate;
 }
 @keyframes aurora-drift {
@@ -1129,7 +1165,7 @@ code {
 .metric:hover,
 .tile:hover {
   transform: translateY(-3px);
-  box-shadow: 0 2px 4px rgba(20, 16, 50, 0.05), 0 14px 30px -10px rgba(124, 92, 255, 0.28);
+  box-shadow: var(--raised-hover);
 }
 
 /* champion card — a quiet breathing glow to draw the eye */
@@ -1228,3 +1264,25 @@ code {
 .tranche-dip-label { color: var(--text-secondary); }
 .tranche-dip-frac { text-align: right; color: var(--text-muted); white-space: nowrap; }
 .tranche-dip-price { text-align: right; white-space: nowrap; }
+
+/* --- Responsive: stack the shell + collapse multi-col grids on narrow screens --- */
+@media (max-width: 720px) {
+  .topbar {
+    flex-direction: column;
+    gap: var(--space-2);
+    align-items: stretch;
+  }
+  .nav {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  .content {
+    padding: var(--space-3);
+  }
+  /* any multi-col grid collapses to one column */
+  [class$="-grid"],
+  .kpi-row {
+    grid-template-columns: 1fr !important;
+  }
+}
