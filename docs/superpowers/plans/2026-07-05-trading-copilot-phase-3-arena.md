@@ -781,11 +781,11 @@ Response shape (mirrors `/api/forward`'s conventions, plus positions/trades like
 
 `available: false` + empty lanes when neither lane portfolio exists. Route as closure in `create_app`, before the StaticFiles mount, reading via `lane_storage` (`load_lane_portfolio`, `load_lane_valuations`, `load_lane_trades` with limit 50). Latest valuation supplies `total_value`/`total_return`/`benchmark_return`; equity_curve = `[[valued_on, total_value, benchmark_value], ...]`.
 
-- [ ] **Step 1: Write the failing test** — empty DB → `{"available": false, "lanes": [], "disclaimer": ...}`; seeded lanes (save portfolio + two valuations + one trade per lane) → both lanes present with correct curve length, positions and trades shapes, disclaimer present.
-- [ ] **Step 2: Run to verify it fails** (404).
-- [ ] **Step 3: Implement the route.**
-- [ ] **Step 4: Run tests** — all PASS.
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 1: Write the failing test** — empty DB → `{"available": false, "lanes": [], "disclaimer": ...}`; seeded lanes (save portfolio + two valuations + one trade per lane) → both lanes present with correct curve length, positions and trades shapes, disclaimer present.
+- [x] **Step 2: Run to verify it fails** (404).
+- [x] **Step 3: Implement the route.**
+- [x] **Step 4: Run tests** — all PASS.
+- [x] **Step 5: Gate and commit**
 
 ```bash
 .venv/bin/python -m pytest && .venv/bin/ruff check .

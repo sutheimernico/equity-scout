@@ -205,3 +205,65 @@ def test_inbox_endpoints_list_and_decide(tmp_path):
     assert huge.status_code == 409
     invalid = client.post(f"/api/inbox/{pitch_id}/decision", json={"action": "explode"})
     assert invalid.status_code == 422
+
+
+def test_arena_endpoint_empty_and_seeded(tmp_path):
+    from equity_scout.lane_storage import (
+        record_trades,
+        save_lane_portfolio,
+        save_lane_valuation,
+    )
+    from equity_scout.lanes import LANE_AUTOPILOT, LANE_NICO, TradeRecord
+    from equity_scout.portfolio import Portfolio, Position
+
+    db = str(tmp_path / "arena.db")
+    client = TestClient(create_app(db))
+
+    empty = client.get("/api/arena").json()
+    assert empty["available"] is False
+    assert empty["lanes"] == []
+    assert "disclaimer" in empty
+
+    now = "2026-07-05T14:00:00+00:00"
+    for lane in (LANE_NICO, LANE_AUTOPILOT):
+        pf = Portfolio(
+            initial_capital=10_000.0,
+            cash=9_499.5,
+            positions={
+                "EXE": Position(
+                    Instrument("EXE", "Expand Energy", "", "", "", ""),
+                    shares=5.5, cost_basis=90.77, opened_at=now, last_price=91.0,
+                )
+            },
+            benchmark_shares=16.0,
+        )
+        save_lane_portfolio(db, lane, pf, updated_at=now)
+        save_lane_valuation(db, lane, valued_on="2026-07-04", total_value=10_000.0,
+                            total_return=0.0, benchmark_value=10_000.0,
+                            benchmark_return=0.0, open_positions=1)
+        save_lane_valuation(db, lane, valued_on="2026-07-05", total_value=10_100.0,
+                            total_return=0.01, benchmark_value=10_050.0,
+                            benchmark_return=0.005, open_positions=1)
+        record_trades(db, [TradeRecord(
+            created_at=now, lane=lane, ticker="EXE", side="buy", shares=5.5,
+            fill_price=90.77, cost=500.5, reason="Grund",
+            pitch_id=7 if lane == LANE_NICO else None,
+        )])
+
+    body = client.get("/api/arena").json()
+    assert body["available"] is True
+    assert {lane["lane"] for lane in body["lanes"]} == {LANE_NICO, LANE_AUTOPILOT}
+    assert "disclaimer" in body
+
+    nico = next(lane for lane in body["lanes"] if lane["lane"] == LANE_NICO)
+    assert nico["initial_capital"] == 10_000.0
+    # Latest valuation (2026-07-05) supplies the headline numbers.
+    assert nico["total_value"] == 10_100.0
+    assert nico["total_return"] == 0.01
+    assert nico["benchmark_return"] == 0.005
+    assert len(nico["equity_curve"]) == 2
+    assert nico["equity_curve"][-1] == ["2026-07-05", 10_100.0, 10_050.0]
+    assert nico["open_positions"][0]["ticker"] == "EXE"
+    assert nico["open_positions"][0]["last_price"] == 91.0
+    assert nico["trades"][0]["ticker"] == "EXE"
+    assert nico["trades"][0]["pitch_id"] == 7

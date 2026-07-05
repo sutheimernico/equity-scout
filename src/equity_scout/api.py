@@ -18,6 +18,12 @@ from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
 from equity_scout.forward_storage import load_all_accounts
 from equity_scout.forward_storage import load_valuations as load_forward_valuations
 from equity_scout.inbox_storage import decide_pitch, get_pitch, load_pitches
+from equity_scout.lane_storage import (
+    load_lane_portfolio,
+    load_lane_trades,
+    load_lane_valuations,
+)
+from equity_scout.lanes import LANE_AUTOPILOT, LANE_NICO
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.storage import init_db, load_latest_run, load_run_summaries
@@ -256,6 +262,44 @@ def create_app(
         return JSONResponse(
             {"ok": True, "pitch": get_pitch(db_path, pitch_id), "disclaimer": DISCLAIMER}
         )
+
+    @app.get("/api/arena")
+    def arena() -> JSONResponse:
+        # No cache: reflects the two lanes as scripts/run_lanes.py advances them in the DB.
+        lanes: list[dict] = []
+        for lane in (LANE_NICO, LANE_AUTOPILOT):
+            pf = load_lane_portfolio(db_path, lane)
+            if pf is None:
+                continue
+            valuations = load_lane_valuations(db_path, lane)  # oldest -> newest
+            latest = valuations[-1] if valuations else None
+            lanes.append({
+                "lane": lane,
+                "initial_capital": pf.initial_capital,
+                "total_value": latest["total_value"] if latest else pf.cash,
+                "total_return": latest["total_return"] if latest else 0.0,
+                "benchmark_return": latest["benchmark_return"] if latest else 0.0,
+                "open_positions": [
+                    {
+                        "ticker": ticker,
+                        "name": pos.instrument.name,
+                        "shares": pos.shares,
+                        "cost_basis": pos.cost_basis,
+                        "last_price": pos.last_price if pos.last_price is not None else pos.cost_basis,
+                        "opened_at": pos.opened_at,
+                    }
+                    for ticker, pos in pf.positions.items()
+                ],
+                "equity_curve": [
+                    [v["valued_on"], v["total_value"], v["benchmark_value"]] for v in valuations
+                ],
+                "trades": load_lane_trades(db_path, lane, limit=50),
+            })
+        return JSONResponse({
+            "available": len(lanes) > 0,
+            "lanes": lanes,
+            "disclaimer": DISCLAIMER,
+        })
 
     # Serve the built React dashboard. Mounted at "/" LAST so the /api/* routes above win.
     # Run `cd frontend && npm install && npm run build` to produce dist/.
