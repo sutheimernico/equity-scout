@@ -195,9 +195,9 @@ If the file has no shared `getJSON` helper, either add one (`async function getJ
 
 Consumes `RadarResponse`. Layout: a header (created_at, count, disclaimer) + a data-dense table/card-grid of `entries` (already sorted best-composite-first). Per entry: ticker + name + bucket chip; a **composite meter** (0–100 = `composite*100`) using `ui/Bar`; the **entry zone** as a small track showing `entry_zone_low`–`entry_zone_high` with the current `price` marked and `in_zone` highlighted in `--accent`; `proximity` as a signed % (`format.pct`); the three `readings` as labelled sub-scores (dip_quality/value_gap/momentum → German labels "Dip-Qualität"/"Bewertungslücke"/"Momentum") with their `reason` in a `Disclosure`/tooltip; `zone_note` shown. `skipped` listed compactly below ("übersprungen: TICKER — Grund"). Empty (`watchlist === null`) → an honest German empty state ("Noch keine Watchlist — `run_radar.py` ausführen.").
 
-- [ ] **Step 1: Build the component** (fetch in `useEffect` with an `ignore` flag; loading/error/empty states; German labels; `role="img"`+`aria-label` on any SVG/meter; numbers in `.tnum`). Reuse `ui/Bar`, `Chip`, `Disclosure`, `format.pct`/`num`/`eur`.
-- [ ] **Step 2: Gate** typecheck + build (wire a temporary render in App or a Storybook-less smoke: simplest is to land the App nav wiring in Task 7, but to gate NOW, temporarily render `<RadarPanel/>` under an existing view or add its nav entry early — cleanest: add the nav entry + view mount for Radar here, and add the other three in their tasks). Both green.
-- [ ] **Step 3: Commit** `feat(ui): add radar surface (watchlist, entry zones, sub-signals)`.
+- [x] **Step 1: Build the component** (fetch in `useEffect` with an `ignore` flag; loading/error/empty states; German labels; `role="img"`+`aria-label` on any SVG/meter; numbers in `.tnum`). Reuse `ui/Bar`, `Chip`, `Disclosure`, `format.pct`/`num`/`eur`. Component + dedicated CSS block in `index.css` (matches every existing panel's style; tokens only).
+- [ ] **Step 2: Gate** typecheck + build — `npm run typecheck` clean. **App-wiring (nav entry + mount) + the `npm run build` gate are deferred to Task 7** to avoid repeated App edits; the component is exported and will build-render there.
+- [x] **Step 3: Commit** `feat(ui): add radar surface (watchlist, entry zones, sub-signals)`.
 
 ---
 
