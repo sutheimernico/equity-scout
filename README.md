@@ -129,6 +129,15 @@ advice.
 Dashboard endpoints: `GET /api/radar`, `GET /api/inbox`, `POST /api/inbox/{id}/decision`,
 `GET /api/arena`, `GET /api/model` (registry, champion metrics, resolved-prediction stats).
 
+**Dashboard.** The React dashboard leads with the four copilot surfaces — **Arena** (Du vs.
+Autopilot vs. Markt, the default view), **Radar** (watchlist entry zones), **Inbox** (one-tap
+buy/pass/later pitches), **Modell** (champion metrics + resolved-prediction honesty) — followed by
+the research views (Strategien / Machine Learning / Aktien-Screener / Assistent), all in one dark
+"trading-terminal" identity (near-black blue-violet base, phosphor-green signal, mono numerals).
+Build once and serve it from the API: `cd frontend && npm run build && cd ..`, then
+`uv run python scripts/run_api.py --db equity_scout.db` serves the built dashboard at
+`localhost:8000`.
+
 Environment variables (all optional — without them the pipeline degrades honestly to
 inbox-only / stdout; set them in your local `.env`, never commit values):
 

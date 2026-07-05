@@ -114,3 +114,16 @@
   coin-flip but NOT a validated edge (small single-panel backfill; the now-populating ledger's
   resolved live outcomes are the real test). Reviews on Opus 4.8. Branch feat/trading-copilot-
   phase-4. New dependency: none. Next: Phase 5 (cron train/score/resolve) or Phase 6 (Model tab).
+- 2026-07-05 — Phase 6 done (dashboard redesign — trading-terminal identity + four copilot
+  surfaces): rewrote the index.css :root token block to a dark near-black blue-violet base with a
+  phosphor-green signal + mono numerals, which reskinned the entire existing dashboard via CSS-var
+  indirection (no per-component color edits); added a typed api.ts layer and four new surfaces —
+  Radar (watchlist entry zones), Inbox (one-tap Kaufen/Ablehnen/Später pitches), Arena (Du vs
+  Autopilot vs Markt equity race, the default view), Modell (champion metrics + resolved-prediction
+  honesty) — plus ui/DisclaimerBar carrying each surface's German disclaimer. App shell nav leads
+  with the copilot four (hairline separator) then the research four; key={view} reveal + responsive
+  breakpoints kept. 8 commits, typecheck + build clean, 376 tests + ruff green (no Python changed);
+  serve smoke: built dashboard served, /api/{radar,inbox,arena,model} all 200 on the live DB. Visual
+  sign-off is Nico's per spec §8 (gate is liveness + data-shape only). Two contrast follow-ups
+  flagged: white-on-accent in the Assistent chat (needs --on-accent token) and the .champion-glow
+  legacy violet. Reviews on Opus 4.8. Branch feat/trading-copilot-phase-6. New dependency: none.

@@ -196,7 +196,7 @@ If the file has no shared `getJSON` helper, either add one (`async function getJ
 Consumes `RadarResponse`. Layout: a header (created_at, count, disclaimer) + a data-dense table/card-grid of `entries` (already sorted best-composite-first). Per entry: ticker + name + bucket chip; a **composite meter** (0–100 = `composite*100`) using `ui/Bar`; the **entry zone** as a small track showing `entry_zone_low`–`entry_zone_high` with the current `price` marked and `in_zone` highlighted in `--accent`; `proximity` as a signed % (`format.pct`); the three `readings` as labelled sub-scores (dip_quality/value_gap/momentum → German labels "Dip-Qualität"/"Bewertungslücke"/"Momentum") with their `reason` in a `Disclosure`/tooltip; `zone_note` shown. `skipped` listed compactly below ("übersprungen: TICKER — Grund"). Empty (`watchlist === null`) → an honest German empty state ("Noch keine Watchlist — `run_radar.py` ausführen.").
 
 - [x] **Step 1: Build the component** (fetch in `useEffect` with an `ignore` flag; loading/error/empty states; German labels; `role="img"`+`aria-label` on any SVG/meter; numbers in `.tnum`). Reuse `ui/Bar`, `Chip`, `Disclosure`, `format.pct`/`num`/`eur`. Component + dedicated CSS block in `index.css` (matches every existing panel's style; tokens only).
-- [ ] **Step 2: Gate** typecheck + build — `npm run typecheck` clean. **App-wiring (nav entry + mount) + the `npm run build` gate are deferred to Task 7** to avoid repeated App edits; the component is exported and will build-render there.
+- [x] **Step 2: Gate** typecheck + build — `npm run typecheck` clean. **App-wiring (nav entry + mount) + the `npm run build` gate are deferred to Task 7** to avoid repeated App edits; the component is exported and will build-render there. *(App-wiring landed in Task 7; build gate green.)*
 - [x] **Step 3: Commit** `feat(ui): add radar surface (watchlist, entry zones, sub-signals)`.
 
 ---
@@ -208,7 +208,7 @@ Consumes `RadarResponse`. Layout: a header (created_at, count, disclaimer) + a d
 Consumes `InboxResponse`; POSTs via `decidePitch`. Open pitches first (the API already orders open-first). Each pitch: ticker, score (`composite*100`), price, zone, created_at, the `pitch` text (pre-rendered German, may be multi-line — render with preserved line breaks), and for `status === "open"` three buttons **[Kaufen] [Ablehnen] [Später]** calling `decidePitch(id, "buy"|"pass"|"later")`. On success (`ok`), update that pitch's status/decided_at in local state (optimistic-then-confirm: disable buttons while the request is in flight; on 409 refetch the inbox — someone/the receiver already decided it; on 422 show a small error). Decided pitches show the outcome as a `Badge` (grün=gekauft/rot=abgelehnt/grau=später) with `decided_at`.
 
 - [x] **Step 1: Build the component** (in-flight state per pitch id via a `Set<number>`; a `decide(id, action)` handler that awaits `decidePitch`, then updates state or refetches on 409; disable all three buttons for that pitch while pending; keyboard-accessible buttons). German throughout. Component + dedicated CSS block in `index.css` (tokens only; buy CTA uses dark `var(--bg-base)` text on the light accent fill). **Also:** `decidePitch` now returns the HTTP `status` (added `status: number` to `DecisionResponse`, `disclaimer` made optional) — the given return shape could not distinguish 200/409/422 otherwise; this is the minimal correct change to implement the 409-refetch vs 422-inline split.
-- [ ] **Step 2: Gate** typecheck + build — `npm run typecheck` clean. **App-wiring (nav entry + mount) + the `npm run build` gate are deferred to Task 7** to avoid repeated App edits; the component is exported and will build-render there.
+- [x] **Step 2: Gate** typecheck + build — `npm run typecheck` clean. **App-wiring (nav entry + mount) + the `npm run build` gate are deferred to Task 7** to avoid repeated App edits; the component is exported and will build-render there. *(App-wiring landed in Task 7; build gate green.)*
 - [x] **Step 3: Commit** `feat(ui): add decision inbox surface with one-tap buy/pass/later`.
 
 ---
@@ -220,7 +220,7 @@ Consumes `InboxResponse`; POSTs via `decidePitch`. Open pitches first (the API a
 Consumes `ArenaResponse`. This is the showpiece — "Du vs. Autopilot vs. Markt". Top: a KPI row of `StatTile`s per lane (total_value as `format.eur`, total_return and benchmark_return as signed %, open position count). Center: an **equity-curve chart** overlaying both lanes + SPY. Reuse/extend `EquityChart` — it already draws a primary line + a dashed benchmark from `[date,value][]`; here you need THREE series (nico, autopilot, benchmark). Either render two `EquityChart`s (each lane vs its SPY) side by side, OR extend EquityChart to accept an array of named series with per-series color from tokens (`--accent` autopilot, `--violet` nico, `--text-muted` dashed SPY) — prefer the multi-series extension if clean, else two charts with a shared legend. Map each lane's `equity_curve` `[valued_on, total_value, benchmark_value]` → the series. Below: per lane, `open_positions` (ticker/shares/cost_basis/last_price/unrealized %) and recent `trades` (side/ticker/shares/fill_price/reason, buy=grün sell=rot). `available === false` → German empty state ("Arena noch leer — `run_lanes.py` ausführen.").
 
 - [x] **Step 1: Build the component** + any `EquityChart` multi-series extension (keep the existing single-series callers working — add an optional `series?: {label,points,color,dashed}[]` prop that, when present, supersedes the primary/benchmark props; document the back-compat). Colors from tokens only. SVG `aria-label` describing the comparison. `format.eur`/`pct`/`maxDrawdown`.
-- [ ] **Step 2: Gate** typecheck + build — `npm run typecheck` clean (whole project, so the EquityChart extension is confirmed back-compatible with all four existing single-series callers). **App-wiring (Arena nav entry + mount + default view) + the `npm run build` gate are deferred to Task 7** to avoid repeated App edits; the component is exported and will build-render there.
+- [x] **Step 2: Gate** typecheck + build — `npm run typecheck` clean (whole project, so the EquityChart extension is confirmed back-compatible with all four existing single-series callers). **App-wiring (Arena nav entry + mount + default view) + the `npm run build` gate are deferred to Task 7** to avoid repeated App edits; the component is exported and will build-render there. *(App-wiring landed in Task 7; Arena is the default view; build gate green.)*
 - [x] **Step 3: Commit** `feat(ui): add arena surface — Du vs Autopilot vs Markt equity race`.
 
 ---
@@ -232,7 +232,7 @@ Consumes `ArenaResponse`. This is the showpiece — "Du vs. Autopilot vs. Markt"
 Consumes `ModelResponse`. An honesty-forward panel. Top: a prominent German banner — "Der Score bewertet die Einstiegs-Attraktivität (Out-of-Sample), ist keine Prognose und keine Anlageberatung." Champion card: version, model_kind, created_at, and the OOS `metrics` (AUC/Brier/Rank-IC — label AUC "Trefferwahrscheinlichkeit (AUC, OOS)", show `null` metrics honestly as "—" not a fake number). Registry: a compact table of `registry` versions (version, created_at, model_kind, n_train, key metric, champion flag as a `Badge`). Resolved-prediction stats: `n_resolved`/`n_open`, `hit_rate` (or "noch keine aufgelösten Vorhersagen" when `n_resolved === 0`), `rank_ic`, and `by_score_bucket` as a small bar set (mean realized relative return per score bucket — the honest "does a higher score actually pay off" view; positive green / negative red). `drift` is null in v1 → omit or show "—". `available === false` → "Noch kein Modell trainiert — `run_train_entry.py` ausführen."
 
 - [x] **Step 1: Build the component** (null-safe metric rendering — never fabricate a number for `null`; `by_score_bucket` may be empty → honest empty note). Reuse `ui/Metric`, `ui/Bar`, `Badge`, `format`.
-- [ ] **Step 2: Gate** typecheck + build — `npm run typecheck` clean. **App-wiring (Model nav entry + mount) + the `npm run build` gate are deferred to Task 7** to avoid repeated App edits; the component is exported and will build-render there.
+- [x] **Step 2: Gate** typecheck + build — `npm run typecheck` clean. **App-wiring (Model nav entry + mount) + the `npm run build` gate are deferred to Task 7** to avoid repeated App edits; the component is exported and will build-render there. *(App-wiring landed in Task 7; build gate green.)*
 - [x] **Step 3: Commit** `feat(ui): add model surface (champion, registry, resolved-prediction honesty)`.
 
 ---
@@ -241,11 +241,11 @@ Consumes `ModelResponse`. An honesty-forward panel. Top: a prominent German bann
 
 **Files:** `frontend/src/App.tsx`, `frontend/src/components/ui/DisclaimerBar.tsx`.
 
-- [ ] **Step 1: `DisclaimerBar`** — a small component taking the `disclaimer` string from any surface response and rendering it as a subtle footer strip (`--text-muted`, hairline top border). Each surface renders it from its own response (they all carry `disclaimer`).
-- [ ] **Step 2: Nav integration** — extend the `View` union + `NAV` array so the copilot surfaces lead: **Arena** (default), **Radar**, **Inbox**, **Model**, then the existing **Strategien / ML / Screener / Assistent**. German labels. Confirm each mounts its panel; the `key={view}` reveal still fires. Group the copilot four visually distinct from the research four if cheap (a divider/label), else a flat tab strip is fine.
-- [ ] **Step 3: Full gate** — `cd frontend && npm run typecheck && npm run build` (clean), and `.venv/bin/python -m pytest -q` (still 376 — no backend change) + `.venv/bin/ruff check .`.
-- [ ] **Step 4: Serve smoke (no visual judgment, just liveness)** — build, then `.venv/bin/python scripts/run_api.py --db equity_scout.db` briefly and `curl -s localhost:8000/ | grep -c '<div id="root"'` (or TestClient GET "/") to confirm the built dashboard serves and the four `/api/*` return 200. Record. (The live DB has a watchlist, pitches, arena lanes, and a champion model from earlier phases, so all four surfaces have real data to render.)
-- [ ] **Step 5: README + outcome + log** — add a short "Dashboard" paragraph to the README copilot section (five surfaces, dark terminal, `npm run build` + serve); append the outcome section to THIS plan (what shipped, the EXplicit note that visual sign-off is Nico's per spec §8, the responsive/a11y state, and any deferrals); append one `AUTOPILOT_LOG.md` line. Commit `docs: record phase-6 dashboard outcome`.
+- [x] **Step 1: `DisclaimerBar`** — a small component taking the `disclaimer` string from any surface response and rendering it as a subtle footer strip (`--text-muted`, hairline top border). Each surface renders it from its own response (they all carry `disclaimer`).
+- [x] **Step 2: Nav integration** — extend the `View` union + `NAV` array so the copilot surfaces lead: **Arena** (default), **Radar**, **Inbox**, **Model**, then the existing **Strategien / ML / Screener / Assistent**. German labels. Confirm each mounts its panel; the `key={view}` reveal still fires. Group the copilot four visually distinct from the research four if cheap (a divider/label), else a flat tab strip is fine.
+- [x] **Step 3: Full gate** — `cd frontend && npm run typecheck && npm run build` (clean), and `.venv/bin/python -m pytest -q` (still 376 — no backend change) + `.venv/bin/ruff check .`.
+- [x] **Step 4: Serve smoke (no visual judgment, just liveness)** — build, then `.venv/bin/python scripts/run_api.py --db equity_scout.db` briefly and `curl -s localhost:8000/ | grep -c '<div id="root"'` (or TestClient GET "/") to confirm the built dashboard serves and the four `/api/*` return 200. Record. (The live DB has a watchlist, pitches, arena lanes, and a champion model from earlier phases, so all four surfaces have real data to render.)
+- [x] **Step 5: README + outcome + log** — add a short "Dashboard" paragraph to the README copilot section (five surfaces, dark terminal, `npm run build` + serve); append the outcome section to THIS plan (what shipped, the EXplicit note that visual sign-off is Nico's per spec §8, the responsive/a11y state, and any deferrals); append one `AUTOPILOT_LOG.md` line. Commit `docs: record phase-6 dashboard outcome`.
 
 ---
 
@@ -259,3 +259,52 @@ Consumes `ModelResponse`. An honesty-forward panel. Top: a prominent German bann
 - Honesty: Model surface never fabricates a number for a `null` metric; the score is framed as OOS-rank-not-forecast; every surface carries its DISCLAIMER via `DisclaimerBar`.
 - Deliberate cuts: no dark/light toggle (committed single dark identity per spec); `drift` panel omitted (null in v1); no new charting dependency (extend `EquityChart`); TradingView embed (`StockChart`) untouched and not used by the new surfaces.
 - No-test-runner reality: the gate is `tsc --noEmit` + `vite build` + data-shape correctness; visual/UX quality is Nico's review, not automatable here.
+
+---
+
+## Outcome (2026-07-05)
+
+**Shipped.** All seven tasks complete. Phase 6 reskinned the whole dashboard into a dark
+"trading-terminal" identity (CSS-var indirection in `index.css` — no per-component color edits) and
+added the four copilot surfaces — Radar, Inbox, Arena, Modell — plus a typed `api.ts` layer, on the
+existing React/Vite/TS stack with **no new dependencies**.
+
+Task 7 (this session): added `ui/DisclaimerBar.tsx` (reuses the existing `.surface-disclaimer` CSS)
+and refactored all four panels to render `<DisclaimerBar text={resp.disclaimer} />` instead of their
+inline footer. Wired the shell in `App.tsx`: `View` union extended to eight views, `NAV` reordered so
+the copilot four lead (**Arena is the default view**), then the research four; a hairline `.nav-sep`
+(rendered on `group` change, `aria-hidden`) visually separates the copilot group from the research
+group. The `key={view}` reveal-on-scroll still fires on every tab switch. German labels throughout
+(Arena/Radar/Inbox/Modell/Strategien/Machine Learning/Aktien-Screener/Assistent).
+
+**Gate (all green):** `npm run typecheck` clean; `npm run build` clean (64 modules, dist 262 kB JS /
+30 kB CSS); `pytest -q` → **376 passed** (no Python changed); `ruff check .` → all checks passed.
+
+**Serve smoke (liveness, not visual):** built dashboard served by `run_api.py --db equity_scout.db` —
+`curl localhost:8000/` → `id="root"` count 1; `/api/radar`, `/api/inbox`, `/api/arena`, `/api/model`
+all **200** against the live DB (real watchlist / pitches / arena lanes / champion model). Server
+killed via `fuser -k 8000/tcp` per HANDOFF.md.
+
+**Visual sign-off is Nico's (spec §8):** the phase gate covers liveness + data-shape correctness
+only. The look — palette, density, motion — is explicitly handed to Nico's review; nothing here
+asserts the visuals are approved.
+
+**Responsive / a11y state:** responsive breakpoints exist (`@media (max-width: 720px)`: topbar
+stacks, nav scrolls horizontally, multi-col grids collapse to one column). `prefers-reduced-motion`
+honored by the reveal observer. Meters/SVGs carry `role="img"` + German `aria-label`; the nav
+separator is `aria-hidden`. Full keyboard/contrast audit is part of Nico's visual pass, not gated here.
+
+**Known reskin contrast follow-ups (flagged by the Task 1 foundation, deferred):**
+1. **White-on-accent in the Assistent chat** — the chat bubble/CTA uses white text on the light
+   phosphor `--accent` fill; needs a dedicated `--on-accent` (dark) token so text on accent fills is
+   legible. (The Inbox buy CTA already uses `var(--bg-base)` text on accent correctly; the chat
+   surface was not migrated.)
+2. **`.champion-glow` legacy violet** — a leftover glow color from the pre-reskin palette that does
+   not use the new token block; should move onto `--violet`/token vars.
+
+**Deliberate cuts / deferrals:** no dark/light toggle (committed single dark identity per spec);
+`drift` panel omitted (null in v1); no new charting dependency (extended `EquityChart` with an
+optional multi-series prop, back-compatible with all single-series callers); TradingView `StockChart`
+embed untouched and unused by the new surfaces. Public-deploy stance unchanged: a public instance
+would point at a sanitized DB (personal inbox decisions live only in the local DB), same as the
+existing dashboard.
