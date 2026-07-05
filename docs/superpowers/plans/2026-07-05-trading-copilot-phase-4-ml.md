@@ -48,7 +48,7 @@ Horizons: primary `HORIZON_DAYS = 20` (~4 weeks), secondary `SECONDARY_HORIZON_D
 - Create: `src/equity_scout/ml/entry_eval.py`
 - Test: `tests/test_entry_eval.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Entry-eval tests: relative-return labels + OOS classification metrics."""
@@ -113,9 +113,9 @@ def test_rank_ic_detects_monotonic_ranking():
     assert rank_ic(scores, -realized) < -0.9
 ```
 
-- [ ] **Step 2: Run tests to verify they fail** — `.venv/bin/python -m pytest tests/test_entry_eval.py -v` → `ModuleNotFoundError`.
+- [x] **Step 2: Run tests to verify they fail** — `.venv/bin/python -m pytest tests/test_entry_eval.py -v` → `ModuleNotFoundError`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """Labels and out-of-sample metrics for the entry-quality model.
@@ -201,8 +201,8 @@ def rank_ic(scores: np.ndarray, realized: np.ndarray) -> float:
     return round(float(s.corr(r, method="spearman")), 4)
 ```
 
-- [ ] **Step 4: Run tests** — all PASS.
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 4: Run tests** — all PASS.
+- [x] **Step 5: Gate and commit**
 
 ```bash
 .venv/bin/python -m pytest && .venv/bin/ruff check .
