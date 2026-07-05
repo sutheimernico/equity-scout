@@ -1403,6 +1403,119 @@ code {
   line-height: 1.6;
 }
 
+/* --- Inbox surface (decision pitches, one-tap buy/pass/later) ------------ */
+.inbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-4);
+}
+.pitch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.pitch-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.pitch-score {
+  margin-left: auto;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--accent);
+}
+.pitch-head .pitch-badge {
+  margin-left: var(--space-2);
+  align-self: center;
+}
+.pitch-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.pitch-meta .nobr {
+  white-space: nowrap;
+}
+.pitch-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.55;
+  white-space: pre-wrap; /* the pitch is pre-formatted German, may be multi-line */
+}
+.pitch-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+.pitch-btn {
+  appearance: none;
+  font: inherit;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+.pitch-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.pitch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Primary CTA: the phosphor accent is light, so its fill needs DARK text — never white here. */
+.pitch-btn--buy {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--bg-base);
+}
+.pitch-btn--buy:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.pitch-btn--pass {
+  color: var(--negative);
+}
+.pitch-btn--pass:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--negative) 12%, transparent);
+  border-color: var(--negative);
+}
+.pitch-btn--later:hover:not(:disabled) {
+  background: var(--bg-inset);
+  color: var(--text-primary);
+}
+.pitch-decided {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.pitch-error {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--negative);
+}
+/* Outcome badges — extend the base .badge look with a status color. */
+.pitch-badge--buy {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+.pitch-badge--pass {
+  background: color-mix(in srgb, var(--negative) 14%, transparent);
+  color: var(--negative);
+}
+.pitch-badge--later {
+  background: var(--bg-inset);
+  color: var(--text-muted);
+}
+
 /* --- Responsive: stack the shell + collapse multi-col grids on narrow screens --- */
 @media (max-width: 720px) {
   .topbar {

@@ -407,7 +407,8 @@ export interface DecisionResponse {
   ok?: boolean;
   pitch?: Pitch;
   error?: string;
-  disclaimer: string;
+  disclaimer?: string; // present on 200; absent on the 409/422 error bodies
+  status: number; // HTTP status — lets the caller branch 200 vs 409 (refetch) vs 422 (inline error)
 }
 
 export async function decidePitch(
@@ -419,7 +420,9 @@ export async function decidePitch(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action }),
   });
-  return response.json(); // 200/409/422 all carry a JSON body
+  // 200/409/422 all carry a JSON body; the status distinguishes success from the two conflict paths.
+  const body = (await response.json()) as Omit<DecisionResponse, "status">;
+  return { ...body, status: response.status };
 }
 
 // --- Arena (src/equity_scout/api.py → /api/arena) ---

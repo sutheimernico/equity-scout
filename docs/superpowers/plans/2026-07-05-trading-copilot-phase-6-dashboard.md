@@ -207,9 +207,9 @@ Consumes `RadarResponse`. Layout: a header (created_at, count, disclaimer) + a d
 
 Consumes `InboxResponse`; POSTs via `decidePitch`. Open pitches first (the API already orders open-first). Each pitch: ticker, score (`composite*100`), price, zone, created_at, the `pitch` text (pre-rendered German, may be multi-line — render with preserved line breaks), and for `status === "open"` three buttons **[Kaufen] [Ablehnen] [Später]** calling `decidePitch(id, "buy"|"pass"|"later")`. On success (`ok`), update that pitch's status/decided_at in local state (optimistic-then-confirm: disable buttons while the request is in flight; on 409 refetch the inbox — someone/the receiver already decided it; on 422 show a small error). Decided pitches show the outcome as a `Badge` (grün=gekauft/rot=abgelehnt/grau=später) with `decided_at`.
 
-- [ ] **Step 1: Build the component** (in-flight state per pitch id via a `Set<number>`; a `decide(id, action)` handler that awaits `decidePitch`, then updates state or refetches on 409; disable all three buttons for that pitch while pending; keyboard-accessible buttons). German throughout.
-- [ ] **Step 2: Gate** typecheck + build (add the Inbox nav entry + mount). Green.
-- [ ] **Step 3: Commit** `feat(ui): add decision inbox surface with one-tap buy/pass/later`.
+- [x] **Step 1: Build the component** (in-flight state per pitch id via a `Set<number>`; a `decide(id, action)` handler that awaits `decidePitch`, then updates state or refetches on 409; disable all three buttons for that pitch while pending; keyboard-accessible buttons). German throughout. Component + dedicated CSS block in `index.css` (tokens only; buy CTA uses dark `var(--bg-base)` text on the light accent fill). **Also:** `decidePitch` now returns the HTTP `status` (added `status: number` to `DecisionResponse`, `disclaimer` made optional) — the given return shape could not distinguish 200/409/422 otherwise; this is the minimal correct change to implement the 409-refetch vs 422-inline split.
+- [ ] **Step 2: Gate** typecheck + build — `npm run typecheck` clean. **App-wiring (nav entry + mount) + the `npm run build` gate are deferred to Task 7** to avoid repeated App edits; the component is exported and will build-render there.
+- [x] **Step 3: Commit** `feat(ui): add decision inbox surface with one-tap buy/pass/later`.
 
 ---
 
