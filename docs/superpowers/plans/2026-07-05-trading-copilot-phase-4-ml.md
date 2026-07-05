@@ -252,11 +252,11 @@ Assemble `(X, y, meta)` from a `PricePanel` of stock tickers + benchmark over hi
 
 Wrap the reused `_build_model` + StandardScaler. `EntryModel` holds the fitted scaler+estimator+feature order; `.score_many(X) -> np.ndarray` of 0–100 integers (`round(predict_proba[:,1]*100)`); `.score_row(dict) -> int`. `train_entry_model(X, y, *, model="random_forest") -> EntryModel`. `walk_forward_evaluate(X, y, meta, *, model, n_splits, horizon_days) -> dict` reuses `ml.meta_model.purged_walk_forward` over the sorted unique as_of dates (group-aware: all rows sharing an as_of go to the same side of a split — the split is on DATES, rows are selected by membership), producing OOS probabilities → `entry_eval.classification_scores` + `rank_ic` against `meta.relative_return`. One-class-train fold falls back to base rate (mirror meta_model).
 
-- [ ] **Step 1: Failing tests** — a learnable synthetic dataset (feature linearly separable-ish from label) trains to OOS AUC > 0.6; `score_many` returns ints in [0,100] monotonic in the signal; walk-forward returns `{"auc","brier","rank_ic","n_oos","n_splits_used","feature_importance"}`; a pure-noise dataset yields AUC ≈ 0.5 (no fake edge); reproducible (seeded). Full test code.
-- [ ] **Step 2: Run → fail.**
-- [ ] **Step 3: Implement.** Group-by-date walk-forward: build `date_index = sorted(meta.as_of.unique())`, run `purged_walk_forward` on that DatetimeIndex, map train/test dates → row masks via `meta.as_of.isin(...)`. This keeps the horizon-purge meaningful (a label's window is tied to its as_of). Document why grouping matters (rows on the same date share look-ahead exposure).
-- [ ] **Step 4: Run → pass.**
-- [ ] **Step 5: Commit** `feat: add entry-quality model with purged walk-forward evaluation`.
+- [x] **Step 1: Failing tests** — a learnable synthetic dataset (feature linearly separable-ish from label) trains to OOS AUC > 0.6; `score_many` returns ints in [0,100] monotonic in the signal; walk-forward returns `{"auc","brier","rank_ic","n_oos","n_splits_used","feature_importance"}`; a pure-noise dataset yields AUC ≈ 0.5 (no fake edge); reproducible (seeded). Full test code.
+- [x] **Step 2: Run → fail.**
+- [x] **Step 3: Implement.** Group-by-date walk-forward: build `date_index = sorted(meta.as_of.unique())`, run `purged_walk_forward` on that DatetimeIndex, map train/test dates → row masks via `meta.as_of.isin(...)`. This keeps the horizon-purge meaningful (a label's window is tied to its as_of). Document why grouping matters (rows on the same date share look-ahead exposure).
+- [x] **Step 4: Run → pass.**
+- [x] **Step 5: Commit** `feat: add entry-quality model with purged walk-forward evaluation`.
 
 ---
 
