@@ -103,10 +103,14 @@
 - 2026-07-05 — Phase 4 done (entry-quality ML with honest online learning): price-derived
   backfill (no fundamentals → no look-ahead), relative-return labels vs SPY, purged date-grouped
   walk-forward OOS eval, versioned pickled model registry with strictly-better champion/challenger
-  promotion, append-only predict-then-resolve prediction ledger + drift snapshot, train/resolve
-  CLIs (network behind DI seams) and GET /api/model. 8 commits, 305 → 370 tests, pytest + ruff
-  green throughout. Live smoke (10 tickers, 520 rows): OOS AUC 0.6195 / Brier 0.2424 / Rank-IC
-  0.1523 (n_oos=220, 2 splits), v1 promoted — above coin-flip but NOT a validated edge (small
-  single-panel backfill; the ledger's resolved live outcomes are the real test). Reviews on Opus
-  4.8. Branch feat/trading-copilot-phase-4. New dependency: none. Next: Phase 5 (cron the
-  nightly retrain + resolver) or Phase 6 (dashboard Model tab).
+  promotion, append-only predict-then-resolve prediction ledger + drift snapshot, train/score/
+  resolve CLIs (network behind DI seams) and GET /api/model. The predict→resolve loop is CLOSED:
+  run_score_watchlist logs live champion scores → run_resolve_predictions fills real outcomes
+  (proved end-to-end by test_predict_resolve_loop_is_closed). Whole-phase review caught the loop
+  half-wired (no production log_predictions caller) + a present-tense README overclaim on a public
+  repo; both fixed. Renamed model_registry.champion → entry_champion (collision with ml.ledger).
+  10 commits, 305 → 376 tests, pytest + ruff green throughout. Live smoke (10 tickers, 520 rows):
+  OOS AUC 0.6195 / Brier 0.2424 / Rank-IC 0.1523 (n_oos=220, 2 splits), v1 promoted — above
+  coin-flip but NOT a validated edge (small single-panel backfill; the now-populating ledger's
+  resolved live outcomes are the real test). Reviews on Opus 4.8. Branch feat/trading-copilot-
+  phase-4. New dependency: none. Next: Phase 5 (cron train/score/resolve) or Phase 6 (Model tab).

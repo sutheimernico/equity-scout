@@ -381,8 +381,33 @@ shape against the live DB (champion v1 present, registry length 1, resolved stat
 predictions were logged).
 
 **Deviations / notes.** The API `champion` block is assembled from `registry_summary` rather than
-`model_registry.champion()` — it yields exactly the required fields (version/created_at/model_kind/
-metrics) without unpickling the artifact or risking a `RegistryError` 500 on the read path. `drift`
-is `None` in v1 as planned (a live `drift_snapshot` needs stored training means — a later
-enhancement). The train/resolve panels use distinct snapshots (`data/prices/entry_panel.csv`,
-`data/prices/resolve_panel.csv`, both gitignored) so they never clobber the ETF/backtest panel.
+`model_registry.entry_champion()` — it yields exactly the required fields (version/created_at/
+model_kind/metrics) without unpickling the artifact or risking a `RegistryError` 500 on the read
+path. `drift` is `None` in v1 as planned (a live `drift_snapshot` needs stored training means — a
+later enhancement). The train/score/resolve panels use distinct snapshots
+(`data/prices/entry_panel.csv`, `data/prices/score_panel.csv`, `data/prices/resolve_panel.csv`, all
+gitignored) so they never clobber the ETF/backtest panel.
+
+### Post-review addendum — the predict→resolve loop is now CLOSED
+
+A whole-phase review found the loop was only half-wired: `log_predictions` had no production caller,
+so the ledger never populated and `run_resolve_predictions` resolved 0 forever, and the README
+claimed (present tense) that live scores were already being logged — false on a public repo. Fixed:
+
+- **Task A** — new dedicated CLI `scripts/run_score_watchlist.py` (scoring and training are different
+  cadences, so it is not folded into `run_train_entry`). Core `run_score_watchlist(db, *, panel, now,
+  benchmark, horizon_days)`: loads the champion (honest German no-op + `{logged:0}` if none), reads
+  the latest watchlist tickers (honest no-op if none), builds each ticker's price-derived feature row
+  as-of the latest panel trading day, scores with `EntryModel.score_row`, and `log_predictions` the
+  batch tagged with the champion version. `main()` is the only network/`datetime.now` site (distinct
+  `data/prices/score_panel.csv`). 6 tests, all offline — including `test_predict_resolve_loop_is_closed`,
+  which scores → logs → resolves → asserts `resolved_stats.n_resolved > 0`: the proof the loop is wired.
+- **Minor** — renamed `model_registry.champion` → `entry_champion` to avoid a name collision with
+  `ml.ledger.champion` (a different return type); callers updated.
+- **Task B** — README corrected: the ML paragraph now describes the three distinct stages (train
+  backfill/OOS → score logs live predictions → resolve fills real outcomes) instead of attributing
+  live scoring to `run_train_entry` in the present tense.
+
+Totals after the fix: **376 passed** (370 → +6 scoring-CLI tests), `ruff` clean. The live-smoke AUC
+(0.6195, above coin-flip but not a validated edge) stands as recorded; the closed loop means the
+ledger can now accumulate resolved live outcomes — the real, honest test over the coming months.

@@ -94,11 +94,14 @@ uv run python scripts/run_digest.py --db equity_scout.db
 # 5. Arena: advance both paper lanes one step (nico = approved pitches, autopilot = score-autonomous)
 uv run python scripts/run_lanes.py --db equity_scout.db   # daily/cron; idempotent per UTC day
 
-# 6. Entry-quality ML: price-derived backfill → purged walk-forward → register/promote a champion
+# 6. Train: price-derived backfill → purged walk-forward → register/promote the champion model
 uv run python scripts/run_train_entry.py --db equity_scout.db --tickers EXE,EQT,VICI,CF,WDC
 #    (no --tickers → latest watchlist tickers, else a small fallback universe; --model, --start)
 
-# 7. Resolve: fill the realized outcome of every prediction whose 20-day horizon has elapsed
+# 7. Score: the champion scores the current watchlist and LOGS each live prediction to the ledger
+uv run python scripts/run_score_watchlist.py --db equity_scout.db   # the 'predict' half of the loop
+
+# 8. Resolve: fill the realized outcome of every logged prediction whose 20-day horizon has elapsed
 uv run python scripts/run_resolve_predictions.py --db equity_scout.db
 ```
 
@@ -107,13 +110,21 @@ rules (profit target / stop loss / max holding period), each tracked against buy
 "Du vs. Autopilot vs. Markt". Lane "nico" only buys pitches you approved; lane "autopilot"
 buys autonomously above the score threshold. PAPER ONLY — no real orders.
 
-The entry-quality model (`scripts/run_train_entry.py`) scores each watchlist entry 0–100 =
-P(it beats SPY over ~20 trading days). Features are strictly price-derived (no fundamentals —
-yfinance has no history, so a fundamentals backfill would be look-ahead); every reported number
-is out-of-sample from a purged, date-grouped walk-forward; a challenger only replaces the
-champion on a strictly better OOS AUC; and every live score is logged to an append-only
-prediction ledger, resolved later against real forward prices. The score RANKS entry
-attractiveness — it is not a price forecast and not advice.
+The entry-quality model scores each watchlist entry 0–100 = P(it beats SPY over ~20 trading days),
+across three separate stages so the "the model improves" claim stays a queryable fact, not a
+promise:
+
+- **train** (`run_train_entry.py`) builds a strictly price-derived historical backfill (no
+  fundamentals — yfinance has no history, so a fundamentals backfill would be look-ahead), scores
+  it out-of-sample with a purged, date-grouped walk-forward, and promotes a challenger only on a
+  strictly better OOS AUC;
+- **score** (`run_score_watchlist.py`) has the current champion score today's watchlist and appends
+  every live score to an immutable prediction ledger *before* the outcome is known;
+- **resolve** (`run_resolve_predictions.py`) fills each prediction's realized outcome against real
+  forward prices once its horizon has elapsed — never a back-filled guess.
+
+The score RANKS entry attractiveness — it is a calibrated probability, not a price forecast and not
+advice.
 
 Dashboard endpoints: `GET /api/radar`, `GET /api/inbox`, `POST /api/inbox/{id}/decision`,
 `GET /api/arena`, `GET /api/model` (registry, champion metrics, resolved-prediction stats).
