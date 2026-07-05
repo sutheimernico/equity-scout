@@ -99,3 +99,15 @@ def test_api_raises_telegram_error_with_http_error_body(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", refuse)
     with pytest.raises(TelegramError, match="bot was blocked"):
         send_message("token", CHAT_ID, "hallo")
+
+
+def test_api_raises_telegram_error_on_url_error(monkeypatch):
+    """DNS/connection failures (URLError without HTTP status) must surface as TelegramError
+    too, so callers' resilience handling covers offline/unreachable states."""
+
+    def unreachable(request, timeout):
+        raise urllib.error.URLError("Name or service not known")
+
+    monkeypatch.setattr(urllib.request, "urlopen", unreachable)
+    with pytest.raises(TelegramError, match="Name or service not known"):
+        send_message("token", CHAT_ID, "hallo")

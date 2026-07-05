@@ -18,7 +18,9 @@ from collections.abc import Callable
 
 API = "https://api.telegram.org/bot{token}/{method}"
 ACTIONS = ("buy", "pass", "later")
-_BUTTON_LABELS = {"buy": "✅ Kaufen", "pass": "❌ Ablehnen", "later": "⏸ Später"}
+# Single source for the German action labels — buttons, receiver acks, and message
+# edits must all render the same wording.
+DECISION_LABELS = {"buy": "✅ Kaufen", "pass": "❌ Ablehnen", "later": "⏸ Später"}
 
 
 class TelegramError(RuntimeError):
@@ -56,6 +58,10 @@ def _api(token: str, method: str, params: dict, timeout: float = 35.0) -> dict:
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         raise TelegramError(f"{method} failed with HTTP {exc.code}: {body}") from exc
+    except urllib.error.URLError as exc:
+        # DNS/connection failures have no HTTP response; wrap them too so callers'
+        # TelegramError handling covers offline/unreachable states.
+        raise TelegramError(f"{method} failed: {exc.reason}") from exc
     if not payload.get("ok"):
         raise TelegramError(f"{method} failed: {payload.get('description', 'unknown')}")
     return payload
@@ -65,7 +71,7 @@ def build_decision_keyboard(pitch_id: int) -> dict:
     return {
         "inline_keyboard": [
             [
-                {"text": _BUTTON_LABELS[action], "callback_data": f"{action}:{pitch_id}"}
+                {"text": DECISION_LABELS[action], "callback_data": f"{action}:{pitch_id}"}
                 for action in ACTIONS
             ]
         ]

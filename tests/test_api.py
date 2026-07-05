@@ -187,11 +187,21 @@ def test_inbox_endpoints_list_and_decide(tmp_path):
 
     ok = client.post(f"/api/inbox/{pitch_id}/decision", json={"action": "buy"})
     assert ok.status_code == 200
+    body = ok.json()
+    assert body["ok"] is True and "disclaimer" in body
+    # the decided row comes back so the dashboard can update in place without a refetch
+    assert body["pitch"]["id"] == pitch_id
+    assert body["pitch"]["status"] == "buy"
+    assert body["pitch"]["decided_at"] is not None
     assert client.get("/api/inbox").json()["pitches"][0]["status"] == "buy"
 
     conflict = client.post(f"/api/inbox/{pitch_id}/decision", json={"action": "pass"})
     assert conflict.status_code == 409
+    assert conflict.json()["error"] == "Pitch unbekannt oder bereits entschieden."
     unknown = client.post("/api/inbox/999/decision", json={"action": "buy"})
     assert unknown.status_code == 409
+    # ids beyond SQLite's signed 64-bit range must 409 like any unknown id, never 500
+    huge = client.post("/api/inbox/99999999999999999999/decision", json={"action": "buy"})
+    assert huge.status_code == 409
     invalid = client.post(f"/api/inbox/{pitch_id}/decision", json={"action": "explode"})
     assert invalid.status_code == 422

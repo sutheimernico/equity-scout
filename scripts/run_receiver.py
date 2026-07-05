@@ -8,18 +8,30 @@ Requires COPILOT_TG_BOT_TOKEN / COPILOT_TG_CHAT_ID. Runs until interrupted
 the inbox (source of truth); the original message is edited with the outcome so
 the Telegram thread reflects the decision. Duplicate/late presses are answered
 politely and never overwrite an existing decision.
+
+Resilience: transient Telegram/network failures never kill the loop — a failed
+round warns to stderr and retries after a short backoff. The update offset is
+held in memory only (no persistence in v1): after a crash/restart Telegram
+redelivers every unconfirmed update, and decide_pitch is idempotent (first
+decision wins), so replaying updates is safe. A lost outcome-edit self-heals on
+the next press of the same message: the already-decided branch re-attempts the
+edit with the ORIGINAL decision and timestamp (Telegram no-ops via "message is
+not modified" if it already went through).
 """
 from __future__ import annotations
 
 import argparse
 import os
 import sys
+import time
 from collections.abc import Callable
 from datetime import datetime, timezone
 
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.inbox_storage import decide_pitch, load_pitches
 from equity_scout.telegram_client import (
+    DECISION_LABELS,
+    TelegramError,
     answer_callback,
     edit_message,
     get_updates,
@@ -27,13 +39,20 @@ from equity_scout.telegram_client import (
     poll_updates,
 )
 
-_DECISION_LABEL = {"buy": "✅ Kaufen", "pass": "❌ Ablehnen", "later": "⏸ Später"}
-
 
 def _pitch_by_id(db_path: str, pitch_id: int) -> dict | None:
     # Linear scan over load_pitches — fine at personal scale (dozens of pitches,
     # not millions); revisit with a dedicated lookup if the inbox ever grows large.
     return next((p for p in load_pitches(db_path, limit=1000) if p["id"] == pitch_id), None)
+
+
+def _try_telegram(call: Callable, *args, what: str) -> None:
+    """Acks and edits are best-effort: the DB decision is already safe, so a failed
+    Telegram call is warned and skipped, never allowed to abort the round."""
+    try:
+        call(*args)
+    except (TelegramError, OSError) as exc:
+        print(f"Warnung: {what} fehlgeschlagen: {exc}", file=sys.stderr)
 
 
 def process_round(
@@ -49,17 +68,23 @@ def process_round(
     """One polling round: apply decisions, ack buttons, edit messages."""
     decisions, offset = poll_updates(fetch, offset, chat_id)
     for action, pitch_id, callback_id in decisions:
-        label = _DECISION_LABEL[action]
         if decide_pitch(db_path, pitch_id, action, decided_at=now):
-            answer(callback_id, f"{label} vermerkt")
+            label = DECISION_LABELS[action]
+            _try_telegram(answer, callback_id, f"{label} vermerkt", what="Telegram-Ack")
             pitch = _pitch_by_id(db_path, pitch_id)
             if pitch and pitch.get("telegram_message_id"):
-                edit(
-                    pitch["telegram_message_id"],
-                    f"{pitch['pitch']}\n\n— Entscheidung: {label} ({now})",
-                )
+                text = f"{pitch['pitch']}\n\n— Entscheidung: {label} ({now})"
+                _try_telegram(edit, pitch["telegram_message_id"], text, what="Telegram-Edit")
         else:
-            answer(callback_id, "Bereits entschieden.")
+            _try_telegram(answer, callback_id, "Bereits entschieden.", what="Telegram-Ack")
+            # Self-heal: if the outcome edit was lost earlier, re-attempt it with the
+            # stored decision. Idempotent — an unchanged message is a Telegram no-op
+            # error ("message is not modified"), swallowed by _try_telegram.
+            pitch = _pitch_by_id(db_path, pitch_id)
+            if pitch and pitch["status"] != "open" and pitch.get("telegram_message_id"):
+                label = DECISION_LABELS.get(pitch["status"], pitch["status"])
+                text = f"{pitch['pitch']}\n\n— Entscheidung: {label} ({pitch['decided_at']})"
+                _try_telegram(edit, pitch["telegram_message_id"], text, what="Telegram-Edit")
     return offset
 
 
@@ -81,15 +106,24 @@ def main() -> int:
     try:
         while args.rounds is None or rounds < args.rounds:
             now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-            offset = process_round(
-                args.db,
-                fetch=lambda off: get_updates(token, off),
-                chat_id=chat_id,
-                offset=offset,
-                answer=lambda cb, text: answer_callback(token, cb, text),
-                edit=lambda mid, text: edit_message(token, chat_id, mid, text),
-                now=now,
-            )
+            try:
+                offset = process_round(
+                    args.db,
+                    fetch=lambda off: get_updates(token, off),
+                    chat_id=chat_id,
+                    offset=offset,
+                    answer=lambda cb, text: answer_callback(token, cb, text),
+                    edit=lambda mid, text: edit_message(token, chat_id, mid, text),
+                    now=now,
+                )
+            except (TelegramError, OSError) as exc:
+                # Transient network/API trouble: warn, back off, keep the loop alive.
+                print(
+                    f"Warnung: Polling-Runde fehlgeschlagen: {exc} — "
+                    "nächster Versuch in 5 Sekunden.",
+                    file=sys.stderr,
+                )
+                time.sleep(5)
             rounds += 1
     except KeyboardInterrupt:
         print("Receiver beendet.")

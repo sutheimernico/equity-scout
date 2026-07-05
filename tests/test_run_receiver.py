@@ -1,10 +1,16 @@
 """Receiver loop: canned updates -> inbox decisions + telegram acks (all fakes)."""
 from __future__ import annotations
 
+import sys
+import time
+
+import scripts.run_receiver as run_receiver_mod
 from equity_scout.inbox_storage import create_pitch, load_pitches, set_message_id
-from scripts.run_receiver import process_round
+from equity_scout.telegram_client import TelegramError
+from scripts.run_receiver import main, process_round
 
 NOW = "2026-07-05T13:00:00+00:00"
+LATER = "2026-07-05T14:00:00+00:00"
 
 
 def _seed_pitch(db: str) -> int:
@@ -75,3 +81,72 @@ def test_process_round_ignores_foreign_and_malformed_updates(tmp_path):
     )
     assert offset == 23
     assert load_pitches(db)[0]["status"] == "open"
+
+
+def test_process_round_survives_answer_and_edit_failures(tmp_path, capsys):
+    """A failing ack or edit must never lose the decision or abort the round."""
+    db = str(tmp_path / "inbox.db")
+    pitch_id = _seed_pitch(db)
+
+    def bad_answer(cb_id, text):
+        raise TelegramError("answerCallbackQuery failed: query is too old")
+
+    def bad_edit(message_id, text):
+        raise TelegramError("editMessageText failed: message to edit not found")
+
+    offset = process_round(
+        db, fetch=lambda o: [_update(10, f"buy:{pitch_id}")], chat_id=42, offset=None,
+        answer=bad_answer, edit=bad_edit, now=NOW,
+    )
+    assert offset == 11
+    pitch = load_pitches(db)[0]
+    assert (pitch["status"], pitch["decided_at"]) == ("buy", NOW)  # decision survived
+    err = capsys.readouterr().err
+    assert "Warnung" in err and "fehlgeschlagen" in err
+
+
+def test_duplicate_press_on_decided_pitch_reattempts_edit(tmp_path):
+    """Self-heal: if the outcome edit was lost, a duplicate tap re-attempts it with the
+    ORIGINAL decision's label and timestamp (idempotent — Telegram no-ops if unchanged)."""
+    db = str(tmp_path / "inbox.db")
+    pitch_id = _seed_pitch(db)
+
+    def lost_edit(message_id, text):
+        raise TelegramError("editMessageText failed: flaky")
+
+    process_round(
+        db, fetch=lambda o: [_update(10, f"buy:{pitch_id}")], chat_id=42, offset=None,
+        answer=lambda c, t: None, edit=lost_edit, now=NOW,
+    )
+    acks: list[tuple[str, str]] = []
+    edits: list[tuple[int, str]] = []
+    process_round(
+        db, fetch=lambda o: [_update(11, f"pass:{pitch_id}")], chat_id=42, offset=None,
+        answer=lambda cb_id, text: acks.append((cb_id, text)),
+        edit=lambda message_id, text: edits.append((message_id, text)),
+        now=LATER,
+    )
+    assert load_pitches(db)[0]["status"] == "buy"  # duplicate press never overwrites
+    assert acks == [("cb11", "Bereits entschieden.")]
+    assert edits and edits[0][0] == 777
+    assert "✅ Kaufen" in edits[0][1] and NOW in edits[0][1]  # original decision + its timestamp
+
+
+def test_main_survives_round_errors_with_backoff(tmp_path, monkeypatch, capsys):
+    """A dead network must not kill the unattended loop: warn, back off 5s, keep polling."""
+    sleeps: list[float] = []
+    monkeypatch.setattr(time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    def down(token, offset):
+        raise TelegramError("getUpdates failed: network unreachable")
+
+    monkeypatch.setattr(run_receiver_mod, "get_updates", down)
+    monkeypatch.setenv("COPILOT_TG_BOT_TOKEN", "t")
+    monkeypatch.setenv("COPILOT_TG_CHAT_ID", "42")
+    db = str(tmp_path / "inbox.db")
+    monkeypatch.setattr(sys, "argv", ["run_receiver.py", "--db", db, "--rounds", "2"])
+
+    assert main() == 0
+    assert sleeps == [5, 5]
+    err = capsys.readouterr().err
+    assert "Warnung" in err and "fehlgeschlagen" in err

@@ -8,7 +8,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -241,16 +241,20 @@ def create_app(
 
     @app.post("/api/inbox/{pitch_id}/decision")
     def inbox_decision(pitch_id: int, body: dict) -> JSONResponse:
-        # Mirrors POST /api/chat's idiom: plain dict body + manual validation (no pydantic
-        # model elsewhere in this file). Action validity and pitch-state conflicts are
-        # deliberately distinct error paths, so they need checking in this order.
+        # Mirrors POST /api/chat's idiom: plain dict body + manual validation, and the
+        # file-wide {"error": ...} shape for every error status. Action validity and
+        # pitch-state conflicts are distinct error paths, checked in this order.
         action = str((body or {}).get("action", ""))
         if action not in ACTIONS:
             return JSONResponse({"error": "Ungültige Aktion."}, status_code=422)
         decided_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         if not decide_pitch(db_path, pitch_id, action, decided_at=decided_at):
-            raise HTTPException(status_code=409, detail="Pitch unbekannt oder bereits entschieden.")
-        return JSONResponse({"ok": True, "disclaimer": DISCLAIMER})
+            return JSONResponse(
+                {"error": "Pitch unbekannt oder bereits entschieden."}, status_code=409
+            )
+        # Return the updated row so the dashboard can update in place without a refetch.
+        pitch = next((p for p in load_pitches(db_path, limit=1000) if p["id"] == pitch_id), None)
+        return JSONResponse({"ok": True, "pitch": pitch, "disclaimer": DISCLAIMER})
 
     # Serve the built React dashboard. Mounted at "/" LAST so the /api/* routes above win.
     # Run `cd frontend && npm install && npm run build` to produce dist/.

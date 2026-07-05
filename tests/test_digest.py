@@ -16,8 +16,23 @@ PITCHES = [
 def test_build_digest_lists_open_and_decided():
     text = build_digest(PITCHES, date_label="2026-07-05")
     assert "EXE" in text and "offen" in text.lower()
+    assert "Offene Pitches: 1" in text  # count style dodges singular/plural agreement
     assert "ABC" in text and "✅" in text
     assert "Keine Anlageberatung" in text
+
+
+def test_build_digest_decided_since_window_pins_line_and_drops_old():
+    """The decided section is a daily digest, not a lifetime archive: only decisions at or
+    after decided_since appear, and the rendered line is pinned exactly."""
+    pitches = PITCHES + [
+        {"id": 3, "ticker": "OLD", "status": "pass", "composite": 0.4, "price": 10.0,
+         "created_at": "2026-06-30T10:00:00+00:00", "decided_at": "2026-07-01T09:00:00+00:00"},
+    ]
+    text = build_digest(
+        pitches, date_label="2026-07-05", decided_since="2026-07-04T12:00:00+00:00"
+    )
+    assert "  ✅ Kaufentscheidung — ABC · am 2026-07-05" in text
+    assert "OLD" not in text
 
 
 def test_build_digest_empty_state():

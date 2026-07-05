@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.digest import build_digest, load_smtp_config, send_digest
@@ -22,9 +22,13 @@ def main() -> int:
     parser.add_argument("--db", default=DEFAULT_DB_PATH)
     args = parser.parse_args()
 
-    pitches = load_pitches(args.db)
-    date_label = datetime.now(timezone.utc).date().isoformat()
-    text = build_digest(pitches, date_label=date_label)
+    # limit=1000: don't let load_pitches' default cap (100) silently drop open pitches
+    # from a DAILY digest; the decided section is scoped to the last 24h instead.
+    pitches = load_pitches(args.db, limit=1000)
+    now = datetime.now(timezone.utc)
+    date_label = now.date().isoformat()
+    decided_since = (now - timedelta(hours=24)).isoformat(timespec="seconds")
+    text = build_digest(pitches, date_label=date_label, decided_since=decided_since)
 
     config = load_smtp_config(dict(os.environ))
     if config is None:

@@ -66,6 +66,10 @@ def decide_pitch(db_path: str, pitch_id: int, action: str, *, decided_at: str) -
     """True iff the pitch existed, was still open, and `action` is valid."""
     if action not in ACTIONS:
         return False
+    if not 0 <= pitch_id < 2**63:
+        # Outside SQLite's signed 64-bit INTEGER range such an id cannot exist, and
+        # binding it would raise OverflowError. Guards both the API route and the receiver.
+        return False
     init_inbox_db(db_path)
     with sqlite3.connect(db_path) as conn:
         cursor = conn.execute(

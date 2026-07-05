@@ -10,7 +10,7 @@ import smtplib
 import sys
 from email.message import EmailMessage
 
-_STATUS_ICON = {"open": "📬 offen", "buy": "✅ gekauft-Entscheidung",
+_STATUS_ICON = {"open": "📬 offen", "buy": "✅ Kaufentscheidung",
                 "pass": "❌ abgelehnt", "later": "⏸ später"}
 
 
@@ -29,15 +29,27 @@ def load_smtp_config(env: dict) -> dict | None:
     }
 
 
-def build_digest(pitches: list[dict], *, date_label: str) -> str:
-    """German plain-text digest: open pitches first, then recent decisions."""
+def build_digest(
+    pitches: list[dict], *, date_label: str, decided_since: str | None = None
+) -> str:
+    """German plain-text digest: all open pitches first, then recent decisions.
+
+    decided_since (UTC ISO string) scopes the decided section to a window — without it
+    every decision ever made would reappear daily. Lexicographic >= is chronologically
+    correct because all writers produce UTC "+00:00" ISO strings (see inbox_storage).
+    """
     lines = [f"Copilot-Digest {date_label}", ""]
     open_pitches = [p for p in pitches if p["status"] == "open"]
-    decided = [p for p in pitches if p["status"] != "open"]
+    decided = [
+        p for p in pitches
+        if p["status"] != "open"
+        and (decided_since is None or (p["decided_at"] or "") >= decided_since)
+    ]
     if not open_pitches:
         lines.append("Aktuell keine offenen Pitches.")
     else:
-        lines.append(f"Offene Pitches ({len(open_pitches)}):")
+        # count style ("Offene Pitches: 1") dodges singular/plural agreement
+        lines.append(f"Offene Pitches: {len(open_pitches)}")
         for p in open_pitches:
             lines.append(
                 f"  📬 offen — {p['ticker']} · Score {round(p['composite'] * 100)}/100"
