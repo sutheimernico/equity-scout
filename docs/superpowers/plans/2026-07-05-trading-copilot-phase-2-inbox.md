@@ -53,7 +53,7 @@ Env vars (documented in `.env.example`, added in Task 8): `COPILOT_TG_BOT_TOKEN`
 
 Lift the generic primitives from tap-approve (`~/private/tap-approve/src/tap_approve.py` — read it once for reference, but the code below is self-contained), generalized from allow/deny to arbitrary action sets.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Telegram client tests — pure logic + DI'd transport, no network."""
@@ -118,12 +118,12 @@ def test_load_telegram_config_fail_safe(capsys):
     assert cfg == {"token": "t", "chat_id": 42}
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_telegram_client.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'equity_scout.telegram_client'`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """Generic Telegram Bot API client for the copilot inbox.
@@ -239,17 +239,19 @@ def poll_updates(
     return decisions, offset
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/test_telegram_client.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 .venv/bin/python -m pytest && .venv/bin/ruff check .
 git add src/equity_scout/telegram_client.py tests/test_telegram_client.py
 git commit -m "feat: add generic telegram client with buy/pass/later decisions"
 ```
+
+**Outcome:** Implemented verbatim, no deviations. Gate: 246 passed (241 baseline + 5), ruff clean. Commit `93d6cd5`. Review fix `a125a0e`: `TelegramError` raised by `_api` on HTTP errors (body read for Telegram's reason) and on `{"ok": false}` payloads; `extract_decision` now rejects negative pitch ids; boundary tests for `"buy:"`/`"buy:7:extra"`/`"buy:-7"` added; the two `_api` error tests monkeypatch `urllib.request.urlopen` — sanctioned because `_api` IS the transport.
 
 ---
 
@@ -259,7 +261,7 @@ git commit -m "feat: add generic telegram client with buy/pass/later decisions"
 - Create: `src/equity_scout/pitch.py`
 - Test: `tests/test_pitch.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Pitch builder tests. LLM seam injected; fallback must be deterministic."""
@@ -318,12 +320,12 @@ def test_build_pitch_stays_under_telegram_limit():
     assert len(pitch) <= 4000  # Telegram hard limit is 4096; headroom for edits
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_pitch.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'equity_scout.pitch'`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """German pitch text for one watchlist entry.
@@ -356,7 +358,7 @@ def _ask_default(question: str, context: str) -> str:
 
 def _fact_block(entry: dict) -> str:
     lines = [
-        f"Score {round(entry['composite'] * 100):.0f}/100 · Bucket: {entry['bucket']}",
+        f"Score {round(entry['composite'] * 100)}/100 · Bucket: {entry['bucket']}",
         f"Kurs {entry['price']:.2f} · Zone {entry['entry_zone_low']:.2f}–"
         f"{entry['entry_zone_high']:.2f}",
         entry["zone_note"],
@@ -382,17 +384,19 @@ def build_pitch(entry: dict, ask: Callable[[str, str], str] = _ask_default) -> s
 
 Note: check `chat.py`'s actual `ChatError`/`ask_ollama` names and signatures before writing (`ask_ollama(question, context, model=..., host=..., timeout=...)` per the API map); adapt the `_ask_default` wrapper minimally if reality differs — the `ask` seam must stay `(question, context) -> str`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/test_pitch.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 .venv/bin/python -m pytest && .venv/bin/ruff check .
 git add src/equity_scout/pitch.py tests/test_pitch.py
 git commit -m "feat: add pitch builder with ollama seam and deterministic fallback"
 ```
+
+**Outcome:** `chat.ask_ollama`'s real signature matches the plan's assumption exactly (`ask_ollama(question, context, *, model, host, timeout)`), so `_ask_default` needed no adaptation. One deviation from the plan snippet: `_fact_block` used `f"Score {round(...):.0f}/100"` — the `:.0f` on an already-`round()`-ed int is redundant (Python happily formats an int with a float spec, so it wasn't a bug, just noise) and inconsistent with Task 6's `digest.py` snippet, which uses the plain-int form. Simplified to `f"Score {round(...)}/100"` per the task instructions, verified `round(0.592*100) == 59` still yields "Score 59/100", and kept test + code aligned. Gate: 249 passed (246 baseline + 3), ruff clean. Commit `92a573b`. Review fix `a125a0e`: the plan's tail-truncation silently dropped the disclaimer — `build_pitch` now truncates only the middle (summary + facts) so header and "Keine Anlageberatung." always survive (limit test asserts both at the 4000 boundary); fallback says "Keine Signaldetails verfügbar." when `readings` is empty; `_LIMIT` comment documents Telegram's UTF-16 counting. Gate after fix: 253 passed, ruff clean.
 
 ---
 
@@ -402,7 +406,7 @@ git commit -m "feat: add pitch builder with ollama seam and deterministic fallba
 - Create: `src/equity_scout/inbox_storage.py`
 - Test: `tests/test_inbox_storage.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Inbox storage: pitch lifecycle + cooldown lookups (tmp_path SQLite)."""
@@ -478,12 +482,12 @@ def test_set_message_id_round_trip(tmp_path):
     assert load_pitches(db)[0]["telegram_message_id"] == 555
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_inbox_storage.py -v`
 Expected: FAIL — `ModuleNotFoundError`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """SQLite persistence for the decision inbox (one pitch = one notification).
@@ -592,17 +596,19 @@ def load_pitches(db_path: str = DEFAULT_DB_PATH, limit: int = 100) -> list[dict]
     return [dict(zip(keys, row)) for row in rows]
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/test_inbox_storage.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 .venv/bin/python -m pytest && .venv/bin/ruff check .
 git add src/equity_scout/inbox_storage.py tests/test_inbox_storage.py
 git commit -m "feat: add decision-inbox persistence with pitch lifecycle and cooldown"
 ```
+
+**Outcome:** Implemented verbatim, no deviations. Gate: 258 passed (253 baseline + 5), ruff clean.
 
 ---
 
