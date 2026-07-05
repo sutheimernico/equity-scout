@@ -618,7 +618,7 @@ git commit -m "feat: add decision-inbox persistence with pitch lifecycle and coo
 - Create: `src/equity_scout/notify.py`, `scripts/run_notify.py`
 - Test: `tests/test_notify.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Candidate selection rules + notify orchestration with fakes end-to-end."""
@@ -728,11 +728,11 @@ def test_notify_respects_cooldown_from_own_previous_run(tmp_path):
     assert count == 0
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_notify.py -v` — expected: `ModuleNotFoundError`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """Notification rules + orchestration: watchlist -> inbox pitches -> Telegram.
@@ -889,17 +889,24 @@ if __name__ == "__main__":
 
 Add CLI tests to `tests/test_notify.py` following the `test_run_radar.py` main()-pattern (monkeypatched `sys.argv` + seeded watchlist via `radar_storage.save_watchlist`, empty env → inbox-only path; assert exit codes, stdout, and that NO network is attempted).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/test_notify.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 .venv/bin/python -m pytest && .venv/bin/ruff check .
 git add src/equity_scout/notify.py scripts/run_notify.py tests/test_notify.py
 git commit -m "feat: add threshold/cooldown notification pipeline with telegram send"
 ```
+
+**Outcome:** `src/equity_scout/notify.py` implemented verbatim. Three deviations in `scripts/run_notify.py` / tests, all noted per the task brief:
+1. The plan's `send = None` then `def send(...)` in the `else` branch redefines the same name across branches, which reads as an accidental shadow — restructured into a small `_telegram_sender(config) -> Callable[[int, str], int]` factory; `main()` now does `send = None if config is None else _telegram_sender(config)`. Behavior identical, ruff-clean either way, but the factory form makes the seam's type explicit.
+2. The plan's own assertion `pitches[0]["telegram_message_id"] == 501 + pitches[0]["id"] - 1  # 500 + pitch_id` is an awkward way of writing `== 500 + pitches[0]["id"]` (the fake sender returns `500 + pitch_id`); simplified the assertion to the direct identity, fake unchanged.
+3. Added the main()-level CLI tests per the Step-3 instruction, mirroring `test_run_radar.py`'s pattern: seed a watchlist via `radar_storage.save_watchlist` (built from real `Watchlist`/`WatchlistEntry`/`SignalReading` dataclasses so the round trip through `load_latest_watchlist`'s JSON layer is exercised), `monkeypatch.delenv` both `COPILOT_TG_*` vars for a guaranteed-clean env, assert exit 0 + "Telegram not configured" + "Pitches created: 1." + the persisted pitch row (`telegram_message_id is None`), plus a fresh-db exit-1 path (`load_latest_watchlist` self-inits per Phase 1, so this exercises the real no-watchlist-yet branch, not an init bug). Caught a real network leak while writing these: `build_pitch`'s default `ask` seam calls the local Ollama server, which isn't running in the sandbox — the first version of the inbox-only CLI test took ~25s per `httpx`'s connect/read retry behavior instead of failing fast. Fixed by monkeypatching `scripts.run_notify.build_pitch` to a fake in that test (same idiom as `test_run_radar.py` monkeypatching `fetch_entry_history`), confirmed back down to <0.1s.
+
+Gate: 265 passed (258 baseline + 7), ruff clean.
 
 ---
 
