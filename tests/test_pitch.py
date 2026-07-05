@@ -33,6 +33,22 @@ def test_build_pitch_uses_llm_text_and_appends_facts():
     assert "Keine Anlageberatung" in pitch
 
 
+def test_build_pitch_includes_style_breakdown_and_weakest_signal_risk():
+    """Spec §6: the pitch carries the score breakdown by style AND a key risk.
+    ENTRY's momentum reading (0.16) is clearly the lowest -> it is the risk line."""
+    questions: list[str] = []
+
+    def record(question, context):
+        questions.append(question)
+        return "LLM-Text."
+
+    pitch = build_pitch(ENTRY, ask=record)
+    assert "Stile: Value 80 · Quality 90 · Momentum 40 · Growth 50" in pitch
+    assert "⚠️ Schwächstes Signal: Kurs unter dem 20-Tage-Schnitt..." in pitch
+    # the LLM prompt must also request exactly one risk sentence
+    assert "genau ein wesentliches Risiko" in questions[0]
+
+
 def test_build_pitch_falls_back_deterministically_on_chat_error():
     def broken(question, context):
         raise ChatError("ollama down")
@@ -54,6 +70,7 @@ def test_build_pitch_fallback_without_readings_names_missing_details():
     assert PITCH_LLM_UNAVAILABLE_PREFIX in pitch
     assert "Keine Signaldetails verfügbar." in pitch
     assert "Signalgründe siehe unten" not in pitch
+    assert "Schwächstes Signal" not in pitch  # no risk line without readings
 
 
 def test_build_pitch_stays_under_telegram_limit():

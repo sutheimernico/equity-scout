@@ -10,6 +10,10 @@ import smtplib
 import sys
 from email.message import EmailMessage
 
+from equity_scout.constants import SHORT_DISCLAIMER
+
+# Past-tense digest wording deliberately differs from telegram_client.DECISION_LABELS'
+# imperative button labels (a report reads differently from a button) — not drift.
 _STATUS_ICON = {"open": "📬 offen", "buy": "✅ Kaufentscheidung",
                 "pass": "❌ abgelehnt", "later": "⏸ später"}
 
@@ -61,7 +65,7 @@ def build_digest(
         for p in decided:
             icon = _STATUS_ICON.get(p["status"], p["status"])
             lines.append(f"  {icon} — {p['ticker']} · am {(p['decided_at'] or '')[:10]}")
-    lines += ["", "Keine Anlageberatung."]
+    lines += ["", SHORT_DISCLAIMER]
     return "\n".join(lines)
 
 

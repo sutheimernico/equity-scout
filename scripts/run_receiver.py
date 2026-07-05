@@ -28,7 +28,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 
 from equity_scout.constants import DEFAULT_DB_PATH
-from equity_scout.inbox_storage import decide_pitch, load_pitches
+from equity_scout.inbox_storage import decide_pitch, get_pitch
 from equity_scout.telegram_client import (
     DECISION_LABELS,
     TelegramError,
@@ -38,12 +38,6 @@ from equity_scout.telegram_client import (
     load_telegram_config,
     poll_updates,
 )
-
-
-def _pitch_by_id(db_path: str, pitch_id: int) -> dict | None:
-    # Linear scan over load_pitches — fine at personal scale (dozens of pitches,
-    # not millions); revisit with a dedicated lookup if the inbox ever grows large.
-    return next((p for p in load_pitches(db_path, limit=1000) if p["id"] == pitch_id), None)
 
 
 def _try_telegram(call: Callable, *args, what: str) -> None:
@@ -71,7 +65,7 @@ def process_round(
         if decide_pitch(db_path, pitch_id, action, decided_at=now):
             label = DECISION_LABELS[action]
             _try_telegram(answer, callback_id, f"{label} vermerkt", what="Telegram-Ack")
-            pitch = _pitch_by_id(db_path, pitch_id)
+            pitch = get_pitch(db_path, pitch_id)
             if pitch and pitch.get("telegram_message_id"):
                 text = f"{pitch['pitch']}\n\n— Entscheidung: {label} ({now})"
                 _try_telegram(edit, pitch["telegram_message_id"], text, what="Telegram-Edit")
@@ -80,7 +74,7 @@ def process_round(
             # Self-heal: if the outcome edit was lost earlier, re-attempt it with the
             # stored decision. Idempotent — an unchanged message is a Telegram no-op
             # error ("message is not modified"), swallowed by _try_telegram.
-            pitch = _pitch_by_id(db_path, pitch_id)
+            pitch = get_pitch(db_path, pitch_id)
             if pitch and pitch["status"] != "open" and pitch.get("telegram_message_id"):
                 label = DECISION_LABELS.get(pitch["status"], pitch["status"])
                 text = f"{pitch['pitch']}\n\n— Entscheidung: {label} ({pitch['decided_at']})"

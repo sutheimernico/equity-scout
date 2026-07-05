@@ -30,6 +30,9 @@ def test_save_and_load_latest_watchlist_round_trip(tmp_path):
     loaded = load_latest_watchlist(db)
     assert loaded is not None
     assert loaded["created_at"] == "2026-07-04T12:00:00"
+    # The loaded dict carries its snapshot row id so downstream consumers (notify.py)
+    # can FK pitches to the exact watchlist they were selected from.
+    assert loaded["watchlist_id"] == snapshot_id
     entry = loaded["entries"][0]
     built = wl.entries[0]
     assert entry["ticker"] == "DIP"

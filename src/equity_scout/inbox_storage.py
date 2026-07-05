@@ -62,13 +62,18 @@ def create_pitch(
         return int(cursor.lastrowid)
 
 
+def _plausible_id(pitch_id: int) -> bool:
+    # Outside SQLite's signed 64-bit INTEGER range such an id cannot exist, and
+    # binding it would raise OverflowError. Guards the API route, the receiver,
+    # and direct lookups alike.
+    return 0 <= pitch_id < 2**63
+
+
 def decide_pitch(db_path: str, pitch_id: int, action: str, *, decided_at: str) -> bool:
     """True iff the pitch existed, was still open, and `action` is valid."""
     if action not in ACTIONS:
         return False
-    if not 0 <= pitch_id < 2**63:
-        # Outside SQLite's signed 64-bit INTEGER range such an id cannot exist, and
-        # binding it would raise OverflowError. Guards both the API route and the receiver.
+    if not _plausible_id(pitch_id):
         return False
     init_inbox_db(db_path)
     with sqlite3.connect(db_path) as conn:
@@ -97,6 +102,21 @@ def last_pitch_at(db_path: str, ticker: str) -> str | None:
             "SELECT MAX(created_at) FROM pitches WHERE ticker = ?", (ticker,)
         ).fetchone()
     return row[0] if row and row[0] else None
+
+
+def get_pitch(db_path: str, pitch_id: int) -> dict | None:
+    """One pitch by id, or None for unknown/implausible ids."""
+    if not _plausible_id(pitch_id):
+        return None
+    init_inbox_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            f"SELECT {_COLUMNS} FROM pitches WHERE id = ?", (pitch_id,)
+        ).fetchone()
+    if row is None:
+        return None
+    keys = [k.strip() for k in _COLUMNS.split(",")]
+    return dict(zip(keys, row))
 
 
 def load_pitches(db_path: str = DEFAULT_DB_PATH, limit: int = 100) -> list[dict]:

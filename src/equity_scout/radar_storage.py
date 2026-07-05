@@ -78,10 +78,18 @@ def save_watchlist(db_path: str, watchlist: Watchlist) -> int:
 
 
 def load_latest_watchlist(db_path: str = DEFAULT_DB_PATH) -> dict | None:
-    """Newest snapshot as a plain dict (JSON round-trip), or None if none exists."""
+    """Newest snapshot as a plain dict (JSON round-trip), or None if none exists.
+
+    The dict carries its snapshot row id as top-level "watchlist_id" so consumers
+    (notify.py) can FK derived records back to the exact snapshot they came from.
+    """
     init_radar_db(db_path)
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(
-            "SELECT data FROM watchlists ORDER BY id DESC LIMIT 1"
+            "SELECT id, data FROM watchlists ORDER BY id DESC LIMIT 1"
         ).fetchone()
-    return json.loads(row[0]) if row else None
+    if row is None:
+        return None
+    watchlist = json.loads(row[1])
+    watchlist["watchlist_id"] = int(row[0])
+    return watchlist

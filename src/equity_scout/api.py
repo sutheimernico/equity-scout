@@ -17,7 +17,7 @@ from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_FORWARD_DB_PATH, DIS
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
 from equity_scout.forward_storage import load_all_accounts
 from equity_scout.forward_storage import load_valuations as load_forward_valuations
-from equity_scout.inbox_storage import decide_pitch, load_pitches
+from equity_scout.inbox_storage import decide_pitch, get_pitch, load_pitches
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.storage import init_db, load_latest_run, load_run_summaries
@@ -253,8 +253,9 @@ def create_app(
                 {"error": "Pitch unbekannt oder bereits entschieden."}, status_code=409
             )
         # Return the updated row so the dashboard can update in place without a refetch.
-        pitch = next((p for p in load_pitches(db_path, limit=1000) if p["id"] == pitch_id), None)
-        return JSONResponse({"ok": True, "pitch": pitch, "disclaimer": DISCLAIMER})
+        return JSONResponse(
+            {"ok": True, "pitch": get_pitch(db_path, pitch_id), "disclaimer": DISCLAIMER}
+        )
 
     # Serve the built React dashboard. Mounted at "/" LAST so the /api/* routes above win.
     # Run `cd frontend && npm install && npm run build` to produce dist/.

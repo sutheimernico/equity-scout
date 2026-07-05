@@ -72,12 +72,13 @@ def notify_watchlist(
         cooldown_days=cooldown_days,
         now=now,
     )
+    watchlist_id = watchlist.get("watchlist_id")  # top-level snapshot id from radar_storage
     for entry in candidates:
         text = build(entry)
         pitch_id = create_pitch(
             db_path,
             ticker=entry["ticker"],
-            watchlist_id=entry.get("watchlist_id"),
+            watchlist_id=watchlist_id,
             price=entry["price"],
             composite=entry["composite"],
             zone_low=entry["entry_zone_low"],

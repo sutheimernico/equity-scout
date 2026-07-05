@@ -79,7 +79,11 @@ def test_select_candidates_repitches_exactly_at_cooldown_boundary():
 
 def test_notify_watchlist_creates_pitches_and_sends(tmp_path):
     db = str(tmp_path / "inbox.db")
-    watchlist = {"created_at": NOW, "entries": [_entry("YES"), _entry("LOW", composite=0.1)]}
+    watchlist = {
+        "created_at": NOW,
+        "watchlist_id": 77,  # injected by radar_storage.load_latest_watchlist
+        "entries": [_entry("YES"), _entry("LOW", composite=0.1)],
+    }
     sent: list[tuple[int, str]] = []
 
     def fake_send(pitch_id: int, text: str) -> int:
@@ -99,6 +103,8 @@ def test_notify_watchlist_creates_pitches_and_sends(tmp_path):
     pitches = load_pitches(db)
     assert len(pitches) == 1
     assert pitches[0]["ticker"] == "YES"
+    # The pitch row is FK'd to the top-level snapshot id, not a per-entry field.
+    assert pitches[0]["watchlist_id"] == 77
     # Pin the zone mapping field-by-field: entry_zone_low -> zone_low and
     # entry_zone_high -> zone_high; a swap in the create_pitch call must fail here.
     assert pitches[0]["zone_low"] == 95.0
@@ -162,8 +168,9 @@ def test_notify_respects_cooldown_from_own_previous_run(tmp_path):
     assert count == 0
 
 
-def _seed_watchlist_db(db: str, ticker: str = "YES", composite: float = 0.6) -> None:
-    """Seed a saved watchlist via radar_storage, matching the run_radar CLI-test idiom."""
+def _seed_watchlist_db(db: str, ticker: str = "YES", composite: float = 0.6) -> int:
+    """Seed a saved watchlist via radar_storage, matching the run_radar CLI-test idiom.
+    Returns the snapshot row id."""
     entry = WatchlistEntry(
         ticker=ticker,
         name=f"{ticker} Corp",
@@ -178,13 +185,13 @@ def _seed_watchlist_db(db: str, ticker: str = "YES", composite: float = 0.6) -> 
         zone_note="Kurs in der Entry-Zone (95.00–105.00).",
         breakdown={"value": 0.5, "quality": 0.5, "momentum": 0.5, "growth": 0.5},
     )
-    save_watchlist(db, Watchlist(created_at=NOW, entries=[entry]))
+    return save_watchlist(db, Watchlist(created_at=NOW, entries=[entry]))
 
 
 def test_main_writes_inbox_only_without_telegram_config(tmp_path, monkeypatch, capsys):
     """No COPILOT_TG_* env -> inbox-only path, exit 0, no network attempted."""
     db = str(tmp_path / "run.db")
-    _seed_watchlist_db(db)
+    snapshot_id = _seed_watchlist_db(db)
     monkeypatch.delenv("COPILOT_TG_BOT_TOKEN", raising=False)
     monkeypatch.delenv("COPILOT_TG_CHAT_ID", raising=False)
     # build_pitch's default `ask` seam calls the (possibly unreachable) local Ollama
@@ -201,6 +208,9 @@ def test_main_writes_inbox_only_without_telegram_config(tmp_path, monkeypatch, c
     assert len(pitches) == 1
     assert pitches[0]["ticker"] == "YES"
     assert pitches[0]["telegram_message_id"] is None
+    # Through the REAL path (save -> load_latest -> notify) the pitch row must be
+    # FK'd to the watchlist snapshot it came from — never NULL.
+    assert pitches[0]["watchlist_id"] == snapshot_id
 
 
 def test_main_dry_run_never_sends_even_with_telegram_config(tmp_path, monkeypatch, capsys):

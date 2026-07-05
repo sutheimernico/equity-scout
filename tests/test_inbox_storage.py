@@ -4,6 +4,7 @@ from __future__ import annotations
 from equity_scout.inbox_storage import (
     create_pitch,
     decide_pitch,
+    get_pitch,
     init_inbox_db,
     last_pitch_at,
     load_pitches,
@@ -75,3 +76,15 @@ def test_set_message_id_round_trip(tmp_path):
     pitch_id = _pitch_row(db)
     set_message_id(db, pitch_id, 555)
     assert load_pitches(db)[0]["telegram_message_id"] == 555
+
+
+def test_get_pitch_by_id(tmp_path):
+    db = str(tmp_path / "inbox.db")
+    pitch_id = _pitch_row(db)
+    p = get_pitch(db, pitch_id)
+    assert p is not None
+    assert (p["id"], p["ticker"], p["status"]) == (pitch_id, "EXE", "open")
+    assert get_pitch(db, 999) is None  # unknown id
+    assert get_pitch(db, -1) is None  # bounds guard, same as decide_pitch
+    assert get_pitch(db, 2**63) is None
+    assert get_pitch(str(tmp_path / "fresh.db"), 1) is None  # self-init, no crash

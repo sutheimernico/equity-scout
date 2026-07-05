@@ -11,16 +11,17 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from equity_scout.chat import ChatError, ask_ollama
+from equity_scout.constants import SHORT_DISCLAIMER
 
 PITCH_LLM_UNAVAILABLE_PREFIX = "(Automatische Kurzeinschätzung nicht verfügbar)"
 # Telegram's 4096 hard limit counts UTF-16 code units, not Python chars; the 96-unit
 # headroom absorbs astral-plane emoji (2 units each) plus the decision edit suffix.
 _LIMIT = 4000
-_FOOTER = "Keine Anlageberatung."
 
 _QUESTION = (
     "Fasse in maximal zwei deutschen Sätzen zusammen, was dieses Unternehmen macht und "
-    "warum der aktuelle Kurs laut den Kennzahlen unten in einer Einstiegszone liegt. "
+    "warum der aktuelle Kurs laut den Kennzahlen unten in einer Einstiegszone liegt, "
+    "und nenne genau ein wesentliches Risiko. "
     "Keine Prognosen, keine Kursziele, keine Empfehlung — nur Einordnung der Zahlen."
 )
 
@@ -30,14 +31,27 @@ def _ask_default(question: str, context: str) -> str:
 
 
 def _fact_block(entry: dict) -> str:
+    breakdown = entry["breakdown"]
     lines = [
         f"Score {round(entry['composite'] * 100)}/100 · Bucket: {entry['bucket']}",
+        "Stile: " + " · ".join(
+            f"{label} {breakdown.get(key, 0.0) * 100:.0f}"
+            for key, label in (
+                ("value", "Value"), ("quality", "Quality"),
+                ("momentum", "Momentum"), ("growth", "Growth"),
+            )
+        ),
         f"Kurs {entry['price']:.2f} · Zone {entry['entry_zone_low']:.2f}–"
         f"{entry['entry_zone_high']:.2f}",
         entry["zone_note"],
     ]
     for reading in entry["readings"]:
         lines.append(f"• {reading['reason']}")
+    if entry["readings"]:
+        # Spec §6: every pitch names a key risk. Deterministic proxy: the weakest
+        # sub-signal's reason (ties: first) — computed, never forecast.
+        weakest = min(entry["readings"], key=lambda r: r["score"])
+        lines.append(f"⚠️ Schwächstes Signal: {weakest['reason']}")
     return "\n".join(lines)
 
 
@@ -55,7 +69,7 @@ def build_pitch(entry: dict, ask: Callable[[str, str], str] = _ask_default) -> s
     # Over-long pitches lose middle content, never the frame: header and disclaimer
     # must survive so a truncated message still names the stock and stays honest.
     middle = f"{summary}\n\n{facts}"
-    budget = _LIMIT - len(header) - len(_FOOTER) - 4  # 4 = the two "\n\n" separators
+    budget = _LIMIT - len(header) - len(SHORT_DISCLAIMER) - 4  # 4 = the two "\n\n" separators
     if len(middle) > budget:
         middle = middle[: budget - 1] + "…"
-    return f"{header}\n\n{middle}\n\n{_FOOTER}"
+    return f"{header}\n\n{middle}\n\n{SHORT_DISCLAIMER}"
