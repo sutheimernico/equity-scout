@@ -1,8 +1,9 @@
-"""Backfill-dataset tests: assemble (X, y, meta) from a PricePanel — features + rel-return labels."""
+"""Backfill-dataset tests: assemble (X, y, meta) from a PricePanel — features + labels."""
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from equity_scout.market import PricePanel
 from equity_scout.ml.entry_dataset import build_backfill_dataset
@@ -73,3 +74,37 @@ def test_unknown_ticker_is_ignored():
     X, _, meta = build_backfill_dataset(panel, ["AAA", "NOPE"], horizon_days=HORIZON_DAYS)
     assert "NOPE" not in set(meta["ticker"])
     assert len(X) > 0
+
+
+def test_labels_align_to_benchmark_calendar_on_interior_nan():
+    # A global universe produces interior NaN from differing exchange calendars. The label must be
+    # computed on windows ALIGNED to the benchmark's calendar, never fabricated as 0 from a NaN.
+    n = 500
+    idx = pd.bdate_range("2019-01-01", periods=n)
+    spy = [100.0 * 1.0004**i for i in range(n)]
+    aaa = [100.0 * 1.0006**i for i in range(n)]  # beats SPY on every aligned window
+    spy[300] = np.nan  # an interior benchmark gap
+    panel = PricePanel(pd.DataFrame({"SPY": spy, "AAA": aaa}, index=idx))
+
+    _, y, meta = build_backfill_dataset(panel, ["AAA"], horizon_days=HORIZON_DAYS)
+
+    assert set(y.unique()) == {1}  # no fabricated 0 labels from the NaN
+    # every kept as_of's relative_return equals stock_fwd − bench_fwd over the SAME aligned dates
+    pair = panel.closes[["AAA", "SPY"]].dropna()
+    for _, r in meta.iterrows():
+        pos = pair.index.get_loc(r["as_of"])
+        end = pos + HORIZON_DAYS
+        s_fwd = pair["AAA"].iloc[end] / pair["AAA"].iloc[pos] - 1.0
+        b_fwd = pair["SPY"].iloc[end] / pair["SPY"].iloc[pos] - 1.0
+        assert r["relative_return"] == pytest.approx(s_fwd - b_fwd)
+    # rows without an aligned full horizon are dropped
+    assert meta["as_of"].max() <= pair.index[-1 - HORIZON_DAYS]
+
+
+def test_min_history_is_propagated_into_feature_building():
+    panel = _panel()
+    _, _, meta_low = build_backfill_dataset(panel, ["AAA"], min_history=252)
+    _, _, meta_high = build_backfill_dataset(panel, ["AAA"], min_history=450)
+    # a stricter min_history must actually drop early rows, not silently build from 252
+    assert len(meta_high) < len(meta_low)
+    assert meta_high["as_of"].min() > meta_low["as_of"].min()

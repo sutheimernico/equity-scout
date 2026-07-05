@@ -68,3 +68,26 @@ def test_market_context_wraps_regime_features():
     # a late row is fully filled (rolling windows warmed up) and usable as a context dict
     late = ctx.iloc[-1].to_dict()
     assert all(pd.notna(v) for v in late.values())
+
+
+def test_build_feature_row_is_look_ahead_free():
+    # The row at as_of must depend ONLY on closes at/before as_of — the phase's core invariant.
+    full = _series([100.0 * 1.001**i for i in range(400)])
+    as_of = full.index[300]
+    row_full = build_feature_row(full, _CTX, as_of)
+    row_trunc = build_feature_row(full.loc[:as_of], _CTX, as_of)
+    assert row_full == row_trunc
+    # poison every close AFTER as_of — the row must not budge (no peeking forward)
+    poisoned = full.copy()
+    poisoned.loc[poisoned.index > as_of] = 1e9
+    assert build_feature_row(poisoned, _CTX, as_of) == row_full
+
+
+def test_market_context_is_look_ahead_free_at_cut_date():
+    n = 400
+    data = {t: [100.0 * 1.0005**i for i in range(n)] for t in ["SPY", "VEU", "VWO", "VNQ"]}
+    df = pd.DataFrame(data, index=pd.bdate_range("2019-01-01", periods=n))
+    cut = df.index[300]
+    ctx_full = market_context(PricePanel(df)).loc[cut].to_dict()
+    ctx_trunc = market_context(PricePanel(df.loc[:cut])).loc[cut].to_dict()
+    assert ctx_full == ctx_trunc  # the cut-date regime row uses only trailing data

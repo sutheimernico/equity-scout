@@ -9,6 +9,8 @@ when a fold has one class).
 """
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pandas as pd
 from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
@@ -27,7 +29,10 @@ def forward_return(prices: pd.Series, at: pd.Timestamp, horizon_days: int) -> fl
     if end >= len(prices):
         return None
     start_px, end_px = float(prices.iloc[pos]), float(prices.iloc[end])
-    if start_px <= 0:
+    # A NaN at either endpoint (interior gap from a differing exchange calendar) must drop the
+    # row, not slip through: NaN <= 0 is False, so without this guard int(NaN > 0) == 0 would
+    # fabricate a "loses" label.
+    if not math.isfinite(start_px) or not math.isfinite(end_px) or start_px <= 0:
         return None
     return end_px / start_px - 1.0
 
@@ -57,25 +62,29 @@ def classification_scores(y_true: np.ndarray, y_prob: np.ndarray) -> dict:
     y_true = np.asarray(y_true, dtype=int)
     y_prob = np.asarray(y_prob, dtype=float)
     n = int(len(y_true))
-    base_rate = float(y_true.mean()) if n else 0.0
+    base_rate = round(float(y_true.mean()), 4) if n else None  # undefined on empty, like the rest
     single_class = len(np.unique(y_true)) < 2
     auc = None if single_class else float(roc_auc_score(y_true, y_prob))
     # log_loss needs both labels present; guard the single-class case honestly
     ll = None if single_class else float(log_loss(y_true, y_prob, labels=[0, 1]))
     return {
         "n": n,
-        "base_rate": round(base_rate, 4),
+        "base_rate": base_rate,
         "auc": None if auc is None else round(auc, 4),
         "brier": round(float(brier_score_loss(y_true, y_prob)), 4) if n else None,
         "log_loss": None if ll is None else round(ll, 4),
     }
 
 
-def rank_ic(scores: np.ndarray, realized: np.ndarray) -> float:
-    """Spearman rank correlation between model scores and realized relative returns —
-    the honest 'does a higher score actually mean a better outcome' number."""
+def rank_ic(scores: np.ndarray, realized: np.ndarray) -> float | None:
+    """Spearman rank correlation between model scores and realized relative returns — the honest
+    'does a higher score actually mean a better outcome' number. None when the correlation is
+    undefined (fewer than 2 observations); 0.0 for constant input on either side (no dispersion →
+    no observable ranking skill, which is a real 'no edge' result rather than an undefined one)."""
     s = pd.Series(np.asarray(scores, dtype=float))
     r = pd.Series(np.asarray(realized, dtype=float))
-    if len(s) < 2 or s.nunique() < 2 or r.nunique() < 2:
+    if len(s) < 2:
+        return None
+    if s.nunique() < 2 or r.nunique() < 2:
         return 0.0
     return round(float(s.corr(r, method="spearman")), 4)

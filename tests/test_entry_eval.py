@@ -8,7 +8,9 @@ from equity_scout.ml.entry_eval import (
     HORIZON_DAYS,
     beats_benchmark_label,
     classification_scores,
+    forward_return,
     rank_ic,
+    relative_forward_return,
 )
 
 
@@ -58,3 +60,35 @@ def test_rank_ic_detects_monotonic_ranking():
     realized = np.array([-0.02, 0.01, 0.03, 0.08])  # higher score → higher realized rel-return
     assert rank_ic(scores, realized) > 0.9
     assert rank_ic(scores, -realized) < -0.9
+
+
+def test_rank_ic_none_when_undefined_zero_when_no_skill():
+    # fewer than 2 points → correlation is undefined → None (not a faked 0.0)
+    assert rank_ic(np.array([0.5]), np.array([0.01])) is None
+    # constant input → no dispersion → no observable ranking skill → neutral 0.0
+    assert rank_ic(np.array([0.5, 0.5, 0.5]), np.array([-0.01, 0.0, 0.02])) == 0.0
+
+
+def test_forward_return_none_on_nan_horizon_price():
+    # a NaN at the horizon-end index must drop the row (None), never yield NaN → int(NaN>0)==0
+    vals = [100.0] * (HORIZON_DAYS + 1)
+    stock = _prices(vals)
+    stock.iloc[HORIZON_DAYS] = np.nan  # poison the forward endpoint
+    at = stock.index[0]
+    assert forward_return(stock, at, HORIZON_DAYS) is None
+    bench = _prices([100.0] * (HORIZON_DAYS + 1))
+    assert relative_forward_return(stock, bench, at, HORIZON_DAYS) is None
+    assert beats_benchmark_label(stock, bench, at, horizon_days=HORIZON_DAYS) is None
+    # a NaN at the start index is just as fatal
+    stock2 = _prices([100.0] * (HORIZON_DAYS + 1))
+    stock2.iloc[0] = np.nan
+    assert forward_return(stock2, at, HORIZON_DAYS) is None
+
+
+def test_classification_scores_empty_metrics_are_none():
+    scores = classification_scores(np.array([]), np.array([]))
+    assert scores["n"] == 0
+    assert scores["base_rate"] is None  # undefined on empty input, like the other metrics
+    assert scores["brier"] is None
+    assert scores["auc"] is None
+    assert scores["log_loss"] is None

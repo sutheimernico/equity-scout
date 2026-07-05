@@ -53,15 +53,21 @@ def market_context(panel: PricePanel, benchmark: str = "SPY") -> pd.DataFrame:
 
 
 def build_feature_row(
-    stock: pd.Series, context: dict[str, float], as_of: pd.Timestamp
+    stock: pd.Series,
+    context: dict[str, float],
+    as_of: pd.Timestamp,
+    *,
+    min_history: int = MIN_HISTORY,
 ) -> dict | None:
     """Price-derived feature row for one (stock, as_of) using only closes at/before `as_of`.
 
     Returns exactly `FEATURE_COLUMNS` keys (ordered), or None when the row cannot be built
-    honestly: fewer than `MIN_HISTORY` closes up to `as_of`, or any non-finite value (e.g. an
-    unfilled regime window in `context`, or a degenerate price)."""
+    honestly: fewer than `min_history` closes up to `as_of`, or any non-finite value (e.g. an
+    unfilled regime window in `context`, or a degenerate price). `min_history` should be at least
+    `MIN_HISTORY` — the fixed 1y-drawdown / 200d-mean windows need a full trading year — and is
+    honoured here, not silently overridden, so a caller asking for more history actually gets it."""
     hist = stock.loc[:as_of].dropna()
-    if len(hist) < MIN_HISTORY:
+    if len(hist) < min_history:
         return None
 
     price = float(hist.iloc[-1])

@@ -19,7 +19,12 @@ from equity_scout.ml.entry_eval import (
     beats_benchmark_label,
     relative_forward_return,
 )
-from equity_scout.ml.entry_features import FEATURE_COLUMNS, build_feature_row, market_context
+from equity_scout.ml.entry_features import (
+    FEATURE_COLUMNS,
+    MIN_HISTORY,
+    build_feature_row,
+    market_context,
+)
 
 
 def build_backfill_dataset(
@@ -28,35 +33,46 @@ def build_backfill_dataset(
     *,
     benchmark: str = "SPY",
     horizon_days: int = HORIZON_DAYS,
-    min_history: int = 252,
+    min_history: int = MIN_HISTORY,
 ) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
     """Assemble aligned (X, y, meta) from a stock+benchmark `PricePanel`.
 
     X: features, columns == FEATURE_COLUMNS. y: 0/1 beats-benchmark labels. meta: ticker/as_of/
     relative_return per row (for Rank-IC and attribution). Rows lacking a full feature row or a
-    full-horizon label are dropped; the result is sorted by (as_of, ticker)."""
+    full-horizon label are dropped; the result is sorted by (as_of, ticker).
+
+    The label and relative return are computed on windows ALIGNED to the benchmark's calendar
+    (`closes[[ticker, benchmark]].dropna()`), so both legs' forward horizons end on the SAME date.
+    A global universe carries interior NaN from differing exchange calendars; aligning drops those
+    dates from both legs instead of fabricating a mismatched (and often spuriously 0) label. Feature
+    building stays on the stock's OWN history — it is as-of and already leak-free."""
     closes = panel.closes
-    bench = closes[benchmark]
     context_df = market_context(panel, benchmark=benchmark)  # regime context once for the panel
     sample_dates = panel.rebalance_dates()
 
     rows: list[tuple[pd.Timestamp, str, dict, int, float]] = []
     for ticker in tickers:
-        if ticker not in closes.columns:
+        if ticker not in closes.columns or ticker == benchmark:
             continue
-        stock = closes[ticker].dropna()
+        stock_hist = closes[ticker].dropna()  # own calendar → leak-free as-of features
+        pair = closes[[ticker, benchmark]].dropna()  # shared calendar for the forward label
+        stock_leg, bench_leg = pair[ticker], pair[benchmark]
         for as_of in sample_dates:
-            if as_of not in stock.index or as_of not in context_df.index:
+            if as_of not in context_df.index or as_of not in stock_hist.index:
                 continue
-            if len(stock.loc[:as_of]) < min_history:
+            if len(stock_hist.loc[:as_of]) < min_history:
                 continue
-            features = build_feature_row(stock, context_df.loc[as_of].to_dict(), as_of)
+            features = build_feature_row(
+                stock_hist, context_df.loc[as_of].to_dict(), as_of, min_history=min_history
+            )
             if features is None:
                 continue
-            label = beats_benchmark_label(stock, bench, as_of, horizon_days=horizon_days)
-            if label is None:  # no full forward horizon inside the panel — drop it
+            if as_of not in pair.index:  # benchmark gap on the decision day — cannot label honestly
                 continue
-            rel = relative_forward_return(stock, bench, as_of, horizon_days)
+            label = beats_benchmark_label(stock_leg, bench_leg, as_of, horizon_days=horizon_days)
+            if label is None:  # no aligned full forward horizon inside the panel — drop it
+                continue
+            rel = relative_forward_return(stock_leg, bench_leg, as_of, horizon_days)
             rows.append((as_of, ticker, features, int(label), float(rel)))
 
     rows.sort(key=lambda r: (r[0], r[1]))  # deterministic: as_of then ticker
