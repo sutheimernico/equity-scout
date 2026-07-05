@@ -27,11 +27,11 @@
 
 `EntryPlan.dip_tranches` is a `list[Tranche]` (`label`, `fraction`, `trigger_price`) already built by `compute_entry_plan` (now / −7 % / −15 %). Add a `tranches: list[dict]` field to `WatchlistEntry` populated from `plan.dip_tranches` (as `{label, fraction, trigger_price}` dicts so it JSON-round-trips through `radar_storage` with no schema change — it lives in the `watchlists.data` blob).
 
-- [ ] **Step 1:** failing test — `build_watchlist` output entry has `tranches` = 3 dicts with `label`/`fraction`/`trigger_price`, trigger prices descending (now > −7 % > −15 %), summing `fraction` ≈ 1.0.
-- [ ] **Step 2:** run → fail.
-- [ ] **Step 3:** add the field + populate from `plan.dip_tranches` via `dataclasses.asdict` (or explicit dict). Keep it frozen-dataclass-consistent.
-- [ ] **Step 4:** run → pass; full gate.
-- [ ] **Step 5:** commit `feat: carry entry tranches into the watchlist entry`.
+- [x] **Step 1:** failing test — `build_watchlist` output entry has `tranches` = 3 dicts with `label`/`fraction`/`trigger_price`, trigger prices descending (now > −7 % > −15 %), summing `fraction` ≈ 1.0.
+- [x] **Step 2:** run → fail.
+- [x] **Step 3:** add the field + populate from `plan.dip_tranches` via `dataclasses.asdict` (or explicit dict). Keep it frozen-dataclass-consistent.
+- [x] **Step 4:** run → pass; full gate.
+- [x] **Step 5:** commit `feat: carry entry tranches into the watchlist entry`.
 
 ---
 

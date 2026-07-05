@@ -6,7 +6,7 @@ runs and stored runs feed the same code path.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 from equity_scout.entry import EntryPlan, clean_prices, compute_entry_plan
 from equity_scout.signals import (
@@ -36,6 +36,9 @@ class WatchlistEntry:
     readings: list[SignalReading]
     zone_note: str  # German zone-status note, derived from the same values as in_zone below
     breakdown: dict[str, float]  # finalist's full funnel breakdown (incl. growth/low_vol) for ML context
+    # Dip scale-in plan (now / −7 % / −15 %) from EntryPlan.dip_tranches, as plain dicts so it
+    # JSON-round-trips through radar_storage's watchlists.data blob with no schema change.
+    tranches: list[dict] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -123,6 +126,7 @@ def build_watchlist(
                 readings=readings,
                 zone_note=zone_note(plan.price, low, high, in_zone, proximity),
                 breakdown=breakdown,
+                tranches=[asdict(t) for t in plan.dip_tranches],
             )
         )
     entries.sort(key=lambda e: e.composite, reverse=True)

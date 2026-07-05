@@ -81,6 +81,21 @@ def test_watchlist_entry_carries_readings_zone_and_proximity():
     assert entry.breakdown == _finalist("DIP")["breakdown"]
 
 
+def test_watchlist_entry_carries_dip_tranches():
+    """Task 1: the dip tranche plan (now / −7 % / −15 %) rides along on the entry as
+    JSON-round-trippable dicts, so the pitch can render a concrete scale-in plan."""
+    wl = build_watchlist(
+        [_finalist("DIP")], {"DIP": downtrend_history()}, created_at="2026-07-04T12:00:00"
+    )
+    entry = wl.entries[0]
+    assert len(entry.tranches) == 3
+    for tranche in entry.tranches:
+        assert set(tranche) == {"label", "fraction", "trigger_price"}
+    prices = [tranche["trigger_price"] for tranche in entry.tranches]
+    assert prices == sorted(prices, reverse=True)  # now > −7 % > −15 %
+    assert abs(sum(tranche["fraction"] for tranche in entry.tranches) - 1.0) < 1e-9
+
+
 def test_zone_note_in_zone_states_the_band():
     assert zone_note(87.0, 85.0, 90.0, True, -0.0333) == "Kurs in der Entry-Zone (85.00–90.00)."
 
