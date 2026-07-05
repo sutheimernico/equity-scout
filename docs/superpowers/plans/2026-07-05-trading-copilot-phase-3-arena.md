@@ -433,7 +433,7 @@ Follows the repo storage idiom (raw sqlite3, idempotent init, JSON snapshot). Th
 `lane_valuations(id PK, lane, valued_on TEXT, total_value REAL, total_return REAL, benchmark_value REAL, benchmark_return REAL, open_positions INTEGER, UNIQUE(lane, valued_on))` — `valued_on` is a DATE string (YYYY-MM-DD) so re-running the CLI on the same day is idempotent (INSERT OR REPLACE: the later run wins the day),
 `lane_trades(id PK, created_at, lane, ticker, side, shares REAL, fill_price REAL, cost REAL, reason TEXT, pitch_id INTEGER)` — append-only, never UPDATE/DELETE.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Lane persistence: portfolio round-trip, day-idempotent valuations, append-only trades."""
@@ -515,9 +515,9 @@ def test_trades_append_only_and_executed_pitch_ids(tmp_path):
         assert conn.execute("SELECT COUNT(*) FROM lane_trades").fetchone()[0] == 3
 ```
 
-- [ ] **Step 2: Run tests to verify they fail** — expected `ModuleNotFoundError`.
+- [x] **Step 2: Run tests to verify they fail** — expected `ModuleNotFoundError`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """SQLite persistence for the two-lane arena.
@@ -699,9 +699,9 @@ def executed_pitch_ids(db_path: str, lane: str) -> set[int]:
     return {int(row[0]) for row in rows}
 ```
 
-- [ ] **Step 4: Run tests to verify they pass** — `.venv/bin/python -m pytest tests/test_lane_storage.py -v`
+- [x] **Step 4: Run tests to verify they pass** — `.venv/bin/python -m pytest tests/test_lane_storage.py -v`
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 .venv/bin/python -m pytest && .venv/bin/ruff check .
