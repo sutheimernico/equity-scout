@@ -319,7 +319,7 @@ The honesty centerpiece. Table `entry_predictions(id PK, created_at, model_versi
 - [x] **Step 2: Run → fail (404).**
 - [x] **Step 3: Implement route.**
 - [x] **Step 4: Run → pass.**
-- [ ] **Step 5: Gate + live smoke + outcome.**
+- [x] **Step 5: Gate + live smoke + outcome.**
   - Full gate `.venv/bin/python -m pytest && .venv/bin/ruff check .`.
   - Live smoke (network): `python scripts/run_train_entry.py --db equity_scout.db --tickers <a few watchlist tickers>` — record OOS AUC/Brier/Rank-IC and whether a model was promoted; then `GET /api/model` shape. Honest recording: if OOS AUC ≈ 0.5, SAY SO — a null result is a valid, honest outcome and must not be dressed up.
   - Extend the README copilot section (train/resolve commands + `/api/model`).
@@ -338,3 +338,51 @@ The honesty centerpiece. Table `entry_predictions(id PK, created_at, model_versi
 - Honesty invariants: enforced in module docstrings + tests (single-class AUC=None, noise→AUC≈0.5, OOS-only, one-way resolve, strict promotion). Reviews must reject any in-sample-as-performance or fundamentals-in-backfill violation.
 - Deliberate scope cuts: the live fundamentals-aware model waits for `signal_readings` history (ADR 0003 — months); FRED macro features optional/off by default (already gated in `regime_features`); no hyperparameter search loop here (the registry + a fixed small model set is enough for v1 — the existing research loop pattern can be adopted later if the backfill shows a real edge worth searching).
 - Type consistency: `FEATURE_COLUMNS` single-sourced in `entry_features.py`; `HORIZON_DAYS`/`SECONDARY_HORIZON_DAYS` in `entry_eval.py`; `EntryModel` is the only pickled artifact; the score is always `round(proba*100)` in exactly one place.
+
+---
+
+## Outcome
+
+All 8 tasks implemented, one commit per task (Tasks 1–6 in prior sessions; Tasks 7–8 here). Test
+suite grew 362 → 370 (Task 7: +7 CLI tests; Task 8: +1 `/api/model` test). `pytest` + `ruff check .`
+green before every commit.
+
+**Task 7** — `scripts/run_train_entry.py` (core `run_train_entry` + thin `main`) and
+`scripts/run_resolve_predictions.py` (core `run_resolve_predictions` + thin `main`). Both keep the
+network behind an injected seam (`_load_panel` / `_fetch_price_panel`), so all four CLI tests run
+offline; `datetime.now` lives only in `main()`. The train CLI wires build → walk-forward →
+train → register → promote and prints an honest German summary; the resolve CLI resolves due
+predictions against realized `relative_forward_return` (ticker vs SPY) and leaves not-yet-due ones
+open. Champion logic verified end-to-end via the CLI (bootstrap, tie → no promotion, strictly-better
+→ promotion).
+
+**Task 8** — `GET /api/model` in `api.py` (closure before the StaticFiles mount) returns
+`available` / `champion` / `registry` / `resolved` / `drift` (None in v1) / `disclaimer`. Champion
+metadata is read from `registry_summary` (no artifact unpickle on the read path). Both branches
+(empty → `available:false`; after register + resolve → champion + registry + resolved stats)
+covered by test.
+
+**Live smoke (HONEST result).** `run_train_entry --tickers EXE,EQT,VICI,CF,WDC,AAPL,MSFT,JPM,XOM,JNJ`
+against real yfinance history trained v1 (random_forest) on **520 rows** and reported:
+
+| Metric | OOS value |
+|---|---|
+| AUC | **0.6195** |
+| Brier | 0.2424 |
+| Rank-IC | 0.1523 |
+| n_oos | 220 (2 splits) |
+
+Promoted (first model bootstraps the champion). AUC 0.62 is **above** the coin-flip band, so the
+`_no_edge` honesty note did not fire — but this is **not** a validated edge: 10 hand-picked tickers,
+a single backfill panel, only 2 usable walk-forward splits and 220 OOS rows. It is a first,
+encouraging data point, not evidence the model beats the market. The real test is the prediction
+ledger accumulating resolved live outcomes over months. `GET /api/model` returned the expected
+shape against the live DB (champion v1 present, registry length 1, resolved stats empty as no live
+predictions were logged).
+
+**Deviations / notes.** The API `champion` block is assembled from `registry_summary` rather than
+`model_registry.champion()` — it yields exactly the required fields (version/created_at/model_kind/
+metrics) without unpickling the artifact or risking a `RegistryError` 500 on the read path. `drift`
+is `None` in v1 as planned (a live `drift_snapshot` needs stored training means — a later
+enhancement). The train/resolve panels use distinct snapshots (`data/prices/entry_panel.csv`,
+`data/prices/resolve_panel.csv`, both gitignored) so they never clobber the ETF/backtest panel.
