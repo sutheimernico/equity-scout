@@ -1121,7 +1121,7 @@ git add scripts/run_receiver.py tests/test_run_receiver.py
 git commit -m "feat: add long-polling decision receiver recording one-tap verdicts"
 ```
 
-**Outcome:** Implemented per plan with the two documented ack-wording fixes: the duplicate/unknown-decision ack is exactly `"Bereits entschieden."` (the plan's draft `"Bereits entschieden oder unbekannt — bereits entschieden?"` had a duplicated phrase; `decide_pitch`'s bool already conflates "already decided" and "unknown id" into one False, so one clean ack covers both). The draft test's lowercase substring assertion was replaced with an exact-match assertion on the final string. `_pitch_by_id` kept the `load_pitches(db_path, limit=1000)` linear scan verbatim, now with a comment noting it is fine at personal-inbox scale. Gate: 271 passed (268 baseline + 3), ruff clean.
+**Outcome:** Implemented per plan with the two documented ack-wording fixes: the duplicate/unknown-decision ack is exactly `"Bereits entschieden."` (the plan's draft `"Bereits entschieden oder unbekannt — bereits entschieden?"` had a duplicated phrase; `decide_pitch`'s bool already conflates "already decided" and "unknown id" into one False, so one clean ack covers both). The draft test's lowercase substring assertion was replaced with an exact-match assertion on the final string. `_pitch_by_id` kept the `load_pitches(db_path, limit=1000)` linear scan verbatim, now with a comment noting it is fine at personal-inbox scale. Gate: 271 passed (268 baseline + 3), ruff clean. Commit `25613d0`.
 
 ---
 
@@ -1131,7 +1131,7 @@ git commit -m "feat: add long-polling decision receiver recording one-tap verdic
 - Create: `src/equity_scout/digest.py`, `scripts/run_digest.py`
 - Test: `tests/test_digest.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Digest rendering (pure) + SMTP send behind a fake transport."""
@@ -1193,11 +1193,11 @@ def test_send_digest_uses_transport_seam():
     assert any("Betreff" == e.get("subject") for e in sent)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_digest.py -v` — expected: import error.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """Daily e-mail digest of the decision inbox.
@@ -1268,17 +1268,19 @@ def send_digest(config: dict, subject: str, body: str, smtp_factory=smtplib.SMTP
 
 And `scripts/run_digest.py` (thin CLI: load pitches, `build_digest` with today's date label, send if `load_smtp_config` yields config, else print the digest to stdout and exit 0 with a "SMTP not configured" note; `--db` flag; exit 0 in both paths — an unconfigured digest is not an error). Include a `main()` test in `tests/test_digest.py` for the unconfigured path (capsys: digest text printed).
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/test_digest.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 .venv/bin/python -m pytest && .venv/bin/ruff check .
 git add src/equity_scout/digest.py scripts/run_digest.py tests/test_digest.py
 git commit -m "feat: add daily inbox digest with smtp transport seam"
 ```
+
+**Outcome:** `src/equity_scout/digest.py` implemented verbatim. One deviation, in the test file: the plan's draft `test_build_digest_empty_state` asserted the mixed-case substring `"keine offenen Pitches"` against `text.lower()` — an all-lowercase string can never contain that capital `P`, so the assertion was unsatisfiable regardless of implementation. Fixed the needle to the all-lowercase `"keine offenen pitches"`; `build_digest`'s rendered text (`"Aktuell keine offenen Pitches."`) is unchanged. `scripts/run_digest.py` implemented per the Task 6 prose spec (thin CLI, `--db` flag, `date_label` from `datetime.now(timezone.utc)`, exit 0 both paths); added the `main()` unconfigured-path test per the Step-3 instruction (seeded one open pitch, cleared all five SMTP/DIGEST_TO env vars via `monkeypatch.delenv`, asserted exit 0 + the pitch's ticker + "SMTP not configured" on stdout — no network, no fake SMTP class needed for this path). Gate: 276 passed (271 baseline + 5), ruff clean.
 
 ---
 
