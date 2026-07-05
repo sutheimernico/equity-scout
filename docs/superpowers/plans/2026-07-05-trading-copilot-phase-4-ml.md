@@ -284,11 +284,11 @@ SQLite table `entry_models(version INTEGER PK AUTOINCREMENT, created_at, model_k
 
 The honesty centerpiece. Table `entry_predictions(id PK, created_at, model_version INTEGER, ticker, score INTEGER, horizon_days INTEGER, features_json TEXT, resolve_after TEXT, resolved_at TEXT, realized_relative_return REAL, label INTEGER, correct INTEGER)` — append-only for the prediction; a SINGLE later UPDATE per row fills the resolution columns (documented: the only mutation, one-way open→resolved, never re-resolved). `log_predictions(db, *, model_version, scored: list[tuple[ticker, score, features]], now, horizon_days)` sets `resolve_after = now + horizon_days` (calendar days, a safe over-estimate of trading days). `due_predictions(db, now) -> list[dict]` = unresolved with `resolve_after <= now`. `resolve_prediction(db, prediction_id, *, realized_relative_return, resolved_at)` (computes label = int(rel>0), correct vs score>=50). `resolved_stats(db, model_version=None) -> dict` — realized hit-rate, mean realized rel-return by score-bucket, Rank-IC of score vs realized, n_resolved/n_open. `drift_snapshot(training_feature_means: dict, recent_features: list[dict]) -> dict` — per-feature z-shift of recent live features vs the training means (simple, honest distribution-shift flag).
 
-- [ ] **Step 1: Failing tests** (tmp_path): log 3 predictions → all open, none due before `resolve_after`; `due_predictions` returns them once `now` passes `resolve_after`; resolving one sets label/correct and it leaves the open set; double-resolve is refused (stays at first resolution); `resolved_stats` computes hit-rate + rank_ic over resolved rows only; append-only (resolving never deletes/duplicates; count stable); `drift_snapshot` flags a shifted feature and not a stable one. Full test code.
-- [ ] **Step 2: Run → fail.**
-- [ ] **Step 3: Implement.** `resolve_prediction` UPDATE guarded `WHERE id=? AND resolved_at IS NULL` (rowcount==1 → applied, else already resolved). `resolved_stats` reuses `entry_eval.rank_ic`.
-- [ ] **Step 4: Run → pass.**
-- [ ] **Step 5: Commit** `feat: add append-only prediction ledger with resolution and drift snapshot`.
+- [x] **Step 1: Failing tests** (tmp_path): log 3 predictions → all open, none due before `resolve_after`; `due_predictions` returns them once `now` passes `resolve_after`; resolving one sets label/correct and it leaves the open set; double-resolve is refused (stays at first resolution); `resolved_stats` computes hit-rate + rank_ic over resolved rows only; append-only (resolving never deletes/duplicates; count stable); `drift_snapshot` flags a shifted feature and not a stable one. Full test code.
+- [x] **Step 2: Run → fail.**
+- [x] **Step 3: Implement.** `resolve_prediction` UPDATE guarded `WHERE id=? AND resolved_at IS NULL` (rowcount==1 → applied, else already resolved). `resolved_stats` reuses `entry_eval.rank_ic`.
+- [x] **Step 4: Run → pass.**
+- [x] **Step 5: Commit** `feat: add append-only prediction ledger with resolution and drift snapshot`.
 
 ---
 
