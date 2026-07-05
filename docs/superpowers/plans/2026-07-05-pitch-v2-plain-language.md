@@ -97,9 +97,9 @@ def fetch_fundamentals(ticker: str) -> Fundamentals:
         return Fundamentals(None, None, None, None)
 ```
 
-- [ ] **Step 1:** failing tests for `from_info` — full info → all fields; missing/zero/negative/NaN `trailingPE`/`targetMeanPrice` → None; `numberOfAnalystOpinions` 0/None → None, positive → int; currency passthrough/empty→None. (No test hits the network; `fetch_fundamentals` is exercised only via `from_info` + a monkeypatched-yfinance smoke that asserts the all-None fallback on a raising stub.)
-- [ ] **Step 2–4:** implement (code above), run, gate.
-- [ ] **Step 5:** commit `feat: add fundamentals + analyst-consensus fetch seam`.
+- [x] **Step 1:** failing tests for `from_info` — full info → all fields; missing/zero/negative/NaN `trailingPE`/`targetMeanPrice` → None; `numberOfAnalystOpinions` 0/None → None, positive → int; currency passthrough/empty→None. (No test hits the network; `fetch_fundamentals` is exercised only via `from_info` + a monkeypatched-yfinance smoke that asserts the all-None fallback on a raising stub.)
+- [x] **Step 2–4:** implement (code above), run, gate.
+- [x] **Step 5:** commit `feat: add fundamentals + analyst-consensus fetch seam`.
 
 ---
 
