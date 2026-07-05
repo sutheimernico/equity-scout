@@ -142,9 +142,9 @@ Rules:
 - Keep the truncation-preserves-header+disclaimer guarantee (budget math) — but the structured sections (tranches/analyst) are short and should never be the part cut; cut the LLM prose first if over budget.
 - `fundamentals=None` (not fetched / all-None) → KGV + analyst both render their honest-absence forms; tranches still render from the entry.
 
-- [ ] **Step 1:** failing tests — (a) plain layout: header, score band word, tranche lines with prices from `entry["tranches"]`, "in Schritten kaufen" note, disclaimer; (b) KGV rendered when present, line ABSENT when None; (c) analyst line with target + count + signed upside when present; (d) analyst honest-absence line when missing; (e) score-band thresholds (39→niedrig, 40→mittel, 70→hoch); (f) NEVER a fabricated target when fundamentals None (assert the "keine Schätzung" text, assert no stray number); (g) length cap preserves header + disclaimer; (h) LLM ChatError → deterministic fallback prose but sections still present.
-- [ ] **Step 2–4:** implement, run, gate.
-- [ ] **Step 5:** commit `feat: rewrite pitch in plain language with tranches, KGV, analyst consensus`.
+- [x] **Step 1:** failing tests — (a) plain layout: header, score band word, tranche lines with prices from `entry["tranches"]`, "in Schritten kaufen" note, disclaimer; (b) KGV rendered when present, line ABSENT when None; (c) analyst line with target + count + signed upside when present; (d) analyst honest-absence line when missing; (e) score-band thresholds (39→niedrig, 40→mittel, 70→hoch); (f) NEVER a fabricated target when fundamentals None (assert the "keine Schätzung" text, assert no stray number); (g) length cap preserves header + disclaimer; (h) LLM ChatError → deterministic fallback prose but sections still present.
+- [x] **Step 2–4:** implement, run, gate.
+- [x] **Step 5:** commit `feat: rewrite pitch in plain language with tranches, KGV, analyst consensus`.
 
 ---
 
