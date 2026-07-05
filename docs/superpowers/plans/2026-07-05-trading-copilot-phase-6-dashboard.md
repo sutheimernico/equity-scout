@@ -294,13 +294,18 @@ stacks, nav scrolls horizontally, multi-col grids collapse to one column). `pref
 honored by the reveal observer. Meters/SVGs carry `role="img"` + German `aria-label`; the nav
 separator is `aria-hidden`. Full keyboard/contrast audit is part of Nico's visual pass, not gated here.
 
-**Known reskin contrast follow-ups (flagged by the Task 1 foundation, deferred):**
-1. **White-on-accent in the Assistent chat** — the chat bubble/CTA uses white text on the light
-   phosphor `--accent` fill; needs a dedicated `--on-accent` (dark) token so text on accent fills is
-   legible. (The Inbox buy CTA already uses `var(--bg-base)` text on accent correctly; the chat
-   surface was not migrated.)
-2. **`.champion-glow` legacy violet** — a leftover glow color from the pre-reskin palette that does
-   not use the new token block; should move onto `--violet`/token vars.
+**Reskin contrast regressions — RESOLVED** (fixed in the close-out commit
+`fix(ui): resolve reskin contrast regressions and arena mobile overflow`):
+1. **White-on-accent in the Assistent chat** — `.chat-user` and `.chat-input button` used
+   `color: #fff` on the light phosphor `--accent` fill (~1.46:1, the send button was unreadable).
+   Both now use `color: var(--bg-base)` (≈13:1), matching the Inbox buy CTA's existing treatment.
+2. **`.champion-glow` legacy violet** — the raw pre-reskin `rgba(124, 92, 255, …)` glow now uses
+   `color-mix(in srgb, var(--violet) 22%/42%, transparent)`, routing the decorative glow through
+   the token block while keeping the same low-opacity look.
+3. **Arena tables overflowed on narrow phones** (responsive completeness — responsive was a Phase-6
+   goal) — the fixed-column `.arena-pos`/`.arena-trade` grids had no scroll wrapper. Wrapped both in
+   `.table-scroll` in `ArenaPanel.tsx` (the same pattern `.model-table` already uses) so they scroll
+   horizontally instead of overflowing the lane card.
 
 **Deliberate cuts / deferrals:** no dark/light toggle (committed single dark identity per spec);
 `drift` panel omitted (null in v1); no new charting dependency (extended `EquityChart` with an

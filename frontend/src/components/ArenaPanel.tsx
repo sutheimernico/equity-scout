@@ -61,33 +61,38 @@ function LaneDetail({ lane }: { lane: Lane }) {
       </h3>
 
       {lane.open_positions.length > 0 ? (
-        <div className="arena-table">
-          <div className="arena-pos-head">
-            <span>Titel</span>
-            <span className="num">Stück</span>
-            <span className="num">Einstand</span>
-            <span className="num">Kurs</span>
-            <span className="num">G/V</span>
+        // Fixed-column grids scroll horizontally on narrow phones (same pattern as .model-table).
+        <div className="table-scroll">
+          <div className="arena-table">
+            <div className="arena-pos-head">
+              <span>Titel</span>
+              <span className="num">Stück</span>
+              <span className="num">Einstand</span>
+              <span className="num">Kurs</span>
+              <span className="num">G/V</span>
+            </div>
+            {lane.open_positions.map((pos) => (
+              <PositionRow key={pos.ticker} pos={pos} />
+            ))}
           </div>
-          {lane.open_positions.map((pos) => (
-            <PositionRow key={pos.ticker} pos={pos} />
-          ))}
         </div>
       ) : (
         <p className="arena-empty">Keine offenen Positionen.</p>
       )}
 
       {trades.length > 0 && (
-        <div className="arena-table arena-trades">
-          <div className="arena-trade-head">
-            <span>Datum</span>
-            <span>Aktion</span>
-            <span className="num">Stück</span>
-            <span className="num">Kurs</span>
+        <div className="table-scroll">
+          <div className="arena-table arena-trades">
+            <div className="arena-trade-head">
+              <span>Datum</span>
+              <span>Aktion</span>
+              <span className="num">Stück</span>
+              <span className="num">Kurs</span>
+            </div>
+            {trades.map((t) => (
+              <TradeRow key={t.id} trade={t} />
+            ))}
           </div>
-          {trades.map((t) => (
-            <TradeRow key={t.id} trade={t} />
-          ))}
         </div>
       )}
     </section>

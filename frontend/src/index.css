@@ -991,7 +991,7 @@ code {
 .chat-user {
   align-self: flex-end;
   background: var(--accent);
-  color: #fff;
+  color: var(--bg-base);
 }
 .chat-assistant {
   align-self: flex-start;
@@ -1023,7 +1023,7 @@ code {
 .chat-input button {
   font: inherit;
   font-weight: 600;
-  color: #fff;
+  color: var(--bg-base);
   background: var(--accent);
   border: none;
   border-radius: var(--radius-pill);
@@ -1181,8 +1181,8 @@ code {
   animation: champion-breathe 4.5s ease-in-out infinite;
 }
 @keyframes champion-breathe {
-  0%, 100% { box-shadow: var(--raised), 0 8px 30px -12px rgba(124, 92, 255, 0.22); }
-  50% { box-shadow: var(--raised), 0 10px 40px -10px rgba(124, 92, 255, 0.42); }
+  0%, 100% { box-shadow: var(--raised), 0 8px 30px -12px color-mix(in srgb, var(--violet) 22%, transparent); }
+  50% { box-shadow: var(--raised), 0 10px 40px -10px color-mix(in srgb, var(--violet) 42%, transparent); }
 }
 
 @media (prefers-reduced-motion: reduce) {
