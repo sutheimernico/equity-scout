@@ -29,6 +29,8 @@ from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.storage import init_db, load_latest_run, load_run_summaries
 from equity_scout.telegram_client import ACTIONS
 from equity_scout.ml.ledger import DEFAULT_LEDGER_PATH, champion
+from equity_scout.ml.model_registry import registry_summary
+from equity_scout.ml.prediction_ledger import resolved_stats
 from equity_scout.ml.research_view import research_summary
 from equity_scout.strategy_service import BENCHMARK_NAME, build_ml_report, build_reports
 
@@ -298,6 +300,32 @@ def create_app(
         return JSONResponse({
             "available": len(lanes) > 0,
             "lanes": lanes,
+            "disclaimer": DISCLAIMER,
+        })
+
+    @app.get("/api/model")
+    def model() -> JSONResponse:
+        # No cache: reflects the entry-model registry + prediction ledger as the train/resolve CLIs
+        # write to the DB. Champion metadata is read from the summary (no artifact unpickle on the
+        # read path). The score RANKS entry attractiveness out-of-sample — not a forecast, not advice.
+        summary = registry_summary(db_path)
+        versions = summary["versions"]
+        champion_version = summary["champion_version"]
+        champ = None
+        if champion_version is not None:
+            row = next(v for v in versions if v["version"] == champion_version)
+            champ = {
+                "version": row["version"],
+                "created_at": row["created_at"],
+                "model_kind": row["model_kind"],
+                "metrics": row["metrics"],
+            }
+        return JSONResponse({
+            "available": bool(versions),
+            "champion": champ,
+            "registry": versions,
+            "resolved": resolved_stats(db_path),
+            "drift": None,  # v1: surfaced as None; a live drift snapshot is a later enhancement
             "disclaimer": DISCLAIMER,
         })
 

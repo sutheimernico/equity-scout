@@ -315,10 +315,10 @@ The honesty centerpiece. Table `entry_predictions(id PK, created_at, model_versi
 
 `GET /api/model` → `{"available": bool, "champion": {version, created_at, model_kind, metrics} | None, "registry": [...registry_summary...], "resolved": {...resolved_stats...}, "drift": {...} | None, "disclaimer": DISCLAIMER}`. `available:false` when no model registered. Route before StaticFiles mount; reuse `model_registry.registry_summary`/`champion` + `prediction_ledger.resolved_stats`. Framing in the disclaimer stays "scores rank entry attractiveness, out-of-sample; not a forecast, not advice."
 
-- [ ] **Step 1: Failing test** — empty → available:false; after registering a model + resolving a couple predictions → champion present with metrics, registry non-empty, resolved stats present, disclaimer present.
-- [ ] **Step 2: Run → fail (404).**
-- [ ] **Step 3: Implement route.**
-- [ ] **Step 4: Run → pass.**
+- [x] **Step 1: Failing test** — empty → available:false; after registering a model + resolving a couple predictions → champion present with metrics, registry non-empty, resolved stats present, disclaimer present.
+- [x] **Step 2: Run → fail (404).**
+- [x] **Step 3: Implement route.**
+- [x] **Step 4: Run → pass.**
 - [ ] **Step 5: Gate + live smoke + outcome.**
   - Full gate `.venv/bin/python -m pytest && .venv/bin/ruff check .`.
   - Live smoke (network): `python scripts/run_train_entry.py --db equity_scout.db --tickers <a few watchlist tickers>` — record OOS AUC/Brier/Rank-IC and whether a model was promoted; then `GET /api/model` shape. Honest recording: if OOS AUC ≈ 0.5, SAY SO — a null result is a valid, honest outcome and must not be dressed up.

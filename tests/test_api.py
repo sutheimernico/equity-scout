@@ -267,3 +267,59 @@ def test_arena_endpoint_empty_and_seeded(tmp_path):
     assert nico["open_positions"][0]["last_price"] == 91.0
     assert nico["trades"][0]["ticker"] == "EXE"
     assert nico["trades"][0]["pitch_id"] == 7
+
+
+def test_model_endpoint_empty_and_after_registration(tmp_path):
+    import numpy as np
+    import pandas as pd
+
+    from equity_scout.ml.entry_features import FEATURE_COLUMNS
+    from equity_scout.ml.entry_model import train_entry_model
+    from equity_scout.ml.model_registry import promote_if_better, register_challenger
+    from equity_scout.ml.prediction_ledger import (
+        due_predictions,
+        log_predictions,
+        resolve_prediction,
+    )
+
+    db = str(tmp_path / "model.db")
+    client = TestClient(create_app(db))
+
+    empty = client.get("/api/model").json()
+    assert empty["available"] is False
+    assert empty["champion"] is None
+    assert empty["registry"] == []
+    assert empty["resolved"]["n_resolved"] == 0
+    assert empty["drift"] is None
+    assert "disclaimer" in empty
+
+    # register + promote a tiny real model
+    rng = np.random.default_rng(0)
+    X = pd.DataFrame(rng.normal(size=(20, len(FEATURE_COLUMNS))), columns=list(FEATURE_COLUMNS))
+    y = pd.Series((X[FEATURE_COLUMNS[0]] > 0.0).astype(int).to_numpy())
+    version = register_challenger(
+        db, train_entry_model(X, y),
+        metrics={"auc": 0.7, "brier": 0.2, "rank_ic": 0.3}, n_train=20,
+        now="2026-07-05T12:00:00+00:00",
+    )
+    promote_if_better(db, version)
+
+    # log + resolve a couple predictions against realized outcomes
+    log_predictions(
+        db, model_version=version, horizon_days=20, now="2026-01-01T00:00:00+00:00",
+        scored=[("AAA", 80, {"mkt_vol": 0.1}), ("BBB", 30, {"mkt_vol": 0.1})],
+    )
+    for d in due_predictions(db, "2026-03-01T00:00:00+00:00"):
+        resolve_prediction(
+            db, d["id"], realized_relative_return=0.02, resolved_at="2026-03-01T00:00:00+00:00"
+        )
+
+    body = client.get("/api/model").json()
+    assert body["available"] is True
+    assert body["champion"]["version"] == version
+    assert body["champion"]["model_kind"] == "random_forest"
+    assert body["champion"]["metrics"]["auc"] == 0.7
+    assert "created_at" in body["champion"]
+    assert len(body["registry"]) == 1
+    assert body["resolved"]["n_resolved"] == 2
+    assert "disclaimer" in body
