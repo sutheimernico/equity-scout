@@ -90,3 +90,13 @@
   throughout; dry smoke created 2 real pitches from the live watchlist. Branch
   feat/trading-copilot-phase-2 (stacked on phase-1). New dependency: none. Needs Nico for live
   wiring: BotFather token + chat_id, SMTP creds. Next: Phase 3 (two-lane execution arena).
+- 2026-07-05 — Trading-Copilot Phase 3 (two-lane execution arena) done interactively via
+  subagent-driven flow: lane engine (rule-based exits target/stop/time + fixed-fraction buys,
+  structured TradeRecord audit trail), lane persistence (portfolios + day-keyed valuations +
+  append-only trade ledger doubling as the pitch-executed marker), arena runner advancing lane
+  "nico" (approved pitches) and "autopilot" (score-autonomous) in one fair run (shared
+  params/now/prices, SPY buy-and-hold benchmark), GET /api/arena. 8 commits, 284 → 305 tests,
+  pytest + ruff green throughout; live smoke: autopilot bought EXE+EQT, nico idle (no approved
+  pitch yet). Reviews on Opus 4.8 (Sonnet out of credits mid-phase). Branch
+  feat/trading-copilot-phase-3 (stacked on phase-2). New dependency: none. Next: Phase 4 (ML
+  entry-quality online learning) or Phase 6 (dashboard redesign — Radar/Inbox/Arena/Model).

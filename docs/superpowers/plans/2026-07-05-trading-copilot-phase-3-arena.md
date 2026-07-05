@@ -797,10 +797,49 @@ git commit -m "feat: expose two-lane arena via GET /api/arena"
 
 ### Task 6: Phase gate
 
-- [ ] **Step 1: Full gate** — `.venv/bin/python -m pytest && .venv/bin/ruff check .` (baseline 284 + new).
-- [ ] **Step 2: Live smoke** — `python scripts/run_lanes.py --db equity_scout.db` (uses network for spot quotes; there are decided buy pitches only if Nico tapped one — zero lane-A buys is a VALID outcome; lane B should buy in-zone candidates unless already run today). Record observed output honestly. Then `curl`/TestClient `GET /api/arena` and record the shape.
-- [ ] **Step 3: README** — extend the copilot README section with `run_lanes.py` and `/api/arena` (one command block + one sentence).
-- [ ] **Step 4: Outcome section + AUTOPILOT_LOG line + commit** — `docs: record phase-3 arena outcome`.
+- [x] **Step 1: Full gate** — `.venv/bin/python -m pytest && .venv/bin/ruff check .` (baseline 284 + new).
+- [x] **Step 2: Live smoke** — `python scripts/run_lanes.py --db equity_scout.db` (uses network for spot quotes; there are decided buy pitches only if Nico tapped one — zero lane-A buys is a VALID outcome; lane B should buy in-zone candidates unless already run today). Record observed output honestly. Then `curl`/TestClient `GET /api/arena` and record the shape.
+- [x] **Step 3: README** — extend the copilot README section with `run_lanes.py` and `/api/arena` (one command block + one sentence).
+- [x] **Step 4: Outcome section + AUTOPILOT_LOG line + commit** — `docs: record phase-3 arena outcome`.
+
+---
+
+## Outcome (2026-07-05, phase closed)
+
+**Implemented (8 commits, `c4ad452..9f50006` + this docs commit):** `lanes.py` (ExitRules /
+BuyOrder / TradeRecord, `apply_exits` with strict-boundary profit-target/stop-loss/max-holding
+rules, `execute_buys` fixed-fraction fills, `lane_b_orders` autopilot selection — fairness
+invariant in the docstring), `lane_storage.py` (lane portfolios JSON snapshot, day-keyed
+idempotent valuations, append-only `lane_trades` ledger that is BOTH audit trail and the
+"pitch executed" marker via `executed_pitch_ids`), `scripts/run_lanes.py` (both lanes advanced
+in one run — one `LaneParams`, one `now`, one shared `prices` dict, one loop body → fairness by
+construction; SPY buy-and-hold benchmark), `GET /api/arena`. Suite 284 → 305, pytest + ruff
+green per commit.
+
+**Process:** two packages, each spec + quality reviewed (on Opus 4.8 after Sonnet ran out of
+credits mid-phase); the quality reviewer verified the fairness and benchmark-persistence
+invariants empirically (probes, not just reading), then one regression-guard test was added to
+pin benchmark_shares persistence across runs before closing.
+
+**Deviations from plan text (documented inline at Task 4):** SPY benchmark_shares init added
+(the plan's sequence omitted it → "vs SPY" would have been flat forever; now buy-and-hold from
+inception, applied identically to both lanes); pitch rows carry no `name` column so lane-A
+`BuyOrder.name` falls back to the ticker; argparse omits fee_rate/slippage_bps flags (kept at
+`LaneParams` defaults); unpriced tickers dropped from the prices dict (not stored as `None`, so
+`mark_to_market`'s fallback can't crash); carry-over fixes split into two atomic commits.
+
+**Smoke evidence (live yfinance spot quotes, local `equity_scout.db`):**
+`Lane nico: 0 Käufe, 0 Verkäufe, Wert 10.000,00 (+0,0 %) vs SPY +0,0 %` (no approved pitches
+yet — valid), `Lane autopilot: 2 Käufe (EXE, EQT), Wert 9.998,50 (−0,0 %) vs SPY +0,0 %` (fee +
+slippage on the two buys). `GET /api/arena` → `available: true`, both lanes present, autopilot
+holding EXE+EQT with 2 trade rows and a 1-point equity curve, disclaimer present.
+
+**Needs Nico / follow-ups:** approve a pitch via Telegram (Phase 2) to see lane "nico" trade;
+Alpaca live-paper adapter deliberately deferred (the `fetch_price` seam is ready; internal sim
+keeps fills identical per the spec's fairness invariant — Alpaca is a later Needs-Nico key step);
+`/api/arena` positions shape is intentionally leaner than `/api/portfolio` (frontend derives P&L
+— note for Phase 6); real-money remains the documented non-goal (6-month forward gate, bot never
+gets real keys).
 
 ---
 

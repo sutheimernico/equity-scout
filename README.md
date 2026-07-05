@@ -90,9 +90,18 @@ uv run python scripts/run_receiver.py --db equity_scout.db
 
 # 4. Daily digest (prints to stdout when SMTP is not configured)
 uv run python scripts/run_digest.py --db equity_scout.db
+
+# 5. Arena: advance both paper lanes one step (nico = approved pitches, autopilot = score-autonomous)
+uv run python scripts/run_lanes.py --db equity_scout.db   # daily/cron; idempotent per UTC day
 ```
 
-Dashboard endpoints: `GET /api/radar`, `GET /api/inbox`, `POST /api/inbox/{id}/decision`.
+Two paper lanes trade the same signals side by side with identical sizing, fills and exit
+rules (profit target / stop loss / max holding period), each tracked against buy-and-hold SPY —
+"Du vs. Autopilot vs. Markt". Lane "nico" only buys pitches you approved; lane "autopilot"
+buys autonomously above the score threshold. PAPER ONLY — no real orders.
+
+Dashboard endpoints: `GET /api/radar`, `GET /api/inbox`, `POST /api/inbox/{id}/decision`,
+`GET /api/arena`.
 
 Environment variables (all optional — without them the pipeline degrades honestly to
 inbox-only / stdout; set them in your local `.env`, never commit values):
