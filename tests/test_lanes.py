@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import datetime, timedelta
 
 from equity_scout.lanes import (
+    DEFAULT_FEE_RATE,
+    DEFAULT_SLIPPAGE_BPS,
     LANE_AUTOPILOT,
     LANE_NICO,
     BuyOrder,
@@ -138,3 +141,41 @@ def test_lane_b_orders_from_watchlist():
     assert [o.ticker for o in orders] == ["YES"]
     assert orders[0].pitch_id is None
     assert orders[0].score == 0.6
+
+
+def test_sell_proceeds_apply_fee_in_the_right_direction():
+    """Cash delta and trade.cost == raw_shares * fill * (1 - fee_rate); a flipped fee sign
+    (1 + fee_rate) must fail this. Recorded shares round to 4dp, proceeds use raw shares."""
+    pos = Position(_instrument("WIN"), shares=5.123456, cost_basis=100.0,
+                   opened_at="2026-06-01T14:00:00+00:00")
+    portfolio = Portfolio(initial_capital=10_000.0, cash=5_000.0, positions={"WIN": pos})
+    updated, trades = apply_exits(
+        portfolio, {"WIN": 130.0}, now=NOW, lane=LANE_NICO, rules=RULES
+    )
+    fill = 130.0 * (1 - DEFAULT_SLIPPAGE_BPS / 10_000.0)
+    expected_proceeds = 5.123456 * fill * (1 - DEFAULT_FEE_RATE)
+    assert updated.cash == portfolio.cash + expected_proceeds
+    assert trades[0].cost == round(expected_proceeds, 2)
+    assert trades[0].shares == round(5.123456, 4)  # recorded shares rounded, proceeds raw
+
+
+def test_stop_loss_boundary_is_exclusive():
+    """Price at exactly cost_basis * 0.85 is NOT a stop-loss exit (strict `<`)."""
+    portfolio = _portfolio(EDGE=_position("EDGE", cost=100.0))
+    updated, trades = apply_exits(
+        portfolio, {"EDGE": 85.0}, now=NOW, lane=LANE_NICO, rules=RULES
+    )
+    assert "EDGE" in updated.positions
+    assert trades == []
+
+
+def test_max_holding_boundary_is_exclusive():
+    """Holding for exactly max_holding_days (180) is NOT a max-holding exit (strict `>`)."""
+    opened_at = (datetime.fromisoformat(NOW) - timedelta(days=180)).isoformat()
+    edge = Position(_instrument("EDGE"), shares=10.0, cost_basis=100.0, opened_at=opened_at)
+    portfolio = Portfolio(initial_capital=10_000.0, cash=5_000.0, positions={"EDGE": edge})
+    updated, trades = apply_exits(
+        portfolio, {"EDGE": 101.0}, now=NOW, lane=LANE_NICO, rules=RULES
+    )
+    assert "EDGE" in updated.positions
+    assert trades == []
