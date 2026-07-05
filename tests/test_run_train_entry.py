@@ -7,7 +7,7 @@ import pandas as pd
 
 import scripts.run_train_entry as train_mod
 from equity_scout.market import PricePanel
-from equity_scout.ml.model_registry import champion, registry_summary
+from equity_scout.ml.model_registry import entry_champion, registry_summary
 from scripts.run_train_entry import main, run_train_entry
 
 NOW = "2026-07-05T12:00:00+00:00"
@@ -42,7 +42,7 @@ def test_train_cli_builds_evaluates_registers_and_promotes_first(tmp_path, capsy
     assert set(result["metrics"]) == {
         "auc", "brier", "rank_ic", "n_oos", "n_splits_used", "feature_importance"
     }
-    got = champion(db)
+    got = entry_champion(db)
     assert got is not None and got[0] == 1
 
     out = capsys.readouterr().out
@@ -60,7 +60,7 @@ def test_train_cli_second_run_registers_v2_and_promotes_only_if_better(tmp_path)
     assert second["version"] == 2
     # identical data → identical OOS metric → NOT strictly better → champion stays v1
     assert second["promoted"] is False
-    assert champion(db)[0] == 1
+    assert entry_champion(db)[0] == 1
     assert [v["version"] for v in registry_summary(db)["versions"]] == [2, 1]
 
 
@@ -74,7 +74,7 @@ def test_train_cli_promotes_strictly_better_challenger(tmp_path, monkeypatch):
     second = run_train_entry(db, panel=_panel(), tickers=["AAA", "BBB"], now=NOW)
 
     assert second["promoted"] is True
-    assert champion(db)[0] == 2
+    assert entry_champion(db)[0] == 2
 
 
 def test_train_main_happy_path_exits_zero(tmp_path, monkeypatch, capsys):
@@ -86,4 +86,4 @@ def test_train_main_happy_path_exits_zero(tmp_path, monkeypatch, capsys):
 
     out = capsys.readouterr().out
     assert "Out-of-Sample" in out
-    assert champion(db) is not None
+    assert entry_champion(db) is not None

@@ -93,8 +93,12 @@ def _metric(metrics_json: str, key: str) -> float:
     return value if math.isfinite(value) else float("-inf")
 
 
-def champion(db_path: str = DEFAULT_DB_PATH) -> tuple[int, EntryModel, dict] | None:
-    """The current champion as (version, EntryModel, metrics), or None if none is promoted yet."""
+def entry_champion(db_path: str = DEFAULT_DB_PATH) -> tuple[int, EntryModel, dict] | None:
+    """The current champion as (version, EntryModel, metrics), or None if none is promoted yet.
+
+    Named `entry_champion` (not `champion`) to stay distinct from `ml.ledger.champion`, which
+    returns a different type (the research-loop config record) — importing both must never collide.
+    """
     init_registry_db(db_path)
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(

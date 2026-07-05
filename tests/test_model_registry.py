@@ -12,7 +12,7 @@ from equity_scout.ml.entry_features import FEATURE_COLUMNS
 from equity_scout.ml.entry_model import EntryModel, train_entry_model
 from equity_scout.ml.model_registry import (
     RegistryError,
-    champion,
+    entry_champion,
     promote_if_better,
     register_challenger,
     registry_summary,
@@ -36,7 +36,7 @@ def _champion_count(db: str) -> int:
 
 def test_champion_is_none_on_empty_registry(tmp_path):
     db = str(tmp_path / "reg.db")
-    assert champion(db) is None
+    assert entry_champion(db) is None
 
 
 def test_first_model_auto_promotes_and_round_trips(tmp_path):
@@ -47,7 +47,7 @@ def test_first_model_auto_promotes_and_round_trips(tmp_path):
     assert version == 1
     assert promote_if_better(db, version) is True  # first trained model bootstraps the champion
 
-    got = champion(db)
+    got = entry_champion(db)
     assert got is not None
     got_version, got_model, got_metrics = got
     assert got_version == version
@@ -64,11 +64,11 @@ def test_better_challenger_displaces_worse_does_not(tmp_path):
 
     v2 = register_challenger(db, _model(2), metrics={"auc": 0.60}, n_train=20, now=NOW)
     assert promote_if_better(db, v2) is False  # worse OOS AUC → no displacement
-    assert champion(db)[0] == v1
+    assert entry_champion(db)[0] == v1
 
     v3 = register_challenger(db, _model(3), metrics={"auc": 0.80}, n_train=20, now=NOW)
     assert promote_if_better(db, v3) is True  # strictly better → promoted
-    assert champion(db)[0] == v3
+    assert entry_champion(db)[0] == v3
     assert _champion_count(db) == 1  # exactly one champion after the flip
 
 
@@ -78,7 +78,7 @@ def test_equal_metric_does_not_displace(tmp_path):
     promote_if_better(db, v1)
     v2 = register_challenger(db, _model(2), metrics={"auc": 0.70}, n_train=20, now=NOW)
     assert promote_if_better(db, v2) is False  # strictly-greater only, ties keep the incumbent
-    assert champion(db)[0] == v1
+    assert entry_champion(db)[0] == v1
 
 
 def test_promote_if_better_is_idempotent(tmp_path):
@@ -86,7 +86,7 @@ def test_promote_if_better_is_idempotent(tmp_path):
     v1 = register_challenger(db, _model(1), metrics={"auc": 0.70}, n_train=20, now=NOW)
     assert promote_if_better(db, v1) is True
     assert promote_if_better(db, v1) is False  # already champion → no-op
-    assert champion(db)[0] == v1
+    assert entry_champion(db)[0] == v1
     assert _champion_count(db) == 1
 
 
@@ -96,14 +96,14 @@ def test_none_metric_never_wins(tmp_path):
     assert promote_if_better(db, v1) is True
     v2 = register_challenger(db, _model(2), metrics={"auc": None}, n_train=20, now=NOW)
     assert promote_if_better(db, v2) is False  # un-scored challenger (None = -inf) never wins
-    assert champion(db)[0] == v1
+    assert entry_champion(db)[0] == v1
 
 
 def test_first_model_with_none_metric_still_bootstraps(tmp_path):
     db = str(tmp_path / "reg.db")
     v1 = register_challenger(db, _model(1), metrics={"auc": None}, n_train=20, now=NOW)
     assert promote_if_better(db, v1) is True  # bootstrap: something must be champion
-    assert champion(db)[0] == v1
+    assert entry_champion(db)[0] == v1
 
 
 def test_registry_summary_shape_newest_first(tmp_path):
@@ -134,7 +134,7 @@ def test_non_finite_metric_never_displaces_finite_champion(tmp_path):
     assert promote_if_better(db, v2) is False
     v3 = register_challenger(db, _model(3), metrics={"auc": float("inf")}, n_train=20, now=NOW)
     assert promote_if_better(db, v3) is False
-    assert champion(db)[0] == v1
+    assert entry_champion(db)[0] == v1
 
 
 def test_promote_unknown_version_raises(tmp_path):
@@ -154,4 +154,4 @@ def test_bad_artifact_raises_clear_error(tmp_path):
             (sqlite3.Binary(pickle.dumps({"not": "a model"})),),
         )
     with pytest.raises(RegistryError):
-        champion(db)
+        entry_champion(db)
