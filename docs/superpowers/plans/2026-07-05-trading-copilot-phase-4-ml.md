@@ -236,11 +236,11 @@ Feature row for one (ticker, as_of) from PAST prices only. Combines: the market-
 
 Assemble `(X, y, meta)` from a `PricePanel` of stock tickers + benchmark over history: for each ticker and each sampled as_of date (monthly `rebalance_dates`), build the feature row (Task 2) and the `beats_benchmark_label` (Task 1); keep only rows where BOTH the features and the full-horizon label exist. `meta` carries `(ticker, as_of, relative_return)` per row for Rank-IC and attribution.
 
-- [ ] **Step 1: Failing tests** — with a synthetic 2-ticker + benchmark panel (build via `PricePanel(pd.DataFrame(...))`), `build_backfill_dataset(panel, tickers, benchmark="SPY", horizon_days=HORIZON_DAYS)` returns aligned `X` (DataFrame, columns == FEATURE_COLUMNS), `y` (0/1 Series), `meta` (DataFrame with ticker/as_of/relative_return); rows near the panel's end (no full horizon) are dropped; a ticker with too-short history contributes nothing but doesn't crash; label balance is reported. Full test code.
-- [ ] **Step 2: Run → fail.**
-- [ ] **Step 3: Implement** `build_backfill_dataset(panel, tickers, *, benchmark="SPY", horizon_days=HORIZON_DAYS, min_history=252) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame]`. Reuse `entry_features.market_context` once for the panel, then loop tickers × rebalance dates. Deterministic ordering (sort by as_of then ticker) so walk-forward splits are reproducible.
-- [ ] **Step 4: Run → pass.**
-- [ ] **Step 5: Commit** `feat: add historical backfill dataset builder for entry model`.
+- [x] **Step 1: Failing tests** — with a synthetic 2-ticker + benchmark panel (build via `PricePanel(pd.DataFrame(...))`), `build_backfill_dataset(panel, tickers, benchmark="SPY", horizon_days=HORIZON_DAYS)` returns aligned `X` (DataFrame, columns == FEATURE_COLUMNS), `y` (0/1 Series), `meta` (DataFrame with ticker/as_of/relative_return); rows near the panel's end (no full horizon) are dropped; a ticker with too-short history contributes nothing but doesn't crash; label balance is reported. Full test code.
+- [x] **Step 2: Run → fail.**
+- [x] **Step 3: Implement** `build_backfill_dataset(panel, tickers, *, benchmark="SPY", horizon_days=HORIZON_DAYS, min_history=252) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame]`. Reuse `entry_features.market_context` once for the panel, then loop tickers × rebalance dates. Deterministic ordering (sort by as_of then ticker) so walk-forward splits are reproducible.
+- [x] **Step 4: Run → pass.**
+- [x] **Step 5: Commit** `feat: add historical backfill dataset builder for entry model`.
 
 ---
 
