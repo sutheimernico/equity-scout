@@ -124,6 +124,19 @@ def test_registry_summary_shape_newest_first(tmp_path):
     assert summary["champion_version"] == v2
 
 
+def test_non_finite_metric_never_displaces_finite_champion(tmp_path):
+    db = str(tmp_path / "reg.db")
+    v1 = register_challenger(db, _model(1), metrics={"auc": 0.80}, n_train=20, now=NOW)
+    assert promote_if_better(db, v1) is True
+    # NaN and +inf both round-trip through json but must be treated as -inf (never win) — otherwise
+    # a corrupt-metric challenger silently displaces a legitimate champion.
+    v2 = register_challenger(db, _model(2), metrics={"auc": float("nan")}, n_train=20, now=NOW)
+    assert promote_if_better(db, v2) is False
+    v3 = register_challenger(db, _model(3), metrics={"auc": float("inf")}, n_train=20, now=NOW)
+    assert promote_if_better(db, v3) is False
+    assert champion(db)[0] == v1
+
+
 def test_promote_unknown_version_raises(tmp_path):
     db = str(tmp_path / "reg.db")
     register_challenger(db, _model(1), metrics={"auc": 0.6}, n_train=20, now=NOW)

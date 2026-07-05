@@ -4,9 +4,11 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from equity_scout.ml.entry_eval import HORIZON_DAYS
 from equity_scout.ml.entry_features import FEATURE_COLUMNS
 from equity_scout.ml.entry_model import (
     EntryModel,
+    _date_grouped_folds,
     train_entry_model,
     walk_forward_evaluate,
 )
@@ -91,6 +93,21 @@ def test_noise_dataset_has_no_fake_edge():
     X, y, meta = _dataset(n_dates=120, per_date=6, informative=False, seed=6)
     result = walk_forward_evaluate(X, y, meta, model="random_forest")
     assert 0.4 <= result["auc"] <= 0.6  # no fabricated edge where none exists
+
+
+def test_walk_forward_split_is_date_grouped():
+    # The honesty-critical property: every row sharing an as_of date lands on ONE side of a split,
+    # so no date straddles train/test. A regression to a row-based split would still pass the
+    # auc/noise tests but would fail here.
+    X, y, meta = _dataset(n_dates=120, per_date=6, informative=True, seed=11)
+    as_of = pd.to_datetime(meta["as_of"]).reset_index(drop=True)
+    folds = list(_date_grouped_folds(as_of, n_splits=4, horizon_days=HORIZON_DAYS))
+    assert len(folds) >= 1
+    for train_mask, test_mask in folds:
+        train_dates = set(as_of[train_mask])
+        test_dates = set(as_of[test_mask])
+        assert train_dates and test_dates  # both sides populated
+        assert train_dates.isdisjoint(test_dates)  # no as_of date appears on both sides
 
 
 def test_walk_forward_is_reproducible():

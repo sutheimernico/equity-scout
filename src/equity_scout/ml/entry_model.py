@@ -16,6 +16,7 @@ degenerate fold reports its honest prior instead of crashing.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Iterator
 
 import numpy as np
 import pandas as pd
@@ -77,6 +78,20 @@ def train_entry_model(
     return EntryModel(scaler, estimator, feature_columns, model)
 
 
+def _date_grouped_folds(
+    as_of: pd.Series, *, n_splits: int, horizon_days: int
+) -> Iterator[tuple[pd.Series, pd.Series]]:
+    """Yield (train_mask, test_mask) boolean Series per walk-forward fold. THE split mechanism:
+    `purged_walk_forward` runs on the sorted unique `as_of` DATES, and each mask selects ALL rows
+    sharing a date. So no date can straddle a split — rows on one date share the same forward
+    horizon window, hence the same look-ahead exposure, and must never sit on opposite fold sides."""
+    date_index = pd.DatetimeIndex(sorted(as_of.unique()))
+    for train_dates, test_dates in purged_walk_forward(
+        date_index, n_splits=n_splits, horizon_days=horizon_days
+    ):
+        yield as_of.isin(train_dates), as_of.isin(test_dates)
+
+
 def walk_forward_evaluate(
     X: pd.DataFrame,
     y: pd.Series,
@@ -86,24 +101,23 @@ def walk_forward_evaluate(
     n_splits: int = 4,
     horizon_days: int = HORIZON_DAYS,
 ) -> dict:
-    """Group-aware purged walk-forward. Splits on the sorted unique `as_of` dates, then selects
-    rows by `meta.as_of.isin(train_dates | test_dates)` so all rows of a date share a fold side.
-    Returns OOS {auc, brier, rank_ic, n_oos, n_splits_used, feature_importance}."""
+    """Group-aware purged walk-forward (see `_date_grouped_folds`): the split is on unique `as_of`
+    dates, so all rows of a date share a fold side. Returns OOS {auc, brier, rank_ic, n_oos,
+    n_splits_used, feature_importance}."""
     X = X.reset_index(drop=True)
     y = y.reset_index(drop=True)
     as_of = pd.to_datetime(meta["as_of"]).reset_index(drop=True)
     realized = pd.to_numeric(meta["relative_return"]).reset_index(drop=True)
-    date_index = pd.DatetimeIndex(sorted(as_of.unique()))
 
     oos_prob: dict[int, float] = {}
     importances: list[np.ndarray] = []
     n_splits_used = 0
-    for train_dates, test_dates in purged_walk_forward(
-        date_index, n_splits=n_splits, horizon_days=horizon_days
+    for train_mask, test_mask in _date_grouped_folds(
+        as_of, n_splits=n_splits, horizon_days=horizon_days
     ):
-        x_train = X[as_of.isin(train_dates)]
-        y_train = y[as_of.isin(train_dates)]
-        x_test = X[as_of.isin(test_dates)]
+        x_train = X[train_mask]
+        y_train = y[train_mask]
+        x_test = X[test_mask]
         if x_train.empty or x_test.empty:
             continue
         n_splits_used += 1

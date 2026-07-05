@@ -17,6 +17,7 @@ against a zero denominator; it flags features that warrant a retrain look, it is
 from __future__ import annotations
 
 import json
+import math
 import sqlite3
 from datetime import datetime, timedelta
 
@@ -80,14 +81,16 @@ def log_predictions(
 
 
 def due_predictions(db_path: str, now: str) -> list[dict]:
-    """Unresolved predictions whose `resolve_after` is at or before `now` — ready to resolve."""
+    """Unresolved predictions whose `resolve_after` is at or before `now` — ready to resolve. The
+    due-check compares as REAL time (`datetime.fromisoformat` on both), not as sorted strings: a
+    lexical compare would resolve early a `now` with a different UTC offset that is actually pre-due."""
     init_ledger_db(db_path)
+    now_dt = datetime.fromisoformat(now)
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute(
             "SELECT id, created_at, model_version, ticker, score, horizon_days, features_json,"
             " resolve_after FROM entry_predictions"
-            " WHERE resolved_at IS NULL AND resolve_after <= ? ORDER BY id",
-            (now,),
+            " WHERE resolved_at IS NULL ORDER BY id"
         ).fetchall()
     return [
         {
@@ -101,6 +104,7 @@ def due_predictions(db_path: str, now: str) -> list[dict]:
             "resolve_after": r[7],
         }
         for r in rows
+        if datetime.fromisoformat(r[7]) <= now_dt
     ]
 
 
@@ -131,13 +135,6 @@ def resolve_prediction(
             (resolved_at, float(realized_relative_return), label, correct, prediction_id),
         )
         return cursor.rowcount == 1
-
-
-def _score_bucket(score: int) -> str:
-    for lo, hi, name in _SCORE_BUCKETS:
-        if lo <= score < hi:
-            return name
-    return _SCORE_BUCKETS[-1][2]
 
 
 def resolved_stats(db_path: str, model_version: int | None = None) -> dict:
@@ -191,7 +188,9 @@ def drift_snapshot(training_feature_means: dict, recent_features: list[dict]) ->
     threshold — a signal to look at retraining, not a formal distribution test."""
     snapshot: dict[str, dict] = {}
     for feature, train_mean in training_feature_means.items():
-        values = [f[feature] for f in recent_features if feature in f]
+        # drop non-finite readings so a partly-NaN feature can still flag on its finite ones
+        raw = [float(f[feature]) for f in recent_features if feature in f]
+        values = [v for v in raw if math.isfinite(v)]
         train_mean = float(train_mean)
         if not values:
             snapshot[feature] = {

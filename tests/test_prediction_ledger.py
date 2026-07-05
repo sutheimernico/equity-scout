@@ -56,6 +56,18 @@ def test_due_predictions_after_resolve_after(tmp_path):
     assert due[0]["features"] == {"mkt_vol": 0.1, "mom_1m": 0.05}  # features round-trip
 
 
+def test_due_check_compares_real_time_not_lexical_string(tmp_path):
+    db = str(tmp_path / "led.db")
+    log_predictions(db, model_version=1, scored=_scored(), now=NOW, horizon_days=HORIZON)
+    # resolve_after = 2026-01-21T00:00:00+00:00. A +02:00 clock reading 01:00 is 2026-01-20T23:00Z,
+    # i.e. BEFORE resolve_after in real time — but it sorts AFTER lexically. It must NOT be due.
+    not_yet_due = "2026-01-21T01:00:00+02:00"
+    assert due_predictions(db, not_yet_due) == []
+    # a +02:00 reading of 03:00 is 2026-01-21T01:00Z — genuinely past resolve_after → due
+    genuinely_due = "2026-01-21T03:00:00+02:00"
+    assert len(due_predictions(db, genuinely_due)) == 3
+
+
 def test_resolve_sets_label_and_correct_and_shrinks_open_set(tmp_path):
     db = str(tmp_path / "led.db")
     log_predictions(db, model_version=1, scored=_scored(), now=NOW, horizon_days=HORIZON)
@@ -152,3 +164,11 @@ def test_drift_flags_shifted_feature_not_stable():
 def test_drift_handles_zero_train_mean_without_division_error():
     snap = drift_snapshot({"x": 0.0}, [{"x": 0.5}, {"x": 0.5}])
     assert snap["x"]["z_shift"] is not None  # |mean| fallback guards the zero denominator
+
+
+def test_drift_ignores_non_finite_values_when_flagging():
+    # A partly-NaN feature must still flag on its finite readings, not be silently swallowed to
+    # flagged=False by NaN contaminating the mean.
+    snap = drift_snapshot({"g": 1.0}, [{"g": float("nan")}, {"g": 5.0}, {"g": 5.2}])
+    assert snap["g"]["flagged"] is True
+    assert snap["g"]["recent_mean"] == pytest.approx(5.1)

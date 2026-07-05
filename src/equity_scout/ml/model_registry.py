@@ -14,6 +14,7 @@ raw unpickling error to the caller.
 from __future__ import annotations
 
 import json
+import math
 import pickle
 import sqlite3
 
@@ -82,9 +83,14 @@ def _load_artifact(blob: bytes) -> EntryModel:
 
 
 def _metric(metrics_json: str, key: str) -> float:
-    """The comparison metric as a float; a missing/None value is −inf so it can never win."""
+    """The comparison metric as a float. A missing/None value — or any non-finite value (NaN/inf,
+    which json round-trips) — is −inf so it can never win: a corrupt-metric challenger must not be
+    able to displace a legitimate champion (`nan <= x` is False, so NaN must be mapped, not passed)."""
     value = json.loads(metrics_json).get(key)
-    return float(value) if value is not None else float("-inf")
+    if value is None:
+        return float("-inf")
+    value = float(value)
+    return value if math.isfinite(value) else float("-inf")
 
 
 def champion(db_path: str = DEFAULT_DB_PATH) -> tuple[int, EntryModel, dict] | None:
