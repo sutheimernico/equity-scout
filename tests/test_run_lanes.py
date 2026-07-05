@@ -7,6 +7,8 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable
 
+import pytest
+
 import scripts.run_lanes as run_lanes_mod
 from equity_scout.inbox_storage import create_pitch, decide_pitch
 from equity_scout.lane_storage import (
@@ -125,6 +127,29 @@ def test_run_lanes_empty_no_watchlist_no_pitches(tmp_path):
         "buys": 0, "sells": 0, "total_value": 10_000.0, "total_return": 0.0,
         "benchmark_return": 0.0,
     }
+
+
+def test_benchmark_shares_persist_across_runs(tmp_path):
+    """vs-SPY anchors to inception: benchmark_shares are set once and never re-initialised,
+    even after SPY moves. A regression that re-inits each run would flip this — the most
+    money-adjacent property in the arena.
+    """
+    db = str(tmp_path / "arena.db")
+    day1 = "2026-07-05T14:00:00+00:00"
+    day2 = "2026-07-06T14:00:00+00:00"
+    params = LaneParams(rules=ExitRules())
+
+    run_lanes(db, now=day1, fetch_price=_prices({"SPY": 400.0}), params=params, threshold=0.45)
+    shares_after_day1 = load_lane_portfolio(db, LANE_NICO).benchmark_shares
+    assert shares_after_day1 == 10_000.0 / 400.0  # 25.0, bought once at inception
+
+    # SPY moves +10% on day 2 — benchmark_shares must NOT re-initialise to 10_000/440.
+    run_lanes(db, now=day2, fetch_price=_prices({"SPY": 440.0}), params=params, threshold=0.45)
+    assert load_lane_portfolio(db, LANE_NICO).benchmark_shares == shares_after_day1
+
+    day2_val = load_lane_valuations(db, LANE_NICO)[-1]  # oldest -> newest
+    assert day2_val["valued_on"] == "2026-07-06"
+    assert day2_val["benchmark_return"] == pytest.approx(0.10)  # +10% held from inception
 
 
 def test_main_happy_path_exits_zero(tmp_path, monkeypatch, capsys):
