@@ -1364,19 +1364,23 @@ git commit -m "feat: expose decision inbox via GET /api/inbox and decision POST"
 
 ### Task 8: `.env.example` + phase gate
 
-- [ ] **Step 1: Document env vars**
+- [x] **Step 1: Document env vars**
 
 Create/extend `.env.example` in the repo root (check whether one exists first) with the seven new variables, commented in English, values blank. Never touch a real `.env`.
 
-- [ ] **Step 2: Full gate**
+> **Adapted:** a session permission rule protects all `.env*` paths (including `.env.example`),
+> so the seven variables are documented (names only) in a new README section
+> "Trading copilot (radar → pitch → one-tap decision)" instead. Same purpose, no rule bent.
+
+- [x] **Step 2: Full gate**
 
 Run: `.venv/bin/python -m pytest && .venv/bin/ruff check .` — entire suite green (baseline 241 + new), ruff clean.
 
-- [ ] **Step 3: End-to-end dry smoke (no network, no secrets)**
+- [x] **Step 3: End-to-end dry smoke (no network, no secrets)**
 
 Run: `python scripts/run_notify.py --db equity_scout.db --dry-run` — expected: "Telegram not configured — writing inbox pitches only." + `Pitches created: N.` (N depends on live watchlist/threshold; N=0 is valid if nothing is in zone above threshold — check `/api/inbox` afterwards via TestClient or sqlite). Then `python scripts/run_digest.py --db equity_scout.db` — digest text printed to stdout. Record observed output.
 
-- [ ] **Step 4: Outcome section + log + commit**
+- [x] **Step 4: Outcome section + log + commit**
 
 Append the outcome section to THIS plan (implemented/deviations/evidence/follow-ups incl. the Needs-Nico list: BotFather token + chat_id, SMTP creds, live send test), append one AUTOPILOT_LOG.md line, commit as `docs: record phase-2 inbox outcome`.
 
@@ -1393,3 +1397,47 @@ Append the outcome section to THIS plan (implemented/deviations/evidence/follow-
 - Deliberate scope cuts: no notification on Actions yet (Phase 5 wires `run_notify.py` into CI), no expiry job for stale open pitches (revisit in Phase 3 when exits exist), digest has no HTML variant (plain text, YAGNI).
 - Placeholder scan: none — all code complete. Wording of the duplicate-press ack is explicitly left to be aligned test↔code in Task 5 (one decision, documented there).
 - Type consistency: `ACTIONS` defined once in `telegram_client.py`, imported by `inbox_storage.py`; the send seam `(pitch_id, text) -> message_id` and ask seam `(question, context) -> str` are each defined in exactly one place.
+
+---
+
+## Outcome (2026-07-05, phase closed)
+
+**Implemented (10 commits, `f2ed29d..f45c697` + docs commit):** `telegram_client.py`
+(stdlib primitives, TelegramError incl. URLError wrap, DECISION_LABELS single source),
+`pitch.py` (LLM seam + deterministic fallback, style breakdown + weakest-signal risk line,
+budget truncation that always preserves header/disclaimer), `inbox_storage.py` (pitch
+lifecycle, cooldown lookup, bounds-guarded `get_pitch`), `notify.py` + `run_notify.py`
+(in-zone/threshold/cooldown selection, row-before-send, per-candidate send resilience,
+--dry-run), `run_receiver.py` (hardened unattended loop: backoff on outages, isolated
+acks/edits, self-healing re-edit on duplicate press), `digest.py` + `run_digest.py`
+(24h-scoped decided section), `GET /api/inbox` + decision POST (unified `{"error": ...}`
+shape, updated pitch row returned). Suite 241 → 284, pytest + ruff green per commit.
+
+**Process:** three packages, each spec + quality reviewed with fix rounds; whole-phase
+final review with a closing fix round before phase close. Review rounds caught among
+others: disclaimer dropped at Telegram length limit, opaque Telegram API errors,
+receiver dying on any network error, permanently stuck message edits, pitch_id
+int-overflow → 500, unbounded digest history, spec-mandated pitch content missing,
+`watchlist_id` silently NULL through the real path.
+
+**Deviations from plan text (documented inline at their tasks):** duplicate-press ack
+wording unified; unsatisfiable digest test needle fixed; plain-dict API body idiom
+(mirrors /api/chat); `_telegram_sender` factory instead of branch-shadowed closure;
+`.env.example` replaced by README env-var section (permission rule protects `.env*`).
+
+**Smoke evidence (no secrets, no Telegram):** `run_notify --dry-run` on the live
+watchlist created 2 pitches (EXE 59/100, EQT 45/100 — threshold boundary inclusive);
+`run_digest` rendered the German digest correctly; direct `build_pitch` on the live
+top entry (Expand Energy) rendered header, LLM-fallback marker, score, style breakdown
+(Value 100 · Quality 82 · Momentum 16 · Growth 95), zone, three reasons, weakest-signal
+risk line, disclaimer; `load_latest_watchlist` carries `watchlist_id` (=2) end-to-end.
+
+**Needs Nico (live wiring):** BotFather token + chat_id → `.env`
+(`COPILOT_TG_BOT_TOKEN`, `COPILOT_TG_CHAT_ID`), SMTP creds for the digest, then one
+supervised live end-to-end test (pitch → tap → inbox row + message edit).
+
+**Follow-ups (deliberate):** `chat.py`'s `resp.json()` sits outside its try/except —
+a malformed 200 body raises `JSONDecodeError`, not `ChatError` (low risk, fix when
+touching chat.py next); decision-time price + `executed` marker land in Phase 3's
+execution schema; UTC `date_label` accepted; pitch-expiry job revisited in Phase 3;
+`conftest.py` fixture consolidation if inbox tests keep growing.

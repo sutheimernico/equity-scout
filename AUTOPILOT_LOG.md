@@ -81,3 +81,12 @@
   pytest + ruff green throughout; 2 live smoke runs (30 entries, 0 skipped); schema migration
   verified against live DB. Branch feat/trading-copilot-phase-1. New dependency: none.
   Spec: docs/superpowers/specs/2026-07-04-trading-copilot-design.md; next: Phase 2 (notifications/inbox).
+- 2026-07-05 — Trading-Copilot Phase 2 (notifications & decision inbox) done interactively via
+  subagent-driven flow: stdlib Telegram client (buy/pass/later one-tap, sender security gate),
+  pitch builder (style breakdown + weakest-signal risk, Ollama seam + deterministic fallback),
+  pitches lifecycle + cooldown storage, notify pipeline (in-zone/threshold/cooldown, resilient
+  batch send, --dry-run), hardened long-poll receiver (backoff, self-healing edits), 24h-scoped
+  e-mail digest, GET /api/inbox + decision POST. 10 commits, 241 → 284 tests, pytest + ruff green
+  throughout; dry smoke created 2 real pitches from the live watchlist. Branch
+  feat/trading-copilot-phase-2 (stacked on phase-1). New dependency: none. Needs Nico for live
+  wiring: BotFather token + chat_id, SMTP creds. Next: Phase 3 (two-lane execution arena).

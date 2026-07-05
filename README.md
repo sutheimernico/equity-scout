@@ -72,6 +72,39 @@ The dashboard shows the risk buckets with a per-pick score-transparency drilldow
 (percentile x weight = contribution) and the paper portfolio's value vs. a benchmark.
 Scheduling a recurring run: see `docs/scheduling.md`. Factor definitions: `docs/factors.md`.
 
+## Trading copilot (radar → pitch → one-tap decision)
+
+On top of the screener, the copilot watches funnel finalists for genuinely attractive entry
+prices and turns them into decision pitches (spec:
+`docs/superpowers/specs/2026-07-04-trading-copilot-design.md`):
+
+```bash
+# 1. Radar: entry sub-signals + watchlist with entry zones (needs a prior run_scout run)
+uv run python scripts/run_radar.py --db equity_scout.db --json-out watchlist.json
+
+# 2. Notify: watchlist → inbox pitches (+ Telegram send if configured; --dry-run = inbox only)
+uv run python scripts/run_notify.py --db equity_scout.db --dry-run
+
+# 3. Receiver: long-polls Telegram for [Kaufen]/[Ablehnen]/[Später] button decisions
+uv run python scripts/run_receiver.py --db equity_scout.db
+
+# 4. Daily digest (prints to stdout when SMTP is not configured)
+uv run python scripts/run_digest.py --db equity_scout.db
+```
+
+Dashboard endpoints: `GET /api/radar`, `GET /api/inbox`, `POST /api/inbox/{id}/decision`.
+
+Environment variables (all optional — without them the pipeline degrades honestly to
+inbox-only / stdout; set them in your local `.env`, never commit values):
+
+| Variable | Purpose |
+|---|---|
+| `COPILOT_TG_BOT_TOKEN` | Telegram bot token (@BotFather) for pitch messages |
+| `COPILOT_TG_CHAT_ID` | your numeric Telegram chat id (sender security gate) |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | SMTP account for the daily digest |
+| `DIGEST_TO` | digest recipient address |
+| `OLLAMA_HOST` / `OLLAMA_MODEL` | local LLM for pitch texts (existing assistant settings) |
+
 ## Honesty guardrails
 Factor screens are well-studied but do not reliably beat the market. Free data (yfinance) is
 unofficial and incomplete outside the US. LLM theses are context-bounded interpretation, never
