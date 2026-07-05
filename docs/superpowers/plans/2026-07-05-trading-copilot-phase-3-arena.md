@@ -40,7 +40,7 @@ Lane names are the string constants `"nico"` and `"autopilot"` (defined once in 
 - Create: `src/equity_scout/lanes.py`
 - Test: `tests/test_lanes.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Lane engine tests — pure functions, synthetic portfolios, no network."""
@@ -126,12 +126,12 @@ def test_exit_boundary_is_exclusive():
     assert trades == []
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_lanes.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'equity_scout.lanes'`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """Two-lane paper execution engine.
@@ -153,7 +153,6 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import datetime
 
-from equity_scout.models import Instrument
 from equity_scout.portfolio import Portfolio, Position
 
 LANE_NICO = "nico"
@@ -250,11 +249,16 @@ def apply_exits(
     return replace(portfolio, cash=cash, positions=positions), trades
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+> **Deviation:** dropped the top-of-file `from equity_scout.models import Instrument` from
+> Task 1's `lanes.py` — `apply_exits` doesn't use `Instrument` yet, only `execute_buys` does
+> (Task 2), and ruff's F401 fails the required gate on an unused import. Re-added in Task 2
+> when `execute_buys` is appended.
+
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/test_lanes.py -v` — expected: all PASS.
 
-- [ ] **Step 5: Gate and commit**
+- [x] **Step 5: Gate and commit**
 
 ```bash
 .venv/bin/python -m pytest && .venv/bin/ruff check .
