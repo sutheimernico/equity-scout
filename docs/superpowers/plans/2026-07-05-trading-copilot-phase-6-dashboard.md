@@ -112,7 +112,7 @@ body { background: var(--bg-base); color: var(--text); font-family: var(--font-s
 
 **Files:** `frontend/src/api.ts` (append; mirror the existing `interface` + `fetchX` pattern exactly).
 
-- [ ] **Step 1: Add the types + fetchers** (field names EXACT per the endpoint shapes):
+- [x] **Step 1: Add the types + fetchers** (field names EXACT per the endpoint shapes):
 
 ```typescript
 // --- Radar ---
@@ -184,8 +184,8 @@ export const fetchModel = () => getJSON<ModelResponse>("/api/model");
 
 If the file has no shared `getJSON` helper, either add one (`async function getJSON<T>(url): Promise<T> { const r = await fetch(url); if (!r.ok) throw new Error(`${url} → ${r.status}`); return r.json(); }`) or follow the existing per-endpoint inline pattern — match whatever `api.ts` already does.
 
-- [ ] **Step 2: Gate** `cd frontend && npm run typecheck` (no build needed; nothing consumes these yet — tsc `noUnusedLocals` may flag unused fetchers, so if it errors, this task commits together with Task 3's first consumer OR mark the fetchers used via a re-export; simplest: land Task 2 + Task 3 in sequence and only gate-build after Task 3). Pragmatic: run `npm run typecheck` to confirm types are well-formed; if `noUnusedLocals` blocks, proceed to Task 3 before the build gate and commit both once green.
-- [ ] **Step 3: Commit** `feat(ui): add typed api layer for radar/inbox/arena/model`.
+- [x] **Step 2: Gate** `cd frontend && npm run typecheck` (no build needed; nothing consumes these yet — tsc `noUnusedLocals` may flag unused fetchers, so if it errors, this task commits together with Task 3's first consumer OR mark the fetchers used via a re-export; simplest: land Task 2 + Task 3 in sequence and only gate-build after Task 3). Pragmatic: run `npm run typecheck` to confirm types are well-formed; if `noUnusedLocals` blocks, proceed to Task 3 before the build gate and commit both once green.
+- [x] **Step 3: Commit** `feat(ui): add typed api layer for radar/inbox/arena/model`.
 
 ---
 

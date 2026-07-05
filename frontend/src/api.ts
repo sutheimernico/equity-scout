@@ -327,3 +327,181 @@ export async function fetchEntry(ticker: string): Promise<EntryResponse> {
   if (!response.ok) throw new Error(`/api/entry returned ${response.status}`);
   return response.json();
 }
+
+// ============================================================
+// Trading-copilot surfaces (Phase 6): Radar / Inbox / Arena / Model
+// Field names mirror the live endpoint shapes 1:1. Fetchers follow the inline
+// per-endpoint pattern above (no shared getJSON helper in this file).
+// ============================================================
+
+// --- Radar (src/equity_scout/api.py → /api/radar) ---
+export interface SignalReading {
+  name: string;
+  score: number;
+  reason: string;
+}
+
+export interface WatchlistEntry {
+  ticker: string;
+  name: string;
+  bucket: string;
+  price: number;
+  entry_zone_low: number;
+  entry_zone_high: number;
+  proximity: number;
+  in_zone: boolean;
+  composite: number;
+  readings: SignalReading[];
+  zone_note: string;
+  breakdown: Record<string, number>;
+}
+
+export interface Watchlist {
+  created_at: string;
+  entries: WatchlistEntry[];
+  skipped: Record<string, string>;
+  watchlist_id: number;
+}
+
+export interface RadarResponse {
+  watchlist: Watchlist | null;
+  disclaimer: string;
+}
+
+export async function fetchRadar(): Promise<RadarResponse> {
+  const response = await fetch("/api/radar");
+  if (!response.ok) throw new Error(`/api/radar returned ${response.status}`);
+  return response.json();
+}
+
+// --- Inbox (src/equity_scout/api.py → /api/inbox + decision POST) ---
+export type PitchStatus = "open" | "buy" | "pass" | "later";
+
+export interface Pitch {
+  id: number;
+  created_at: string;
+  ticker: string;
+  watchlist_id: number;
+  price: number;
+  composite: number;
+  zone_low: number;
+  zone_high: number;
+  pitch: string;
+  status: PitchStatus;
+  decided_at: string | null;
+  telegram_message_id: number | null;
+}
+
+export interface InboxResponse {
+  pitches: Pitch[];
+  disclaimer: string;
+}
+
+export async function fetchInbox(): Promise<InboxResponse> {
+  const response = await fetch("/api/inbox");
+  if (!response.ok) throw new Error(`/api/inbox returned ${response.status}`);
+  return response.json();
+}
+
+export interface DecisionResponse {
+  ok?: boolean;
+  pitch?: Pitch;
+  error?: string;
+  disclaimer: string;
+}
+
+export async function decidePitch(
+  id: number,
+  action: "buy" | "pass" | "later",
+): Promise<DecisionResponse> {
+  const response = await fetch(`/api/inbox/${id}/decision`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action }),
+  });
+  return response.json(); // 200/409/422 all carry a JSON body
+}
+
+// --- Arena (src/equity_scout/api.py → /api/arena) ---
+export interface LanePosition {
+  ticker: string;
+  name: string;
+  shares: number;
+  cost_basis: number;
+  last_price: number | null;
+  opened_at: string;
+}
+
+export interface LaneTrade {
+  id: number;
+  created_at: string;
+  lane: string;
+  ticker: string;
+  side: string;
+  shares: number;
+  fill_price: number;
+  cost: number;
+  reason: string;
+  pitch_id: number | null;
+}
+
+export interface Lane {
+  lane: string;
+  initial_capital: number;
+  total_value: number;
+  total_return: number;
+  benchmark_return: number;
+  open_positions: LanePosition[];
+  equity_curve: [string, number, number][];
+  trades: LaneTrade[];
+}
+
+export interface ArenaResponse {
+  available: boolean;
+  lanes: Lane[];
+  disclaimer: string;
+}
+
+export async function fetchArena(): Promise<ArenaResponse> {
+  const response = await fetch("/api/arena");
+  if (!response.ok) throw new Error(`/api/arena returned ${response.status}`);
+  return response.json();
+}
+
+// --- Model (src/equity_scout/api.py → /api/model) ---
+export interface RegistryEntry {
+  version: number;
+  created_at: string;
+  model_kind: string;
+  n_train: number;
+  metrics: Record<string, number | null>;
+  is_champion: boolean;
+}
+
+export interface ResolvedStats {
+  n_resolved: number;
+  n_open: number;
+  hit_rate: number | null;
+  rank_ic: number | null;
+  by_score_bucket: Record<string, number>;
+}
+
+export interface ModelResponse {
+  available: boolean;
+  champion: {
+    version: number;
+    created_at: string;
+    model_kind: string;
+    metrics: Record<string, number | null>;
+  } | null;
+  registry: RegistryEntry[];
+  resolved: ResolvedStats;
+  drift: null;
+  disclaimer: string;
+}
+
+export async function fetchModel(): Promise<ModelResponse> {
+  const response = await fetch("/api/model");
+  if (!response.ok) throw new Error(`/api/model returned ${response.status}`);
+  return response.json();
+}
