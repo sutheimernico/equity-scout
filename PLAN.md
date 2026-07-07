@@ -128,6 +128,24 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       of the universe; no concrete driver for a repo split yet); flagged Rank-IC tracking on
       run-history as the correctly-scoped, lower-cost future step instead of meta-labeling.
 
+## Phase: Signal-Radar v3 — external evidence + full automation (2026-07-07) — IN PROGRESS
+> Vision (Nico, in-session 2026-07-07): congress trades + famous-fund 13F moves + news themes
+> as evidence on pitches and as separate alerts, fully unattended via cron, each source
+> honesty-tracked in its own predict-then-resolve ledger. Evidence annotates — it NEVER
+> changes the entry composite or selection rules.
+> **Active plan + task backlog: `docs/superpowers/plans/2026-07-07-signal-radar-v3-external-evidence.md`**
+- [x] Task 0 — baseline gate + branch hygiene (gate was red from clean checkout; fixed)
+- [ ] Task 1 — evidence storage + per-source ledger (foundation)
+- [ ] Task 2 — congress-trades collector
+- [ ] Task 3 — EDGAR 13F collector (tracked funds, quarter diff)
+- [ ] Task 4 — news-theme radar
+- [ ] Task 5 — pitch evidence block + labelled evidence alerts
+- [ ] Task 6 — ledger wiring + edge monitor (API/digest)
+- [ ] Task 7 — automation glue: daily cron chain + receiver keepalive
+- [ ] Task 8 — docs, outcome, verification
+
 ## Needs Nico (loop cannot do these itself)
 - Git remote / visibility decision before any first push (repo is currently local-only).
 - Any data source that would require a paid key (do NOT sign up — log here instead).
+- `EDGAR_USER_AGENT="name (email)"` in `.env` so the 13F collector can run (stays politely
+  `unconfigured` until then; never faked).
