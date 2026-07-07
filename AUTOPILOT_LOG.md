@@ -129,3 +129,4 @@
   legacy violet. Reviews on Opus 4.8. Branch feat/trading-copilot-phase-6. New dependency: none.
 - 2026-07-07 fix: gate command `uv run pytest -q` was broken from clean checkout (9 collection errors — scripts/tests imports need repo root on sys.path); pinned pytest pythonpath=["."] — 408 tests green
 - 2026-07-07 feat: congress-trades collector (kadoa monitor mirror, purchases only, filing-window bound) — live smoke 193 events; evidence store+ledger foundation shipped same day
+- 2026-07-07 feat: EDGAR 13F collector (8 tracked funds, stateless two-filing diff) — live smoke 7/8 funds, 36 events, share-class dedup + stale-fund guard fixed after first live run
