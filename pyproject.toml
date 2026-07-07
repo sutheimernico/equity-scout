@@ -31,6 +31,10 @@ target-version = "py311"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# Tests import scripts.* and tests.* as repo-root namespace packages; plain `pytest`
+# (unlike `python -m pytest`) does not put the cwd on sys.path, so pin it here to make
+# the documented gate command `uv run pytest -q` work from a clean checkout.
+pythonpath = ["."]
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -127,3 +127,4 @@
   sign-off is Nico's per spec §8 (gate is liveness + data-shape only). Two contrast follow-ups
   flagged: white-on-accent in the Assistent chat (needs --on-accent token) and the .champion-glow
   legacy violet. Reviews on Opus 4.8. Branch feat/trading-copilot-phase-6. New dependency: none.
+- 2026-07-07 fix: gate command `uv run pytest -q` was broken from clean checkout (9 collection errors — scripts/tests imports need repo root on sys.path); pinned pytest pythonpath=["."] — 408 tests green
