@@ -135,8 +135,9 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 > changes the entry composite or selection rules.
 > **Active plan + task backlog: `docs/superpowers/plans/2026-07-07-signal-radar-v3-external-evidence.md`**
 - [x] Task 0 — baseline gate + branch hygiene (gate was red from clean checkout; fixed)
-- [ ] Task 1 — evidence storage + per-source ledger (foundation)
-- [ ] Task 2 — congress-trades collector
+- [x] Task 1 — evidence storage + per-source ledger (foundation)
+- [x] Task 2 — congress-trades collector (live smoke 2026-07-07: 5000 rows → 193 purchases
+      in the 30d filing window, honest skip counters for ticker-less/stale/derivative rows)
 - [ ] Task 3 — EDGAR 13F collector (tracked funds, quarter diff)
 - [ ] Task 4 — news-theme radar
 - [ ] Task 5 — pitch evidence block + labelled evidence alerts
