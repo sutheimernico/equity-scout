@@ -138,9 +138,13 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] Task 1 — evidence storage + per-source ledger (foundation)
 - [x] Task 2 — congress-trades collector (live smoke 2026-07-07: 5000 rows → 193 purchases
       in the 30d filing window, honest skip counters for ticker-less/stale/derivative rows)
-- [ ] Task 3 — EDGAR 13F collector (tracked funds, quarter diff)
-- [ ] Task 4 — news-theme radar
-- [ ] Task 5 — pitch evidence block + labelled evidence alerts
+- [x] Task 3 — EDGAR 13F collector (live smoke 2026-07-07: 7/8 funds diffed, 36 events,
+      1 stale fund skipped; share-class dedup + staleness guard added after first live run)
+- [x] Task 4 — news-theme radar (live smoke 2026-07-07: 130 headlines/3 feeds; LLM labelling
+      dropped as YAGNI — deterministic bigrams are already readable; unigram bar doubled)
+- [x] Task 5 — pitch evidence block + labelled evidence alerts (evidence annotates
+      pitches between Kennzahlen and Analystensicht; off-watchlist clusters ≥2 buyers/funds
+      alert without decision buttons, 14d cooldown, row-before-send)
 - [ ] Task 6 — ledger wiring + edge monitor (API/digest)
 - [ ] Task 7 — automation glue: daily cron chain + receiver keepalive
 - [ ] Task 8 — docs, outcome, verification

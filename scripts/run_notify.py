@@ -6,6 +6,10 @@ Usage:
 
 Without COPILOT_TG_BOT_TOKEN/COPILOT_TG_CHAT_ID (or with --dry-run) pitches are
 only written to the inbox — nothing is sent. Run scripts/run_radar.py first.
+
+Pitches for watchlist candidates are annotated with external evidence (congress /
+13F / news themes) from the trailing window; evidence clusters on OFF-watchlist
+tickers go out as separately labelled evidence alerts (no decision buttons).
 """
 from __future__ import annotations
 
@@ -16,8 +20,14 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 
 from equity_scout.constants import DEFAULT_DB_PATH
+from equity_scout.evidence.storage import events_in_window
 from equity_scout.fundamentals import fetch_fundamentals
-from equity_scout.notify import DEFAULT_COOLDOWN_DAYS, DEFAULT_THRESHOLD, notify_watchlist
+from equity_scout.notify import (
+    DEFAULT_COOLDOWN_DAYS,
+    DEFAULT_THRESHOLD,
+    notify_watchlist,
+    send_evidence_alerts,
+)
 from equity_scout.pitch import build_pitch
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.telegram_client import (
@@ -25,6 +35,10 @@ from equity_scout.telegram_client import (
     load_telegram_config,
     send_message,
 )
+
+# Congress filings arrive up to 45 days late; a 30-day window over EVENT dates keeps
+# the pitch block about recent facts while the delay note carries the honesty context.
+EVIDENCE_WINDOW_DAYS = 30
 
 
 def _telegram_sender(config: dict) -> Callable[[int, str], int]:
@@ -34,6 +48,15 @@ def _telegram_sender(config: dict) -> Callable[[int, str], int]:
         return send_message(
             config["token"], config["chat_id"], text, build_decision_keyboard(pitch_id)
         )
+
+    return send
+
+
+def _alert_sender(config: dict) -> Callable[[str], int]:
+    """Alerts go out WITHOUT a decision keyboard — they are not screener pitches."""
+
+    def send(text: str) -> int:
+        return send_message(config["token"], config["chat_id"], text, None)
 
     return send
 
@@ -54,16 +77,35 @@ def main() -> int:
     config = None if args.dry_run else load_telegram_config(dict(os.environ))
     if config is None:
         send = None
+        alert_send = None
         print("Telegram not configured — writing inbox pitches only.")
     else:
         send = _telegram_sender(config)
+        alert_send = _alert_sender(config)
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    watchlist_tickers = [entry["ticker"] for entry in watchlist.get("entries", [])]
+    evidence_by_ticker = events_in_window(
+        args.db, window_days=EVIDENCE_WINDOW_DAYS, now=now, tickers=watchlist_tickers
+    )
+
+    def build(entry: dict, fundamentals) -> str:
+        return build_pitch(
+            entry, fundamentals, evidence=evidence_by_ticker.get(entry["ticker"])
+        )
+
     count = notify_watchlist(
-        args.db, watchlist, build=build_pitch, send=send, enrich=fetch_fundamentals,
+        args.db, watchlist, build=build, send=send, enrich=fetch_fundamentals,
         threshold=args.threshold, cooldown_days=args.cooldown_days, now=now,
     )
     print(f"Pitches created: {count}.")
+
+    off_watchlist = events_in_window(
+        args.db, window_days=EVIDENCE_WINDOW_DAYS, now=now,
+        exclude_tickers=watchlist_tickers,
+    )
+    alerts = send_evidence_alerts(args.db, off_watchlist, send=alert_send, now=now)
+    print(f"Evidenz-Alarme: {alerts}.")
     return 0
 
 

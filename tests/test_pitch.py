@@ -143,3 +143,29 @@ def test_build_pitch_stays_under_telegram_limit_and_keeps_frame():
     # the deterministic structured sections are never the part cut
     assert "Einstiegs-Score: 59/100 (mittel)" in pitch
     assert "Analystensicht:" in pitch
+
+
+def test_build_pitch_inserts_evidence_block_between_kennzahlen_and_analyst():
+    evidence = [
+        {
+            "source": "congress",
+            "ticker": "EXE",
+            "event_key": "Jane Doe-2026-07-01",
+            "event_date": "2026-07-01",
+            "details": {"politician": "Jane Doe", "filing_date": "2026-07-01"},
+        }
+    ]
+    pitch = build_pitch(ENTRY, FUND, ask=_fixed(), evidence=evidence)
+    assert "Externe Signale:" in pitch
+    assert "1 Kongress-Kauf/Käufe gemeldet (Jane Doe, zuletzt 2026-07-01)" in pitch
+    # Position: after the Kennzahlen block, before the third-party analyst view.
+    assert pitch.index("Kennzahlen:") < pitch.index("Externe Signale:") < pitch.index(
+        "Analystensicht:"
+    )
+    # The structural-delay honesty note rides along.
+    assert "kein Frühsignal" in pitch
+
+
+def test_build_pitch_without_evidence_has_no_evidence_block():
+    pitch = build_pitch(ENTRY, FUND, ask=_fixed())
+    assert "Externe Signale:" not in pitch

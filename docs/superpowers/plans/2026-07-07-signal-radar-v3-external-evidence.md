@@ -138,14 +138,19 @@ never guessed.
       → `news_theme` evidence event; tests
 - [ ] Gate green → commit
 
-### Task 5 — Aggregation into pitches + evidence alerts
-- [ ] `evidence_summary` → `evidence_block` German text (counts + recency + delay disclaimer);
-      `build_pitch(entry, fundamentals, evidence=None)` inserts block; tests extend test_pitch
-- [ ] Evidence alerts: off-watchlist clusters (≥2 distinct congress buyers in 30d OR ≥2 tracked
+### Task 5 — Aggregation into pitches + evidence alerts — DONE 2026-07-10
+- [x] `evidence_block` German text (counts + recency + delay disclaimer);
+      `build_pitch(entry, fundamentals, evidence=None)` inserts block between Kennzahlen and
+      Analystensicht; tests extend test_pitch
+- [x] Evidence alerts: off-watchlist clusters (≥2 distinct congress buyers in 30d OR ≥2 tracked
       funds newly in) → clearly labelled "🔎 Evidenz-Alarm — kein Screener-Pick" Telegram text
-      with SHORT_DISCLAIMER + delays; reuses inbox `create_pitch` + per-ticker cooldown; tests
-- [ ] `run_notify.py` wiring (evidence summaries for candidates; alerts after pitches)
-- [ ] Gate green → commit
+      with SHORT_DISCLAIMER + delays. DEVIATION from plan: alerts do NOT reuse inbox
+      `create_pitch` — they live in their own `evidence_alerts` table because the inbox schema
+      has NOT-NULL price/zone/composite columns that alerts would have to fake; own 14-day
+      cooldown (facts accumulate slowly), row-before-send, no decision keyboard; tests
+- [x] `run_notify.py` wiring (evidence summaries for candidates via build seam; alerts after
+      pitches; alert sender without keyboard)
+- [x] Gate green → commit
 
 ### Task 6 — Ledger wiring + edge monitor
 - [ ] `run_evidence.py` logs every NEW event to the evidence ledger (horizon 60d);

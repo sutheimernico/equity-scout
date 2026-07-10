@@ -61,6 +61,86 @@ def record_events(
     return inserted
 
 
+def init_alerts_db(db_path: str = DEFAULT_DB_PATH) -> None:
+    """Evidence alerts live OUTSIDE the decision inbox: they carry no price, no entry
+    zone, no composite and no decision buttons — a separate table keeps the inbox's
+    NOT-NULL screener contract intact instead of faking zeros into it."""
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS evidence_alerts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                ticker TEXT NOT NULL,
+                reasons_json TEXT NOT NULL,
+                text TEXT NOT NULL,
+                telegram_message_id INTEGER
+            )"""
+        )
+
+
+def record_alert(
+    db_path: str,
+    *,
+    ticker: str,
+    reasons: list[str],
+    text: str,
+    telegram_message_id: int | None,
+    now: str,
+) -> int:
+    init_alerts_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.execute(
+            "INSERT INTO evidence_alerts"
+            " (created_at, ticker, reasons_json, text, telegram_message_id)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (now, ticker, json.dumps(reasons, ensure_ascii=False), text,
+             telegram_message_id),
+        )
+        return int(cursor.lastrowid or 0)
+
+
+def set_alert_message_id(db_path: str, alert_id: int, message_id: int) -> None:
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "UPDATE evidence_alerts SET telegram_message_id = ? WHERE id = ?",
+            (message_id, alert_id),
+        )
+
+
+def last_alert_at(db_path: str, ticker: str) -> str | None:
+    """Cooldown source for alerts, mirroring inbox_storage.last_pitch_at."""
+    init_alerts_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT created_at FROM evidence_alerts WHERE ticker = ?"
+            " ORDER BY created_at DESC LIMIT 1",
+            (ticker,),
+        ).fetchone()
+    return row[0] if row else None
+
+
+def load_alerts(db_path: str, *, limit: int = 50) -> list[dict]:
+    """Newest-first alert rows for the API/dashboard and tests."""
+    init_alerts_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT id, created_at, ticker, reasons_json, text, telegram_message_id"
+            " FROM evidence_alerts ORDER BY created_at DESC, id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [
+        {
+            "id": row[0],
+            "created_at": row[1],
+            "ticker": row[2],
+            "reasons": json.loads(row[3]),
+            "text": row[4],
+            "telegram_message_id": row[5],
+        }
+        for row in rows
+    ]
+
+
 def _within_window(event_date: str, now: str, window_days: int) -> bool:
     """Real datetime compare (not lexical): event dates may carry times or offsets."""
     event = datetime.fromisoformat(event_date)

@@ -4,9 +4,11 @@ from __future__ import annotations
 import sys
 
 import scripts.run_notify as run_notify_mod
+from equity_scout.evidence.base import SOURCE_CONGRESS, EvidenceEvent
+from equity_scout.evidence.storage import load_alerts, record_events
 from equity_scout.fundamentals import Fundamentals
 from equity_scout.inbox_storage import create_pitch, load_pitches
-from equity_scout.notify import notify_watchlist, select_candidates
+from equity_scout.notify import notify_watchlist, select_candidates, send_evidence_alerts
 from equity_scout.pitch import build_pitch
 from equity_scout.radar import Watchlist, WatchlistEntry
 from equity_scout.radar_storage import save_watchlist
@@ -239,6 +241,92 @@ def _seed_watchlist_db(db: str, ticker: str = "YES", composite: float = 0.6) -> 
     return save_watchlist(db, Watchlist(created_at=NOW, entries=[entry]))
 
 
+def _evidence_event(ticker: str, politician: str, event_date: str) -> EvidenceEvent:
+    return EvidenceEvent(
+        source=SOURCE_CONGRESS,
+        ticker=ticker,
+        event_key=f"{politician}-{event_date}",
+        event_date=event_date,
+        details={"politician": politician, "filing_date": event_date},
+    )
+
+
+def _cluster(ticker: str, *politicians: str, event_date: str = "2026-07-01") -> dict:
+    return {
+        ticker: [
+            {
+                "source": SOURCE_CONGRESS,
+                "ticker": ticker,
+                "event_key": f"{p}-{event_date}",
+                "event_date": event_date,
+                "details": {"politician": p, "filing_date": event_date},
+            }
+            for p in politicians
+        ]
+    }
+
+
+def test_send_evidence_alerts_records_before_send_and_sets_message_id(tmp_path):
+    db = str(tmp_path / "alerts.db")
+    sent: list[str] = []
+
+    def fake_send(text: str) -> int:
+        sent.append(text)
+        return 4711
+
+    count = send_evidence_alerts(
+        db, _cluster("EXE", "Jane Doe", "John Roe"), send=fake_send, now=NOW
+    )
+    assert count == 1
+    alerts = load_alerts(db)
+    assert len(alerts) == 1
+    assert alerts[0]["ticker"] == "EXE"
+    assert alerts[0]["reasons"] == ["2 Kongress-Mitglieder haben gekauft"]
+    assert alerts[0]["telegram_message_id"] == 4711
+    assert sent and "kein Screener-Pick" in sent[0]
+
+
+def test_send_evidence_alerts_survives_telegram_error(tmp_path, capsys):
+    db = str(tmp_path / "alerts.db")
+
+    def boom(text: str) -> int:
+        raise TelegramError("chat not found")
+
+    count = send_evidence_alerts(
+        db, _cluster("EXE", "Jane Doe", "John Roe"), send=boom, now=NOW
+    )
+    assert count == 1  # the row is the source of truth; the send is best-effort
+    assert "Evidenz-Alarm EXE fehlgeschlagen" in capsys.readouterr().err
+    assert load_alerts(db)[0]["telegram_message_id"] is None
+
+
+def test_send_evidence_alerts_respects_cooldown(tmp_path):
+    db = str(tmp_path / "alerts.db")
+    clusters = _cluster("EXE", "Jane Doe", "John Roe")
+    assert send_evidence_alerts(db, clusters, send=None, now=NOW) == 1
+    # Second run inside the 14-day window: same cluster, no new row.
+    assert send_evidence_alerts(db, clusters, send=None, now=NOW) == 0
+    assert len(load_alerts(db)) == 1
+    # After the cooldown the accumulated facts may re-alert.
+    later = "2026-07-20T12:00:00+00:00"
+    assert send_evidence_alerts(db, clusters, send=None, now=later) == 1
+
+
+def test_send_evidence_alerts_without_sender_records_rows_only(tmp_path):
+    db = str(tmp_path / "alerts.db")
+    count = send_evidence_alerts(
+        db, _cluster("EXE", "Jane Doe", "John Roe"), send=None, now=NOW
+    )
+    assert count == 1
+    assert load_alerts(db)[0]["telegram_message_id"] is None
+
+
+def test_send_evidence_alerts_ignores_single_buyer_noise(tmp_path):
+    db = str(tmp_path / "alerts.db")
+    assert send_evidence_alerts(db, _cluster("EXE", "Jane Doe"), send=None, now=NOW) == 0
+    assert load_alerts(db) == []
+
+
 def test_main_writes_inbox_only_without_telegram_config(tmp_path, monkeypatch, capsys):
     """No COPILOT_TG_* env -> inbox-only path, exit 0, no network attempted."""
     db = str(tmp_path / "run.db")
@@ -248,7 +336,9 @@ def test_main_writes_inbox_only_without_telegram_config(tmp_path, monkeypatch, c
     # build_pitch's default `ask` seam calls the (possibly unreachable) local Ollama
     # server and enrich hits yfinance; fake both so this CLI test never touches the network.
     monkeypatch.setattr(
-        run_notify_mod, "build_pitch", lambda entry, fund: f"PITCH {entry['ticker']}"
+        run_notify_mod,
+        "build_pitch",
+        lambda entry, fund, evidence=None: f"PITCH {entry['ticker']}",
     )
     monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
     monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db])
@@ -279,7 +369,9 @@ def test_main_dry_run_never_sends_even_with_telegram_config(tmp_path, monkeypatc
 
     monkeypatch.setattr(run_notify_mod, "send_message", fail_loudly)
     monkeypatch.setattr(
-        run_notify_mod, "build_pitch", lambda entry, fund: f"PITCH {entry['ticker']}"
+        run_notify_mod,
+        "build_pitch",
+        lambda entry, fund, evidence=None: f"PITCH {entry['ticker']}",
     )
     monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
     monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db, "--dry-run"])
@@ -302,3 +394,45 @@ def test_main_exits_1_without_watchlist(tmp_path, monkeypatch, capsys):
 
     assert main() == 1
     assert "No watchlist found" in capsys.readouterr().err
+
+
+def test_main_annotates_pitches_with_evidence_and_alerts_off_watchlist(
+    tmp_path, monkeypatch, capsys
+):
+    """Wiring test: watchlist-ticker evidence reaches build_pitch; an off-watchlist
+    congress cluster becomes exactly one alert row. main() uses the real clock, so
+    the seeded events are dated relative to today (test setup only — never prod)."""
+    from datetime import datetime, timezone
+
+    db = str(tmp_path / "run.db")
+    _seed_watchlist_db(db)  # watchlist ticker: YES
+    today = datetime.now(timezone.utc).date().isoformat()
+    record_events(
+        db,
+        [
+            _evidence_event("YES", "Jane Doe", today),
+            _evidence_event("OFFW", "Jane Doe", today),
+            _evidence_event("OFFW", "John Roe", today),
+        ],
+        now=f"{today}T00:00:00+00:00",
+    )
+    monkeypatch.delenv("COPILOT_TG_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("COPILOT_TG_CHAT_ID", raising=False)
+    monkeypatch.setattr(
+        run_notify_mod,
+        "build_pitch",
+        lambda entry, fund, evidence=None: f"PITCH {entry['ticker']} ev={len(evidence or [])}",
+    )
+    monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
+    monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db])
+
+    assert main() == 0
+
+    out = capsys.readouterr().out
+    assert "Pitches created: 1." in out
+    assert "Evidenz-Alarme: 1." in out
+    # The watchlist candidate's single congress event reached the pitch builder ...
+    assert load_pitches(db)[0]["pitch"] == "PITCH YES ev=1"
+    # ... and only the off-watchlist CLUSTER alerted (YES has one buyer -> no alert).
+    alerts = load_alerts(db)
+    assert [a["ticker"] for a in alerts] == ["OFFW"]

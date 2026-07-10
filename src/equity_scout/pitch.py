@@ -18,6 +18,7 @@ from collections.abc import Callable
 
 from equity_scout.chat import ChatError, ask_ollama
 from equity_scout.constants import SHORT_DISCLAIMER
+from equity_scout.evidence.aggregate import evidence_block
 from equity_scout.fundamentals import Fundamentals
 
 PITCH_LLM_UNAVAILABLE_PREFIX = "(Automatische Kurzeinschätzung nicht verfügbar)"
@@ -131,12 +132,17 @@ def _risk_line(entry: dict) -> str | None:
     return f"Risiko: {weakest['reason']}"
 
 
-def _structured_body(entry: dict, fundamentals: Fundamentals | None) -> str:
+def _structured_body(
+    entry: dict, fundamentals: Fundamentals | None, evidence: list[dict] | None
+) -> str:
     cur = f" {fundamentals.currency}" if fundamentals and fundamentals.currency else ""
     blocks = [
         _score_line(entry),
         _tranche_block(entry, cur),
         _kennzahlen_block(entry, fundamentals),
+        # External evidence annotates the pitch; it has no influence on the composite
+        # or the selection above — see evidence/aggregate.py for the delay honesty note.
+        evidence_block(evidence) if evidence else None,
         _analyst_line(entry, fundamentals, cur),
         _risk_line(entry),
     ]
@@ -147,11 +153,12 @@ def build_pitch(
     entry: dict,
     fundamentals: Fundamentals | None = None,
     ask: Callable[[str, str], str] = _ask_default,
+    evidence: list[dict] | None = None,
 ) -> str:
     """Header + LLM interpretation (or fallback) + deterministic structured sections."""
     header = f"📈 {entry['ticker']} — {entry['name']}"
     prose = _interpretation(entry, ask)
-    body = _structured_body(entry, fundamentals)
+    body = _structured_body(entry, fundamentals, evidence)
     # Header + structured body + disclaimer form the frame that must survive truncation;
     # the interpretive LLM prose is cut first, so a shortened message stays honest + intact.
     # separators: header\n prose \n\n body \n\n disclaimer = 5 chars.

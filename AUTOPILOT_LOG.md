@@ -131,3 +131,4 @@
 - 2026-07-07 feat: congress-trades collector (kadoa monitor mirror, purchases only, filing-window bound) — live smoke 193 events; evidence store+ledger foundation shipped same day
 - 2026-07-07 feat: EDGAR 13F collector (8 tracked funds, stateless two-filing diff) — live smoke 7/8 funds, 36 events, share-class dedup + stale-fund guard fixed after first live run
 - 2026-07-07 feat: news-theme radar (Google News RSS + MarketWatch + Fed press, deterministic bigram counting, no LLM) — live smoke 130 headlines/3 feeds; unigram bar doubled after noise in first live run
+- 2026-07-10 feat: evidence wired into notify path — pitches carry "Externe Signale" block (30d window, delay note), off-watchlist clusters (≥2 congress buyers or ≥2 funds) send labelled no-button alerts with 14d cooldown, row-before-send; 13 new tests
