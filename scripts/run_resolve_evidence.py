@@ -19,6 +19,7 @@ import pandas as pd
 
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.evidence.ledger import due_evidence, resolve_evidence, stats_by_source
+from equity_scout.evidence.person_track import yf_symbol
 from equity_scout.market import PricePanel
 from equity_scout.ml.entry_eval import relative_forward_return
 
@@ -41,14 +42,15 @@ def _realized_relative_return(
     panel date on/after created_at; None (row stays open) if the panel lacks the ticker
     or the full forward window."""
     closes = panel.closes
-    if ticker not in closes.columns or BENCHMARK not in closes.columns:
+    symbol = yf_symbol(ticker)
+    if symbol not in closes.columns or BENCHMARK not in closes.columns:
         return None
-    pair = closes[[ticker, BENCHMARK]].dropna()
+    pair = closes[[symbol, BENCHMARK]].dropna()
     on_or_after = pair.index[pair.index >= _as_of_timestamp(created_at)]
     if len(on_or_after) == 0:
         return None
     return relative_forward_return(
-        pair[ticker], pair[BENCHMARK], on_or_after[0], horizon_days
+        pair[symbol], pair[BENCHMARK], on_or_after[0], horizon_days
     )
 
 
@@ -62,7 +64,7 @@ def run_resolve_evidence(
     due = due_evidence(db_path, now)
     resolved = 0
     if due:
-        tickers = sorted({d["ticker"] for d in due} | {BENCHMARK})
+        tickers = sorted({yf_symbol(d["ticker"]) for d in due} | {BENCHMARK})
         start = min(_as_of_timestamp(d["created_at"]) for d in due).date().isoformat()
         panel = fetch_prices(tickers, start)
         for row in due:
@@ -80,10 +82,11 @@ def run_resolve_evidence(
 
 
 def _fetch_price_panel(tickers: list[str], start: str) -> PricePanel:
-    """Network default; lazy import keeps yfinance out of import time and tests."""
-    from equity_scout.data.etf_panel import load_etf_panel
+    """Network default; column-wise history — evidence tickers are heterogeneous, so a
+    junk symbol or young IPO must not trim every other ticker's usable range."""
+    from equity_scout.data.etf_panel import load_price_history
 
-    return load_etf_panel(tickers, start=start, snapshot=RESOLVE_SNAPSHOT, refresh=True)
+    return load_price_history(tickers, start=start, snapshot=RESOLVE_SNAPSHOT, refresh=True)
 
 
 def main() -> int:

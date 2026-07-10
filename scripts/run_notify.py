@@ -20,6 +20,8 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 
 from equity_scout.constants import DEFAULT_DB_PATH
+from equity_scout.evidence.aggregate import attach_track_records
+from equity_scout.evidence.person_storage import person_score_index
 from equity_scout.evidence.storage import events_in_window
 from equity_scout.fundamentals import fetch_fundamentals
 from equity_scout.notify import (
@@ -85,8 +87,13 @@ def main() -> int:
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     watchlist_tickers = [entry["ticker"] for entry in watchlist.get("entries", [])]
-    evidence_by_ticker = events_in_window(
-        args.db, window_days=EVIDENCE_WINDOW_DAYS, now=now, tickers=watchlist_tickers
+    # Measured person scores (weekly run_person_scores refresh) annotate both surfaces.
+    score_index = person_score_index(args.db)
+    evidence_by_ticker = attach_track_records(
+        events_in_window(
+            args.db, window_days=EVIDENCE_WINDOW_DAYS, now=now, tickers=watchlist_tickers
+        ),
+        score_index,
     )
 
     def build(entry: dict, fundamentals) -> str:
@@ -100,9 +107,12 @@ def main() -> int:
     )
     print(f"Pitches created: {count}.")
 
-    off_watchlist = events_in_window(
-        args.db, window_days=EVIDENCE_WINDOW_DAYS, now=now,
-        exclude_tickers=watchlist_tickers,
+    off_watchlist = attach_track_records(
+        events_in_window(
+            args.db, window_days=EVIDENCE_WINDOW_DAYS, now=now,
+            exclude_tickers=watchlist_tickers,
+        ),
+        score_index,
     )
     alerts = send_evidence_alerts(args.db, off_watchlist, send=alert_send, now=now)
     print(f"Evidenz-Alarme: {alerts}.")

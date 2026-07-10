@@ -29,6 +29,12 @@ TRADES_URL = (
     "https://raw.githubusercontent.com/kadoa-org/congress-trading-monitor"
     "/main/public/data/trades.json"
 )
+# Per-filer FULL purchase history (trades.json is capped at 5000 rows ≈ 2 months —
+# verified 2026-07-10); fetched per active filer only, for person track records.
+FILER_URL_TEMPLATE = (
+    "https://raw.githubusercontent.com/kadoa-org/congress-trading-monitor"
+    "/main/public/data/filer/{filer_id}.json"
+)
 # New information is the FILING (public disclosure), not the trade itself — bound the
 # collection window on filing_date so a first run cannot flood the ledger with history.
 DEFAULT_MAX_FILING_AGE_DAYS = 30
@@ -108,6 +114,8 @@ def parse_congress_trades(
                 event_date=row.get("filing_date") or row.get("transaction_date") or "",
                 details={
                     "politician": row.get("filer_name"),
+                    # keyed id of the mirror's per-filer history file (person scoring)
+                    "filer_id": row.get("filer_id"),
                     "party": row.get("party"),
                     "chamber": row.get("chamber") or row.get("branch"),
                     "transaction_date": row.get("transaction_date"),
@@ -118,6 +126,19 @@ def parse_congress_trades(
             )
         )
     return events, counters
+
+
+def fetch_filer_history(
+    filer_id: str, http_get: Callable[[str], str] | None = None
+) -> dict | None:
+    """One filer's full history payload from the mirror, or None (counted upstream) —
+    a missing/renamed filer file must never break the scoring sweep."""
+    get = http_get if http_get is not None else _http_get_default
+    try:
+        payload = json.loads(get(FILER_URL_TEMPLATE.format(filer_id=filer_id)))
+    except Exception:  # noqa: BLE001 — transport/JSON failures degrade to None
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 def fetch_congress_trades(

@@ -18,6 +18,61 @@ DELAY_NOTE = (
 
 _CHANGE_LABEL = {"new": "neue Position", "increased": "Position aufgestockt"}
 
+# A single buyer may alert alone only above this recency-weighted mean abnormal
+# return @3M vs SPY — and only with a gated sample (scoreable). History, no forecast.
+MIN_SINGLE_BUYER_SCORE = 0.02
+
+
+def _person_of(event: dict) -> str | None:
+    details = event.get("details") or {}
+    return details.get("politician") or details.get("fund")
+
+
+def track_record_note(score_row: dict) -> str:
+    """One honest German line for a measured person score (always carries n + caveat)."""
+    return (
+        f"Track-Record: {score_row['n_calls']} Käufe,"
+        f" {round((score_row['hit_rate_long'] or 0) * 100)} % Treffer 3M,"
+        f" Ø {(score_row['weighted_score'] or 0) * 100:+.1f} % vs SPY"
+        " — Historie, keine Prognose"
+    )
+
+
+def attach_track_records(
+    clusters: dict[str, list[dict]], score_index: dict[tuple[str, str], dict]
+) -> dict[str, list[dict]]:
+    """Annotate events whose person has a MEASURED, gated score (person_storage index).
+
+    Ungated persons stay unannotated on purpose: "zu wenig Daten" is a non-statement,
+    not a bad score. Returns the same dict for chaining; events are annotated in place.
+    """
+    for events in clusters.values():
+        for event in events:
+            person = _person_of(event)
+            if not person:
+                continue
+            row = score_index.get((person, event["source"]))
+            if row and row["scoreable"]:
+                event["details"]["track_record"] = {
+                    "note": track_record_note(row),
+                    "weighted_score": row["weighted_score"],
+                    "n_calls": row["n_calls"],
+                }
+    return clusters
+
+
+def _track_record_lines(events: list[dict]) -> list[str]:
+    lines: list[str] = []
+    seen: set[str] = set()
+    for event in events:
+        person = _person_of(event)
+        record = (event.get("details") or {}).get("track_record")
+        if not person or person in seen or not record:
+            continue
+        seen.add(person)
+        lines.append(f"• {person} — {record['note']}")
+    return lines
+
 
 def _congress_line(events: list[dict]) -> str | None:
     buys = [e for e in events if e["source"] == SOURCE_CONGRESS]
@@ -73,6 +128,7 @@ def evidence_block(events: list[dict]) -> str | None:
     lines += _theme_lines(events)
     if not lines:
         return None
+    lines += _track_record_lines(events)
     return "\n".join(["Externe Signale:", *lines, DELAY_NOTE])
 
 
@@ -81,10 +137,14 @@ def select_evidence_alerts(
     *,
     min_congress_buyers: int = 2,
     min_funds: int = 2,
+    min_single_buyer_score: float = MIN_SINGLE_BUYER_SCORE,
 ) -> list[dict]:
     """Off-watchlist tickers with a genuine evidence CLUSTER — one politician's buy is
     noise, several distinct buyers (or several tracked funds moving in) is worth a look.
-    Themes alone never alert: they are the weakest, most-priced-in source."""
+    Exception: a SINGLE buyer whose MEASURED track record (attach_track_records; gated
+    sample, recency-weighted abnormal return @3M vs SPY) clears the bar alerts alone —
+    history, never a forecast. Themes alone never alert: they are the weakest,
+    most-priced-in source."""
     alerts: list[dict] = []
     for ticker, events in sorted(clusters.items()):
         politicians = {
@@ -100,6 +160,20 @@ def select_evidence_alerts(
             reasons.append(f"{len(politicians)} Kongress-Mitglieder haben gekauft")
         if len(funds) >= min_funds:
             reasons.append(f"{len(funds)} beobachtete Fonds neu/aufgestockt")
+        strong_seen: set[str] = set()
+        for event in events:
+            person = _person_of(event)
+            record = (event.get("details") or {}).get("track_record")
+            if not person or person in strong_seen or not record:
+                continue
+            if (record["weighted_score"] or 0) >= min_single_buyer_score:
+                strong_seen.add(person)
+                reasons.append(
+                    f"{person} hat gekauft — starker gemessener Track-Record"
+                    f" ({record['n_calls']} Käufe,"
+                    f" Ø {record['weighted_score'] * 100:+.1f} % vs SPY 3M;"
+                    " Historie, keine Prognose)"
+                )
         if reasons:
             alerts.append({"ticker": ticker, "reasons": reasons, "events": events})
     return alerts

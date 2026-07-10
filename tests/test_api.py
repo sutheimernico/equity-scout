@@ -355,4 +355,5 @@ def test_evidence_endpoint_returns_events_alerts_and_stats(tmp_path):
     assert body["recent_alerts"][0]["ticker"] == "EXE"
     assert body["stats_by_source"]["congress"]["n_open"] == 1
     assert body["stats_by_source"]["congress"]["n_resolved"] == 0
+    assert body["person_scores"] == []  # present even when nothing is measured yet
     assert "disclaimer" in body

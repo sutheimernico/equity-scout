@@ -38,9 +38,12 @@ step() {
 
 echo "[$(date -Is)] ===== daily_copilot start =====" >> "$LOG"
 
-# Mondays: refresh the screener BEFORE the daily chain so the radar sees fresh finalists.
+# Mondays: refresh the screener BEFORE the daily chain so the radar sees fresh
+# finalists, and re-measure person track records (45/135d disclosure lag — weekly
+# is plenty; needs one yfinance panel download).
 if [ "$(date +%u)" = "1" ]; then
   step scout ./scripts/scheduled_run.sh
+  step person_scores "$PY" scripts/run_person_scores.py
 fi
 
 step radar               "$PY" scripts/run_radar.py

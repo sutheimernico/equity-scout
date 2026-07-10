@@ -22,12 +22,25 @@ def clean_panel(closes: pd.DataFrame) -> PricePanel:
 
     Truncates to the latest first-trading-day across tickers (so the backtest starts only when all
     assets exist — no synthetic history), then forward-fills isolated holidays and drops anything
-    still missing."""
+    still missing. Dead tickers (all-NaN: delisted / junk symbols) are dropped first — one dead
+    column must not crash (first_valid_index=None) or empty the whole panel."""
+    if closes.empty:
+        return PricePanel(closes)
+    closes = closes.dropna(axis=1, how="all")
     if closes.empty:
         return PricePanel(closes)
     first_valid = max(closes[col].first_valid_index() for col in closes.columns)
     trimmed = closes.loc[first_valid:].ffill().dropna(how="any")
     return PricePanel(trimmed)
+
+
+def clean_columns(closes: pd.DataFrame) -> PricePanel:
+    """Pure: drop dead (all-NaN) columns, forward-fill stray gaps, keep each column's OWN history.
+
+    No common-range trim: for per-pair measurements (person track records, ledger resolves) one
+    young IPO or junk ticker must not truncate every other ticker's usable history — consumers
+    align pair-wise (`closes[[ticker, benchmark]].dropna()`) themselves."""
+    return PricePanel(closes.dropna(axis=1, how="all").ffill())
 
 
 def save_snapshot(panel: PricePanel, path: str = DEFAULT_SNAPSHOT) -> None:
@@ -77,5 +90,22 @@ def load_etf_panel(
     if not refresh and os.path.exists(snapshot):
         return load_snapshot(snapshot)
     panel = clean_panel(_download_closes(tickers, start))
+    save_snapshot(panel, snapshot)
+    return panel
+
+
+def load_price_history(
+    tickers: list[str],
+    *,
+    start: str,
+    snapshot: str,
+    refresh: bool = True,
+) -> PricePanel:
+    """Column-wise variant of load_etf_panel (clean_columns instead of clean_panel) for
+    per-pair measurements over heterogeneous tickers. Missing symbols simply yield no
+    column — callers count those honestly as unresolvable."""
+    if not refresh and os.path.exists(snapshot):
+        return load_snapshot(snapshot)
+    panel = clean_columns(_download_closes(tickers, start))
     save_snapshot(panel, snapshot)
     return panel

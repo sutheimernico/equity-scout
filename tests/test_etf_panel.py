@@ -39,3 +39,34 @@ def test_etf_universe_shape():
     assert len(ETF_TICKERS) == 10
     assert ETF_BY_TICKER["SPY"].sector == "US Equity"
     assert all(inst.currency == "USD" for inst in ETF_UNIVERSE)
+
+
+def test_clean_panel_drops_dead_ticker_instead_of_crashing():
+    """An all-NaN column (delisted/junk symbol) used to crash first_valid_index max()."""
+    import numpy as np
+
+    idx = pd.bdate_range("2026-01-01", periods=5)
+    df = pd.DataFrame({"AAA": [1.0, 2, 3, 4, 5], "DEAD": [np.nan] * 5}, index=idx)
+    panel = clean_panel(df)
+    assert list(panel.closes.columns) == ["AAA"]
+    assert len(panel.closes) == 5
+
+
+def test_clean_columns_keeps_each_tickers_own_history():
+    """No common-range trim: a young ticker must not truncate an old one's history."""
+    import numpy as np
+
+    from equity_scout.data.etf_panel import clean_columns
+
+    idx = pd.bdate_range("2026-01-01", periods=6)
+    df = pd.DataFrame(
+        {
+            "OLD": [1.0, 2, 3, 4, 5, 6],
+            "YOUNG": [np.nan, np.nan, np.nan, np.nan, 1.0, 2.0],
+            "DEAD": [np.nan] * 6,
+        },
+        index=idx,
+    )
+    panel = clean_columns(df)
+    assert list(panel.closes.columns) == ["OLD", "YOUNG"]
+    assert panel.closes["OLD"].notna().all()  # OLD keeps its full range
