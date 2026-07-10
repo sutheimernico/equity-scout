@@ -147,7 +147,8 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       alert without decision buttons, 14d cooldown, row-before-send)
 - [x] Task 6 — ledger wiring + edge monitor (run_evidence/run_resolve_evidence CLIs,
       /api/evidence, digest per-source hit-rate section)
-- [ ] Task 7 — automation glue: daily cron chain + receiver keepalive
+- [x] Task 7 — automation glue: daily_copilot.sh chain + receiver keepalive, live smoke
+      2026-07-10 (18 Evidenz-Alarme real via Telegram); crontab install → Needs Nico
 - [ ] Task 8 — docs, outcome, verification
 
 ## Needs Nico (loop cannot do these itself)
@@ -155,3 +156,7 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - Any data source that would require a paid key (do NOT sign up — log here instead).
 - `EDGAR_USER_AGENT="name (email)"` in `.env` so the 13F collector can run (stays politely
   `unconfigured` until then; never faked).
+- **Run `./scripts/install_crontab.sh` once** (2026-07-10): installs the daily copilot
+  chain (18:00 Mon–Fri) + receiver keepalive (5-min flock) cron lines. The autonomous
+  session was not allowed to modify the crontab itself; the installer is idempotent and
+  preserves the existing forward-paper line.

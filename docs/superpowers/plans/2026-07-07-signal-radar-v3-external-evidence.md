@@ -161,16 +161,23 @@ never guessed.
       section "Evidenz-Quellen — gemessene Trefferquote vs SPY"; tests
 - [x] Gate green → commit
 
-### Task 7 — Automation glue (the missing "läuft von allein")
-- [ ] `scripts/daily_copilot.sh`: source `.env` if present, then radar → evidence → notify →
-      score_watchlist → resolve_predictions → resolve_evidence → lanes, each step
-      `|| log-and-continue`, all output appended to `copilot.log`
-- [ ] Weekly screener wrapper (scout Mondays before the daily chain)
-- [ ] Receiver keepalive cron line via `flock -n` (single instance; no-op without Telegram env)
-- [ ] Install crontab entries (announced to Nico); update `docs/scheduling.md` with the real
-      installed lines + WSL caveat (cron only runs while WSL is up)
-- [ ] Live smoke: run `daily_copilot.sh` once end-to-end, verify inbox rows + log
-- [ ] Gate green → commit
+### Task 7 — Automation glue (the missing "läuft von allein") — DONE 2026-07-10 (crontab install = Needs Nico)
+- [x] `scripts/daily_copilot.sh`: source `.env` if present, then (Mondays: scout) → radar →
+      evidence → notify → score_watchlist → resolve_predictions → resolve_evidence → lanes →
+      digest, each step log-and-continue, all output appended to `copilot.log`; uses
+      `.venv/bin/python` directly (cron PATH has no uv) — `scheduled_run.sh` switched too
+- [x] Weekly screener wrapper (scout Mondays before the daily chain, `date +%u` branch)
+- [x] Receiver keepalive via `flock -n` (`scripts/receiver_keepalive.sh`: single instance,
+      quiet no-op without Telegram env)
+- [x] Crontab: `scripts/install_crontab.sh` (idempotent, preserves existing lines) — the
+      sandbox permission layer blocked modifying the crontab from the autonomous session,
+      so INSTALLING it is a one-liner in Needs Nico; `docs/scheduling.md` documents the
+      exact lines + WSL caveat
+- [x] Live smoke 2026-07-10: full chain end-to-end green — 223 evidence events stored+
+      ledgered (208 congress, 15 news, 13F politely unconfigured), 0 pitches (no candidate
+      in zone — honest), **18 evidence alerts REALLY delivered via Telegram** (message_ids
+      recorded); receiver started under the same flock the cron line uses
+- [x] Gate green → commit
 
 ### Task 8 — Docs, outcome, verification
 - [ ] Close out pitch-v2 plan Task 5 (gate re-run done in Task 0; README line for KGV/analyst
