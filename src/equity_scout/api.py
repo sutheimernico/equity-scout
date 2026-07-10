@@ -15,6 +15,8 @@ from fastapi.staticfiles import StaticFiles
 from equity_scout.buckets import BUCKET_WEIGHTS
 from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_FORWARD_DB_PATH, DISCLAIMER
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
+from equity_scout.evidence.ledger import stats_by_source
+from equity_scout.evidence.storage import events_in_window, load_alerts
 from equity_scout.forward_storage import load_all_accounts
 from equity_scout.forward_storage import load_valuations as load_forward_valuations
 from equity_scout.inbox_storage import decide_pitch, get_pitch, load_pitches
@@ -246,6 +248,20 @@ def create_app(
     @app.get("/api/inbox")
     def inbox() -> JSONResponse:
         return JSONResponse({"pitches": load_pitches(db_path), "disclaimer": DISCLAIMER})
+
+    @app.get("/api/evidence")
+    def evidence() -> JSONResponse:
+        # Edge monitor: recent raw events (30d), the alerts that fired, and the
+        # MEASURED per-source hit-rates from the predict-then-resolve ledger.
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        return JSONResponse(
+            {
+                "events_by_ticker": events_in_window(db_path, window_days=30, now=now),
+                "recent_alerts": load_alerts(db_path, limit=20),
+                "stats_by_source": stats_by_source(db_path),
+                "disclaimer": DISCLAIMER,
+            }
+        )
 
     @app.post("/api/inbox/{pitch_id}/decision")
     def inbox_decision(pitch_id: int, body: dict) -> JSONResponse:

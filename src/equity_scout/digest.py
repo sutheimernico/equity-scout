@@ -16,6 +16,9 @@ from equity_scout.constants import SHORT_DISCLAIMER
 # imperative button labels (a report reads differently from a button) — not drift.
 _STATUS_ICON = {"open": "📬 offen", "buy": "✅ Kaufentscheidung",
                 "pass": "❌ abgelehnt", "later": "⏸ später"}
+# Human labels for evidence.base SOURCE_* keys; unknown keys fall back to themselves.
+_SOURCE_LABEL = {"congress": "Kongress-Käufe", "thirteen_f": "13F-Fonds",
+                 "news_theme": "News-Themen"}
 
 
 def load_smtp_config(env: dict) -> dict | None:
@@ -34,13 +37,19 @@ def load_smtp_config(env: dict) -> dict | None:
 
 
 def build_digest(
-    pitches: list[dict], *, date_label: str, decided_since: str | None = None
+    pitches: list[dict],
+    *,
+    date_label: str,
+    decided_since: str | None = None,
+    evidence_stats: dict[str, dict] | None = None,
 ) -> str:
     """German plain-text digest: all open pitches first, then recent decisions.
 
     decided_since (UTC ISO string) scopes the decided section to a window — without it
     every decision ever made would reappear daily. Lexicographic >= is chronologically
     correct because all writers produce UTC "+00:00" ISO strings (see inbox_storage).
+    evidence_stats (evidence.ledger.stats_by_source shape) appends the measured
+    per-source hit-rates — queries, not promises; omitted entirely when None/empty.
     """
     lines = [f"Copilot-Digest {date_label}", ""]
     open_pitches = [p for p in pitches if p["status"] == "open"]
@@ -65,6 +74,21 @@ def build_digest(
         for p in decided:
             icon = _STATUS_ICON.get(p["status"], p["status"])
             lines.append(f"  {icon} — {p['ticker']} · am {(p['decided_at'] or '')[:10]}")
+    if evidence_stats:
+        lines.append("")
+        lines.append("Evidenz-Quellen — gemessene Trefferquote vs SPY (60-Tage-Horizont):")
+        for source in sorted(evidence_stats):
+            entry = evidence_stats[source]
+            if entry["n_resolved"] == 0:
+                measured = "noch nichts aufgelöst"
+            else:
+                measured = (
+                    f"{entry['n_resolved']} aufgelöst,"
+                    f" Trefferquote {round(entry['hit_rate'] * 100)} %,"
+                    f" Ø relative Rendite {entry['mean_relative_return'] * 100:+.1f} %"
+                )
+            lines.append(f"  {_SOURCE_LABEL.get(source, source)}: {measured}"
+                         f" · offen: {entry['n_open']}")
     lines += ["", SHORT_DISCLAIMER]
     return "\n".join(lines)
 

@@ -145,7 +145,8 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] Task 5 — pitch evidence block + labelled evidence alerts (evidence annotates
       pitches between Kennzahlen and Analystensicht; off-watchlist clusters ≥2 buyers/funds
       alert without decision buttons, 14d cooldown, row-before-send)
-- [ ] Task 6 — ledger wiring + edge monitor (API/digest)
+- [x] Task 6 — ledger wiring + edge monitor (run_evidence/run_resolve_evidence CLIs,
+      /api/evidence, digest per-source hit-rate section)
 - [ ] Task 7 — automation glue: daily cron chain + receiver keepalive
 - [ ] Task 8 — docs, outcome, verification
 

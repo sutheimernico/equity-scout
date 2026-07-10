@@ -152,13 +152,14 @@ never guessed.
       pitches; alert sender without keyboard)
 - [x] Gate green → commit
 
-### Task 6 — Ledger wiring + edge monitor
-- [ ] `run_evidence.py` logs every NEW event to the evidence ledger (horizon 60d);
-      `run_resolve_evidence.py` resolves due rows against real forward prices (same price
-      source as `run_resolve_predictions.py`); tests with fake price fetch
-- [ ] `/api/evidence` (summary + per-source resolved stats) + digest section "Evidenz-Quellen:
-      gemessene Trefferquote"; tests
-- [ ] Gate green → commit
+### Task 6 — Ledger wiring + edge monitor — DONE 2026-07-10
+- [x] `run_evidence.py` (NEW — Tasks 2–4 had only live-smoked the collectors ad hoc):
+      collect all three sources, store, ledger-log ONLY newly inserted events (horizon 60d);
+      `run_resolve_evidence.py` resolves due rows against real forward prices (mirror of
+      `run_resolve_predictions.py`, own resolve snapshot); tests with fake collectors/panel
+- [x] `/api/evidence` (30d events + recent alerts + per-source resolved stats) + digest
+      section "Evidenz-Quellen — gemessene Trefferquote vs SPY"; tests
+- [x] Gate green → commit
 
 ### Task 7 — Automation glue (the missing "läuft von allein")
 - [ ] `scripts/daily_copilot.sh`: source `.env` if present, then radar → evidence → notify →

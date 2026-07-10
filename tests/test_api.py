@@ -323,3 +323,36 @@ def test_model_endpoint_empty_and_after_registration(tmp_path):
     assert len(body["registry"]) == 1
     assert body["resolved"]["n_resolved"] == 2
     assert "disclaimer" in body
+
+
+def test_evidence_endpoint_returns_events_alerts_and_stats(tmp_path):
+    from datetime import datetime, timezone
+
+    from equity_scout.evidence.base import SOURCE_CONGRESS, EvidenceEvent
+    from equity_scout.evidence.ledger import log_evidence
+    from equity_scout.evidence.storage import record_alert, record_events
+
+    db = tmp_path / "api.db"
+    init_db(db)
+    # The endpoint reads the real clock, so seed events dated today (test setup only).
+    today = datetime.now(timezone.utc).date().isoformat()
+    now_iso = f"{today}T00:00:00+00:00"
+    events = [
+        EvidenceEvent(
+            source=SOURCE_CONGRESS, ticker="EXE", event_key="k1", event_date=today,
+            details={"politician": "Jane Doe", "filing_date": today},
+        )
+    ]
+    record_events(str(db), events, now=now_iso)
+    log_evidence(str(db), events, now=now_iso)
+    record_alert(str(db), ticker="EXE", reasons=["r"], text="t",
+                 telegram_message_id=None, now=now_iso)
+
+    client = TestClient(create_app(str(db)))
+    body = client.get("/api/evidence").json()
+
+    assert body["events_by_ticker"]["EXE"][0]["details"]["politician"] == "Jane Doe"
+    assert body["recent_alerts"][0]["ticker"] == "EXE"
+    assert body["stats_by_source"]["congress"]["n_open"] == 1
+    assert body["stats_by_source"]["congress"]["n_resolved"] == 0
+    assert "disclaimer" in body

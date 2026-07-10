@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.digest import build_digest, load_smtp_config, send_digest
+from equity_scout.evidence.ledger import stats_by_source
 from equity_scout.inbox_storage import load_pitches
 
 
@@ -28,7 +29,12 @@ def main() -> int:
     now = datetime.now(timezone.utc)
     date_label = now.date().isoformat()
     decided_since = (now - timedelta(hours=24)).isoformat(timespec="seconds")
-    text = build_digest(pitches, date_label=date_label, decided_since=decided_since)
+    text = build_digest(
+        pitches,
+        date_label=date_label,
+        decided_since=decided_since,
+        evidence_stats=stats_by_source(args.db),
+    )
 
     config = load_smtp_config(dict(os.environ))
     if config is None:

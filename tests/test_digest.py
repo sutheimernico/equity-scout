@@ -98,3 +98,24 @@ def test_main_without_smtp_config_prints_digest_and_exits_0(tmp_path, monkeypatc
     out = capsys.readouterr().out
     assert "EXE" in out
     assert "SMTP not configured" in out
+
+
+def test_build_digest_appends_measured_evidence_stats():
+    stats = {
+        "congress": {"n_resolved": 4, "n_open": 3, "hit_rate": 0.5,
+                     "mean_relative_return": 0.012},
+        "thirteen_f": {"n_resolved": 0, "n_open": 2, "hit_rate": None,
+                       "mean_relative_return": None},
+    }
+    text = build_digest([], date_label="2026-07-10", evidence_stats=stats)
+    assert "Evidenz-Quellen — gemessene Trefferquote vs SPY" in text
+    assert "Kongress-Käufe: 4 aufgelöst, Trefferquote 50 %, Ø relative Rendite +1.2 % · offen: 3" in text
+    # Unresolved sources state the absence instead of inventing numbers.
+    assert "13F-Fonds: noch nichts aufgelöst · offen: 2" in text
+
+
+def test_build_digest_omits_evidence_section_when_empty():
+    assert "Evidenz-Quellen" not in build_digest([], date_label="2026-07-10")
+    assert "Evidenz-Quellen" not in build_digest(
+        [], date_label="2026-07-10", evidence_stats={}
+    )
