@@ -62,13 +62,17 @@ session, worked autonomously).
 
 ## Task backlog
 
-- [ ] Task A — `person_track.py` pure scoring core + tests (fixture payloads, synthetic
-      price panel, gate/decay/horizon edge cases)
-- [ ] Task B — `person_storage.py` + tests (replace-on-refresh, load ordering)
-- [ ] Task C — kadoa filer fetch seam + `run_person_scores.py` CLI + tests (fake http,
-      fake panel; live smoke against real mirror + real yfinance)
-- [ ] Task D — surfaces: aggregate.py track-record lines + single-strong-buyer alert rule,
-      /api/evidence person_scores, daily_copilot.sh Monday wiring + tests
+- [x] Task A — `person_track.py` pure scoring core + tests (fixture payloads, synthetic
+      price panel, gate/decay/horizon edge cases) — DONE 2026-07-10
+- [x] Task B — `person_storage.py` + tests (replace-on-refresh, load ordering) — DONE 2026-07-10
+- [x] Task C — kadoa filer fetch seam + `run_person_scores.py` CLI + tests — DONE 2026-07-10.
+      Live smoke surfaced and fixed: event_key filer-id fallback broke on the embedded ISO
+      date; clean_panel crashed on dead tickers (new column-wise `load_price_history`);
+      BRK.B→BRK-B mapping; SPY self-buys counted as unmeasurable. Live result: 977 backfill
+      calls / 13 filers → 10 persons, 5 scoreable (Peters +7.2 %, Whitehouse +4.3 %,
+      Boozman −0.3 %, Trump −6.7 %, Khanna −9.1 %)
+- [x] Task D — surfaces wired + tested — DONE 2026-07-10. Live verify: 2 single-strong-buyer
+      alerts REALLY delivered via Telegram (KHC/Gary Peters, COHR/Sheldon Whitehouse)
 - [ ] Task E — docs (README evidence section grows person scoring; this plan's outcome)
 
 ## Needs Nico

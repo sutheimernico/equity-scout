@@ -127,7 +127,53 @@ The score RANKS entry attractiveness — it is a calibrated probability, not a p
 advice.
 
 Dashboard endpoints: `GET /api/radar`, `GET /api/inbox`, `POST /api/inbox/{id}/decision`,
-`GET /api/arena`, `GET /api/model` (registry, champion metrics, resolved-prediction stats).
+`GET /api/arena`, `GET /api/model` (registry, champion metrics, resolved-prediction stats),
+`GET /api/evidence` (events, alerts, per-source hit-rates, person scores).
+
+## External evidence + person track records
+
+Three free external sources annotate pitches and can raise separately-labelled alerts —
+they NEVER change the entry composite or selection rules:
+
+```bash
+# Collect congress trades / 13F fund moves / news themes → store + predict-then-resolve ledger
+uv run python scripts/run_evidence.py --db equity_scout.db
+
+# Resolve due evidence rows against real forward prices vs SPY (60d horizon)
+uv run python scripts/run_resolve_evidence.py --db equity_scout.db
+
+# Measure person track records (weekly; backfills each active filer's full history)
+uv run python scripts/run_person_scores.py --db equity_scout.db
+```
+
+- **US congress trades** (kadoa-org/congress-trading-monitor mirror, MIT): purchases only.
+  Members may file up to **45 days** after trading. §105(c) STOCK Act restricts commercial
+  use — fine for this private local tool, re-check before any publication.
+- **13F filings** of ~8 tracked famous funds (SEC EDGAR): quarter-over-quarter new/increased
+  positions, up to **135 days** stale. Needs `EDGAR_USER_AGENT` (SEC requires a contact);
+  stays politely `unconfigured` without it.
+- **News themes** (Google News RSS + MarketWatch + Fed press): deterministic cross-source
+  bigram clusters; themes alone never alert (weakest, most-priced-in source).
+
+Every collected event is logged to an append-only ledger BEFORE its outcome is knowable and
+resolved later against real forward returns vs SPY — "does congress-following actually
+work?" is a query (`/api/evidence`, digest section), not an opinion.
+
+**Person track records:** every disclosed buyer (politician; funds as their filings
+accumulate) is measured with our own methodology — T0 = filing date (the day a reader could
+know), abnormal return vs SPY over 1M/3M horizons, **no score below 5 resolvable calls**,
+recency-weighted (540d half-life). Measured records annotate pitches/alerts, and a single
+buyer with a strong record (≥ +2 % weighted @3M) may alert alone — always labelled
+"Historie, keine Prognose". A disclosed trade is a trade, not a recommendation (tax,
+liquidity and diversification confound it) — the caveat rides on every surface.
+
+## Automation (cron)
+
+`scripts/daily_copilot.sh` runs the whole chain unattended (Mondays: screener + person
+scores first): radar → evidence → notify → score → resolve ×2 → lanes → digest — every
+step degrades independently into `copilot.log`. `scripts/receiver_keepalive.sh` keeps the
+Telegram receiver alive under `flock`. Install both cron lines once with
+`./scripts/install_crontab.sh`; details + WSL caveat in `docs/scheduling.md`.
 
 **Dashboard.** The React dashboard leads with the four copilot surfaces — **Arena** (Du vs.
 Autopilot vs. Markt, the default view), **Radar** (watchlist entry zones), **Inbox** (one-tap
@@ -148,6 +194,7 @@ inbox-only / stdout; set them in your local `.env`, never commit values):
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | SMTP account for the daily digest |
 | `DIGEST_TO` | digest recipient address |
 | `OLLAMA_HOST` / `OLLAMA_MODEL` | local LLM for pitch texts (existing assistant settings) |
+| `EDGAR_USER_AGENT` | `"name (email)"` contact the SEC requires; enables the 13F collector |
 
 ## Honesty guardrails
 Factor screens are well-studied but do not reliably beat the market. Free data (yfinance) is

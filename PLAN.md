@@ -128,7 +128,7 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       of the universe; no concrete driver for a repo split yet); flagged Rank-IC tracking on
       run-history as the correctly-scoped, lower-cost future step instead of meta-labeling.
 
-## Phase: Signal-Radar v3 — external evidence + full automation (2026-07-07) — IN PROGRESS
+## Phase: Signal-Radar v3 — external evidence + full automation (2026-07-07) — DONE 2026-07-10
 > Vision (Nico, in-session 2026-07-07): congress trades + famous-fund 13F moves + news themes
 > as evidence on pitches and as separate alerts, fully unattended via cron, each source
 > honesty-tracked in its own predict-then-resolve ledger. Evidence annotates — it NEVER
@@ -149,10 +149,24 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       /api/evidence, digest per-source hit-rate section)
 - [x] Task 7 — automation glue: daily_copilot.sh chain + receiver keepalive, live smoke
       2026-07-10 (18 Evidenz-Alarme real via Telegram); crontab install → Needs Nico
-- [ ] Task 8 — docs, outcome, verification
+- [x] Task 8 — docs (README evidence/automation sections, .env.example, scheduling.md),
+      outcome section in the plan doc, verification sweep 2026-07-10/11
+
+## Phase: Person Track Record v4 (2026-07-10) — DONE 2026-07-10/11
+> Nico's vision (in-session 2026-07-10): score the PERSONS behind evidence events by their
+> measured historical call performance; strong records rank alerts higher. Plan + outcome:
+> `docs/superpowers/plans/2026-07-10-person-track-record-v4.md`. X/Twitter finfluencer
+> scraping re-verified as not freely feasible in 2026 (paid API, dead Nitter) — famous
+> investors ride the 13F path instead (Burry = Scion).
+- [x] person_track.py scoring core (T0 = filing date, abnormal return vs SPY 1M/3M,
+      n≥5 gate, 540d recency decay) + person_scores storage + run_person_scores CLI
+- [x] Surfaces: track-record lines on pitches/alerts, single-strong-buyer alert rule
+      (≥ +2 % weighted @3M), /api/evidence person ranking, Monday cron wiring
+- [x] Live 2026-07-10: 977 backfill calls / 13 filers → 5 scoreable persons; 2 alerts
+      (KHC/Peters, COHR/Whitehouse) really delivered via Telegram
 
 ## Needs Nico (loop cannot do these itself)
-- Git remote / visibility decision before any first push (repo is currently local-only).
+- autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
 - Any data source that would require a paid key (do NOT sign up — log here instead).
 - `EDGAR_USER_AGENT="name (email)"` in `.env` so the 13F collector can run (stays politely
   `unconfigured` until then; never faked).

@@ -54,7 +54,11 @@ class PersonScore:
     mean_abnormal_short: float | None
     mean_abnormal_long: float | None
     weighted_score: float | None  # recency-weighted mean abnormal @long — None if gated
-    scoreable: bool  # False -> surfaces must say "zu wenig Daten", never a number
+    # The HEADLINE score is the LONG-horizon measurement, so the gate counts calls whose
+    # full 3M window has elapsed: scoreable implies weighted_score is not None. A person
+    # whose buys are all 21-62 trading days old is "noch nicht 3M-reif" — never a
+    # fabricated 0 %. False -> surfaces say "zu wenig Daten", never a number.
+    scoreable: bool
 
 
 def calls_from_filer_payload(payload: dict) -> tuple[list[Call], dict]:
@@ -209,7 +213,7 @@ def score_persons(
                 weighted_sum += weight * rel_long
                 weight_total += weight
         n = len(short_results)
-        scoreable = n >= min_calls
+        scoreable = len(long_results) >= min_calls
         key = person if persons_seen[person] == 1 else f"{person}·{source}"
         scores[key] = PersonScore(
             person=person,

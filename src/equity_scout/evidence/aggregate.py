@@ -29,11 +29,15 @@ def _person_of(event: dict) -> str | None:
 
 
 def track_record_note(score_row: dict) -> str:
-    """One honest German line for a measured person score (always carries n + caveat)."""
+    """One honest German line for a measured person score (always carries n + caveat).
+
+    Callers must pass a row whose long-horizon fields are measured (attach_track_records
+    gates on that) — no `or 0` coalescing here: an unmeasured horizon must never render
+    as a fabricated 0 %."""
     return (
         f"Track-Record: {score_row['n_calls']} Käufe,"
-        f" {round((score_row['hit_rate_long'] or 0) * 100)} % Treffer 3M,"
-        f" Ø {(score_row['weighted_score'] or 0) * 100:+.1f} % vs SPY"
+        f" {round(score_row['hit_rate_long'] * 100)} % Treffer 3M,"
+        f" Ø {score_row['weighted_score'] * 100:+.1f} % vs SPY"
         " — Historie, keine Prognose"
     )
 
@@ -52,7 +56,10 @@ def attach_track_records(
             if not person:
                 continue
             row = score_index.get((person, event["source"]))
-            if row and row["scoreable"]:
+            # Belt and braces beside `scoreable`: rows persisted under an older gate
+            # definition may combine scoreable=True with unmeasured long-horizon fields —
+            # those must never render (a coalesced 0 % would be a fabricated number).
+            if row and row["scoreable"] and row["weighted_score"] is not None:
                 event["details"]["track_record"] = {
                     "note": track_record_note(row),
                     "weighted_score": row["weighted_score"],
@@ -166,7 +173,8 @@ def select_evidence_alerts(
             record = (event.get("details") or {}).get("track_record")
             if not person or person in strong_seen or not record:
                 continue
-            if (record["weighted_score"] or 0) >= min_single_buyer_score:
+            # attach_track_records only annotates measured records — no None here.
+            if record["weighted_score"] >= min_single_buyer_score:
                 strong_seen.add(person)
                 reasons.append(
                     f"{person} hat gekauft — starker gemessener Track-Record"

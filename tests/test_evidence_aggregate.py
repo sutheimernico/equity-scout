@@ -160,3 +160,19 @@ def test_single_buyer_below_score_bar_stays_noise():
         {"SOLO": [_congress("SOLO", "Jane Doe")]}, _score_index(weighted=0.01)
     )
     assert select_evidence_alerts(clusters) == []
+
+
+def test_attach_track_records_skips_rows_with_unmeasured_long_horizon():
+    """A stale person_scores row may carry scoreable=True with None long-horizon
+    fields (older gate definition): it must not annotate — a coalesced 0 % would
+    be a fabricated number (review finding 2026-07-11)."""
+    from equity_scout.evidence.aggregate import attach_track_records
+
+    index = _score_index()
+    index[("Jane Doe", SOURCE_CONGRESS)] = {
+        **index[("Jane Doe", SOURCE_CONGRESS)],
+        "hit_rate_long": None, "mean_abnormal_long": None, "weighted_score": None,
+    }
+    clusters = attach_track_records({"EXE": [_congress("EXE", "Jane Doe")]}, index)
+    assert "track_record" not in clusters["EXE"][0]["details"]
+    assert select_evidence_alerts(clusters) == []

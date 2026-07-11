@@ -188,6 +188,33 @@ never guessed.
 
 ## Needs Nico
 - `EDGAR_USER_AGENT="name (email)"` line in `.env` for the 13F collector (one-liner; collector
-  stays politely `unconfigured` until then).
+  stays politely `unconfigured` until then). Documented in `.env.example`.
+- **Run `./scripts/install_crontab.sh` once** — the autonomous session was permission-blocked
+  from editing the crontab itself (2026-07-10).
 - Repo remains local-only; before any publication: §105(c) STOCK Act note + Google News
   personal-use clause re-check (publish checklist).
+
+## Outcome (2026-07-10/11)
+
+All 8 tasks done; Tasks 5–8 shipped 2026-07-10 in four commits (evidence surfaces
+`9f95025`, ledger CLIs + edge monitor `84874a7`, automation `58270ed`, person scoring
+`8ba6f50` — the last one grew into its own plan,
+`2026-07-10-person-track-record-v4.md`, per Nico's in-session vision).
+
+**Live verification 2026-07-10:** full `daily_copilot.sh` chain green end-to-end — 223
+evidence events stored + ledgered (208 congress, 15 news themes, 13F politely
+`unconfigured`), 0 pitches (no candidate in zone — honest), 18 cluster evidence alerts
+REALLY delivered via Telegram, and after the person-scoring pass 2 more single-strong-buyer
+alerts (KHC / Gary Peters +7.2 %, COHR / Sheldon Whitehouse +4.3 %). Root cause of "keine
+Telegram-Meldungen mehr": the copilot chain had never been scheduled — only the screener
+and forward-paper had cron lines; fixed by Task 7 (pending Nico's installer run).
+
+**Deviations from plan:**
+- Evidence alerts got their own `evidence_alerts` table instead of reusing the inbox
+  (NOT-NULL screener contract; documented at Task 5).
+- `run_evidence.py`/`run_resolve_evidence.py` did not exist after Tasks 2–4 (collectors had
+  only been live-smoked ad hoc) — built in Task 6.
+- Cron scripts call `.venv/bin/python` directly instead of `uv run` (cron PATH has no uv).
+- Crontab INSTALL became a Needs-Nico one-liner (permission classifier blocked persistence
+  from the autonomous session) — `install_crontab.sh` is idempotent and preserves the
+  forward-paper line.

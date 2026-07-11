@@ -168,3 +168,23 @@ def test_score_persons_counts_benchmark_buys_as_unmeasurable():
     scores = score_persons(calls, _panel(), now=NOW)
     assert scores["Jane"].n_calls == 5
     assert scores["Jane"].n_unresolvable == 2
+
+
+def test_scoreable_requires_the_full_long_horizon_not_just_short():
+    """Calls 21-62 trading days old resolve @1M but not @3M: that person is 'noch
+    nicht 3M-reif' — scoreable must stay False and the score None, never a
+    fabricated 0 % (review finding 2026-07-11)."""
+    panel = _panel()
+    # t0s ~30 business days before the panel ends: short window observable, long not.
+    calls = [
+        Call(person="Fresh", source="congress", ticker="WIN",
+             t0=panel.index[-30 + i].date().isoformat())
+        for i in range(5)
+    ]
+    scores = score_persons(calls, panel, now=NOW)
+    fresh = scores["Fresh"]
+    assert fresh.n_calls == 5  # the short horizon DID measure
+    assert fresh.hit_rate_short is not None
+    assert not fresh.scoreable  # ... but the headline 3M gate is not met
+    assert fresh.weighted_score is None
+    assert fresh.hit_rate_long is None
