@@ -10,6 +10,7 @@ walk-forward: each fold retrains on newly available history.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Iterator
 
@@ -95,23 +96,54 @@ def purged_walk_forward(
     embargo_days: int = 21,
     horizon_days: int = 21,
     min_train: int = 24,
+    trading_days: pd.DatetimeIndex | None = None,
 ) -> Iterator[tuple[pd.DatetimeIndex, pd.DatetimeIndex]]:
     """Expanding-window walk-forward. For each test block, training is all earlier events whose
     label window (event + horizon + embargo) ends before the test block starts — purged + embargoed
-    so a training label cannot peek into the test period."""
+    so a training label cannot peek into the test period.
+
+    `horizon_days`/`embargo_days` count TRADING days — a label window is `iloc[1:horizon_days+1]` of
+    the traded price series (see `labeling.triple_barrier_labels`), not a calendar span. Pass the
+    full daily `trading_days` the events were drawn from (e.g. `panel.dates`) to purge by exact
+    trading-day position: a training event at position p occupies label days [p+1, p+horizon_days],
+    embargoed through p+horizon_days+embargo_days, so it is admissible only if that position is
+    strictly before the first test event's position — provably zero label-window overlap with the
+    test block, regardless of weekends or holidays in between.
+
+    Without `trading_days` (e.g. a bare synthetic date index in a unit test) this falls back to a
+    conservative calendar-day bound (trading days -> calendar days assuming a 5-day week, plus a
+    flat holiday buffer) that only ever widens the purge window relative to the exact method, never
+    narrows it — safe, but wastes some usable training history when the real trading calendar is
+    available.
+    """
     n = len(event_dates)
     if n < min_train + n_splits:
         return
     fold = n // (n_splits + 1)
     if fold == 0:
         return
+
+    if trading_days is not None:
+        positions = pd.Index(trading_days).get_indexer(event_dates)
+        if (positions < 0).any():
+            raise ValueError("event_dates must all be present in trading_days")
+    else:
+        positions = None
+        # 7/5 converts trading days to calendar days across weekends; +5 is a conservative buffer
+        # for market holidays that a pure weekend conversion would miss.
+        calendar_buffer = math.ceil((horizon_days + embargo_days) * 7 / 5) + 5
+
     for k in range(1, n_splits + 1):
         test_start = k * fold
         test_end = n if k == n_splits else (k + 1) * fold
         test = event_dates[test_start:test_end]
-        cutoff = event_dates[test_start] - pd.Timedelta(days=horizon_days + embargo_days)
-        train = event_dates[:test_start]
-        train = train[train <= cutoff]
+        if positions is not None:
+            cutoff_pos = positions[test_start] - horizon_days - embargo_days
+            train = event_dates[:test_start][positions[:test_start] < cutoff_pos]
+        else:
+            cutoff = event_dates[test_start] - pd.Timedelta(days=calendar_buffer)
+            train = event_dates[:test_start]
+            train = train[train <= cutoff]
         if len(train) >= min_train and len(test) > 0:
             yield train, test
 
@@ -168,7 +200,11 @@ def run_meta_model(
     oos_prob: dict[pd.Timestamp, float] = {}
     importances: list[np.ndarray] = []
     for train, test in purged_walk_forward(
-        X.index, n_splits=n_splits, embargo_days=embargo_days, horizon_days=config.horizon_days
+        X.index,
+        n_splits=n_splits,
+        embargo_days=embargo_days,
+        horizon_days=config.horizon_days,
+        trading_days=panel.dates,
     ):
         x_train, y_train = X.loc[train], y.loc[train]
         x_test = X.loc[X.index.intersection(test)]

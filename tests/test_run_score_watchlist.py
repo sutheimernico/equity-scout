@@ -47,9 +47,9 @@ def _promote_model(db: str) -> int:
     X = pd.DataFrame(rng.normal(size=(20, len(FEATURE_COLUMNS))), columns=list(FEATURE_COLUMNS))
     y = pd.Series((X[FEATURE_COLUMNS[0]] > 0.0).astype(int).to_numpy())
     version = register_challenger(
-        db, train_entry_model(X, y), metrics={"auc": 0.7}, n_train=20, now=STAMP
+        db, train_entry_model(X, y), metrics={"auc": 0.7, "n_oos": 200}, n_train=20, now=STAMP
     )
-    promote_if_better(db, version)
+    assert promote_if_better(db, version) is True  # clears the F2 baseline-quality gate
     return version
 
 

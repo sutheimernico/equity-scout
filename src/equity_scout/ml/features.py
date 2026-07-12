@@ -1,8 +1,11 @@
 """Features for the meta-model — kept orthogonal to the primary signal (per the research: otherwise
 meta-labeling finds no new information). These describe the market *regime*, not the trend direction:
 volatility, breadth, drawdown state, short-term momentum, and distance to the long MA. All are rolling
-functions of past prices; the meta-model samples them with a one-day lag so a decision on date t never
-uses t's close — the same no-look-ahead discipline as the backtest engine.
+functions of past prices up to and including date t; the decision on date t uses t's close (no extra
+feature-side lag here). No-look-ahead instead comes from the execution side: `meta_model.
+_backtest_exposure` shifts the resulting exposure by one day (decide on t, earn from t+1), and
+`purged_walk_forward` purges/embargoes training events whose label window could overlap the test
+block — the same no-look-ahead discipline as the backtest engine, just applied downstream of here.
 """
 from __future__ import annotations
 

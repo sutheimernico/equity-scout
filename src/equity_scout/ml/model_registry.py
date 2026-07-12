@@ -1,11 +1,14 @@
 """Versioned registry for pickled `EntryModel` artifacts + champion/challenger promotion.
 
 Every trained model is registered as an immutable versioned row (the fitted model pickled into
-`artifact`, with its OOS metrics). Exactly one row is the champion. A challenger replaces the
-champion ONLY on a strictly better out-of-sample score (honesty invariant #5) — a tie or a worse
-score keeps the incumbent, and an un-scored challenger (metric `None`, treated as −inf) never wins.
-The very first registered model bootstraps the champion regardless of its metric, because the arena
-needs some champion to start from. The champion flip (unset old, set new) happens in one transaction.
+`artifact`, with its OOS metrics). Exactly one row is the champion. Promotion (`promote_if_better`)
+is gated on two things (F2, since nightly retrains are nightly trials and noise alone must not be
+able to swap the champion): (1) baseline quality — the metric clears the no-edge band (see
+`_no_edge`) and rests on at least `MIN_OOS_N` out-of-sample rows; a model that fails this is never
+promoted, not even as the FIRST champion — an empty arena has no champion rather than a fake one.
+(2) once a champion exists, a challenger must beat it by at least `MIN_AUC_DELTA`; a tie or a
+smaller improvement keeps the incumbent. An un-scored challenger (metric `None`, treated as −inf)
+never wins. The champion flip (unset old, set new) happens in one transaction.
 
 Storage follows the repo idiom (raw sqlite3, idempotent init, per-function connections). The pickle
 load is guarded: a corrupt or wrong-shaped artifact raises `RegistryError` rather than surfacing a
@@ -20,6 +23,20 @@ import sqlite3
 
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.ml.entry_model import EntryModel
+
+# Minimum OOS AUC improvement a challenger must show over the incumbent champion to be promoted.
+# Nightly retrains are nightly trials against the same OOS metric; without a floor, noise alone
+# would eventually swap the champion (F2).
+MIN_AUC_DELTA = 0.01
+
+# Minimum OOS row count for a promotion decision to be trustworthy. Below this, an AUC estimate is
+# too noisy to act on — the model registers as a challenger but never becomes champion.
+MIN_OOS_N = 200
+
+# |auc - 0.5| below this band = no demonstrated ranking edge (a coin flip). `_no_edge` below is the
+# single source of truth: it blocks promotion here AND is imported by the CLI (run_train_entry.py)
+# to explain a non-promotion honestly instead of silently going quiet.
+NO_EDGE_BAND = 0.05
 
 
 class RegistryError(RuntimeError):
@@ -82,15 +99,36 @@ def _load_artifact(blob: bytes) -> EntryModel:
     return model
 
 
+def _raw_metric(metrics_json: str, key: str) -> float | None:
+    """The metric's raw value, or None if it is missing or non-finite (NaN/inf, which json
+    round-trips as literals). Kept distinct from `_metric` because some checks (the no-edge gate)
+    must tell "no value at all" apart from "a real value that happens to map to −inf"."""
+    value = json.loads(metrics_json).get(key)
+    if value is None:
+        return None
+    value = float(value)
+    return value if math.isfinite(value) else None
+
+
 def _metric(metrics_json: str, key: str) -> float:
     """The comparison metric as a float. A missing/None value — or any non-finite value (NaN/inf,
     which json round-trips) — is −inf so it can never win: a corrupt-metric challenger must not be
     able to displace a legitimate champion (`nan <= x` is False, so NaN must be mapped, not passed)."""
-    value = json.loads(metrics_json).get(key)
-    if value is None:
-        return float("-inf")
-    value = float(value)
-    return value if math.isfinite(value) else float("-inf")
+    raw = _raw_metric(metrics_json, key)
+    return raw if raw is not None else float("-inf")
+
+
+def _no_edge(auc: float | None) -> bool:
+    """No demonstrated ranking edge: AUC undefined/non-finite, or within a coin-flip band of 0.5.
+    Enforced here (not just printed by the CLI) so a null result can never become champion."""
+    return auc is None or abs(auc - 0.5) < NO_EDGE_BAND
+
+
+def _n_oos(metrics_json: str) -> int:
+    """OOS row count backing the metric, or 0 if absent — an unreported count cannot be assumed
+    adequate."""
+    value = json.loads(metrics_json).get("n_oos")
+    return int(value) if value is not None else 0
 
 
 def entry_champion(db_path: str = DEFAULT_DB_PATH) -> tuple[int, EntryModel, dict] | None:
@@ -110,9 +148,17 @@ def entry_champion(db_path: str = DEFAULT_DB_PATH) -> tuple[int, EntryModel, dic
 
 
 def promote_if_better(db_path: str, version: int, *, metric_key: str = "auc") -> bool:
-    """Promote `version` to champion iff its OOS `metric_key` is STRICTLY greater than the current
-    champion's (None → −inf, never wins). The first ever model bootstraps unconditionally. Returns
-    True when a promotion happened; idempotent (re-promoting the incumbent is a no-op → False)."""
+    """Promote `version` to champion iff it clears the promotion gate (F2):
+
+    1. Baseline quality — its OOS `metric_key` is not a no-edge result (`_no_edge`) and rests on at
+       least `MIN_OOS_N` OOS rows. Applies even to the very first model: an empty arena has no
+       champion rather than a fake one bootstrapped off an undemonstrated edge.
+    2. If a champion already exists, `version` must beat it by at least `MIN_AUC_DELTA` — nightly
+       retrains are nightly trials, so noise alone (a tie or a marginally-better score) must not be
+       able to swap the champion.
+
+    Returns True iff a promotion happened; idempotent (re-promoting the incumbent is a no-op →
+    False)."""
     init_registry_db(db_path)
     with sqlite3.connect(db_path) as conn:
         cand = conn.execute(
@@ -125,9 +171,15 @@ def promote_if_better(db_path: str, version: int, *, metric_key: str = "auc") ->
         ).fetchone()
         if champ is not None and int(champ[0]) == version:
             return False  # already the champion → nothing to flip
-        if champ is not None and _metric(cand[0], metric_key) <= _metric(champ[1], metric_key):
-            return False  # strictly-greater only: a tie or worse keeps the incumbent
-        # bootstrap (no champion) or a strictly-better challenger → flip in one transaction
+
+        if _n_oos(cand[0]) < MIN_OOS_N or _no_edge(_raw_metric(cand[0], metric_key)):
+            return False  # fails baseline quality → never becomes champion, first or not
+        if champ is not None:
+            delta = _metric(cand[0], metric_key) - _metric(champ[1], metric_key)
+            if delta < MIN_AUC_DELTA:
+                return False  # improvement over the incumbent is below the noise-guard threshold
+
+        # bootstrap (no champion) or a challenger clearing both gates → flip in one transaction
         conn.execute("UPDATE entry_models SET is_champion = 0 WHERE is_champion = 1")
         conn.execute("UPDATE entry_models SET is_champion = 1 WHERE version = ?", (version,))
         return True

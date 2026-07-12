@@ -19,7 +19,12 @@ from equity_scout.market import PricePanel
 from equity_scout.ml.entry_dataset import build_backfill_dataset
 from equity_scout.ml.entry_eval import HORIZON_DAYS
 from equity_scout.ml.entry_model import train_entry_model, walk_forward_evaluate
-from equity_scout.ml.model_registry import promote_if_better, register_challenger
+from equity_scout.ml.model_registry import (
+    MIN_OOS_N,
+    _no_edge,
+    promote_if_better,
+    register_challenger,
+)
 from equity_scout.radar_storage import load_latest_watchlist
 
 BENCHMARK = "SPY"
@@ -34,11 +39,6 @@ def _fmt(value: float | None) -> str:
     return "n/a" if value is None else f"{value:.4f}".replace(".", ",")
 
 
-def _no_edge(auc: float | None) -> bool:
-    """No demonstrated ranking edge: AUC undefined or within a coin-flip band of 0.5."""
-    return auc is None or abs(auc - 0.5) < 0.05
-
-
 def run_train_entry(
     db_path: str,
     *,
@@ -50,8 +50,10 @@ def run_train_entry(
     horizon_days: int = HORIZON_DAYS,
 ) -> dict:
     """Build the backfill, evaluate OUT-OF-SAMPLE, fit on the full set, register the challenger and
-    promote it iff its OOS AUC beats the champion's. Returns {version, metrics, promoted, n_train}.
-    Prints an honest German summary (a weak/undefined AUC is reported as no demonstrated edge)."""
+    promote it iff it clears the registry's promotion gate (`promote_if_better`: baseline quality +
+    minimum AUC delta over the champion, see model_registry.py). Returns {version, metrics,
+    promoted, n_train}. Prints an honest German summary (a weak/undefined AUC is reported as no
+    demonstrated edge; too few OOS rows is reported as such rather than silently not promoting)."""
     X, y, meta = build_backfill_dataset(
         panel, tickers, benchmark=benchmark, horizon_days=horizon_days
     )
@@ -60,7 +62,9 @@ def run_train_entry(
         print("Kein Trainingsdatensatz aufgebaut (zu wenig Historie) — kein Modell registriert.")
         return {"version": None, "metrics": {}, "promoted": False, "n_train": 0}
 
-    metrics = walk_forward_evaluate(X, y, meta, model=model, horizon_days=horizon_days)
+    metrics = walk_forward_evaluate(
+        X, y, meta, model=model, horizon_days=horizon_days, trading_days=panel.dates
+    )
     fitted = train_entry_model(X, y, model=model)
     version = register_challenger(db_path, fitted, metrics=metrics, n_train=n_train, now=now)
     promoted = promote_if_better(db_path, version)
@@ -76,6 +80,11 @@ def run_train_entry(
         print(
             "Kein belastbarer Vorteil nachgewiesen (AUC ~ 0,5 oder nicht bestimmbar). "
             "Das ist ein valides, ehrliches Ergebnis — keine Kauf-/Verkaufsempfehlung."
+        )
+    elif metrics["n_oos"] < MIN_OOS_N:
+        print(
+            f"Zu wenige Out-of-Sample-Zeilen ({metrics['n_oos']} < {MIN_OOS_N}) für eine "
+            "belastbare Promotion-Entscheidung — Modell bleibt Herausforderer."
         )
     return {"version": version, "metrics": metrics, "promoted": promoted, "n_train": n_train}
 

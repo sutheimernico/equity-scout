@@ -79,15 +79,22 @@ def train_entry_model(
 
 
 def _date_grouped_folds(
-    as_of: pd.Series, *, n_splits: int, horizon_days: int
+    as_of: pd.Series,
+    *,
+    n_splits: int,
+    horizon_days: int,
+    trading_days: pd.DatetimeIndex | None = None,
 ) -> Iterator[tuple[pd.Series, pd.Series]]:
     """Yield (train_mask, test_mask) boolean Series per walk-forward fold. THE split mechanism:
     `purged_walk_forward` runs on the sorted unique `as_of` DATES, and each mask selects ALL rows
     sharing a date. So no date can straddle a split — rows on one date share the same forward
-    horizon window, hence the same look-ahead exposure, and must never sit on opposite fold sides."""
+    horizon window, hence the same look-ahead exposure, and must never sit on opposite fold sides.
+    `trading_days` (the full daily calendar `as_of` was sampled from, e.g. `panel.dates`) lets the
+    purge use exact trading-day positions instead of a calendar-day approximation — see
+    `purged_walk_forward`."""
     date_index = pd.DatetimeIndex(sorted(as_of.unique()))
     for train_dates, test_dates in purged_walk_forward(
-        date_index, n_splits=n_splits, horizon_days=horizon_days
+        date_index, n_splits=n_splits, horizon_days=horizon_days, trading_days=trading_days
     ):
         yield as_of.isin(train_dates), as_of.isin(test_dates)
 
@@ -100,10 +107,13 @@ def walk_forward_evaluate(
     model: str = "random_forest",
     n_splits: int = 4,
     horizon_days: int = HORIZON_DAYS,
+    trading_days: pd.DatetimeIndex | None = None,
 ) -> dict:
     """Group-aware purged walk-forward (see `_date_grouped_folds`): the split is on unique `as_of`
-    dates, so all rows of a date share a fold side. Returns OOS {auc, brier, rank_ic, n_oos,
-    n_splits_used, feature_importance}."""
+    dates, so all rows of a date share a fold side. `trading_days` (e.g. `panel.dates`) enables the
+    exact trading-day purge in `purged_walk_forward`; omitting it falls back to its conservative
+    calendar-day bound. Returns OOS {auc, brier, rank_ic, n_oos, n_splits_used, feature_importance}.
+    """
     X = X.reset_index(drop=True)
     y = y.reset_index(drop=True)
     as_of = pd.to_datetime(meta["as_of"]).reset_index(drop=True)
@@ -113,7 +123,7 @@ def walk_forward_evaluate(
     importances: list[np.ndarray] = []
     n_splits_used = 0
     for train_mask, test_mask in _date_grouped_folds(
-        as_of, n_splits=n_splits, horizon_days=horizon_days
+        as_of, n_splits=n_splits, horizon_days=horizon_days, trading_days=trading_days
     ):
         x_train = X[train_mask]
         y_train = y[train_mask]

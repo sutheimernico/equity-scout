@@ -28,58 +28,67 @@ def _panel(n: int = 500) -> PricePanel:
 def _metrics(auc: float) -> dict:
     return {
         "auc": auc, "brier": 0.2, "rank_ic": 0.1,
-        "n_oos": 10, "n_splits_used": 2, "feature_importance": {},
+        # MIN_OOS_N-clearing so these mocked runs exercise the AUC-delta gate, not the OOS-floor
+        # gate (see test_train_cli_first_run_with_insufficient_oos_data_does_not_promote for that).
+        "n_oos": 250, "n_splits_used": 2, "feature_importance": {},
     }
 
 
-def test_train_cli_builds_evaluates_registers_and_promotes_first(tmp_path, capsys):
+def test_train_cli_first_run_with_insufficient_oos_data_does_not_promote(tmp_path, capsys):
+    """The real (unmocked) walk-forward on this tiny 2-ticker/~2-year panel never clears
+    MIN_OOS_N (F2) — the registry correctly withholds a champion rather than bootstrapping one off
+    an undemonstrated edge, even though it is the first-ever registered model."""
     db = str(tmp_path / "train.db")
     result = run_train_entry(db, panel=_panel(), tickers=["AAA", "BBB"], now=NOW)
 
     assert result["version"] == 1
-    assert result["promoted"] is True  # first model bootstraps the champion regardless of metric
+    assert result["promoted"] is False  # F2 baseline-quality gate: too few OOS rows
     assert result["n_train"] > 0
     assert set(result["metrics"]) == {
         "auc", "brier", "rank_ic", "n_oos", "n_splits_used", "feature_importance"
     }
-    got = entry_champion(db)
-    assert got is not None and got[0] == 1
+    assert entry_champion(db) is None
 
     out = capsys.readouterr().out
     assert "Out-of-Sample" in out
-    assert "Als Champion übernommen: ja" in out
+    assert "Als Champion übernommen: nein" in out
 
 
-def test_train_cli_second_run_registers_v2_and_promotes_only_if_better(tmp_path):
+def test_train_cli_second_run_on_same_insufficient_data_still_has_no_champion(tmp_path):
+    """Two identical runs on the tiny panel each register a challenger version, but neither clears
+    F2's baseline-quality gate — repeated retrains without enough OOS history must never sneak in
+    a champion."""
     db = str(tmp_path / "train.db")
     panel = _panel()
     first = run_train_entry(db, panel=panel, tickers=["AAA", "BBB"], now=NOW)
     second = run_train_entry(db, panel=panel, tickers=["AAA", "BBB"], now=NOW)
 
-    assert first["version"] == 1 and first["promoted"] is True
-    assert second["version"] == 2
-    # identical data → identical OOS metric → NOT strictly better → champion stays v1
-    assert second["promoted"] is False
-    assert entry_champion(db)[0] == 1
+    assert first["version"] == 1 and first["promoted"] is False
+    assert second["version"] == 2 and second["promoted"] is False
+    assert entry_champion(db) is None
     assert [v["version"] for v in registry_summary(db)["versions"]] == [2, 1]
 
 
 def test_train_cli_promotes_strictly_better_challenger(tmp_path, monkeypatch):
-    """Champion logic end-to-end: a challenger with a strictly higher OOS AUC displaces v1."""
+    """Champion logic end-to-end: adequate OOS data + a strictly higher OOS AUC displaces v1."""
     db = str(tmp_path / "train.db")
     scores = iter([_metrics(0.60), _metrics(0.80)])
     monkeypatch.setattr(train_mod, "walk_forward_evaluate", lambda *a, **k: next(scores))
 
-    run_train_entry(db, panel=_panel(), tickers=["AAA", "BBB"], now=NOW)
+    first = run_train_entry(db, panel=_panel(), tickers=["AAA", "BBB"], now=NOW)
     second = run_train_entry(db, panel=_panel(), tickers=["AAA", "BBB"], now=NOW)
 
-    assert second["promoted"] is True
+    assert first["promoted"] is True  # clears baseline quality → first champion
+    assert second["promoted"] is True  # delta 0.20 >= MIN_AUC_DELTA → displaces v1
     assert entry_champion(db)[0] == 2
 
 
 def test_train_main_happy_path_exits_zero(tmp_path, monkeypatch, capsys):
     db = str(tmp_path / "train.db")
     monkeypatch.setattr(train_mod, "_load_panel", lambda tickers, start: _panel())
+    # Real backfill on this tiny panel never clears MIN_OOS_N (see the dedicated test above); mock
+    # adequate OOS metrics here so this smoke test still exercises the "champion gets set" path.
+    monkeypatch.setattr(train_mod, "walk_forward_evaluate", lambda *a, **k: _metrics(0.65))
     monkeypatch.setattr(sys, "argv", ["run_train_entry.py", "--db", db, "--tickers", "AAA,BBB"])
 
     assert main() == 0

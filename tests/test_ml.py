@@ -48,6 +48,54 @@ def test_walk_forward_yields_nothing_for_tiny_history():
     assert list(purged_walk_forward(pd.date_range("2020-01-31", periods=10, freq="ME"))) == []
 
 
+def test_walk_forward_horizon_42_purges_by_exact_trading_day_position_on_real_calendar():
+    """F1 regression: horizon_days=42 is a live point in the search space (ml/search.py
+    HORIZON_DAYS). Naive calendar-day purging (`event - Timedelta(days=horizon+embargo)`) treats
+    horizon_days as calendar days when it is actually a count of TRADING days — on a realistic
+    calendar (weekends + US holidays) the true buffer shrinks to as little as ~3 calendar days
+    around a holiday, letting a training label window bleed into the test block. This test proves
+    the fix by checking exact trading-day positions (not by re-deriving the calendar arithmetic
+    under test): for every training event in every fold, the position its (horizon + embargo)
+    trading-day label window reaches must be strictly before the first test event's position."""
+    from pandas.tseries.holiday import USFederalHolidayCalendar
+    from pandas.tseries.offsets import CustomBusinessDay
+
+    trading_days = pd.date_range(
+        "2015-01-01", "2024-12-31", freq=CustomBusinessDay(calendar=USFederalHolidayCalendar())
+    )
+    events = trading_days[::15]  # a monthly-ish event cadence, like panel.rebalance_dates()
+    horizon_days, embargo_days = 42, 21
+
+    folds = list(
+        purged_walk_forward(
+            events,
+            n_splits=4,
+            embargo_days=embargo_days,
+            horizon_days=horizon_days,
+            trading_days=trading_days,
+        )
+    )
+    assert folds  # the calendar is long enough to produce folds
+
+    position = {date: i for i, date in enumerate(trading_days)}
+    for train, test in folds:
+        test_start_pos = position[test.min()]
+        for event in train:
+            label_window_end_pos = position[event] + horizon_days + embargo_days
+            assert label_window_end_pos < test_start_pos  # no label window reaches the test block
+
+
+def test_walk_forward_without_trading_days_falls_back_to_conservative_calendar_bound():
+    """No `trading_days` supplied (e.g. a bare synthetic index) → the fallback must still be at
+    least as wide as the naive horizon+embargo calendar-day span, never narrower."""
+    events = pd.date_range("2008-01-31", periods=100, freq="ME")
+    folds = list(purged_walk_forward(events, n_splits=4, embargo_days=21, horizon_days=42))
+    assert len(folds) >= 1
+    for train, test in folds:
+        gap_days = (test.min() - train.max()).days
+        assert gap_days >= 42 + 21  # at least as conservative as the naive (buggy) calendar span
+
+
 # --- Features ---
 def test_regime_features_shape_and_plausibility():
     n = 400

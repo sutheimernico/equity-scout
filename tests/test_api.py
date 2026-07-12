@@ -299,10 +299,10 @@ def test_model_endpoint_empty_and_after_registration(tmp_path):
     y = pd.Series((X[FEATURE_COLUMNS[0]] > 0.0).astype(int).to_numpy())
     version = register_challenger(
         db, train_entry_model(X, y),
-        metrics={"auc": 0.7, "brier": 0.2, "rank_ic": 0.3}, n_train=20,
+        metrics={"auc": 0.7, "brier": 0.2, "rank_ic": 0.3, "n_oos": 200}, n_train=20,
         now="2026-07-05T12:00:00+00:00",
     )
-    promote_if_better(db, version)
+    assert promote_if_better(db, version) is True  # clears the F2 baseline-quality gate
 
     # log + resolve a couple predictions against realized outcomes
     log_predictions(
