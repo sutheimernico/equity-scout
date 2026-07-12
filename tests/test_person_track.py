@@ -48,19 +48,22 @@ def test_calls_from_filer_payload_keeps_stock_purchases_and_counts_skips():
                         "no_ticker": 1, "no_date": 1}
 
 
-def test_calls_from_events_names_politician_or_fund_and_skips_themes():
+def test_calls_from_events_names_politician_fund_or_insider_and_skips_themes():
     events = [
         {"source": "congress", "ticker": "AAA", "event_date": "2026-01-07",
          "details": {"politician": "Jane Doe", "filing_date": "2026-01-05"}},
         {"source": "thirteen_f", "ticker": "BBB", "event_date": "2026-01-08",
          "details": {"fund": "Scion Asset Management", "filed_at": "2026-01-08"}},
+        {"source": "insider", "ticker": "DDD", "event_date": "2026-01-10",
+         "details": {"insider": "Cook Timothy D", "filing_date": "2026-01-09"}},
         {"source": "news_theme", "ticker": "CCC", "event_date": "2026-01-09",
          "details": {"theme": "ai chips"}},
     ]
     calls = calls_from_events(events)
-    assert [(c.person, c.t0) for c in calls] == [
-        ("Jane Doe", "2026-01-05"),
-        ("Scion Asset Management", "2026-01-08"),
+    assert [(c.person, c.source, c.t0) for c in calls] == [
+        ("Jane Doe", "congress", "2026-01-05"),
+        ("Scion Asset Management", "thirteen_f", "2026-01-08"),
+        ("Cook Timothy D", "insider", "2026-01-09"),
     ]
 
 

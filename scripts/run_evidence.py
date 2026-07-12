@@ -1,12 +1,13 @@
-"""Evidence CLI: collect congress / 13F / news-theme events -> store -> ledger.
+"""Evidence CLI: collect congress / 13F / news-theme / insider events -> store -> ledger.
 
 Usage:
     python scripts/run_evidence.py [--db equity_scout.db] [--universe data/universe_combined.csv]
 
 Each collector degrades independently (CollectorResult status); one dead source never
 kills the run. Only NEWLY inserted events are ledger-logged (predict-then-resolve,
-horizon 60d) — a re-collected fact can never inflate the sample. The 13F collector
-stays politely `unconfigured` without EDGAR_USER_AGENT in the environment.
+horizon 60d) — a re-collected fact can never inflate the sample. The 13F and Form 4
+insider collectors both stay politely `unconfigured` without EDGAR_USER_AGENT in the
+environment.
 """
 from __future__ import annotations
 
@@ -21,6 +22,7 @@ from equity_scout.data.news import YFinanceNews
 from equity_scout.evidence.base import STATUS_OK, CollectorResult
 from equity_scout.evidence.congress import fetch_congress_trades
 from equity_scout.evidence.edgar import collect_13f
+from equity_scout.evidence.form4 import collect_form4
 from equity_scout.evidence.ledger import log_evidence
 from equity_scout.evidence.news_themes import collect_news_themes
 from equity_scout.evidence.storage import record_events
@@ -82,11 +84,16 @@ def main() -> int:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     universe = [(i.ticker, i.name) for i in load_universe(args.universe)]
     ticker_headlines = _watchlist_headlines(args.db)
+    # Same watchlist tickers _watchlist_headlines already loaded — Form 4 is a
+    # per-issuer lookup, so it follows the watchlist's "actively tracked only" scope
+    # rather than the full universe (see evidence/form4.py's module docstring).
+    watchlist_tickers = list(ticker_headlines)
 
     collectors: list[Callable[[], CollectorResult]] = [
         lambda: fetch_congress_trades(now=now),
         lambda: collect_13f(now=now, env=dict(os.environ), universe=universe),
         lambda: collect_news_themes(now=now, ticker_headlines=ticker_headlines),
+        lambda: collect_form4(now=now, env=dict(os.environ), watchlist_tickers=watchlist_tickers),
     ]
     result = run_evidence(args.db, collectors, now=now)
     for line in result["lines"]:

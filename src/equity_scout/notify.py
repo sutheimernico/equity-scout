@@ -15,8 +15,12 @@ import sys
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
-from equity_scout.evidence.aggregate import build_alert_text, select_evidence_alerts
-from equity_scout.evidence.storage import last_alert_at, record_alert, set_alert_message_id
+from equity_scout.evidence.aggregate import (
+    build_alert_text,
+    distinct_buyer_count,
+    select_evidence_alerts,
+)
+from equity_scout.evidence.storage import last_alert, record_alert, set_alert_message_id
 from equity_scout.fundamentals import Fundamentals, fetch_fundamentals
 from equity_scout.inbox_storage import create_pitch, last_pitch_at as _last_pitch_at
 from equity_scout.inbox_storage import set_message_id
@@ -121,14 +125,28 @@ def send_evidence_alerts(
     Telegram failure never loses an alert, a failed send warns and the batch continues,
     and send=None (no config / dry-run) records rows only. Alerts carry NO decision
     keyboard — they ask for a look, they never enter the arena's decision lanes.
+
+    F4 fix: a plain 14-day cooldown per ticker used to suppress genuine escalations (a
+    2-buyer alert would silence the 4-buyer cluster that followed a week later). Now a
+    cluster whose distinct-buyer count (over ALL sources) has grown past the ticker's
+    last SENT alert breaks through the cooldown; the text marks the escalation and the
+    fresh row becomes the new cooldown anchor.
+
     Returns the number of alerts recorded (sent or not).
     """
     recorded = 0
     for alert in select_evidence_alerts(clusters):
         ticker = alert["ticker"]
-        if _inside_cooldown(last_alert_at(db_path, ticker), now, cooldown_days):
+        buyer_count = distinct_buyer_count(alert["events"])
+        previous = last_alert(db_path, ticker)
+        escalated = previous is not None and buyer_count > previous["buyer_count"]
+        if (
+            previous is not None
+            and not escalated
+            and _inside_cooldown(previous["created_at"], now, cooldown_days)
+        ):
             continue
-        text = build_alert_text(alert)
+        text = build_alert_text(alert, escalated=escalated)
         alert_id = record_alert(
             db_path,
             ticker=ticker,
@@ -136,6 +154,7 @@ def send_evidence_alerts(
             text=text,
             telegram_message_id=None,
             now=now,
+            buyer_count=buyer_count,
         )
         recorded += 1
         if send is not None:

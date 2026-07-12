@@ -73,9 +73,18 @@ def init_alerts_db(db_path: str = DEFAULT_DB_PATH) -> None:
                 ticker TEXT NOT NULL,
                 reasons_json TEXT NOT NULL,
                 text TEXT NOT NULL,
-                telegram_message_id INTEGER
+                telegram_message_id INTEGER,
+                buyer_count INTEGER NOT NULL DEFAULT 0
             )"""
         )
+        # Defensive migration for DBs created before F4 (escalation-past-cooldown fix)
+        # added buyer_count — same PRAGMA table_info + ALTER TABLE idiom as storage.py's
+        # init_db. Existing rows keep 0, which never LOOKS escalated (0 > 0 is False).
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(evidence_alerts)")]
+        if "buyer_count" not in cols:
+            conn.execute(
+                "ALTER TABLE evidence_alerts ADD COLUMN buyer_count INTEGER NOT NULL DEFAULT 0"
+            )
 
 
 def record_alert(
@@ -86,15 +95,16 @@ def record_alert(
     text: str,
     telegram_message_id: int | None,
     now: str,
+    buyer_count: int = 0,
 ) -> int:
     init_alerts_db(db_path)
     with sqlite3.connect(db_path) as conn:
         cursor = conn.execute(
             "INSERT INTO evidence_alerts"
-            " (created_at, ticker, reasons_json, text, telegram_message_id)"
-            " VALUES (?, ?, ?, ?, ?)",
+            " (created_at, ticker, reasons_json, text, telegram_message_id, buyer_count)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
             (now, ticker, json.dumps(reasons, ensure_ascii=False), text,
-             telegram_message_id),
+             telegram_message_id, buyer_count),
         )
         return int(cursor.lastrowid or 0)
 
@@ -107,16 +117,22 @@ def set_alert_message_id(db_path: str, alert_id: int, message_id: int) -> None:
         )
 
 
-def last_alert_at(db_path: str, ticker: str) -> str | None:
-    """Cooldown source for alerts, mirroring inbox_storage.last_pitch_at."""
+def last_alert(db_path: str, ticker: str) -> dict | None:
+    """Most recent alert row's timestamp + buyer_count for one ticker.
+
+    Cooldown source (mirroring inbox_storage.last_pitch_at) AND F4's escalation check:
+    notify.send_evidence_alerts compares a fresh cluster's distinct-buyer count against
+    this row's buyer_count to decide whether a genuinely GROWN cluster must break
+    through the cooldown instead of being silently suppressed for 14 days.
+    """
     init_alerts_db(db_path)
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(
-            "SELECT created_at FROM evidence_alerts WHERE ticker = ?"
-            " ORDER BY created_at DESC LIMIT 1",
+            "SELECT created_at, buyer_count FROM evidence_alerts WHERE ticker = ?"
+            " ORDER BY created_at DESC, id DESC LIMIT 1",
             (ticker,),
         ).fetchone()
-    return row[0] if row else None
+    return {"created_at": row[0], "buyer_count": row[1]} if row else None
 
 
 def load_alerts(db_path: str, *, limit: int = 50) -> list[dict]:
@@ -124,8 +140,8 @@ def load_alerts(db_path: str, *, limit: int = 50) -> list[dict]:
     init_alerts_db(db_path)
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute(
-            "SELECT id, created_at, ticker, reasons_json, text, telegram_message_id"
-            " FROM evidence_alerts ORDER BY created_at DESC, id DESC LIMIT ?",
+            "SELECT id, created_at, ticker, reasons_json, text, telegram_message_id,"
+            " buyer_count FROM evidence_alerts ORDER BY created_at DESC, id DESC LIMIT ?",
             (limit,),
         ).fetchall()
     return [
@@ -136,6 +152,7 @@ def load_alerts(db_path: str, *, limit: int = 50) -> list[dict]:
             "reasons": json.loads(row[3]),
             "text": row[4],
             "telegram_message_id": row[5],
+            "buyer_count": row[6],
         }
         for row in rows
     ]

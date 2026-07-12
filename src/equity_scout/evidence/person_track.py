@@ -1,4 +1,5 @@
-"""Person-level track record over disclosed stock purchases (congress, 13F funds).
+"""Person-level track record over disclosed stock purchases (congress, 13F funds,
+Form 4 corporate insiders).
 
 Pure computation: payload/event parsing in, scores out — prices arrive as an aligned
 close panel (pandas), the network stays in the CLI. Methodology (documented in
@@ -111,14 +112,17 @@ def calls_from_filer_payload(payload: dict) -> tuple[list[Call], dict]:
 def calls_from_events(events: list[dict]) -> list[Call]:
     """Own evidence_events rows -> calls, source-agnostic.
 
-    Congress rows carry `politician`, 13F rows carry `fund` — whichever is present
-    names the person. Rows without a person (news themes) are silently skipped:
-    themes have no author to track.
+    Congress rows carry `politician`, 13F rows carry `fund`, insider (Form 4) rows
+    carry `insider` — whichever is present names the person; the event's own `source`
+    (congress/thirteen_f/insider) rides along on the Call and keeps the three kinds of
+    buyer scored separately (score_persons keys by (person, source), so a name that
+    appears in two sources never blends into one fake sample). Rows without a person
+    (news themes) are silently skipped: themes have no author to track.
     """
     calls: list[Call] = []
     for event in events:
         details = event.get("details") or {}
-        person = details.get("politician") or details.get("fund")
+        person = details.get("politician") or details.get("fund") or details.get("insider")
         if not person:
             continue
         calls.append(

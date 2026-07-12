@@ -132,11 +132,11 @@ Dashboard endpoints: `GET /api/radar`, `GET /api/inbox`, `POST /api/inbox/{id}/d
 
 ## External evidence + person track records
 
-Three free external sources annotate pitches and can raise separately-labelled alerts —
+Four free external sources annotate pitches and can raise separately-labelled alerts —
 they NEVER change the entry composite or selection rules:
 
 ```bash
-# Collect congress trades / 13F fund moves / news themes → store + predict-then-resolve ledger
+# Collect congress trades / 13F fund moves / news themes / Form 4 insider buys → store + ledger
 uv run python scripts/run_evidence.py --db equity_scout.db
 
 # Resolve due evidence rows against real forward prices vs SPY (60d horizon)
@@ -154,18 +154,30 @@ uv run python scripts/run_person_scores.py --db equity_scout.db
   stays politely `unconfigured` without it.
 - **News themes** (Google News RSS + MarketWatch + Fed press): deterministic cross-source
   bigram clusters; themes alone never alert (weakest, most-priced-in source).
+- **Form 4 corporate-insider purchases** (SEC EDGAR, scoped to the current watchlist tickers):
+  open-market buys only (transaction code P + acquired) by directors/officers/10%-owners of
+  the companies you are actually watching — the fastest source, but insiders may still file up
+  to **2 business days** after trading, so it is still a lag, never an early signal. Needs
+  `EDGAR_USER_AGENT`; stays politely `unconfigured` without it. A single insider buying is
+  routine noise; **3 or more distinct insiders** buying independently inside the alert window is
+  the robust cluster signal (Cohen/Malloy/Pomorski) and raises an alert.
 
 Every collected event is logged to an append-only ledger BEFORE its outcome is knowable and
 resolved later against real forward returns vs SPY — "does congress-following actually
 work?" is a query (`/api/evidence`, digest section), not an opinion.
 
-**Person track records:** every disclosed buyer (politician; funds as their filings
-accumulate) is measured with our own methodology — T0 = filing date (the day a reader could
-know), abnormal return vs SPY over 1M/3M horizons, **no score below 5 resolvable calls**,
+**Person track records:** every disclosed buyer (politician; funds and insiders as their
+filings accumulate) is measured with our own methodology — T0 = filing date (the day a reader
+could know), abnormal return vs SPY over 1M/3M horizons, **no score below 5 resolvable calls**,
 recency-weighted (540d half-life). Measured records annotate pitches/alerts, and a single
 buyer with a strong record (≥ +2 % weighted @3M) may alert alone — always labelled
 "Historie, keine Prognose". A disclosed trade is a trade, not a recommendation (tax,
 liquidity and diversification confound it) — the caveat rides on every surface.
+
+**Alert escalation:** a ticker's alerts share a 14-day cooldown, but a cluster whose distinct
+buyer count (across all four sources) grows past the last SENT alert breaks through the
+cooldown — a 2-buyer alert must never silence the 4-buyer cluster that follows a week later.
+The alert text marks the escalation.
 
 ## Automation (cron)
 
@@ -194,7 +206,7 @@ inbox-only / stdout; set them in your local `.env`, never commit values):
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | SMTP account for the daily digest |
 | `DIGEST_TO` | digest recipient address |
 | `OLLAMA_HOST` / `OLLAMA_MODEL` | local LLM for pitch texts (existing assistant settings) |
-| `EDGAR_USER_AGENT` | `"name (email)"` contact the SEC requires; enables the 13F collector |
+| `EDGAR_USER_AGENT` | `"name (email)"` contact the SEC requires; enables the 13F + Form 4 insider collectors |
 
 ## Honesty guardrails
 Factor screens are well-studied but do not reliably beat the market. Free data (yfinance) is

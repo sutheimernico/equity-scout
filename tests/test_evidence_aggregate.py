@@ -8,10 +8,16 @@ from __future__ import annotations
 from equity_scout.evidence.aggregate import (
     DELAY_NOTE,
     build_alert_text,
+    distinct_buyer_count,
     evidence_block,
     select_evidence_alerts,
 )
-from equity_scout.evidence.base import SOURCE_13F, SOURCE_CONGRESS, SOURCE_NEWS_THEME
+from equity_scout.evidence.base import (
+    SOURCE_13F,
+    SOURCE_CONGRESS,
+    SOURCE_INSIDER,
+    SOURCE_NEWS_THEME,
+)
 
 
 def _congress(ticker: str, politician: str, filing_date: str = "2026-07-01") -> dict:
@@ -32,6 +38,18 @@ def _fund(ticker: str, fund: str, change: str = "new") -> dict:
         "event_date": "2026-07-02",
         "details": {"fund": fund, "change": change, "period": "2026-06-30",
                     "filed_at": "2026-07-02"},
+    }
+
+
+def _insider(ticker: str, insider: str, filing_date: str = "2026-07-01") -> dict:
+    return {
+        "source": SOURCE_INSIDER,
+        "ticker": ticker,
+        "event_key": f"{insider}-{filing_date}",
+        "event_date": filing_date,
+        "details": {"insider": insider, "role": "officer (CEO)", "filing_date": filing_date,
+                     "transaction_date": "2026-06-30", "shares": 1000.0, "price": 10.0,
+                     "value": 10000.0},
     }
 
 
@@ -73,6 +91,18 @@ def test_evidence_block_deduplicates_repeated_themes():
     assert block.count("ai chips") == 1
 
 
+def test_evidence_block_renders_insider_purchases():
+    block = evidence_block(
+        [
+            _insider("EXE", "Cook Timothy D"),
+            _insider("EXE", "Jane Insider", filing_date="2026-07-04"),
+        ]
+    )
+    assert block is not None
+    assert "2 Insider-Kauf/Käufe gemeldet (Cook Timothy D +1 weitere, zuletzt 2026-07-04)" in block
+    assert DELAY_NOTE in block
+
+
 def test_select_evidence_alerts_requires_a_genuine_cluster():
     clusters = {
         "ONE": [_congress("ONE", "Jane Doe")],  # single buyer -> noise
@@ -85,6 +115,36 @@ def test_select_evidence_alerts_requires_a_genuine_cluster():
     assert [a["ticker"] for a in alerts] == ["FUND", "TWO"]
     assert alerts[1]["reasons"] == ["2 Kongress-Mitglieder haben gekauft"]
     assert alerts[0]["reasons"] == ["2 beobachtete Fonds neu/aufgestockt"]
+
+
+def test_select_evidence_alerts_requires_min_insiders_cluster():
+    clusters = {
+        "TWO": [_insider("TWO", "A"), _insider("TWO", "B")],  # below MIN_INSIDERS=3 -> noise
+        "THREE": [_insider("THREE", "A"), _insider("THREE", "B"), _insider("THREE", "C")],
+    }
+    alerts = select_evidence_alerts(clusters)
+    assert [a["ticker"] for a in alerts] == ["THREE"]
+    assert alerts[0]["reasons"] == ["3 Insider haben unabhängig gekauft"]
+
+
+def test_distinct_buyer_count_counts_unique_names_across_sources():
+    events = [
+        _congress("MIX", "Jane Doe"),
+        _fund("MIX", "Scion Asset Management"),
+        _insider("MIX", "Cook Timothy D"),
+        _insider("MIX", "Cook Timothy D", filing_date="2026-07-05"),  # same person, not double
+    ]
+    assert distinct_buyer_count(events) == 3
+
+
+def test_build_alert_text_marks_escalation():
+    alerts = select_evidence_alerts(
+        {"EXE": [_congress("EXE", "Jane Doe"), _congress("EXE", "John Roe")]}
+    )
+    text = build_alert_text(alerts[0], escalated=True)
+    assert "Eskalation: mehr Käufer als beim letzten Alarm" in text
+    plain = build_alert_text(alerts[0])
+    assert "Eskalation" not in plain
 
 
 def test_build_alert_text_is_labelled_as_not_a_screener_pick():

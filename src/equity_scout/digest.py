@@ -18,7 +18,7 @@ _STATUS_ICON = {"open": "📬 offen", "buy": "✅ Kaufentscheidung",
                 "pass": "❌ abgelehnt", "later": "⏸ später"}
 # Human labels for evidence.base SOURCE_* keys; unknown keys fall back to themselves.
 _SOURCE_LABEL = {"congress": "Kongress-Käufe", "thirteen_f": "13F-Fonds",
-                 "news_theme": "News-Themen"}
+                 "news_theme": "News-Themen", "insider": "Insider-Käufe (Form 4)"}
 
 
 def load_smtp_config(env: dict) -> dict | None:

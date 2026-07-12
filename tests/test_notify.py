@@ -327,6 +327,34 @@ def test_send_evidence_alerts_ignores_single_buyer_noise(tmp_path):
     assert load_alerts(db) == []
 
 
+def test_send_evidence_alerts_escalates_past_cooldown_when_buyers_grow(tmp_path):
+    """F4: a 2-buyer alert must not silence the 4-buyer cluster that follows inside
+    the same 14-day cooldown window — the cluster genuinely grew."""
+    db = str(tmp_path / "alerts.db")
+    small = _cluster("EXE", "Jane Doe", "John Roe")
+    assert send_evidence_alerts(db, small, send=None, now=NOW) == 1
+
+    grown = _cluster("EXE", "Jane Doe", "John Roe", "Ada Lee", "Max Roe")
+    assert send_evidence_alerts(db, grown, send=None, now=NOW) == 1  # breaks the cooldown
+
+    alerts = load_alerts(db)
+    assert len(alerts) == 2
+    assert alerts[0]["buyer_count"] == 4  # newest-first
+    assert "Eskalation" in alerts[0]["text"]
+    assert alerts[1]["buyer_count"] == 2
+    assert "Eskalation" not in alerts[1]["text"]
+
+
+def test_send_evidence_alerts_same_buyer_count_stays_suppressed_in_cooldown(tmp_path):
+    """A repeat of the SAME cluster (no growth) must stay suppressed — only a genuine
+    rise in distinct buyers overrides the cooldown, not a mere re-collection."""
+    db = str(tmp_path / "alerts.db")
+    cluster = _cluster("EXE", "Jane Doe", "John Roe")
+    assert send_evidence_alerts(db, cluster, send=None, now=NOW) == 1
+    assert send_evidence_alerts(db, cluster, send=None, now=NOW) == 0
+    assert len(load_alerts(db)) == 1
+
+
 def test_main_writes_inbox_only_without_telegram_config(tmp_path, monkeypatch, capsys):
     """No COPILOT_TG_* env -> inbox-only path, exit 0, no network attempted."""
     db = str(tmp_path / "run.db")
