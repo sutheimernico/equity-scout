@@ -89,7 +89,7 @@ Positiv-/Negativ-Fälle (Ticker ohne Verb → Kontext; Verb ohne eindeutigen Tic
 beides → Call, Richtung korrekt), Collector mit fake `http_get` (ok/fetch_failed), Ledger-Idempotenz,
 `_person_of`/`calls_from_events` mit speaker-Events.
 
-- [ ] P1 umgesetzt, Gate grün, committed (`feat(evidence): track what famous investors say as fifth evidence source`)
+- [x] P1 umgesetzt, Gate grün, committed (`feat(evidence): track what famous investors say as fifth evidence source`)
 
 ## P2 — Entry-Modell v2 (übernimmt v5-P3) + kurzer Horizont
 
@@ -105,7 +105,7 @@ catboost optional-import mit Skip, wenn nicht installiert (Muster aus `test_catb
 Ensemble = Mittel der kalibrierten Einzel-Scores. Promotion bleibt allein Sache des gehärteten
 `promote_if_better` (MIN_AUC_DELTA/MIN_OOS_N/NO_EDGE_BAND — KEINE Lockerung).
 
-- [ ] P2 umgesetzt, Gate grün, committed (`feat(ml): entry model v2 with calibration, presets and short horizon`)
+- [x] P2 umgesetzt, Gate grün, committed (`feat(ml): entry model v2 with calibration, presets and short horizon`)
 
 ## P3 — ML-Bot-Familie: Long-Bot + Short-Bot als Forward-Paper-Konten
 
@@ -135,7 +135,7 @@ entry_short).
 über N Tage, Margin-Floor-Zwangsglattstellung, `decide()` beider Bots mit Fake-Champion
 (deterministische Scores), Skip-ohne-Champion-Pfad, Registry-Partition-Trennung.
 
-- [ ] P3 umgesetzt, Gate grün, committed (`feat(strategies): ML long and short bots trade forward on paper`)
+- [x] P3 umgesetzt, Gate grün, committed (`feat(strategies): ML long and short bots trade forward on paper`)
 
 ## P4 — Sichtbare Lernkurve
 
@@ -150,7 +150,7 @@ Tests: `test_model_registry.py`, `test_prediction_ledger.py`, `test_api.py` erwe
 **Ehrlichkeit:** Die Kurve zeigt was IST — auch wenn sie fällt. Keine Glättung, die Verschlechterung
 versteckt; n je Fenster wird mit angezeigt (kleine n ≠ Signal).
 
-- [ ] P4 umgesetzt, Gate grün, committed (`feat(ml): learning-curve history API from registry and ledgers`)
+- [x] P4 umgesetzt, Gate grün, committed (`feat(ml): learning-curve history API from registry and ledgers`)
 
 ## P5 — Always-on-Betrieb: 30-min-Takt + nächtliches Training
 
@@ -174,7 +174,7 @@ auf intraday erzeugten Vorschlägen).
 **Tests:** Zeitfenster-Guard als pure Funktion (`within_market_window(now)`) unit-getestet;
 `--trials`-Batch-Modus; Rest ist Shell-Glue nach bestehendem, live-verifiziertem Muster.
 
-- [ ] P5 umgesetzt, Gate grün, committed (`feat(automation): 30-minute intraday copilot chain and nightly training`)
+- [x] P5 umgesetzt, Gate grün, committed (`feat(automation): 30-minute intraday copilot chain and nightly training`)
 
 ## P6 — IA/UX-Overhaul + Signal-Stack (übernimmt v5-P5)
 
@@ -202,7 +202,7 @@ Assistent        — lokaler Chat
   ML-Score, Evidenz-Events, Personen-Track-Records — v5-P5-Umfang.
 - UI-Texte deutsch (Projekt-Konvention), Fachbegriffe (AUC, DSR) bleiben original + Tooltip.
 
-- [ ] P6 umgesetzt, Gate grün (inkl. `npm run typecheck`+`build --prefix frontend`), committed
+- [x] P6 umgesetzt, Gate grün (inkl. `npm run typecheck`+`build --prefix frontend`), committed
   (`feat(frontend): information architecture overhaul with today view, unified depots and signal stack`)
 
 ## P7 (Backlog, nur wenn Session-Zeit übrig) — Strategie-Parameter-Suche (v5-P4)
@@ -210,7 +210,7 @@ Assistent        — lokaler Chat
 Zweite Suchdimension im Research-Loop über Strategie-Hyperparameter, EIGENES Ledger + EIGENE
 DSR-Hürde (Multiple-Testing-Trennung), Surface in `/api/research`.
 
-- [ ] P7 umgesetzt oder explizit als Backlog dokumentiert
+- [x] P7 explizit als Backlog dokumentiert (PLAN.md, 2026-07-14) — nicht umgesetzt
 
 ---
 
@@ -227,6 +227,24 @@ ein Commit pro Paket minimum, `AUTOPILOT_LOG.md`-Zeile pro Paket, Outcome-Abschn
   danach auch die neue Intraday-Kette; `EDGAR_USER_AGENT` in `.env` weiterhin offen.
 - Merge-/Push-Entscheidung `autopilot/work` → `main` (Repo ist public).
 
-## Outcome
+## Outcome (2026-07-14)
 
-_(wird am Ende der Session gefüllt)_
+**P1–P6 komplett umgesetzt** auf `autopilot/work`, Gate pro Paket grün (pytest + ruff, P6 zusätzlich
+FE typecheck + build), ein Feature-Commit + Log-Zeile pro Paket (8483d80, ad5b666, e0684be, 2759a05,
+75749e1, 766b546). Live-Verifikation: Voices-Collector gegen echte Feeds (184 Mentions → 1 Bearish-
+Call korrekt, Burry/NVDA-Short ehrlich als Kontext), Forward-Paper-Lauf (Long-Bot handelt mit dem
+existierenden Champion, Short-Bot ehrlich übersprungen), Server-Smoke aller Endpoints inkl.
+`/api/stack/{ticker}` und `/api/model/history` (200, echte Daten).
+
+**Abweichungen vom Plan:** (1) Bots in EINEM Modul `strategies/ml_bot.py` statt `ml_long.py` +
+`ml_short.py` — sie teilen die komplette Scoring-Logik. (2) Long-Bot-Modell bleibt auf dem
+20-Tage-Horizont (bestehende /api/model-Semantik); der kürzere Horizont (10 Handelstage) gehört dem
+Short-Modell, die kurzfristige Kadenz kommt über tägliche Advances. (3) „DSR-Hürde pro Trial
+speichern" (P4-Teilpunkt) ins Backlog verschoben — das Research-Ledger nutzt positionsbasierte
+INSERTs, der Umbau lohnt separat. (4) run_research hatte `--trials` bereits.
+
+**P7 (Strategie-Parameter-Suche) bleibt Backlog** (siehe PLAN.md).
+
+**Needs Nico:** `./scripts/install_crontab.sh` neu ausführen (jetzt inkl. Intraday- + Nightly-Kette),
+PERSONS-Startliste in `evidence/voices.py` bestätigen/erweitern, visueller FE-Abnahme-Pass,
+Merge-/Push-Entscheidung.

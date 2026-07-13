@@ -165,12 +165,43 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] Live 2026-07-10: 977 backfill calls / 13 filers → 5 scoreable persons; 2 alerts
       (KHC/Peters, COHR/Whitehouse) really delivered via Telegram
 
+## Phase: Always-on Copilot v6 (2026-07-13) — DONE 2026-07-14
+> Vision (Nico, in-session 2026-07-13): (1) auch tracken, was bekannte Investoren SAGEN
+> (Burry-Beispiel), (2) ML soll fortlaufend lernen UND wirklich weitertraden — Long- und
+> Short-Bots, sichtbare Lernkurve, kurzfristiger, (3) kompletter Konzept-/UX-Review
+> (Navigation/Bezeichnungen unübersichtlich), (4) Always-on: ~30-min-Takt statt 1×/Tag.
+> **Plan + Outcome: `docs/superpowers/plans/2026-07-13-always-on-copilot-v6.md`**
+- [x] P1 Voices-Evidenzquelle (Google/Bing News RSS je Person, deterministische Call/Kontext-Grenze,
+      bullish Calls -> Ledger + Person-Track, bearish nur Anzeige/Alert; live 184 Mentions)
+- [x] P2 Entry-Modell v2 (OOS-Isotonic-Kalibrierung, catboost+ensemble Presets, alle Presets je
+      Nacht, --horizon + SHORT_HORIZON_DAYS=10)
+- [x] P3 ML-Bot-Familie (signed weights + side, Short-P&L/Borrow-Proxy/Margin-Floor, Registry-
+      Familien entry/entry_short, MLLong/MLShort in run_forward_paper; Long-Bot handelt live)
+- [x] P4 Sichtbare Lernkurve (champion_history, rollierende resolved-Fenster, echtes Drift-
+      Snapshot, /api/model/history)
+- [x] P5 Always-on (intraday_copilot.sh 30-min mit Marktfenster-Guard, nightly_train.sh,
+      install_crontab.sh erweitert, run_evidence --fast, Kurs-Verzögerungshinweis auf Pitches)
+- [x] P6 IA-Overhaul (sichtbare Nav-Gruppen, Heute-Startseite, Depots vereinheitlicht mit
+      TimeContextBadge, Stimmen-/Lernkurven-Views, Signal-Stack pro Ticker, Entry-Modell/
+      Signal-Filter-Umbenennung; /api/stack, ML-Score in /api/radar)
+- [ ] P7 Backlog: Strategie-Parameter-Suche im Research-Loop (EIGENES Ledger + EIGENE DSR-Hürde,
+      Multiple-Testing-Trennung; v5-P4)
+- [ ] Backlog: DSR-Hürde zum Trial-Zeitpunkt im Research-Ledger mitspeichern (Ledger nutzt
+      positionsbasierte INSERTs -> kleiner Schema-Umbau nötig; ohne das ist die rückwirkende
+      "war der Champion damals über der Hürde"-Kurve nicht rekonstruierbar)
+- [ ] Backlog: vorzeichenrichtige Ledger-Auflösung für bearish Voice-Calls (bis dahin: Anzeige +
+      Alert, aber keine Statistik — dokumentiert in evidence/voices.py)
+
 ## Needs Nico (loop cannot do these itself)
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
 - Any data source that would require a paid key (do NOT sign up — log here instead).
 - `EDGAR_USER_AGENT="name (email)"` in `.env` so the 13F collector can run (stays politely
   `unconfigured` until then; never faked).
-- **Run `./scripts/install_crontab.sh` once** (2026-07-10): installs the daily copilot
-  chain (18:00 Mon–Fri) + receiver keepalive (5-min flock) cron lines. The autonomous
+- **Run `./scripts/install_crontab.sh` once** (updated 2026-07-14): installs the daily copilot
+  chain (18:00 Mon–Fri), receiver keepalive (5-min flock), the NEW 30-min intraday chain and the
+  NEW nightly training chain (02:30 Tue–Sat). The autonomous
   session was not allowed to modify the crontab itself; the installer is idempotent and
   preserves the existing forward-paper line.
+- Voices-Personenliste bestätigen/erweitern (`evidence/voices.py::PERSONS`, aktuell die 8
+  Fonds-Manager hinter den 13F-Fonds) — Veto-Option, Session 2026-07-14.
+- Visueller Abnahme-Pass des IA-Overhauls im Browser (kein Screenshot-Tooling in der Build-Umgebung).
