@@ -6,8 +6,9 @@ Usage:
 
 Pipeline: active congress filers from our evidence store -> their FULL purchase
 history from the mirror's per-filer files (polite: only filers we actually see) ->
-plus 13F fund calls AND Form 4 insider calls from our own store (no backfill for
-either — their scores accumulate as the ledger resolves) -> one cached close panel ->
+plus 13F fund calls, Form 4 insider calls AND bullish voice calls from our own store
+(no backfill for any — their scores accumulate as the ledger resolves) -> one cached
+close panel ->
 score_persons -> person_scores table. Calls older than the lookback are dropped AND
 counted: the 540d recency half-life makes them near-weightless anyway, and the panel
 stays bounded. Weekly cadence is plenty — the underlying disclosures lag 45/135 days
@@ -22,7 +23,12 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 
 from equity_scout.constants import DEFAULT_DB_PATH
-from equity_scout.evidence.base import SOURCE_13F, SOURCE_CONGRESS, SOURCE_INSIDER
+from equity_scout.evidence.base import (
+    SOURCE_13F,
+    SOURCE_CONGRESS,
+    SOURCE_INSIDER,
+    SOURCE_VOICE,
+)
 from equity_scout.evidence.congress import fetch_filer_history
 from equity_scout.evidence.person_storage import save_person_scores
 from equity_scout.evidence.person_track import (
@@ -94,10 +100,15 @@ def collect_calls(
     own_events = [event for events in events_by_ticker.values() for event in events]
     fund_calls = calls_from_events([e for e in own_events if e["source"] == SOURCE_13F])
     insider_calls = calls_from_events([e for e in own_events if e["source"] == SOURCE_INSIDER])
+    # calls_from_events keeps only measurable BULLISH voice calls (kind="call") — see
+    # evidence/voices.py; like insiders, voices get no backfill and accumulate slowly.
+    voice_calls = calls_from_events([e for e in own_events if e["source"] == SOURCE_VOICE])
     counters["fund_calls"] = len(fund_calls)
     counters["insider_calls"] = len(insider_calls)
+    counters["voice_calls"] = len(voice_calls)
     calls.extend(fund_calls)
     calls.extend(insider_calls)
+    calls.extend(voice_calls)
     return calls, counters
 
 

@@ -13,6 +13,7 @@ SOURCE_CONGRESS = "congress"
 SOURCE_13F = "thirteen_f"
 SOURCE_NEWS_THEME = "news_theme"
 SOURCE_INSIDER = "insider"
+SOURCE_VOICE = "voice"
 
 STATUS_OK = "ok"
 STATUS_UNCONFIGURED = "unconfigured"

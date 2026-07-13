@@ -15,12 +15,14 @@ from equity_scout.evidence.base import (
     SOURCE_CONGRESS,
     SOURCE_INSIDER,
     SOURCE_NEWS_THEME,
+    SOURCE_VOICE,
 )
 
 DELAY_NOTE = (
     "Externe Signale sind Kontext, kein Frühsignal: Kongress-Meldungen kommen bis zu "
     "45 Tage, 13F-Meldungen bis zu 135 Tage, Insider-Meldungen (Form 4) bis zu 2 "
-    "Werktage nach dem Kauf."
+    "Werktage nach dem Kauf. Presse-Stimmen sind bereits öffentlich, wenn sie hier "
+    "auftauchen."
 )
 
 _CHANGE_LABEL = {"new": "neue Position", "increased": "Position aufgestockt"}
@@ -39,7 +41,12 @@ MIN_INSIDERS = 3
 
 def _person_of(event: dict) -> str | None:
     details = event.get("details") or {}
-    return details.get("politician") or details.get("fund") or details.get("insider")
+    return (
+        details.get("politician")
+        or details.get("fund")
+        or details.get("insider")
+        or details.get("speaker")
+    )
 
 
 def distinct_buyer_count(events: list[dict]) -> int:
@@ -161,6 +168,32 @@ def _theme_lines(events: list[dict]) -> list[str]:
     return lines
 
 
+_DIRECTION_LABEL = {"bullish": "äußert sich positiv", "bearish": "äußert sich negativ"}
+
+
+def _voice_lines(events: list[dict]) -> list[str]:
+    """Measured calls first (they carry a direction), context mentions after; one line
+    per (speaker, headline) — the same syndicated story must not repeat."""
+    calls: list[str] = []
+    mentions: list[str] = []
+    seen: set[tuple[str, str]] = set()
+    for event in events:
+        if event["source"] != SOURCE_VOICE:
+            continue
+        details = event.get("details") or {}
+        speaker = details.get("speaker", "unbekannt")
+        headline = details.get("headline", "?")
+        if (speaker, headline) in seen:
+            continue
+        seen.add((speaker, headline))
+        if details.get("kind") == "context":
+            mentions.append(f"• Stimme: {speaker} erwähnt — »{headline}«")
+        else:
+            verb = _DIRECTION_LABEL.get(details.get("direction", ""), "äußert sich")
+            calls.append(f"• Stimme: {speaker} {verb} — »{headline}«")
+    return calls + mentions
+
+
 def evidence_block(events: list[dict]) -> str | None:
     """The pitch's "Externe Signale" section, or None when there is nothing to say."""
     lines = []
@@ -171,6 +204,7 @@ def evidence_block(events: list[dict]) -> str | None:
     if insider:
         lines.append(insider)
     lines += _fund_lines(events)
+    lines += _voice_lines(events)
     lines += _theme_lines(events)
     if not lines:
         return None
@@ -212,8 +246,31 @@ def select_evidence_alerts(
             reasons.append(f"{len(funds)} beobachtete Fonds neu/aufgestockt")
         if len(insiders) >= min_insiders:
             reasons.append(f"{len(insiders)} Insider haben unabhängig gekauft")
+        # A tracked person's MEASURABLE public call (voices.py's deterministic
+        # name-before-verb + unambiguous-ticker rule) alerts alone: the persons list is
+        # curated, such calls are rare, and the cooldown caps repeats. Context mentions
+        # never alert — a mention is not a statement.
+        voice_seen: set[str] = set()
+        for event in events:
+            details = event.get("details") or {}
+            if event["source"] != SOURCE_VOICE or details.get("kind") == "context":
+                continue
+            speaker = details.get("speaker")
+            if not speaker or speaker in voice_seen:
+                continue
+            voice_seen.add(speaker)
+            verb = _DIRECTION_LABEL.get(details.get("direction", ""), "äußert sich")
+            reasons.append(
+                f"Stimme: {speaker} {verb} — »{details.get('headline', '?')}«"
+                " (Presse-Schlagzeile, kein Filing)"
+            )
         strong_seen: set[str] = set()
         for event in events:
+            # Voice events never enter the "hat gekauft"-worded strong-buyer path: a
+            # public statement is not a purchase, and measurable voice calls already
+            # alert via their own reason line above.
+            if event["source"] == SOURCE_VOICE:
+                continue
             person = _person_of(event)
             record = (event.get("details") or {}).get("track_record")
             if not person or person in strong_seen or not record:

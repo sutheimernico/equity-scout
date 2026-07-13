@@ -132,11 +132,11 @@ Dashboard endpoints: `GET /api/radar`, `GET /api/inbox`, `POST /api/inbox/{id}/d
 
 ## External evidence + person track records
 
-Four free external sources annotate pitches and can raise separately-labelled alerts —
+Five free external sources annotate pitches and can raise separately-labelled alerts —
 they NEVER change the entry composite or selection rules:
 
 ```bash
-# Collect congress trades / 13F fund moves / news themes / Form 4 insider buys → store + ledger
+# Collect congress trades / 13F fund moves / news themes / Form 4 insider buys / voices → store + ledger
 uv run python scripts/run_evidence.py --db equity_scout.db
 
 # Resolve due evidence rows against real forward prices vs SPY (60d horizon)
@@ -161,6 +161,14 @@ uv run python scripts/run_person_scores.py --db equity_scout.db
   `EDGAR_USER_AGENT`; stays politely `unconfigured` without it. A single insider buying is
   routine noise; **3 or more distinct insiders** buying independently inside the alert window is
   the robust cluster signal (Cohen/Malloy/Pomorski) and raises an alert.
+- **Voices** (Google News RSS + Bing News RSS person queries, free, undocumented feeds): what
+  the tracked famous investors (the managers behind the 13F funds — Buffett, Burry, Ackman, …)
+  **say in public**. These are mentions feeds, so the honest boundary is deterministic: a
+  headline only becomes a **measurable call** when the speaker's name precedes a direction
+  phrase from a closed list AND exactly one universe company resolves from the title — bullish
+  calls enter ledger + person track record, bearish calls are shown and alerted but stay out of
+  the statistics until signed resolution exists, everything else is context display only.
+  A measurable call by a tracked person alerts alone (press headline, no filing).
 
 Every collected event is logged to an append-only ledger BEFORE its outcome is knowable and
 resolved later against real forward returns vs SPY — "does congress-following actually

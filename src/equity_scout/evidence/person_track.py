@@ -123,6 +123,11 @@ def calls_from_events(events: list[dict]) -> list[Call]:
     for event in events:
         details = event.get("details") or {}
         person = details.get("politician") or details.get("fund") or details.get("insider")
+        if not person and details.get("kind") == "call":
+            # Voice rows: only measurable BULLISH calls (kind="call") are track-record
+            # material — bearish calls would resolve with inverted meaning, context
+            # mentions have no direction at all (evidence/voices.py module docstring).
+            person = details.get("speaker")
         if not person:
             continue
         calls.append(

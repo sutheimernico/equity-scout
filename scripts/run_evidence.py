@@ -1,4 +1,4 @@
-"""Evidence CLI: collect congress / 13F / news-theme / insider events -> store -> ledger.
+"""Evidence CLI: collect congress / 13F / news-theme / insider / voice events -> store -> ledger.
 
 Usage:
     python scripts/run_evidence.py [--db equity_scout.db] [--universe data/universe_combined.csv]
@@ -26,8 +26,18 @@ from equity_scout.evidence.form4 import collect_form4
 from equity_scout.evidence.ledger import log_evidence
 from equity_scout.evidence.news_themes import collect_news_themes
 from equity_scout.evidence.storage import record_events
+from equity_scout.evidence.voices import collect_voices
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.universe import load_universe
+
+
+def ledgerable_events(events: list) -> list:
+    """Voice context mentions (`kind="context"`) and bearish voice calls
+    (`kind="call_bearish"`) are stored and displayed but must never enter the
+    predict-then-resolve ledger: a mention has no direction to resolve, and resolving a
+    short call as a long would invert its meaning (evidence/voices.py docstring).
+    Events without a `kind` (every other source) pass through unchanged."""
+    return [e for e in events if e.details.get("kind") in (None, "call")]
 
 
 def run_evidence(
@@ -47,7 +57,11 @@ def run_evidence(
     for collect in collectors:
         result = collect()
         new_events = record_events(db_path, result.events, now=now) if result.events else []
-        ledgered = log_evidence(db_path, new_events, now=now) if new_events else 0
+        ledgered = (
+            log_evidence(db_path, ledgerable_events(new_events), now=now)
+            if new_events
+            else 0
+        )
         new_total += len(new_events)
         ledgered_total += ledgered
         status_note = "" if result.status == STATUS_OK else f" [{result.status}]"
@@ -94,6 +108,7 @@ def main() -> int:
         lambda: collect_13f(now=now, env=dict(os.environ), universe=universe),
         lambda: collect_news_themes(now=now, ticker_headlines=ticker_headlines),
         lambda: collect_form4(now=now, env=dict(os.environ), watchlist_tickers=watchlist_tickers),
+        lambda: collect_voices(now=now, universe=universe),
     ]
     result = run_evidence(args.db, collectors, now=now)
     for line in result["lines"]:

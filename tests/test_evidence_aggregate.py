@@ -236,3 +236,66 @@ def test_attach_track_records_skips_rows_with_unmeasured_long_horizon():
     clusters = attach_track_records({"EXE": [_congress("EXE", "Jane Doe")]}, index)
     assert "track_record" not in clusters["EXE"][0]["details"]
     assert select_evidence_alerts(clusters) == []
+
+
+def _voice(ticker: str, kind: str, direction: str | None = None) -> dict:
+    details = {
+        "speaker": "Michael Burry",
+        "kind": kind,
+        "headline": "Michael Burry buys Apple shares",
+        "feed": "google-news",
+        "published": "2026-07-12",
+    }
+    if direction:
+        details["direction"] = direction
+    return {
+        "source": "voice",
+        "ticker": ticker,
+        "event_key": "michael-burry-bullish-2026w29",
+        "event_date": "2026-07-12",
+        "details": details,
+    }
+
+
+def test_evidence_block_renders_voice_call_and_context_lines():
+    block = evidence_block(
+        [_voice("AAPL", "call", "bullish"), _voice("AAPL", "context")]
+    )
+    assert block is not None
+    assert "Stimme: Michael Burry äußert sich positiv" in block
+    # context uses a different headline to dodge the (speaker, headline) dedupe
+    context = _voice("AAPL", "context")
+    context["details"]["headline"] = "What Michael Burry thinks about Apple"
+    block = evidence_block([_voice("AAPL", "call", "bullish"), context])
+    assert block is not None
+    assert "Stimme: Michael Burry erwähnt" in block
+    assert DELAY_NOTE in block
+
+
+def test_voice_call_alerts_alone_but_context_never_does():
+    call_alerts = select_evidence_alerts({"AAPL": [_voice("AAPL", "call", "bullish")]})
+    assert len(call_alerts) == 1
+    assert any("Stimme: Michael Burry" in r for r in call_alerts[0]["reasons"])
+    assert any("kein Filing" in r for r in call_alerts[0]["reasons"])
+
+    bearish = select_evidence_alerts(
+        {"TSLA": [_voice("TSLA", "call_bearish", "bearish")]}
+    )
+    assert len(bearish) == 1
+    assert any("äußert sich negativ" in r for r in bearish[0]["reasons"])
+
+    assert select_evidence_alerts({"AAPL": [_voice("AAPL", "context")]}) == []
+
+
+def test_voice_events_never_trigger_the_bought_worded_strong_buyer_path():
+    from equity_scout.evidence.aggregate import attach_track_records
+
+    index = {
+        ("Michael Burry", "voice"): {
+            "scoreable": True, "n_calls": 9, "hit_rate_long": 0.8,
+            "weighted_score": 0.05,
+        }
+    }
+    clusters = attach_track_records({"AAPL": [_voice("AAPL", "context")]}, index)
+    alerts = select_evidence_alerts(clusters)
+    assert alerts == []  # a mention with a strong record is still not a purchase
