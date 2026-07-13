@@ -1,20 +1,31 @@
 # Scheduling equity-scout
 
-Two layers of automation, both cron-driven and local/free:
+Four layers of automation, all cron-driven and local/free (always-on since v6):
 
-1. **`scripts/daily_copilot.sh`** — the full unattended copilot chain:
-   (Mondays: screener first) → radar → evidence collectors → notify (pitches +
-   evidence alerts to Telegram) → score watchlist → resolve predictions → resolve
-   evidence → lanes → digest. Every step degrades independently and appends to
-   `copilot.log`; a failed step never blocks the rest.
-2. **`scripts/receiver_keepalive.sh`** — restarts the Telegram decision receiver
+1. **`scripts/intraday_copilot.sh`** — every 30 minutes, ONLY inside the approximate
+   US market window (15:00–22:30 Europe/Berlin Mon–Fri, guard in
+   `src/equity_scout/market_hours.py`): radar entry zones → fast evidence collectors
+   (congress mirror, news themes, voices — `run_evidence.py --fast`) → notify. This is
+   what makes suggestions arrive through the trading day. Existing cooldowns +
+   idempotency keys prevent alert spam; yfinance prices are ~15 min delayed and every
+   pitch says so. Appends to `intraday.log`.
+2. **`scripts/daily_copilot.sh`** — the full unattended copilot chain at 18:00:
+   (Mondays: screener first) → radar → ALL evidence collectors (incl. 13F + Form 4;
+   EDGAR stays out of the 30-min loop by etiquette) → notify → score watchlist →
+   resolve predictions → resolve evidence → lanes → digest. Every step degrades
+   independently and appends to `copilot.log`.
+3. **`scripts/nightly_train.sh`** — 02:30 Tue–Sat (post-US-close): retrain every
+   entry-model preset for both families (long + short; the registry gate alone
+   promotes), a 25-trial research batch, then advance the forward paper accounts so
+   the ML bots trade the freshest champions. Appends to `train.log`.
+4. **`scripts/receiver_keepalive.sh`** — restarts the Telegram decision receiver
    (under `flock -n`, single instance) so buy/pass/later buttons keep working after
    a reboot. Quiet no-op without Telegram config.
 
 `scripts/scheduled_run.sh` remains the standalone screener run (also called by the
 Monday branch of the chain).
 
-## Installed crontab (2026-07-10)
+## Crontab (install with `./scripts/install_crontab.sh`, idempotent)
 
 ```cron
 # forward-paper strategies (pre-existing)
@@ -23,6 +34,10 @@ Monday branch of the chain).
 0 18 * * 1-5 /home/nicosutheimer/private/equity-scout/scripts/daily_copilot.sh >> /home/nicosutheimer/private/equity-scout/copilot.log 2>&1
 # receiver keepalive — flock guarantees a single instance; no-op without Telegram env
 */5 * * * * flock -n /tmp/equity-scout-receiver.lock /home/nicosutheimer/private/equity-scout/scripts/receiver_keepalive.sh >> /home/nicosutheimer/private/equity-scout/receiver.log 2>&1
+# intraday chain — cron fires blindly every 30 min; the market-window guard inside exits quietly
+*/30 * * * 1-5 flock -n /tmp/equity-scout-intraday.lock /home/nicosutheimer/private/equity-scout/scripts/intraday_copilot.sh >> /home/nicosutheimer/private/equity-scout/intraday.log 2>&1
+# nightly training — 02:30 Tue-Sat, after the US close and settled EOD data
+30 2 * * 2-6 flock -n /tmp/equity-scout-nightly.lock /home/nicosutheimer/private/equity-scout/scripts/nightly_train.sh >> /home/nicosutheimer/private/equity-scout/train.log 2>&1
 ```
 
 **WSL caveat:** cron only fires while the WSL VM is running. If the laptop was off

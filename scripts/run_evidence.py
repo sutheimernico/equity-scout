@@ -93,6 +93,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default=DEFAULT_DB_PATH)
     parser.add_argument("--universe", default=DEFAULT_UNIVERSE_PATH)
+    parser.add_argument(
+        "--fast", action="store_true",
+        help="intraday mode: only the fast sources (congress, news themes, voices);"
+        " 13F/Form 4 stay daily — filings do not change intraday and EDGAR etiquette"
+        " forbids hammering it every 30 minutes",
+    )
     args = parser.parse_args()
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -105,11 +111,16 @@ def main() -> int:
 
     collectors: list[Callable[[], CollectorResult]] = [
         lambda: fetch_congress_trades(now=now),
-        lambda: collect_13f(now=now, env=dict(os.environ), universe=universe),
         lambda: collect_news_themes(now=now, ticker_headlines=ticker_headlines),
-        lambda: collect_form4(now=now, env=dict(os.environ), watchlist_tickers=watchlist_tickers),
         lambda: collect_voices(now=now, universe=universe),
     ]
+    if not args.fast:
+        collectors += [
+            lambda: collect_13f(now=now, env=dict(os.environ), universe=universe),
+            lambda: collect_form4(
+                now=now, env=dict(os.environ), watchlist_tickers=watchlist_tickers
+            ),
+        ]
     result = run_evidence(args.db, collectors, now=now)
     for line in result["lines"]:
         print(line)

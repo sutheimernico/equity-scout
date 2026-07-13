@@ -105,6 +105,9 @@ def _kennzahlen_block(entry: dict, fundamentals: Fundamentals | None) -> str:
             "„wie viele Jahresgewinne kostet die Aktie“, niedriger = günstiger bewertet."
         )
     lines.append(f"• {entry['zone_note']}")
+    # Since the intraday chain (v6 P5) pitches DURING the trading day, the price basis must be
+    # honest on every pitch: yfinance quotes lag roughly 15 minutes.
+    lines.append("• Kursbasis yfinance, ca. 15 Minuten verzögert — kein Echtzeitkurs.")
     return "\n".join(lines)
 
 

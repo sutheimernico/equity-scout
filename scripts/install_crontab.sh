@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # One-shot, idempotent crontab installer for the copilot automation.
-# Adds (a) the daily copilot chain at 18:00 Mon-Fri and (b) the receiver
-# keepalive every 5 minutes — each only if not already present. Existing
-# entries (e.g. the forward-paper line) are preserved untouched.
+# Adds (a) the daily copilot chain at 18:00 Mon-Fri, (b) the receiver keepalive
+# every 5 minutes, (c) the 30-min intraday chain (market-window guard lives inside
+# the script) and (d) the nightly training chain at 02:30 Tue-Sat (post-US-close) —
+# each only if not already present. Existing entries (e.g. the forward-paper line)
+# are preserved untouched.
 # Run manually: ./scripts/install_crontab.sh
 set -euo pipefail
 
@@ -10,11 +12,13 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 CHAIN_LINE="0 18 * * 1-5 ${REPO_DIR}/scripts/daily_copilot.sh >> ${REPO_DIR}/copilot.log 2>&1"
 RECEIVER_LINE="*/5 * * * * flock -n /tmp/equity-scout-receiver.lock ${REPO_DIR}/scripts/receiver_keepalive.sh >> ${REPO_DIR}/receiver.log 2>&1"
+INTRADAY_LINE="*/30 * * * 1-5 flock -n /tmp/equity-scout-intraday.lock ${REPO_DIR}/scripts/intraday_copilot.sh >> ${REPO_DIR}/intraday.log 2>&1"
+NIGHTLY_LINE="30 2 * * 2-6 flock -n /tmp/equity-scout-nightly.lock ${REPO_DIR}/scripts/nightly_train.sh >> ${REPO_DIR}/train.log 2>&1"
 
 current="$(crontab -l 2>/dev/null || true)"
 added=0
 
-for line in "$CHAIN_LINE" "$RECEIVER_LINE"; do
+for line in "$CHAIN_LINE" "$RECEIVER_LINE" "$INTRADAY_LINE" "$NIGHTLY_LINE"; do
   if ! printf '%s\n' "$current" | grep -qF "$line"; then
     current="${current}"$'\n'"${line}"
     added=$((added + 1))

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Nightly model training + research batch (plan v6 P5): after US close, retrain every
+# entry-model preset for BOTH families (long "entry" + short "entry_short") — the hardened
+# registry gate alone decides champion promotions — then run a bounded research-loop batch
+# (own DSR-hurdle ledger), then advance the forward paper accounts so the ML bots trade on
+# the freshest champions.
+#
+# Same contract as daily_copilot.sh: steps degrade independently, .venv python (cron has no
+# uv), .env sourced when present, everything appends to train.log.
+set -u
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_DIR"
+PY="$REPO_DIR/.venv/bin/python"
+LOG="$REPO_DIR/train.log"
+
+if [ -f .env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+fi
+
+step() {
+  local name="$1"
+  shift
+  echo "[$(date -Is)] START ${name}" >> "$LOG"
+  if "$@" >> "$LOG" 2>&1; then
+    echo "[$(date -Is)] OK ${name}" >> "$LOG"
+  else
+    local rc=$?
+    echo "[$(date -Is)] FAILED ${name} (exit ${rc}) — continuing" >> "$LOG"
+  fi
+}
+
+echo "[$(date -Is)] ===== nightly_train start =====" >> "$LOG"
+step train_entry    "$PY" scripts/run_train_entry.py
+step research_batch "$PY" scripts/run_research.py --trials 25
+step forward_paper  "$PY" scripts/run_forward_paper.py --refresh
+echo "[$(date -Is)] ===== nightly_train end =====" >> "$LOG"
