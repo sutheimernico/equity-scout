@@ -5,6 +5,7 @@ import logging
 import math
 import statistics
 import threading
+from dataclasses import replace
 
 from equity_scout.models import Instrument, Quote
 
@@ -24,7 +25,15 @@ def _daily_returns(closes: list[float]) -> list[float]:
 def quote_from_info_and_history(
     instrument: Instrument, info: dict, closes: list[float]
 ) -> Quote:
-    """Pure transform: yfinance .info dict + close prices -> Quote. No network here."""
+    """Pure transform: yfinance .info dict + close prices -> Quote. No network here.
+
+    Sector backfill: the NASDAQ-Trader universe source has no sector column, and an "Unknown"
+    sector would silently pool thousands of names into one meaningless sector-relative ranking
+    bucket (the 2026-07-02 Nikkei lesson). When the CSV sector is unknown and yfinance knows
+    one, the quote carries the known sector."""
+    sector = info.get("sector")
+    if sector and instrument.sector in ("", "Unknown"):
+        instrument = replace(instrument, sector=str(sector))
     clean = _clean_closes(closes)
     momentum = (clean[-1] - clean[0]) / clean[0] if len(clean) >= 2 else None
     rets = _daily_returns(clean)

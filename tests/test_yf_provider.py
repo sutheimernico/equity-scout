@@ -74,3 +74,18 @@ def test_fetch_stats_summary_counts_correctly():
         stats.record_attempt()
     stats.record_info_failure()
     assert stats.summary() == {"attempted": 3, "info_failed": 1, "closes_failed": 0}
+
+
+def test_quote_backfills_unknown_sector_from_info():
+    from equity_scout.models import Instrument
+
+    unknown = Instrument("AAPL", "Apple", "NASDAQ", "US", "USD", "Unknown")
+    quote = quote_from_info_and_history(unknown, {"sector": "Technology"}, [1.0, 2.0])
+    assert quote.instrument.sector == "Technology"
+
+    known = Instrument("AAPL", "Apple", "NASDAQ", "US", "USD", "Information Technology")
+    quote = quote_from_info_and_history(known, {"sector": "Technology"}, [1.0, 2.0])
+    assert quote.instrument.sector == "Information Technology"  # CSV sector wins when present
+
+    no_info = quote_from_info_and_history(unknown, {}, [1.0, 2.0])
+    assert no_info.instrument.sector == "Unknown"  # honest absence, never guessed

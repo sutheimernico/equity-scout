@@ -137,3 +137,39 @@ def test_strip_html_tags_breaks_list_items_into_lines():
     out = parse_nikkei225_text(strip_html_tags(html))
     assert [i.ticker for i in out] == ["7267.T", "6758.T"]
     assert out[0].name == "Honda Motor Co., Ltd."  # no prose leakage from the <p> above
+
+
+NASDAQ_LISTED_FIXTURE = """Symbol|Security Name|Market Category|Test Issue|Financial Status|Round Lot Size|ETF|NextShares
+AAPL|Apple Inc. - Common Stock|Q|N|N|100|N|N
+ZTEST|Test Issue Co|Q|Y|N|100|N|N
+QQQ|Invesco QQQ Trust|G|N|N|100|Y|N
+UAL|United Airlines Holdings, Inc. - Common Stock|Q|N|N|100|N|N
+ABCW|ABC Corp Warrants expiring 2030|Q|N|N|100|N|N
+File Creation Time: 0714202522:01|||||||"""
+
+OTHER_LISTED_FIXTURE = """ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol
+BRK.B|Berkshire Hathaway Inc. Class B|N|BRK B|N|100|N|BRK=B
+SPY|SPDR S&P 500 ETF Trust|P|SPY|Y|100|N|SPY
+XYZ$A|XYZ Corp Preferred Series A|N|XYZ pA|N|100|N|XYZ-A
+TM|Toyota Motor Corporation American Depositary Shares|N|TM|N|100|N|TM
+File Creation Time: 0714202522:01|||||||"""
+
+
+def test_parse_nasdaq_listed_keeps_common_stock_only():
+    from equity_scout.data.constituents import parse_nasdaq_listed
+
+    instruments = parse_nasdaq_listed(NASDAQ_LISTED_FIXTURE)
+    tickers = [i.ticker for i in instruments]
+    assert tickers == ["AAPL", "UAL"]  # test issue, ETF and warrants dropped; UAL not a "unit"
+    assert instruments[0].exchange == "NASDAQ"
+    assert instruments[0].sector == "Unknown"  # backfilled live from yfinance info
+
+
+def test_parse_other_listed_maps_symbols_and_filters():
+    from equity_scout.data.constituents import parse_other_listed
+
+    instruments = parse_other_listed(OTHER_LISTED_FIXTURE)
+    tickers = [i.ticker for i in instruments]
+    assert tickers == ["BRK-B", "TM"]  # dot -> dash for Yahoo; ETF + preferred ($) dropped
+    assert instruments[0].exchange == "NYSE"
+    assert instruments[1].name.startswith("Toyota")  # ADRs stay: global exposure via US listing

@@ -192,6 +192,20 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [ ] Backlog: vorzeichenrichtige Ledger-Auflösung für bearish Voice-Calls (bis dahin: Anzeige +
       Alert, aber keine Statistik — dokumentiert in evidence/voices.py)
 
+## Phase: Universe v3 — "screen everything" (2026-07-14) — DONE
+> Nico: "1191 sind mir zu wenig, ich möchte eigentlich alles dauerhaft gescreent bekommen —
+> nur kostenlos." Quelle: NASDAQ Trader symbol directory (nasdaqlisted.txt + otherlisted.txt,
+> frei, kein Key, nächtlich aktualisiert) — ALLE US-Listings inkl. ADRs (= globale Abdeckung
+> über US-Listings); ETFs/Warrants/Units/Preferreds/Test-Issues deterministisch gefiltert.
+- [x] NasdaqTraderSource + Parser (word-boundary Non-Common-Filter, $-Preferreds raus,
+      BRK.B->BRK-B), in refresh_universe verdrahtet; live: **6592 Titel** (5904 US, 452 EU,
+      223 JP, Rest) statt 1191
+- [x] Sektor-Backfill im yfinance-Provider (Unknown-Sektor wird aus .info befüllt) — die
+      Nikkei-Lektion: sector-relative Ranking darf nie tausende Namen in einen Unknown-Topf
+      poolen
+- [ ] Beobachten: yfinance-Fehlerquote + Laufzeit des ersten 6.6k-Scout-Laufs (FetchStats im
+      Data-Quality-Report); ggf. Universum per Mindest-Preis/-Historie vorfiltern
+
 ## Needs Nico (loop cannot do these itself)
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
 - Any data source that would require a paid key (do NOT sign up — log here instead).

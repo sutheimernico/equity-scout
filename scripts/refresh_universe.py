@@ -15,6 +15,7 @@ from pathlib import Path
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.data.constituents import (
     CsvConstituentSource,
+    NasdaqTraderSource,
     WikipediaNikkei225Source,
     WikipediaSP500Source,
     WikipediaStoxx600Source,
@@ -39,6 +40,9 @@ def main() -> None:
         WikipediaSP500Source(),
         WikipediaStoxx600Source(),
         WikipediaNikkei225Source(),
+        # "Screen everything" (2026-07-14): every US-listed common stock incl. ADRs —
+        # free + keyless. Named sources above win on ticker collisions (richer metadata).
+        NasdaqTraderSource(),
     ]
     universe = combine_sources(sources)
     now = datetime.now(timezone.utc)

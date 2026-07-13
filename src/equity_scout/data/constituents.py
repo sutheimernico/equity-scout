@@ -314,3 +314,100 @@ class WikipediaNikkei225Source:
                          timeout=30, follow_redirects=True)
         resp.raise_for_status()
         return parse_nikkei225_text(strip_html_tags(resp.text))
+
+
+# --- NASDAQ Trader symbol directory: EVERY US listing, free, no key (plan: universe v3) ---------
+
+_NASDAQ_LISTED_URL = "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt"
+_OTHER_LISTED_URL = "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt"
+
+# Word-boundary match: a security NAME containing one of these is not common stock
+# (warrants/rights/units/preferreds/notes). "United Airlines" must NOT match "unit".
+_NON_COMMON_NAME = re.compile(
+    r"\b(warrants?|rights?|units?|preferred|preference|notes?|debentures?)\b", re.IGNORECASE
+)
+
+# otherlisted.txt Exchange column -> readable label.
+_OTHER_EXCHANGES = {"A": "NYSE American", "N": "NYSE", "P": "NYSE Arca", "Z": "Cboe BZX", "V": "IEX"}
+
+
+def _us_listing_instrument(symbol: str, name: str, exchange: str) -> Instrument | None:
+    """One US listing row -> Instrument, or None when it is not a screenable common stock.
+
+    Symbols with `$` are preferred-share classes; `.` class shares become Yahoo's `-` form
+    (BRK.B -> BRK-B). Sector is honestly "Unknown" here — the directory has none; the live
+    pipeline backfills it from yfinance info (see yf_provider.quote_from_info_and_history),
+    so sector-relative ranking never silently pools thousands of names into one bucket."""
+    symbol = symbol.strip()
+    name = name.strip()
+    if not symbol or not name or "$" in symbol or _NON_COMMON_NAME.search(name):
+        return None
+    return Instrument(
+        ticker=symbol.replace(".", "-"),
+        name=name,
+        exchange=exchange,
+        region="US",
+        currency="USD",
+        sector="Unknown",
+    )
+
+
+def _pipe_rows(text: str) -> list[list[str]]:
+    """Data rows of a NASDAQ Trader pipe-delimited file (header + 'File Creation Time' footer
+    dropped)."""
+    lines = [line for line in text.splitlines() if line.strip()]
+    return [line.split("|") for line in lines[1:] if not line.startswith("File Creation Time")]
+
+
+def parse_nasdaq_listed(text: str) -> list[Instrument]:
+    """nasdaqlisted.txt: Symbol|Security Name|Market Category|Test Issue|Financial Status|
+    Round Lot Size|ETF|NextShares. Test issues and ETFs are dropped."""
+    instruments: list[Instrument] = []
+    for row in _pipe_rows(text):
+        if len(row) < 8:
+            continue
+        symbol, name, _category, test_issue, _status, _lot, etf, _nextshares = row[:8]
+        if test_issue.strip() == "Y" or etf.strip() == "Y":
+            continue
+        instrument = _us_listing_instrument(symbol, name, "NASDAQ")
+        if instrument is not None:
+            instruments.append(instrument)
+    return instruments
+
+
+def parse_other_listed(text: str) -> list[Instrument]:
+    """otherlisted.txt: ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|
+    Test Issue|NASDAQ Symbol. Test issues and ETFs are dropped."""
+    instruments: list[Instrument] = []
+    for row in _pipe_rows(text):
+        if len(row) < 8:
+            continue
+        symbol, name, exchange_code, _cqs, etf, _lot, test_issue, _nasdaq_symbol = row[:8]
+        if test_issue.strip() == "Y" or etf.strip() == "Y":
+            continue
+        exchange = _OTHER_EXCHANGES.get(exchange_code.strip(), "US")
+        instrument = _us_listing_instrument(symbol, name, exchange)
+        if instrument is not None:
+            instruments.append(instrument)
+    return instruments
+
+
+class NasdaqTraderSource:
+    """EVERY US-listed common stock (incl. ADRs — global exposure through a US listing) from the
+    NASDAQ Trader symbol directory: free, keyless, officially published, updated nightly. This is
+    the "screen everything" source (Nico, 2026-07-14); the completeness gate downstream drops
+    thin-data names honestly instead of ranking noise."""
+
+    USER_AGENT = "equity-scout/0.1 (research; contact: nico.sutheimer@bekumoo.de)"
+
+    def fetch(self) -> list[Instrument]:
+        import httpx
+
+        instruments: list[Instrument] = []
+        for url, parse in ((_NASDAQ_LISTED_URL, parse_nasdaq_listed),
+                           (_OTHER_LISTED_URL, parse_other_listed)):
+            resp = httpx.get(url, headers={"User-Agent": self.USER_AGENT},
+                             timeout=60, follow_redirects=True)
+            resp.raise_for_status()
+            instruments.extend(parse(resp.text))
+        return instruments
