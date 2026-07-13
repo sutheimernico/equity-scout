@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 
 import { fetchStrategies, type StrategiesResponse, type StrategyReport } from "../api";
 import { METRIC_LABELS } from "../format";
-import { ForwardPanel } from "./ForwardPanel";
 import { COMPARE_METRICS, formatMetric, StrategyPanel } from "./StrategyPanel";
 import { Badge } from "./ui/Badge";
 import { Explain } from "./ui/Explain";
+import { TimeContextBadge } from "./ui/TimeContextBadge";
 
-type Tab = number | "compare" | "live";
+type Tab = number | "compare";
 
 function CompareTable({ strategies }: { strategies: StrategyReport[] }) {
   return (
@@ -64,13 +64,15 @@ export function StrategyDashboard() {
   return (
     <>
       <header className="section-head reveal">
-        <p className="eyebrow">Strategien</p>
+        <p className="eyebrow">Forschung · Strategien</p>
         <h1>Sechs Systematiken, ehrlich gegen {benchmarkName} gemessen</h1>
         <p className="section-sub">
           Jede Strategie ist ein eigenes Demo-Depot, über ~19 Jahre und 10 ETFs zurückgerechnet — alle
           Ergebnisse <strong>nach Kosten</strong>, gegen <strong>{benchmarkName}</strong> als Vergleich.
-          Kein Echtgeld, keine Renditeversprechen.
+          Kein Echtgeld, keine Renditeversprechen. Die vorwärtslaufenden Konten dieser Strategien
+          findest du unter <strong>Entscheiden → Depots → Strategie-Forward</strong>.
         </p>
+        <TimeContextBadge kind="backtest" />
       </header>
 
       <div className="tabbar wrap">
@@ -85,15 +87,10 @@ export function StrategyDashboard() {
         >
           Vergleich
         </button>
-        <button className={active === "live" ? "tab active" : "tab"} onClick={() => setActive("live")}>
-          Live (Forward)
-        </button>
       </div>
 
       {active === "compare" ? (
         <CompareTable strategies={strategies} />
-      ) : active === "live" ? (
-        <ForwardPanel />
       ) : (
         <StrategyPanel
           report={strategies[active]}

@@ -392,3 +392,41 @@ def test_model_history_reports_families_and_promotions(tmp_path):
     model_payload = client.get("/api/model").json()
     assert "resolved_windows" in model_payload
     assert model_payload["drift"] is None  # no feature_means/predictions yet -> honest None
+
+
+def test_signal_stack_returns_honest_nulls_on_empty_db(tmp_path):
+    client = TestClient(create_app(str(tmp_path / "x.db")))
+    payload = client.get("/api/stack/AAPL").json()
+    assert payload["ticker"] == "AAPL"
+    assert payload["screener"] is None
+    assert payload["radar"] is None
+    assert payload["ml"] is None
+    assert payload["evidence_events"] == []
+    assert payload["person_scores"] == []
+    assert client.get("/api/stack/bad ticker!").status_code == 422
+
+
+def test_radar_joins_latest_ml_score(tmp_path):
+    from equity_scout.ml.prediction_ledger import log_predictions
+    from equity_scout.radar import Watchlist, WatchlistEntry
+    from equity_scout.radar_storage import save_watchlist
+    from equity_scout.signals import SignalReading
+
+    db = str(tmp_path / "x.db")
+    entry = WatchlistEntry(
+        ticker="AAPL", name="Apple", bucket="core", price=100.0,
+        entry_zone_low=95.0, entry_zone_high=105.0, proximity=-0.05, in_zone=True,
+        composite=0.7, readings=[SignalReading("dip_quality", 0.5, "Grund.")],
+        zone_note="Kurs in der Entry-Zone (95.00-105.00).",
+        breakdown={"value": 0.5, "quality": 0.5, "momentum": 0.5, "growth": 0.5},
+    )
+    save_watchlist(db, Watchlist(created_at="2026-07-14T00:00:00+00:00", entries=[entry]))
+    log_predictions(
+        db, model_version=3, scored=[("AAPL", 71, {"f": 1.0})],
+        now="2026-07-14T00:00:00+00:00", horizon_days=20,
+    )
+    client = TestClient(create_app(db))
+    entries = client.get("/api/radar").json()["watchlist"]["entries"]
+    assert entries[0]["ml"] == {
+        "score": 71, "created_at": "2026-07-14T00:00:00+00:00", "model_version": 3,
+    }

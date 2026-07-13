@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { fetchRadar, type RadarResponse, type WatchlistEntry } from "../api";
 import { BUCKET_LABELS, pct, toPercent } from "../format";
+import { SignalStackBlock } from "./SignalStackBlock";
 import { Bar } from "./ui/Bar";
 import { Chip } from "./ui/Chip";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
@@ -42,6 +43,11 @@ function RadarEntry({ entry }: { entry: WatchlistEntry }) {
         <span className="ticker">{entry.ticker}</span>
         <span className="radar-name">{entry.name}</span>
         <Chip>{BUCKET_LABELS[entry.bucket] ?? entry.bucket}</Chip>
+        {entry.ml && (
+          <Chip>
+            ML {entry.ml.score}/100 · Stand {entry.ml.created_at.slice(0, 10)}
+          </Chip>
+        )}
         <span className="radar-composite tnum">{score}</span>
       </div>
 
@@ -93,6 +99,7 @@ function RadarEntry({ entry }: { entry: WatchlistEntry }) {
             </div>
           ))}
         </div>
+        <SignalStackBlock ticker={entry.ticker} />
       </Disclosure>
     </article>
   );

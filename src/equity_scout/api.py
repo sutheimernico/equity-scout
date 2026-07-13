@@ -35,6 +35,7 @@ from equity_scout.ml.ledger import DEFAULT_LEDGER_PATH, champion
 from equity_scout.ml.model_registry import load_champion_history, registry_summary
 from equity_scout.ml.prediction_ledger import (
     drift_snapshot,
+    latest_scores,
     recent_prediction_features,
     resolved_stats,
     resolved_stats_windowed,
@@ -118,8 +119,64 @@ def create_app(
 
     @app.get("/api/radar")
     def radar() -> JSONResponse:
+        # v6 P6: the ML champion score rides along per entry ("Stand: letzter Score-Lauf" from
+        # the prediction ledger, never recomputed live). None when the ticker was never scored.
         watchlist = load_latest_watchlist(db_path)
+        if watchlist and watchlist.get("entries"):
+            scores = latest_scores(db_path)
+            for entry in watchlist["entries"]:
+                entry["ml"] = scores.get(entry["ticker"])
         return JSONResponse({"watchlist": watchlist, "disclaimer": DISCLAIMER})
+
+    @app.get("/api/stack/{ticker}")
+    def signal_stack(ticker: str) -> JSONResponse:
+        # v6 P6: one ticker, every signal layer side by side — factor screen, entry composite,
+        # ML score, external evidence, person track records. Absent layers are honest nulls,
+        # never fabricated neutrals.
+        if not re.fullmatch(r"[A-Za-z0-9.\-]{1,12}", ticker):
+            return JSONResponse({"error": "Ungültiger Ticker."}, status_code=422)
+        ticker = ticker.upper()
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+        screener = None
+        run = load_latest_run(db_path)
+        if run is not None:
+            for bucket, picks in run.buckets.items():
+                for pick in picks:
+                    pick_dict = asdict(pick)
+                    if pick_dict["instrument"]["ticker"] == ticker:
+                        screener = {
+                            "bucket": bucket,
+                            "composite": pick_dict.get("composite"),
+                            "factors": pick_dict.get("factors"),
+                            "run_created_at": run.created_at,
+                        }
+                        break
+
+        radar_entry = None
+        watchlist = load_latest_watchlist(db_path)
+        for entry in (watchlist or {}).get("entries", []):
+            if entry["ticker"] == ticker:
+                radar_entry = entry
+                break
+
+        events = events_in_window(db_path, window_days=30, now=now).get(ticker, [])
+        return JSONResponse({
+            "ticker": ticker,
+            "screener": screener,
+            "radar": radar_entry,
+            "ml": latest_scores(db_path).get(ticker),
+            "evidence_events": events,
+            "person_scores": [
+                s for s in load_person_scores(db_path)
+                if any(
+                    (e.get("details") or {}).get(k) == s["person"]
+                    for e in events
+                    for k in ("politician", "fund", "insider", "speaker")
+                )
+            ],
+            "disclaimer": DISCLAIMER,
+        })
 
     @app.get("/api/history")
     def history(limit: int = 20) -> JSONResponse:

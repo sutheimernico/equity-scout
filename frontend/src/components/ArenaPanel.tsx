@@ -99,7 +99,8 @@ function LaneDetail({ lane }: { lane: Lane }) {
   );
 }
 
-export function ArenaPanel() {
+// `embedded` suppresses the own section header — the DepotsView parent provides it.
+export function ArenaPanel({ embedded = false }: { embedded?: boolean } = {}) {
   const [data, setData] = useState<ArenaResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -125,10 +126,12 @@ export function ArenaPanel() {
   if (!data.available || lanes.length === 0) {
     return (
       <>
-        <header className="section-head reveal">
-          <p className="eyebrow">Arena</p>
-          <h1>Du vs. Autopilot vs. Markt</h1>
-        </header>
+        {!embedded && (
+          <header className="section-head reveal">
+            <p className="eyebrow">Arena</p>
+            <h1>Du vs. Autopilot vs. Markt</h1>
+          </header>
+        )}
         <p className="state">
           Arena noch leer — <code>run_lanes.py</code> ausführen.
         </p>
@@ -164,14 +167,16 @@ export function ArenaPanel() {
 
   return (
     <>
-      <header className="section-head reveal">
-        <p className="eyebrow">Arena</p>
-        <h1>Du vs. Autopilot vs. Markt</h1>
-        <p className="section-sub">
-          Zwei Papier-Depots im Rennen gegen den Markt (SPY), normiert auf den Start. Kein realer
-          Handel, keine Anlageberatung.
-        </p>
-      </header>
+      {!embedded && (
+        <header className="section-head reveal">
+          <p className="eyebrow">Arena</p>
+          <h1>Du vs. Autopilot vs. Markt</h1>
+          <p className="section-sub">
+            Zwei Papier-Depots im Rennen gegen den Markt (SPY), normiert auf den Start. Kein realer
+            Handel, keine Anlageberatung.
+          </p>
+        </header>
+      )}
 
       <div className="kpi-row">
         {lanes.map((l) => (

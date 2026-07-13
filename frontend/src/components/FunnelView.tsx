@@ -2,17 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   fetchLatestRun,
-  fetchPortfolio,
   fetchRunHistory,
   type LatestRun,
-  type PortfolioState,
   type RunSummary,
 } from "../api";
 import { BUCKET_LABELS, pctAbs } from "../format";
 import { GatedOutList } from "./GatedOutList";
 import { MethodologyNote } from "./MethodologyNote";
 import { PickCard } from "./PickCard";
-import { Portfolio } from "./Portfolio";
 import { RunHistory } from "./RunHistory";
 import { StatTile } from "./StatTile";
 
@@ -22,7 +19,6 @@ const BUCKET_ORDER = ["defensive", "balanced", "aggressive"];
 export function FunnelView() {
   const [run, setRun] = useState<LatestRun | null>(null);
   const [history, setHistory] = useState<RunSummary[]>([]);
-  const [portfolio, setPortfolio] = useState<PortfolioState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [bucket, setBucket] = useState("defensive");
   const [region, setRegion] = useState("all");
@@ -31,7 +27,6 @@ export function FunnelView() {
   useEffect(() => {
     fetchLatestRun().then(setRun).catch((e: unknown) => setError(String(e)));
     fetchRunHistory().then((h) => setHistory(h.runs)).catch(() => undefined);
-    fetchPortfolio().then(setPortfolio).catch(() => undefined);
   }, []);
 
   const picks = run?.buckets[bucket] ?? [];
@@ -60,11 +55,12 @@ export function FunnelView() {
   return (
     <>
       <header className="section-head reveal">
-        <p className="eyebrow">Aktien-Screener</p>
+        <p className="eyebrow">Signale · Screener</p>
         <h1>Globaler Faktor-Funnel</h1>
         <p className="section-sub">
           Ein regelbasierter Screen über ein globales Aktienuniversum — fünf Faktor-Gruppen, sortiert in
-          Risiko-Buckets. <strong>Kein KI-Modell</strong>, keine Anlageberatung.
+          Risiko-Buckets. <strong>Kein KI-Modell</strong>, keine Anlageberatung. Das zugehörige
+          Paper-Depot liegt unter <strong>Entscheiden → Depots → Screener-Depot</strong>.
         </p>
       </header>
 
@@ -124,9 +120,6 @@ export function FunnelView() {
       </div>
 
       <GatedOutList gatedOut={run.gated_out ?? {}} byRegion={gate.by_region} />
-
-      <h2 className="section-title">Demo-Depot</h2>
-      {portfolio ? <Portfolio data={portfolio} /> : <p className="muted">Lädt…</p>}
 
       <h2 className="section-title">Letzte Läufe</h2>
       <RunHistory runs={history} />

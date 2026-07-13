@@ -210,6 +210,22 @@ def resolved_stats_windowed(
     }
 
 
+def latest_scores(db_path: str) -> dict[str, dict]:
+    """Per ticker the most recent logged champion score — the cheap, honest join source for
+    /api/radar and /api/stack (a score is 'Stand: letzter Score-Lauf', never recomputed live on
+    a request)."""
+    init_ledger_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT ticker, score, created_at, model_version FROM entry_predictions"
+            " WHERE id IN (SELECT MAX(id) FROM entry_predictions GROUP BY ticker)"
+        ).fetchall()
+    return {
+        r[0]: {"score": int(r[1]), "created_at": r[2], "model_version": int(r[3])}
+        for r in rows
+    }
+
+
 def recent_prediction_features(db_path: str, *, limit: int = 200) -> list[dict]:
     """Feature dicts of the most recent predictions (open or resolved) — the live side of the
     drift snapshot."""

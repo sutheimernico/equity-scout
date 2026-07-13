@@ -341,6 +341,13 @@ export interface SignalReading {
   reason: string;
 }
 
+// "Stand: letzter Score-Lauf" — the ledger-logged champion score, never recomputed live.
+export interface MlScoreStamp {
+  score: number;
+  created_at: string;
+  model_version: number;
+}
+
 export interface WatchlistEntry {
   ticker: string;
   name: string;
@@ -354,6 +361,7 @@ export interface WatchlistEntry {
   readings: SignalReading[];
   zone_note: string;
   breakdown: Record<string, number>;
+  ml?: MlScoreStamp | null;
 }
 
 export interface Watchlist {
@@ -489,6 +497,20 @@ export interface ResolvedStats {
   by_score_bucket: Record<string, number>;
 }
 
+export interface ResolvedWindow {
+  window_days: number;
+  n_resolved: number;
+  hit_rate: number | null;
+  rank_ic: number | null;
+}
+
+export interface DriftEntry {
+  train_mean: number;
+  recent_mean: number | null;
+  z_shift: number | null;
+  flagged: boolean;
+}
+
 export interface ModelResponse {
   available: boolean;
   champion: {
@@ -499,12 +521,112 @@ export interface ModelResponse {
   } | null;
   registry: RegistryEntry[];
   resolved: ResolvedStats;
-  drift: null;
+  resolved_windows: ResolvedWindow[];
+  drift: Record<string, DriftEntry> | null;
   disclaimer: string;
 }
 
 export async function fetchModel(): Promise<ModelResponse> {
   const response = await fetch("/api/model");
   if (!response.ok) throw new Error(`/api/model returned ${response.status}`);
+  return response.json();
+}
+
+// --- learning curve (/api/model/history), evidence (/api/evidence), signal stack -------------
+
+export interface ModelHistoryPoint {
+  version: number;
+  created_at: string;
+  model_kind: string;
+  is_champion: boolean;
+  auc: number | null;
+  brier: number | null;
+  rank_ic: number | null;
+  n_oos: number | null;
+  calibrated: boolean | null;
+  horizon_days: number | null;
+}
+
+export interface Promotion {
+  family: string;
+  version: number;
+  prior_version: number | null;
+  promoted_at: string;
+  auc: number | null;
+  n_oos: number | null;
+}
+
+export interface ModelHistoryResponse {
+  available: boolean;
+  families: Record<string, ModelHistoryPoint[]>;
+  promotions: Promotion[];
+  resolved_windows: ResolvedWindow[];
+  disclaimer: string;
+}
+
+export async function fetchModelHistory(): Promise<ModelHistoryResponse> {
+  const response = await fetch("/api/model/history");
+  if (!response.ok) throw new Error(`/api/model/history returned ${response.status}`);
+  return response.json();
+}
+
+export interface EvidenceEvent {
+  source: string;
+  ticker: string;
+  event_key: string;
+  event_date: string;
+  details: Record<string, unknown>;
+}
+
+export interface PersonScore {
+  person: string;
+  source: string;
+  scoreable: boolean;
+  n_calls: number;
+  hit_rate_long: number | null;
+  weighted_score: number | null;
+  [key: string]: unknown;
+}
+
+export interface EvidenceAlert {
+  ticker: string;
+  created_at: string;
+  reasons: string[];
+  text: string;
+  [key: string]: unknown;
+}
+
+export interface EvidenceResponse {
+  events_by_ticker: Record<string, EvidenceEvent[]>;
+  recent_alerts: EvidenceAlert[];
+  stats_by_source: Record<string, Record<string, unknown>>;
+  person_scores: PersonScore[];
+  disclaimer: string;
+}
+
+export async function fetchEvidence(): Promise<EvidenceResponse> {
+  const response = await fetch("/api/evidence");
+  if (!response.ok) throw new Error(`/api/evidence returned ${response.status}`);
+  return response.json();
+}
+
+export interface StackResponse {
+  ticker: string;
+  screener: {
+    bucket: string;
+    composite: number | null;
+    factors: Record<string, number> | null;
+    run_created_at: string | null;
+  } | null;
+  radar: WatchlistEntry | null;
+  ml: MlScoreStamp | null;
+  evidence_events: EvidenceEvent[];
+  person_scores: PersonScore[];
+  disclaimer: string;
+}
+
+export async function fetchStack(ticker: string): Promise<StackResponse> {
+  const response = await fetch(`/api/stack/${encodeURIComponent(ticker)}`);
+  if (!response.ok) throw new Error(`/api/stack returned ${response.status}`);
   return response.json();
 }

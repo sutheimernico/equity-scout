@@ -12,7 +12,7 @@ export function MLSection() {
   return (
     <>
       <header className="section-head reveal">
-        <p className="eyebrow">Machine Learning</p>
+        <p className="eyebrow">Forschung · Signal-Filter</p>
         <h1>Lohnt es sich, dem Signal zu folgen?</h1>
         <p className="section-sub">
           Das Modell sagt keine Kurse voraus. Es entscheidet das Bescheidenere und Ehrlichere:{" "}
@@ -27,9 +27,10 @@ export function MLSection() {
           <strong>purged Walk-Forward</strong> — jede Zahl ist out-of-sample und nach Kosten.
         </p>
         <p>
-          Die Kategorie hat zwei Teile: das <strong>Meta-Modell</strong> (ein einzelnes, festes Modell — wie
-          gut die „Soll ich folgen?"-Entscheidung out-of-sample funktioniert) und <strong>Auto-Research</strong>{" "}
-          (ein Loop, der im Hintergrund laufend neue Konfigurationen sucht).
+          Die Kategorie hat zwei Teile: der <strong>Signal-Filter</strong> (das Meta-Modell — wie gut
+          die „Soll ich folgen?"-Entscheidung out-of-sample funktioniert) und <strong>Auto-Research</strong>{" "}
+          (ein Loop, der im Hintergrund laufend neue Konfigurationen sucht). Nicht zu verwechseln mit
+          dem <strong>Entry-Modell</strong> (eigener Nav-Punkt), das einzelne Aktien scort.
         </p>
         <p>
           Ein Modell wird <strong>nicht</strong> durch bloßes Wiederholen auf denselben Daten besser — das
@@ -45,7 +46,7 @@ export function MLSection() {
 
       <div className="tabbar">
         <button className={tab === "meta" ? "tab active" : "tab"} onClick={() => setTab("meta")}>
-          Meta-Modell
+          Signal-Filter
         </button>
         <button
           className={tab === "research" ? "tab active" : "tab"}

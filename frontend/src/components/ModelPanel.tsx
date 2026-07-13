@@ -65,8 +65,8 @@ export function ModelPanel() {
     return (
       <>
         <header className="section-head reveal">
-          <p className="eyebrow">Modell</p>
-          <h1>Meta-Modell — Ehrlichkeit zuerst</h1>
+          <p className="eyebrow">Forschung · Entry-Modell</p>
+          <h1>Entry-Modell — Ehrlichkeit zuerst</h1>
         </header>
         <p className="state">
           Noch kein Modell trainiert — <code>run_train_entry.py</code> ausführen.
@@ -82,8 +82,8 @@ export function ModelPanel() {
   return (
     <>
       <header className="section-head reveal">
-        <p className="eyebrow">Modell</p>
-        <h1>Meta-Modell — Ehrlichkeit zuerst</h1>
+        <p className="eyebrow">Forschung · Entry-Modell</p>
+        <h1>Entry-Modell — Ehrlichkeit zuerst</h1>
       </header>
 
       <div className="model-banner reveal" role="note">

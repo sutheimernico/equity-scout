@@ -1,27 +1,55 @@
 import { Fragment, useEffect, useState } from "react";
 
-import { ArenaPanel } from "./components/ArenaPanel";
 import { ChatPanel } from "./components/ChatPanel";
+import { DepotsView } from "./components/DepotsView";
 import { FunnelView } from "./components/FunnelView";
 import { InboxPanel } from "./components/InboxPanel";
+import { LearningCurvePanel } from "./components/LearningCurvePanel";
 import { MLSection } from "./components/MLSection";
 import { ModelPanel } from "./components/ModelPanel";
 import { RadarPanel } from "./components/RadarPanel";
 import { StrategyDashboard } from "./components/StrategyDashboard";
+import { TodayView } from "./components/TodayView";
+import { VoicesPanel } from "./components/VoicesPanel";
 
-type View = "arena" | "radar" | "inbox" | "model" | "strategies" | "ml" | "funnel" | "chat";
+type View =
+  | "today"
+  | "funnel"
+  | "radar"
+  | "voices"
+  | "inbox"
+  | "depots"
+  | "strategies"
+  | "model"
+  | "ml"
+  | "learning"
+  | "chat";
 
-// Copilot surfaces lead (Arena is the headline + default); a separator splits them from the
-// research views. `group` change between adjacent items renders the hairline divider.
-const NAV: { key: View; label: string; group: "copilot" | "research" }[] = [
-  { key: "arena", label: "Arena", group: "copilot" },
-  { key: "radar", label: "Radar", group: "copilot" },
-  { key: "inbox", label: "Inbox", group: "copilot" },
-  { key: "model", label: "Modell", group: "copilot" },
-  { key: "strategies", label: "Strategien", group: "research" },
-  { key: "ml", label: "Machine Learning", group: "research" },
-  { key: "funnel", label: "Aktien-Screener", group: "research" },
-  { key: "chat", label: "Assistent", group: "research" },
+// v6 IA (plan P6): visible group labels instead of an anonymous hairline, a "Heute" start
+// page, all paper depots under ONE nav item, and unambiguous German names — "Entry-Modell"
+// vs "Signal-Filter" ends the old Modell/Meta-Modell collision.
+type Group = "start" | "signale" | "entscheiden" | "forschung" | "mehr";
+
+const GROUP_LABELS: Record<Group, string> = {
+  start: "",
+  signale: "Signale",
+  entscheiden: "Entscheiden",
+  forschung: "Forschung",
+  mehr: "",
+};
+
+const NAV: { key: View; label: string; group: Group }[] = [
+  { key: "today", label: "Heute", group: "start" },
+  { key: "funnel", label: "Screener", group: "signale" },
+  { key: "radar", label: "Radar", group: "signale" },
+  { key: "voices", label: "Stimmen", group: "signale" },
+  { key: "inbox", label: "Inbox", group: "entscheiden" },
+  { key: "depots", label: "Depots", group: "entscheiden" },
+  { key: "strategies", label: "Strategien", group: "forschung" },
+  { key: "model", label: "Entry-Modell", group: "forschung" },
+  { key: "ml", label: "Signal-Filter", group: "forschung" },
+  { key: "learning", label: "Lernkurven", group: "forschung" },
+  { key: "chat", label: "Assistent", group: "mehr" },
 ];
 
 // Reveal-on-scroll: one global observer fades in any `.reveal` element as it enters the viewport.
@@ -64,7 +92,7 @@ function useRevealOnScroll() {
 }
 
 export default function App() {
-  const [view, setView] = useState<View>("arena");
+  const [view, setView] = useState<View>("today");
   useRevealOnScroll();
 
   return (
@@ -78,7 +106,12 @@ export default function App() {
           {NAV.map((item, i) => (
             <Fragment key={item.key}>
               {i > 0 && NAV[i - 1].group !== item.group && (
-                <span className="nav-sep" aria-hidden="true" />
+                <>
+                  <span className="nav-sep" aria-hidden="true" />
+                  {GROUP_LABELS[item.group] && (
+                    <span className="nav-group-label">{GROUP_LABELS[item.group]}</span>
+                  )}
+                </>
               )}
               <button
                 className={view === item.key ? "nav-link active" : "nav-link"}
@@ -93,13 +126,16 @@ export default function App() {
 
       <main className="content">
         <div className="view" key={view}>
-          {view === "arena" && <ArenaPanel />}
-          {view === "radar" && <RadarPanel />}
-          {view === "inbox" && <InboxPanel />}
-          {view === "model" && <ModelPanel />}
-          {view === "strategies" && <StrategyDashboard />}
-          {view === "ml" && <MLSection />}
+          {view === "today" && <TodayView onNavigate={(v) => setView(v as View)} />}
           {view === "funnel" && <FunnelView />}
+          {view === "radar" && <RadarPanel />}
+          {view === "voices" && <VoicesPanel />}
+          {view === "inbox" && <InboxPanel />}
+          {view === "depots" && <DepotsView />}
+          {view === "strategies" && <StrategyDashboard />}
+          {view === "model" && <ModelPanel />}
+          {view === "ml" && <MLSection />}
+          {view === "learning" && <LearningCurvePanel />}
           {view === "chat" && <ChatPanel />}
         </div>
       </main>
