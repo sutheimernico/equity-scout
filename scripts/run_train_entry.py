@@ -100,11 +100,14 @@ def run_train_entry(
     calibrator = _fit_oos_calibrator(metrics.pop("oos", {}))
     metrics["horizon_days"] = horizon_days
     metrics["calibrated"] = calibrator is not None
+    # Training feature means feed the live drift snapshot (/api/model) — the registry stores the
+    # model, not the training matrix, so the means must ride along in the metrics.
+    metrics["feature_means"] = {c: round(float(X[c].mean()), 6) for c in X.columns}
     fitted = train_entry_model(X, y, model=model, calibrator=calibrator)
     version = register_challenger(
         db_path, fitted, metrics=metrics, n_train=n_train, now=now, family=family
     )
-    promoted = promote_if_better(db_path, version)
+    promoted = promote_if_better(db_path, version, now=now)
 
     label = "Entry-Modell" if family == "entry" else "Short-Modell"
     print(f"{label} v{version} ({model}) auf {n_train} Zeilen trainiert.")

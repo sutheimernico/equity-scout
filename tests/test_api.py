@@ -357,3 +357,38 @@ def test_evidence_endpoint_returns_events_alerts_and_stats(tmp_path):
     assert body["stats_by_source"]["congress"]["n_resolved"] == 0
     assert body["person_scores"] == []  # present even when nothing is measured yet
     assert "disclaimer" in body
+
+
+def test_model_history_reports_families_and_promotions(tmp_path):
+    import numpy as np
+    import pandas as pd
+
+    from equity_scout.ml.entry_features import FEATURE_COLUMNS
+    from equity_scout.ml.entry_model import train_entry_model
+    from equity_scout.ml.model_registry import promote_if_better, register_challenger
+
+    db = str(tmp_path / "x.db")
+    rng = np.random.default_rng(1)
+    X = pd.DataFrame(rng.normal(size=(40, len(FEATURE_COLUMNS))), columns=list(FEATURE_COLUMNS))
+    y = pd.Series((X.iloc[:, 0] > 0).astype(int))
+    model = train_entry_model(X, y, model="elastic_net")
+    metrics = {"auc": 0.62, "n_oos": 250, "brier": 0.2, "horizon_days": 20, "calibrated": True}
+    version = register_challenger(
+        db, model, metrics=metrics, n_train=40, now="2026-07-14T00:00:00+00:00"
+    )
+    promote_if_better(db, version, now="2026-07-14T00:00:00+00:00")
+
+    client = TestClient(create_app(db))
+    payload = client.get("/api/model/history").json()
+    assert payload["available"] is True
+    entry = payload["families"]["entry"]
+    assert entry[-1]["is_champion"] is True
+    assert entry[-1]["auc"] == 0.62
+    assert entry[-1]["horizon_days"] == 20
+    assert payload["promotions"][0]["version"] == version
+    assert {w["window_days"] for w in payload["resolved_windows"]} == {30, 90}
+    assert "disclaimer" in payload
+
+    model_payload = client.get("/api/model").json()
+    assert "resolved_windows" in model_payload
+    assert model_payload["drift"] is None  # no feature_means/predictions yet -> honest None

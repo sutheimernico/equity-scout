@@ -181,6 +181,46 @@ def resolved_stats(db_path: str, model_version: int | None = None) -> dict:
     }
 
 
+def resolved_stats_windowed(
+    db_path: str, *, window_days: int, now: str, model_version: int | None = None
+) -> dict:
+    """`resolved_stats` restricted to rows RESOLVED within the trailing window — the rolling
+    learning-curve view ("is it getting better LATELY?"). Reports its own n; a small window n is
+    shown, never hidden: few observations are noise, not signal (plan v6 P4 honesty note)."""
+    init_ledger_db(db_path)
+    cutoff = (datetime.fromisoformat(now) - timedelta(days=window_days)).isoformat()
+    filt = "" if model_version is None else " AND model_version = ?"
+    args: tuple = (cutoff,) if model_version is None else (cutoff, model_version)
+    with sqlite3.connect(db_path) as conn:
+        resolved = conn.execute(
+            "SELECT score, realized_relative_return, correct FROM entry_predictions"
+            f" WHERE resolved_at IS NOT NULL AND resolved_at >= ?{filt} ORDER BY id",
+            args,
+        ).fetchall()
+    n = len(resolved)
+    if n == 0:
+        return {"window_days": window_days, "n_resolved": 0, "hit_rate": None, "rank_ic": None}
+    scores = np.array([r[0] for r in resolved], dtype=float)
+    realized = np.array([r[1] for r in resolved], dtype=float)
+    return {
+        "window_days": window_days,
+        "n_resolved": n,
+        "hit_rate": round(float(np.mean([r[2] for r in resolved])), 4),
+        "rank_ic": rank_ic(scores, realized),
+    }
+
+
+def recent_prediction_features(db_path: str, *, limit: int = 200) -> list[dict]:
+    """Feature dicts of the most recent predictions (open or resolved) — the live side of the
+    drift snapshot."""
+    init_ledger_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT features_json FROM entry_predictions ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return [json.loads(r[0]) for r in rows]
+
+
 def drift_snapshot(training_feature_means: dict, recent_features: list[dict]) -> dict:
     """Per-feature shift of recent live feature means from the training means. The shift is scaled
     by |train mean| (the only training statistic available here), guarded so a ~0 mean falls back to

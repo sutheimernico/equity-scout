@@ -32,8 +32,13 @@ from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.storage import init_db, load_latest_run, load_run_summaries
 from equity_scout.telegram_client import ACTIONS
 from equity_scout.ml.ledger import DEFAULT_LEDGER_PATH, champion
-from equity_scout.ml.model_registry import registry_summary
-from equity_scout.ml.prediction_ledger import resolved_stats
+from equity_scout.ml.model_registry import load_champion_history, registry_summary
+from equity_scout.ml.prediction_ledger import (
+    drift_snapshot,
+    recent_prediction_features,
+    resolved_stats,
+    resolved_stats_windowed,
+)
 from equity_scout.ml.research_view import research_summary
 from equity_scout.strategy_service import BENCHMARK_NAME, build_ml_report, build_reports
 
@@ -339,12 +344,58 @@ def create_app(
                 "model_kind": row["model_kind"],
                 "metrics": row["metrics"],
             }
+        # Live drift: champion's training feature means (registered since v6) vs the means of
+        # recent live predictions. None stays None when either side is missing — never fabricated.
+        drift = None
+        if champ is not None:
+            train_means = champ["metrics"].get("feature_means")
+            recent = recent_prediction_features(db_path)
+            if train_means and recent:
+                drift = drift_snapshot(train_means, recent)
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         return JSONResponse({
             "available": bool(versions),
             "champion": champ,
             "registry": versions,
             "resolved": resolved_stats(db_path),
-            "drift": None,  # v1: surfaced as None; a live drift snapshot is a later enhancement
+            "resolved_windows": [
+                resolved_stats_windowed(db_path, window_days=window, now=now)
+                for window in (30, 90)
+            ],
+            "drift": drift,
+            "disclaimer": DISCLAIMER,
+        })
+
+    @app.get("/api/model/history")
+    def model_history() -> JSONResponse:
+        # The learning-curve data source (plan v6 P4): per family every registered version's OOS
+        # quality in training order, plus the champion promotion timeline. The curve shows what IS
+        # — including deterioration; nothing is smoothed away and each point carries its n.
+        summary = registry_summary(db_path)
+        families: dict[str, list[dict]] = {}
+        for row in sorted(summary["versions"], key=lambda v: v["version"]):
+            metrics = row["metrics"]
+            families.setdefault(row["family"], []).append({
+                "version": row["version"],
+                "created_at": row["created_at"],
+                "model_kind": row["model_kind"],
+                "is_champion": row["is_champion"],
+                "auc": metrics.get("auc"),
+                "brier": metrics.get("brier"),
+                "rank_ic": metrics.get("rank_ic"),
+                "n_oos": metrics.get("n_oos"),
+                "calibrated": metrics.get("calibrated"),
+                "horizon_days": metrics.get("horizon_days"),
+            })
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        return JSONResponse({
+            "available": bool(families),
+            "families": families,
+            "promotions": load_champion_history(db_path),
+            "resolved_windows": [
+                resolved_stats_windowed(db_path, window_days=window, now=now)
+                for window in (30, 90)
+            ],
             "disclaimer": DISCLAIMER,
         })
 

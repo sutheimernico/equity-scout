@@ -213,3 +213,21 @@ def test_bad_artifact_raises_clear_error(tmp_path):
         )
     with pytest.raises(RegistryError):
         entry_champion(db)
+
+
+def test_promotion_appends_champion_history(tmp_path):
+    from equity_scout.ml.model_registry import load_champion_history
+
+    db = str(tmp_path / "registry.db")
+    v1 = register_challenger(db, _model(1), metrics=_metrics(0.60), n_train=25, now=NOW)
+    assert promote_if_better(db, v1, now=NOW) is True
+    v2 = register_challenger(db, _model(2), metrics=_metrics(0.80), n_train=25, now=NOW)
+    assert promote_if_better(db, v2, now=NOW) is True
+    v3 = register_challenger(db, _model(3), metrics=_metrics(0.805), n_train=25, now=NOW)
+    assert promote_if_better(db, v3, now=NOW) is False  # below MIN_AUC_DELTA -> no history row
+
+    history = load_champion_history(db)
+    assert [(h["version"], h["prior_version"]) for h in history] == [(v1, None), (v2, v1)]
+    assert history[0]["promoted_at"] == NOW
+    assert history[1]["auc"] == 0.80
+    assert load_champion_history(db, family="entry_short") == []

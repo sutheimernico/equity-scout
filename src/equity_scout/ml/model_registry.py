@@ -64,6 +64,19 @@ def init_registry_db(db_path: str = DEFAULT_DB_PATH) -> None:
             conn.execute("ALTER TABLE entry_models ADD COLUMN family TEXT NOT NULL DEFAULT 'entry'")
         except sqlite3.OperationalError:
             pass  # column already exists
+        # Learning-curve backbone (plan v6 P4): every successful promotion appends one row, so
+        # "when did the champion change, and was each change an actual improvement?" is a query.
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS champion_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                family TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                prior_version INTEGER,
+                promoted_at TEXT NOT NULL,
+                auc REAL,
+                n_oos INTEGER
+            )"""
+        )
 
 
 def register_challenger(
@@ -164,7 +177,9 @@ def entry_champion(
     return int(row[0]), _load_artifact(row[1]), json.loads(row[2])
 
 
-def promote_if_better(db_path: str, version: int, *, metric_key: str = "auc") -> bool:
+def promote_if_better(
+    db_path: str, version: int, *, metric_key: str = "auc", now: str = ""
+) -> bool:
     """Promote `version` to champion iff it clears the promotion gate (F2):
 
     1. Baseline quality — its OOS `metric_key` is not a no-edge result (`_no_edge`) and rests on at
@@ -205,7 +220,43 @@ def promote_if_better(db_path: str, version: int, *, metric_key: str = "auc") ->
             (family,),
         )
         conn.execute("UPDATE entry_models SET is_champion = 1 WHERE version = ?", (version,))
+        conn.execute(
+            "INSERT INTO champion_history"
+            " (family, version, prior_version, promoted_at, auc, n_oos) VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                family, version,
+                int(champ[0]) if champ is not None else None,
+                now,
+                _raw_metric(cand[0], metric_key),
+                _n_oos(cand[0]),
+            ),
+        )
         return True
+
+
+def load_champion_history(db_path: str = DEFAULT_DB_PATH, *, family: str | None = None) -> list[dict]:
+    """Every promotion event (oldest first): when the champion changed, from which version, and
+    the OOS quality it demonstrated at that moment — the honest x-axis of the learning curve."""
+    init_registry_db(db_path)
+    filt = "" if family is None else " WHERE family = ?"
+    args: tuple = () if family is None else (family,)
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT family, version, prior_version, promoted_at, auc, n_oos"
+            f" FROM champion_history{filt} ORDER BY id ASC",
+            args,
+        ).fetchall()
+    return [
+        {
+            "family": r[0],
+            "version": int(r[1]),
+            "prior_version": int(r[2]) if r[2] is not None else None,
+            "promoted_at": r[3],
+            "auc": r[4],
+            "n_oos": int(r[5]) if r[5] is not None else None,
+        }
+        for r in rows
+    ]
 
 
 def registry_summary(db_path: str = DEFAULT_DB_PATH) -> dict:

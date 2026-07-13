@@ -172,3 +172,38 @@ def test_drift_ignores_non_finite_values_when_flagging():
     snap = drift_snapshot({"g": 1.0}, [{"g": float("nan")}, {"g": 5.0}, {"g": 5.2}])
     assert snap["g"]["flagged"] is True
     assert snap["g"]["recent_mean"] == pytest.approx(5.1)
+
+
+def test_resolved_stats_windowed_filters_by_resolved_at(tmp_path):
+    from equity_scout.ml.prediction_ledger import resolved_stats_windowed
+
+    db = str(tmp_path / "ledger.db")
+    log_predictions(
+        db, model_version=1,
+        scored=[("AAA", 80, {"f": 1.0}), ("BBB", 20, {"f": 2.0})],
+        now="2026-01-01T00:00:00+00:00", horizon_days=5,
+    )
+    due = due_predictions(db, "2026-03-01T00:00:00+00:00")
+    resolve_prediction(db, due[0]["id"], realized_relative_return=0.05,
+                       resolved_at="2026-01-10T00:00:00+00:00")
+    resolve_prediction(db, due[1]["id"], realized_relative_return=0.04,
+                       resolved_at="2026-06-01T00:00:00+00:00")
+
+    recent = resolved_stats_windowed(db, window_days=30, now="2026-06-15T00:00:00+00:00")
+    assert recent["n_resolved"] == 1  # only the June resolution is inside the window
+    assert recent["hit_rate"] == 0.0  # score 20 called "lags", it beat -> incorrect
+    stale = resolved_stats_windowed(db, window_days=30, now="2027-01-01T00:00:00+00:00")
+    assert stale["n_resolved"] == 0 and stale["hit_rate"] is None
+
+
+def test_recent_prediction_features_returns_latest_dicts(tmp_path):
+    from equity_scout.ml.prediction_ledger import recent_prediction_features
+
+    db = str(tmp_path / "ledger.db")
+    log_predictions(
+        db, model_version=1,
+        scored=[("AAA", 80, {"f": 1.0}), ("BBB", 20, {"f": 2.0})],
+        now="2026-01-01T00:00:00+00:00", horizon_days=5,
+    )
+    features = recent_prediction_features(db, limit=1)
+    assert features == [{"f": 2.0}]
