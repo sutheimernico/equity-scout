@@ -45,7 +45,8 @@ def test_train_cli_first_run_with_insufficient_oos_data_does_not_promote(tmp_pat
     assert result["promoted"] is False  # F2 baseline-quality gate: too few OOS rows
     assert result["n_train"] > 0
     assert set(result["metrics"]) == {
-        "auc", "brier", "rank_ic", "n_oos", "n_splits_used", "feature_importance"
+        "auc", "brier", "rank_ic", "n_oos", "n_splits_used", "feature_importance",
+        "horizon_days", "calibrated",
     }
     assert entry_champion(db) is None
 

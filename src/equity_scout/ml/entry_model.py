@@ -21,12 +21,16 @@ from typing import Iterator
 import numpy as np
 import pandas as pd
 from sklearn.base import ClassifierMixin
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
 from equity_scout.ml.entry_eval import HORIZON_DAYS, classification_scores, rank_ic
 from equity_scout.ml.meta_model import _feature_weights, purged_walk_forward
+
+# Every preset run_train_entry trains per night; the hardened registry gate alone decides
+# which one (if any) becomes champion (plan v6 P2).
+ENTRY_PRESETS = ("random_forest", "elastic_net", "catboost", "ensemble")
 
 
 def _build_estimator(model: str) -> ClassifierMixin:
@@ -38,22 +42,47 @@ def _build_estimator(model: str) -> ClassifierMixin:
         )
     if model == "elastic_net":
         return LogisticRegression(solver="saga", l1_ratio=0.5, C=0.5, max_iter=5000)
-    raise ValueError(f"unknown model kind: {model!r} (expected 'random_forest' or 'elastic_net')")
+    if model == "catboost":
+        from catboost import CatBoostClassifier  # heavy import stays lazy
+
+        # Same capped capacity philosophy as the meta-model's catboost preset.
+        return CatBoostClassifier(
+            iterations=300, depth=3, learning_rate=0.1,
+            verbose=False, allow_writing_files=False, random_seed=0,
+        )
+    if model == "ensemble":
+        return VotingClassifier(
+            estimators=[
+                ("elastic_net", _build_estimator("elastic_net")),
+                ("random_forest", _build_estimator("random_forest")),
+            ],
+            voting="soft",
+        )
+    raise ValueError(f"unknown model kind: {model!r} (expected one of {ENTRY_PRESETS})")
 
 
 @dataclass(frozen=True)
 class EntryModel:
     """A fitted entry-quality model. Holds the scaler, the estimator, and the exact feature order
-    they were fitted on, so scoring re-orders any input to the training layout before predicting."""
+    they were fitted on, so scoring re-orders any input to the training layout before predicting.
+
+    `calibrator` (optional, fitted on OUT-OF-SAMPLE walk-forward probabilities only — never
+    in-sample) maps raw estimator probabilities to calibrated ones at scoring time."""
 
     scaler: StandardScaler
     estimator: ClassifierMixin
     feature_columns: tuple[str, ...]
     model_kind: str
+    calibrator: object | None = None
 
     def _proba(self, X: pd.DataFrame) -> np.ndarray:
         ordered = X[list(self.feature_columns)]
-        return self.estimator.predict_proba(self.scaler.transform(ordered))[:, 1]
+        raw = self.estimator.predict_proba(self.scaler.transform(ordered))[:, 1]
+        # getattr: artifacts pickled before the calibrator field existed unpickle without it.
+        calibrator = getattr(self, "calibrator", None)
+        if calibrator is None:
+            return raw
+        return np.clip(np.asarray(calibrator.predict(raw), dtype=float), 0.0, 1.0)
 
     def score_many(self, X: pd.DataFrame) -> np.ndarray:
         """Integer 0-100 score per row = round(P(beats benchmark) * 100). This is THE one place
@@ -67,15 +96,16 @@ class EntryModel:
 
 
 def train_entry_model(
-    X: pd.DataFrame, y: pd.Series, *, model: str = "random_forest"
+    X: pd.DataFrame, y: pd.Series, *, model: str = "random_forest", calibrator: object | None = None
 ) -> EntryModel:
     """Fit the scaler + estimator on the FULL dataset (the deployed artifact). Every performance
-    number must come from `walk_forward_evaluate` instead — this fit is in-sample by construction."""
+    number must come from `walk_forward_evaluate` instead — this fit is in-sample by construction.
+    `calibrator` must have been fitted on OOS probabilities by the caller (run_train_entry)."""
     feature_columns = tuple(X.columns)
     scaler = StandardScaler().fit(X)
     estimator = _build_estimator(model)
     estimator.fit(scaler.transform(X), y)
-    return EntryModel(scaler, estimator, feature_columns, model)
+    return EntryModel(scaler, estimator, feature_columns, model, calibrator)
 
 
 def _date_grouped_folds(
@@ -108,11 +138,15 @@ def walk_forward_evaluate(
     n_splits: int = 4,
     horizon_days: int = HORIZON_DAYS,
     trading_days: pd.DatetimeIndex | None = None,
+    collect_oos: bool = False,
 ) -> dict:
     """Group-aware purged walk-forward (see `_date_grouped_folds`): the split is on unique `as_of`
     dates, so all rows of a date share a fold side. `trading_days` (e.g. `panel.dates`) enables the
     exact trading-day purge in `purged_walk_forward`; omitting it falls back to its conservative
     calendar-day bound. Returns OOS {auc, brier, rank_ic, n_oos, n_splits_used, feature_importance}.
+    `collect_oos=True` additionally returns the raw OOS arrays under "oos" ({"prob", "y"}) so the
+    caller can fit a calibrator on OUT-OF-SAMPLE probabilities — strip that key before persisting
+    metrics (numpy arrays are not JSON).
     """
     X = X.reset_index(drop=True)
     y = y.reset_index(drop=True)
@@ -142,13 +176,19 @@ def walk_forward_evaluate(
         probs = estimator.predict_proba(scaler.transform(x_test))[:, 1]
         for pos, prob in zip(x_test.index, probs):
             oos_prob[pos] = float(prob)
-        importances.append(_feature_weights(estimator))
+        try:
+            importances.append(_feature_weights(estimator))
+        except AttributeError:
+            pass  # the voting ensemble exposes neither coef_ nor feature_importances_
 
     if not oos_prob:
-        return {
+        empty = {
             "auc": None, "brier": None, "rank_ic": None,
             "n_oos": 0, "n_splits_used": 0, "feature_importance": {},
         }
+        if collect_oos:
+            empty["oos"] = {"prob": np.array([]), "y": np.array([])}
+        return empty
 
     positions = sorted(oos_prob)
     y_oos = y.loc[positions].to_numpy()
@@ -162,7 +202,7 @@ def walk_forward_evaluate(
         total = float(np.sum(mean_imp)) or 1.0
         importance = {c: round(float(v / total), 4) for c, v in zip(X.columns, mean_imp)}
 
-    return {
+    result = {
         "auc": scores["auc"],
         "brier": scores["brier"],
         "rank_ic": ic,
@@ -170,3 +210,6 @@ def walk_forward_evaluate(
         "n_splits_used": n_splits_used,
         "feature_importance": importance,
     }
+    if collect_oos:
+        result["oos"] = {"prob": prob_oos, "y": y_oos}
+    return result

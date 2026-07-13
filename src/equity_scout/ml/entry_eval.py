@@ -17,6 +17,7 @@ from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
 
 HORIZON_DAYS = 20  # ~4 weeks, the primary forward horizon
 SECONDARY_HORIZON_DAYS = 60  # ~12 weeks
+SHORT_HORIZON_DAYS = 10  # ~2 weeks — the ML bots' shorter trading horizon (plan v6 P2/P3)
 
 
 def forward_return(prices: pd.Series, at: pd.Timestamp, horizon_days: int) -> float | None:

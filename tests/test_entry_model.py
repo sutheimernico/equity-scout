@@ -133,3 +133,53 @@ def test_entry_model_pickles_and_still_scores():
     model = train_entry_model(X, y)
     revived: EntryModel = pickle.loads(pickle.dumps(model))
     assert revived.score_row(X.iloc[0].to_dict()) == model.score_row(X.iloc[0].to_dict())
+
+
+def test_build_estimator_catboost_and_ensemble_presets():
+    from equity_scout.ml.entry_model import ENTRY_PRESETS, _build_estimator
+
+    assert set(ENTRY_PRESETS) == {"random_forest", "elastic_net", "catboost", "ensemble"}
+    assert _build_estimator("catboost").__class__.__name__ == "CatBoostClassifier"
+    assert _build_estimator("ensemble").__class__.__name__ == "VotingClassifier"
+
+
+def test_walk_forward_collect_oos_returns_probability_arrays():
+    X, y, meta = _dataset(n_dates=40, per_date=6, informative=True, seed=5)
+    result = walk_forward_evaluate(X, y, meta, model="elastic_net", collect_oos=True)
+    oos = result["oos"]
+    assert len(oos["prob"]) == result["n_oos"]
+    assert len(oos["y"]) == result["n_oos"]
+    assert ((oos["prob"] >= 0) & (oos["prob"] <= 1)).all()
+
+
+def test_walk_forward_runs_with_ensemble_without_feature_importance():
+    X, y, meta = _dataset(n_dates=40, per_date=6, informative=True, seed=6)
+    result = walk_forward_evaluate(X, y, meta, model="ensemble")
+    assert result["n_oos"] > 0
+    assert result["feature_importance"] == {}  # voting ensemble exposes no importances
+
+
+def test_calibrated_model_scores_through_the_calibrator():
+    from sklearn.isotonic import IsotonicRegression
+
+    X, y, _ = _dataset(n_dates=40, per_date=6, informative=True, seed=7)
+    # An inverting calibrator makes the effect unmistakable: p -> 1 - p (isotonic is
+    # non-decreasing by default, so inversion needs increasing=False).
+    calibrator = IsotonicRegression(
+        y_min=0.0, y_max=1.0, out_of_bounds="clip", increasing=False
+    ).fit([0.0, 1.0], [1.0, 0.0])
+    plain = train_entry_model(X, y, model="elastic_net")
+    calibrated = train_entry_model(X, y, model="elastic_net", calibrator=calibrator)
+    plain_scores = plain.score_many(X.head(10))
+    calibrated_scores = calibrated.score_many(X.head(10))
+    assert (plain_scores + calibrated_scores == 100).all()
+
+
+def test_model_pickled_without_calibrator_field_still_scores():
+    """Artifacts registered before the calibrator field existed unpickle WITHOUT that attribute —
+    scoring must fall back to raw probabilities instead of raising AttributeError."""
+    X, y, _ = _dataset(n_dates=20, per_date=4, informative=True, seed=8)
+    model = train_entry_model(X, y, model="elastic_net")
+    object.__delattr__(model, "calibrator")  # simulate the legacy pickle layout
+    scores = model.score_many(X.head(5))
+    assert ((scores >= 0) & (scores <= 100)).all()
