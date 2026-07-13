@@ -98,47 +98,49 @@ export default function App() {
   return (
     <>
       <div className="aurora" aria-hidden="true" />
-      <header className="topbar">
-        <span className="brand">
-          equity-scout<span className="dot">.</span>
-        </span>
-        <nav className="nav">
-          {NAV.map((item, i) => (
-            <Fragment key={item.key}>
-              {i > 0 && NAV[i - 1].group !== item.group && (
-                <>
-                  <span className="nav-sep" aria-hidden="true" />
-                  {GROUP_LABELS[item.group] && (
-                    <span className="nav-group-label">{GROUP_LABELS[item.group]}</span>
-                  )}
-                </>
-              )}
-              <button
-                className={view === item.key ? "nav-link active" : "nav-link"}
-                onClick={() => setView(item.key)}
-              >
-                {item.label}
-              </button>
-            </Fragment>
-          ))}
-        </nav>
-      </header>
+      <div className="shell">
+        <aside className="sidebar">
+          <span className="brand">
+            equity-scout<span className="dot">.</span>
+          </span>
+          <nav className="nav">
+            {NAV.map((item, i) => (
+              <Fragment key={item.key}>
+                {i > 0 && NAV[i - 1].group !== item.group && (
+                  <>
+                    <span className="nav-sep" aria-hidden="true" />
+                    {GROUP_LABELS[item.group] && (
+                      <span className="nav-group-label">{GROUP_LABELS[item.group]}</span>
+                    )}
+                  </>
+                )}
+                <button
+                  className={view === item.key ? "nav-link active" : "nav-link"}
+                  onClick={() => setView(item.key)}
+                >
+                  {item.label}
+                </button>
+              </Fragment>
+            ))}
+          </nav>
+        </aside>
 
-      <main className="content">
-        <div className="view" key={view}>
-          {view === "today" && <TodayView onNavigate={(v) => setView(v as View)} />}
-          {view === "funnel" && <FunnelView />}
-          {view === "radar" && <RadarPanel />}
-          {view === "voices" && <VoicesPanel />}
-          {view === "inbox" && <InboxPanel />}
-          {view === "depots" && <DepotsView />}
-          {view === "strategies" && <StrategyDashboard />}
-          {view === "model" && <ModelPanel />}
-          {view === "ml" && <MLSection />}
-          {view === "learning" && <LearningCurvePanel />}
-          {view === "chat" && <ChatPanel />}
-        </div>
-      </main>
+        <main className="content">
+          <div className="view" key={view}>
+            {view === "today" && <TodayView onNavigate={(v) => setView(v as View)} />}
+            {view === "funnel" && <FunnelView />}
+            {view === "radar" && <RadarPanel />}
+            {view === "voices" && <VoicesPanel />}
+            {view === "inbox" && <InboxPanel />}
+            {view === "depots" && <DepotsView />}
+            {view === "strategies" && <StrategyDashboard />}
+            {view === "model" && <ModelPanel />}
+            {view === "ml" && <MLSection />}
+            {view === "learning" && <LearningCurvePanel />}
+            {view === "chat" && <ChatPanel />}
+          </div>
+        </main>
+      </div>
     </>
   );
 }

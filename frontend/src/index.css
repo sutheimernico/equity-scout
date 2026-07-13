@@ -91,37 +91,44 @@ td.num,
 }
 
 /* Shell */
-.topbar {
+/* App shell: fixed left sidebar (v6.1 — Nico: "Navigation nach links, cleaner als Leiste"),
+   content fills the rest. On narrow screens the sidebar falls back to a top bar. */
+.shell {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  height: 64px;
-  padding: 0 var(--space-6);
+  align-items: stretch;
+  min-height: 100vh;
+}
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 216px;
+  flex: none;
+  padding: var(--space-5) var(--space-4);
   background: rgba(8, 8, 15, 0.72);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border-soft);
+  border-right: 1px solid var(--border-soft);
   position: sticky;
   top: 0;
+  height: 100vh;
+  overflow-y: auto;
   z-index: 10;
 }
-.topbar .brand {
+.sidebar .brand {
   font-family: var(--font-mono);
   font-weight: 600;
   font-size: var(--text-md);
   letter-spacing: -0.02em;
   color: var(--text-strong);
 }
-.topbar .brand .dot {
+.sidebar .brand .dot {
   color: var(--accent);
-}
-.topbar .meta {
-  margin-left: auto;
-  color: var(--text-muted);
-  font-size: var(--text-xs);
 }
 .content {
   position: relative;
   z-index: 1;
+  flex: 1;
+  min-width: 0;
   max-width: 1120px;
   margin: 0 auto;
   padding: var(--space-6);
@@ -431,9 +438,14 @@ code {
 
 /* Top-level nav (in the topbar) */
 .nav {
-  margin-left: auto;
   display: flex;
-  gap: var(--space-2);
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+.nav .nav-link {
+  text-align: left;
+  border-radius: var(--radius-sm, 8px);
 }
 .nav-link {
   appearance: none;
@@ -458,12 +470,13 @@ code {
   background: var(--accent-subtle);
   border-color: var(--border-strong);
 }
-/* Hairline divider between the copilot tabs and the research tabs. */
+/* Hairline divider between nav groups — horizontal in the sidebar. */
 .nav-sep {
-  align-self: center;
-  width: 1px;
-  height: 1.25rem;
-  background: var(--border-strong);
+  align-self: stretch;
+  height: 1px;
+  width: auto;
+  margin: var(--space-2) 0 var(--space-1);
+  background: var(--border-soft);
   flex: none;
 }
 .tabbar.wrap {
@@ -1693,15 +1706,33 @@ code {
 
 /* --- Responsive: stack the shell + collapse multi-col grids on narrow screens --- */
 @media (max-width: 720px) {
-  .topbar {
+  .shell {
     flex-direction: column;
-    gap: var(--space-2);
-    align-items: stretch;
+  }
+  .sidebar {
+    flex-direction: column;
+    width: auto;
+    height: auto;
+    position: sticky;
+    border-right: none;
+    border-bottom: 1px solid var(--border-soft);
+    padding: var(--space-3) var(--space-4);
   }
   .nav {
+    flex-direction: row;
+    align-items: center;
     overflow-x: auto;
     flex-wrap: nowrap;
     -webkit-overflow-scrolling: touch;
+  }
+  .nav .nav-link {
+    white-space: nowrap;
+  }
+  .nav-sep {
+    align-self: center;
+    width: 1px;
+    height: 1.25rem;
+    margin: 0 var(--space-1);
   }
   .content {
     padding: var(--space-3);
@@ -1719,9 +1750,16 @@ code {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
-  align-self: center;
-  margin: 0 var(--space-1);
+  align-self: flex-start;
+  margin: 0 var(--space-1) var(--space-1);
   user-select: none;
+}
+@media (max-width: 720px) {
+  .nav-group-label {
+    align-self: center;
+    margin: 0 var(--space-1);
+    white-space: nowrap;
+  }
 }
 .time-badge {
   border-color: var(--accent);
