@@ -175,7 +175,7 @@ def test_registry_summary_shape_newest_first(tmp_path):
     versions = summary["versions"]
     assert [v["version"] for v in versions] == [v2, v1]  # newest first
     top = versions[0]
-    assert set(top) == {"version", "created_at", "model_kind", "n_train", "metrics", "is_champion"}
+    assert set(top) == {"version", "created_at", "model_kind", "n_train", "metrics", "is_champion", "family"}
     assert top["is_champion"] is True and versions[1]["is_champion"] is False
     assert top["metrics"] == _metrics(0.80)
     assert top["n_train"] == 25

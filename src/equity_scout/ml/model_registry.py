@@ -54,9 +54,16 @@ def init_registry_db(db_path: str = DEFAULT_DB_PATH) -> None:
                 n_train INTEGER NOT NULL,
                 metrics_json TEXT NOT NULL,
                 is_champion INTEGER NOT NULL DEFAULT 0,
-                artifact BLOB NOT NULL
+                artifact BLOB NOT NULL,
+                family TEXT NOT NULL DEFAULT 'entry'
             )"""
         )
+        # Pre-family DBs (v5 and earlier): add the column in place; existing rows are the long
+        # entry model by construction, which the DEFAULT covers.
+        try:
+            conn.execute("ALTER TABLE entry_models ADD COLUMN family TEXT NOT NULL DEFAULT 'entry'")
+        except sqlite3.OperationalError:
+            pass  # column already exists
 
 
 def register_challenger(
@@ -66,16 +73,20 @@ def register_challenger(
     metrics: dict,
     n_train: int,
     now: str,
+    family: str = "entry",
 ) -> int:
     """Persist a fitted model as a new challenger version (never a champion by itself — call
-    `promote_if_better` to promote it). Returns the assigned version."""
+    `promote_if_better` to promote it). `family` partitions the registry ("entry" long model vs
+    "entry_short") — champions and promotion comparisons never cross families, so the long and
+    short bots each keep their own honest accounting. Returns the assigned version."""
     init_registry_db(db_path)
     artifact = pickle.dumps(model)
     with sqlite3.connect(db_path) as conn:
         cursor = conn.execute(
             "INSERT INTO entry_models"
-            " (created_at, model_kind, feature_columns, n_train, metrics_json, is_champion, artifact)"
-            " VALUES (?, ?, ?, ?, ?, 0, ?)",
+            " (created_at, model_kind, feature_columns, n_train, metrics_json, is_champion,"
+            " artifact, family)"
+            " VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
             (
                 now,
                 model.model_kind,
@@ -83,6 +94,7 @@ def register_challenger(
                 int(n_train),
                 json.dumps(metrics),
                 sqlite3.Binary(artifact),
+                family,
             ),
         )
         assert cursor.lastrowid is not None  # guaranteed after a successful INSERT
@@ -131,8 +143,11 @@ def _n_oos(metrics_json: str) -> int:
     return int(value) if value is not None else 0
 
 
-def entry_champion(db_path: str = DEFAULT_DB_PATH) -> tuple[int, EntryModel, dict] | None:
-    """The current champion as (version, EntryModel, metrics), or None if none is promoted yet.
+def entry_champion(
+    db_path: str = DEFAULT_DB_PATH, *, family: str = "entry"
+) -> tuple[int, EntryModel, dict] | None:
+    """The current champion of `family` as (version, EntryModel, metrics), or None if none is
+    promoted yet.
 
     Named `entry_champion` (not `champion`) to stay distinct from `ml.ledger.champion`, which
     returns a different type (the research-loop config record) — importing both must never collide.
@@ -140,7 +155,9 @@ def entry_champion(db_path: str = DEFAULT_DB_PATH) -> tuple[int, EntryModel, dic
     init_registry_db(db_path)
     with sqlite3.connect(db_path) as conn:
         row = conn.execute(
-            "SELECT version, artifact, metrics_json FROM entry_models WHERE is_champion = 1"
+            "SELECT version, artifact, metrics_json FROM entry_models"
+            " WHERE is_champion = 1 AND family = ?",
+            (family,),
         ).fetchone()
     if row is None:
         return None
@@ -157,17 +174,20 @@ def promote_if_better(db_path: str, version: int, *, metric_key: str = "auc") ->
        retrains are nightly trials, so noise alone (a tie or a marginally-better score) must not be
        able to swap the champion.
 
-    Returns True iff a promotion happened; idempotent (re-promoting the incumbent is a no-op →
-    False)."""
+    Promotion is scoped to the candidate's FAMILY: the long and short registries never compare
+    against each other's champions. Returns True iff a promotion happened; idempotent
+    (re-promoting the incumbent is a no-op → False)."""
     init_registry_db(db_path)
     with sqlite3.connect(db_path) as conn:
         cand = conn.execute(
-            "SELECT metrics_json FROM entry_models WHERE version = ?", (version,)
+            "SELECT metrics_json, family FROM entry_models WHERE version = ?", (version,)
         ).fetchone()
         if cand is None:
             raise ValueError(f"unknown model version: {version}")
+        family = cand[1]
         champ = conn.execute(
-            "SELECT version, metrics_json FROM entry_models WHERE is_champion = 1"
+            "SELECT version, metrics_json FROM entry_models WHERE is_champion = 1 AND family = ?",
+            (family,),
         ).fetchone()
         if champ is not None and int(champ[0]) == version:
             return False  # already the champion → nothing to flip
@@ -180,17 +200,22 @@ def promote_if_better(db_path: str, version: int, *, metric_key: str = "auc") ->
                 return False  # improvement over the incumbent is below the noise-guard threshold
 
         # bootstrap (no champion) or a challenger clearing both gates → flip in one transaction
-        conn.execute("UPDATE entry_models SET is_champion = 0 WHERE is_champion = 1")
+        conn.execute(
+            "UPDATE entry_models SET is_champion = 0 WHERE is_champion = 1 AND family = ?",
+            (family,),
+        )
         conn.execute("UPDATE entry_models SET is_champion = 1 WHERE version = ?", (version,))
         return True
 
 
 def registry_summary(db_path: str = DEFAULT_DB_PATH) -> dict:
-    """All registered versions (newest first) with metrics/created_at/champion flag, for the API."""
+    """All registered versions (newest first) with metrics/created_at/champion flag, for the API.
+    `champion_version` stays the LONG entry champion (pre-family API contract); `champions` maps
+    every family to its champion version."""
     init_registry_db(db_path)
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute(
-            "SELECT version, created_at, model_kind, n_train, metrics_json, is_champion"
+            "SELECT version, created_at, model_kind, n_train, metrics_json, is_champion, family"
             " FROM entry_models ORDER BY version DESC"
         ).fetchall()
     versions = [
@@ -201,8 +226,13 @@ def registry_summary(db_path: str = DEFAULT_DB_PATH) -> dict:
             "n_train": int(r[3]),
             "metrics": json.loads(r[4]),
             "is_champion": bool(r[5]),
+            "family": r[6],
         }
         for r in rows
     ]
-    champion_version = next((v["version"] for v in versions if v["is_champion"]), None)
-    return {"versions": versions, "champion_version": champion_version}
+    champions = {v["family"]: v["version"] for v in versions if v["is_champion"]}
+    return {
+        "versions": versions,
+        "champion_version": champions.get("entry"),
+        "champions": champions,
+    }

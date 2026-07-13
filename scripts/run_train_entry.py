@@ -25,7 +25,7 @@ from sklearn.isotonic import IsotonicRegression
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.market import PricePanel
 from equity_scout.ml.entry_dataset import build_backfill_dataset
-from equity_scout.ml.entry_eval import HORIZON_DAYS
+from equity_scout.ml.entry_eval import HORIZON_DAYS, SHORT_HORIZON_DAYS
 from equity_scout.ml.entry_model import (
     ENTRY_PRESETS,
     train_entry_model,
@@ -71,15 +71,22 @@ def run_train_entry(
     model: str = "random_forest",
     benchmark: str = BENCHMARK,
     horizon_days: int = HORIZON_DAYS,
+    family: str = "entry",
 ) -> dict:
     """Build the backfill, evaluate OUT-OF-SAMPLE, fit on the full set (with OOS isotonic
     calibration when the sample supports it), register the challenger and promote it iff it clears
     the registry's promotion gate (`promote_if_better`: baseline quality + minimum AUC delta over
     the champion, see model_registry.py). Returns {version, metrics, promoted, n_train}. Prints an
     honest German summary (a weak/undefined AUC is reported as no demonstrated edge; too few OOS
-    rows is reported as such rather than silently not promoting)."""
+    rows is reported as such rather than silently not promoting).
+
+    `family="entry_short"` trains the SHORT model: label = underperforms the benchmark
+    (`label_direction="lags"`), registered and promoted in its own registry partition with the
+    same gate constants — the two families never compare against each other."""
+    label_direction = "lags" if family == "entry_short" else "beats"
     X, y, meta = build_backfill_dataset(
-        panel, tickers, benchmark=benchmark, horizon_days=horizon_days
+        panel, tickers, benchmark=benchmark, horizon_days=horizon_days,
+        label_direction=label_direction,
     )
     n_train = len(X)
     if n_train == 0:
@@ -94,10 +101,13 @@ def run_train_entry(
     metrics["horizon_days"] = horizon_days
     metrics["calibrated"] = calibrator is not None
     fitted = train_entry_model(X, y, model=model, calibrator=calibrator)
-    version = register_challenger(db_path, fitted, metrics=metrics, n_train=n_train, now=now)
+    version = register_challenger(
+        db_path, fitted, metrics=metrics, n_train=n_train, now=now, family=family
+    )
     promoted = promote_if_better(db_path, version)
 
-    print(f"Entry-Modell v{version} ({model}) auf {n_train} Zeilen trainiert.")
+    label = "Entry-Modell" if family == "entry" else "Short-Modell"
+    print(f"{label} v{version} ({model}) auf {n_train} Zeilen trainiert.")
     print(
         f"Out-of-Sample: AUC {_fmt(metrics['auc'])}, Brier {_fmt(metrics['brier'])}, "
         f"Rank-IC {_fmt(metrics['rank_ic'])} "
@@ -124,24 +134,33 @@ def run_train_entry_all(
     tickers: list[str],
     now: str,
     models: tuple[str, ...] = ENTRY_PRESETS,
+    families: tuple[str, ...] = ("entry", "entry_short"),
     benchmark: str = BENCHMARK,
     horizon_days: int = HORIZON_DAYS,
 ) -> list[dict]:
-    """Train every preset in `models`; the registry gate alone decides which (if any) ends up
-    champion. One preset crashing must not kill the night's other presets — log and continue,
-    mirroring the cron chains' contract."""
+    """Train every preset in `models` for every family in `families`; the registry gate alone
+    decides which (if any) ends up champion per family. The short family trains on its own shorter
+    horizon (SHORT_HORIZON_DAYS) — the bots' trading cadence. One preset crashing must not kill
+    the night's other presets — log and continue, mirroring the cron chains' contract."""
+    family_horizon = {"entry": horizon_days, "entry_short": SHORT_HORIZON_DAYS}
     results = []
-    for model in models:
-        try:
-            results.append(
-                run_train_entry(
-                    db_path, panel=panel, tickers=tickers, now=now, model=model,
-                    benchmark=benchmark, horizon_days=horizon_days,
+    for family in families:
+        for model in models:
+            try:
+                results.append(
+                    run_train_entry(
+                        db_path, panel=panel, tickers=tickers, now=now, model=model,
+                        benchmark=benchmark,
+                        horizon_days=family_horizon.get(family, horizon_days),
+                        family=family,
+                    )
                 )
-            )
-        except Exception as err:  # noqa: BLE001 — one broken preset is a report, not a crash
-            print(f"Preset {model} fehlgeschlagen: {err}")
-            results.append({"version": None, "metrics": {}, "promoted": False, "model": model})
+            except Exception as err:  # noqa: BLE001 — one broken preset is a report, not a crash
+                print(f"Preset {family}/{model} fehlgeschlagen: {err}")
+                results.append(
+                    {"version": None, "metrics": {}, "promoted": False, "model": model,
+                     "family": family}
+                )
     return results
 
 
@@ -169,6 +188,7 @@ def main() -> int:
     parser.add_argument("--db", default=DEFAULT_DB_PATH)
     parser.add_argument("--tickers", default=None, help="comma-separated stock tickers")
     parser.add_argument("--model", default="all", help=f"all or one of {ENTRY_PRESETS}")
+    parser.add_argument("--family", default="all", help="all, entry or entry_short")
     parser.add_argument("--start", default="2007-01-01")
     parser.add_argument("--horizon", type=int, default=HORIZON_DAYS)
     args = parser.parse_args()
@@ -179,9 +199,10 @@ def main() -> int:
     panel = _load_panel(panel_tickers, args.start)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     models = ENTRY_PRESETS if args.model == "all" else (args.model,)
+    families = ("entry", "entry_short") if args.family == "all" else (args.family,)
     run_train_entry_all(
         args.db, panel=panel, tickers=stock_tickers, now=now, models=models,
-        horizon_days=args.horizon,
+        families=families, horizon_days=args.horizon,
     )
     return 0
 

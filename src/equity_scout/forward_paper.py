@@ -84,21 +84,36 @@ def _asset_return(closes: pd.DataFrame, ticker: str, start: pd.Timestamp, end: p
     return p1 / p0 - 1.0
 
 
+# Daily short-borrow cost proxy in bps of short gross exposure (~2.5 %/yr). A PROXY by
+# construction: free data has no real borrow rates or availability — every surface showing a
+# short account must label this simplification (plan v6 P3).
+BORROW_BPS_PER_DAY = 1.0
+
+
 def advance_account(
     account: ForwardAccount,
     strategy: Strategy,
     panel: PricePanel,
     *,
     costs_bps: float = 10.0,
+    borrow_bps_per_day: float = BORROW_BPS_PER_DAY,
 ) -> tuple[ForwardAccount, ForwardValuation | None]:
     """Advance `account` to the latest panel date. Returns (account, valuation); valuation is None
-    when the account is already current for that date (idempotent)."""
+    when the account is already current for that date (idempotent).
+
+    Short support (signed weights, plan v6 P3): a negative weight earns when the asset falls
+    (`w * r` with w < 0), pays a daily borrow-cost PROXY on its gross exposure, and the account has
+    a simulated margin floor — equity at or below zero forces a full liquidation (weights cleared,
+    equity floored at 0). Fills stay at close prices with no borrow-availability model; that is a
+    labelled simplification, never real trading conditions."""
     if len(panel.dates) == 0:
         return account, None
     today = panel.dates[-1]
     last = pd.Timestamp(account.last_as_of) if account.last_as_of else None
     if last is not None and last >= today:
         return account, None  # already current — no new trading day to book
+    if account.equity <= 0.0:
+        return account, None  # margin-wiped — a dead account never trades again
 
     closes = panel.closes
     equity = account.equity
@@ -116,6 +131,29 @@ def advance_account(
                 for t, w in weights.items()
             }
         benchmark_equity *= 1.0 + _asset_return(closes, account.benchmark_ticker, last, today)
+
+        # 1b. Borrow-cost proxy on short gross exposure, per trading day since the last advance.
+        short_gross = sum(-w for w in weights.values() if w < 0)
+        if short_gross > 0 and borrow_bps_per_day > 0:
+            n_days = int(((panel.dates > last) & (panel.dates <= today)).sum())
+            equity *= 1.0 - short_gross * borrow_bps_per_day * n_days / 10_000.0
+
+    # 1c. Simulated margin floor: a short book can lose more than the account. At or below zero
+    # the account is force-liquidated — equity floors at 0 and stays there (no negative equity, no
+    # further trading), so CAGR/Sharpe never compute on a negative base.
+    if last is not None and equity <= 0.0:
+        wiped = replace(
+            account, equity=0.0, benchmark_equity=benchmark_equity,
+            last_as_of=today.date().isoformat(), weights={},
+        )
+        valuation = ForwardValuation(
+            created_at=today.date().isoformat(),
+            equity=0.0,
+            total_return=-1.0,
+            benchmark_equity=benchmark_equity,
+            benchmark_return=benchmark_equity / account.initial_capital - 1.0,
+        )
+        return wiped, valuation
 
     # 2. Strategy decides new targets from data strictly BEFORE today — same convention as the
     # engine's MarketView(panel, date), which the backtest never lets peek at the rebalance day's

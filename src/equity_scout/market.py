@@ -83,6 +83,18 @@ class MarketView:
         series = self._visible[ticker].dropna()
         return float(series.iloc[-1]) if len(series) else None
 
+    def history(self, ticker: str) -> pd.Series:
+        """The visible (strictly pre-as_of) close series for `ticker`; empty when unknown —
+        feature builders needing full trailing history consume this, still look-ahead-safe."""
+        if ticker not in self._visible.columns:
+            return pd.Series(dtype=float)
+        return self._visible[ticker].dropna()
+
+    def visible_panel(self) -> PricePanel:
+        """The visible slice wrapped as its own PricePanel, for consumers that need panel-shaped
+        input (e.g. market-regime context). Same look-ahead guarantee: nothing >= as_of."""
+        return PricePanel(self._visible.copy())
+
     def trailing_return(self, ticker: str, months: int) -> float | None:
         """Total return over the trailing `months` (21 trading days each). None if not enough
         history or a non-positive price would make the ratio meaningless."""

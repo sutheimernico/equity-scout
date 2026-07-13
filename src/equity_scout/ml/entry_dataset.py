@@ -34,6 +34,7 @@ def build_backfill_dataset(
     benchmark: str = "SPY",
     horizon_days: int = HORIZON_DAYS,
     min_history: int = MIN_HISTORY,
+    label_direction: str = "beats",
 ) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
     """Assemble aligned (X, y, meta) from a stock+benchmark `PricePanel`.
 
@@ -41,11 +42,18 @@ def build_backfill_dataset(
     relative_return per row (for Rank-IC and attribution). Rows lacking a full feature row or a
     full-horizon label are dropped; the result is sorted by (as_of, ticker).
 
+    `label_direction="lags"` inverts the target for the SHORT model family: y = 1 when the stock
+    UNDERPERFORMS the benchmark, and meta's relative_return is sign-flipped to match, so Rank-IC
+    keeps meaning "higher score ↔ better outcome for the bot" in both directions.
+
     The label and relative return are computed on windows ALIGNED to the benchmark's calendar
     (`closes[[ticker, benchmark]].dropna()`), so both legs' forward horizons end on the SAME date.
     A global universe carries interior NaN from differing exchange calendars; aligning drops those
     dates from both legs instead of fabricating a mismatched (and often spuriously 0) label. Feature
     building stays on the stock's OWN history — it is as-of and already leak-free."""
+    if label_direction not in ("beats", "lags"):
+        raise ValueError(f"label_direction must be 'beats' or 'lags', got {label_direction!r}")
+    invert = label_direction == "lags"
     closes = panel.closes
     context_df = market_context(panel, benchmark=benchmark)  # regime context once for the panel
     sample_dates = panel.rebalance_dates()
@@ -73,6 +81,8 @@ def build_backfill_dataset(
             if label is None:  # no aligned full forward horizon inside the panel — drop it
                 continue
             rel = relative_forward_return(stock_leg, bench_leg, as_of, horizon_days)
+            if invert:
+                label, rel = 1 - int(label), -float(rel)
             rows.append((as_of, ticker, features, int(label), float(rel)))
 
     rows.sort(key=lambda r: (r[0], r[1]))  # deterministic: as_of then ticker
