@@ -83,12 +83,16 @@ def main() -> None:
 
     prov = out.with_suffix(".PROVENANCE.md")
     retrieved = now.isoformat(timespec="seconds")
+    source_lines = "\n".join(
+        f"  - {name}: {count} instruments" for name, count, _ in counts
+    )
     prov.write_text(
         f"# Provenance: {out.name}\n\n"
         f"- Retrieved: {retrieved}\n"
-        f"- Sources: hand-curated `{args.base_csv}` + Wikipedia 'List of S&P 500 companies'"
-        f" + Wikipedia 'STOXX Europe 600' + Wikipedia 'Nikkei 225'\n"
+        f"- Sources (dedupe order — earlier sources win ticker collisions):\n{source_lines}\n"
         f"- Count: {len(universe)} instruments (deduped by ticker)\n"
+        f"- Deliberately absent: Taiwan 50 (no usable free constituents source 2026-07-14; "
+        f"TSMC covered via NYSE ADR), ETFs, preferred shares, warrants, closed-end funds.\n"
         f"- Caveat: Wikipedia tables are unofficial and may change format; re-run to refresh.\n"
         f"- Historized: snapshot archived in `{args.db}` (`universe_snapshots`, as_of={as_of}).\n",
         encoding="utf-8",

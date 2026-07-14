@@ -1,7 +1,21 @@
 # Provenance: universe_combined.csv
 
-- Retrieved: 2026-07-14T06:36:36+00:00
-- Sources: hand-curated `data/universe_v1.csv` + Wikipedia 'List of S&P 500 companies' + Wikipedia 'STOXX Europe 600' + Wikipedia 'Nikkei 225'
-- Count: 6318 instruments (deduped by ticker)
+- Retrieved: 2026-07-14T13:43:07+00:00
+- Sources (dedupe order — earlier sources win ticker collisions):
+  - hand-curated v1 CSV: 42 instruments
+  - Wikipedia S&P 500: 503 instruments
+  - Wikipedia STOXX 600: 459 instruments
+  - Wikipedia Nikkei 225: 223 instruments
+  - Hang Seng Index: 85 instruments
+  - CSI 300: 300 instruments
+  - KOSPI 200: 200 instruments
+  - NIFTY 50: 50 instruments
+  - NIFTY Next 50: 50 instruments
+  - S&P/TSX Composite: 219 instruments
+  - S&P/ASX 200: 200 instruments
+  - B3 listed companies: 88 instruments
+  - NASDAQ Trader directory: 5628 instruments
+- Count: 7499 instruments (deduped by ticker)
+- Deliberately absent: Taiwan 50 (no usable free constituents source 2026-07-14; TSMC covered via NYSE ADR), ETFs, preferred shares, warrants, closed-end funds.
 - Caveat: Wikipedia tables are unofficial and may change format; re-run to refresh.
 - Historized: snapshot archived in `equity_scout.db` (`universe_snapshots`, as_of=2026-07-14).

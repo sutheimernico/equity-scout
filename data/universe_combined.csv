@@ -1190,6 +1190,1190 @@ NGG.L,National Grid,L,EU,GBP,Utilities
 2768.T,Sojitz Corp.,TSE,JP,JPY,Trading companies
 8053.T,Sumitomo Corp.,TSE,JP,JPY,Trading companies
 8015.T,Toyota Tsusho Corp.,TSE,JP,JPY,Trading companies
+0005.HK,HSBC Holdings plc,SEHK,HK,HKD,Finance
+0388.HK,HKEx Limited,SEHK,HK,HKD,Finance
+0939.HK,China Construction Bank,SEHK,HK,HKD,Finance
+1299.HK,AIA Group Limited,SEHK,HK,HKD,Finance
+1398.HK,Industrial and Commercial Bank of China,SEHK,HK,HKD,Finance
+2318.HK,Ping An Insurance,SEHK,HK,HKD,Finance
+2388.HK,BOC Hong Kong (Holdings) Ltd,SEHK,HK,HKD,Finance
+2628.HK,China Life,SEHK,HK,HKD,Finance
+3968.HK,China Merchants Bank,SEHK,HK,HKD,Finance
+3988.HK,Bank of China Ltd,SEHK,HK,HKD,Finance
+0002.HK,CLP Holdings Limited,SEHK,HK,HKD,Utilities
+0003.HK,Hong Kong and China Gas Company Limited,SEHK,HK,HKD,Utilities
+0006.HK,Power Assets Holdings Limited,SEHK,HK,HKD,Utilities
+0836.HK,China Resources Power,SEHK,HK,HKD,Utilities
+1038.HK,Cheung Kong Infrastructure Holdings Limited,SEHK,HK,HKD,Utilities
+2688.HK,ENN Energy,SEHK,HK,HKD,Utilities
+0012.HK,Henderson Land Development Company Limited,SEHK,HK,HKD,Properties
+0016.HK,Sun Hung Kai Properties Limited,SEHK,HK,HKD,Properties
+0101.HK,Hang Lung Properties Limited,SEHK,HK,HKD,Properties
+0688.HK,China Overseas Land & Investment Limited,SEHK,HK,HKD,Properties
+0823.HK,Link REIT,SEHK,HK,HKD,Properties
+0960.HK,Longfor Properties,SEHK,HK,HKD,Properties
+1109.HK,China Resources Land Limited,SEHK,HK,HKD,Properties
+1113.HK,CK Asset Holdings,SEHK,HK,HKD,Properties
+1209.HK,China Resources Mixc Lifestyle,SEHK,HK,HKD,Properties
+1997.HK,Wharf Real Estate Investment Company Limited,SEHK,HK,HKD,Properties
+0001.HK,CK Hutchison Holdings Limited,SEHK,HK,HKD,Commerce & Industry
+0027.HK,Galaxy Entertainment Group Ltd.,SEHK,HK,HKD,Commerce & Industry
+0066.HK,MTR Corporation Ltd,SEHK,HK,HKD,Commerce & Industry
+0175.HK,Geely Auto,SEHK,HK,HKD,Commerce & Industry
+0241.HK,Alibaba Health,SEHK,HK,HKD,Commerce & Industry
+0267.HK,CITIC Limited,SEHK,HK,HKD,Commerce & Industry
+0285.HK,BYD Electronics,SEHK,HK,HKD,Commerce & Industry
+0288.HK,WH Group,SEHK,HK,HKD,Commerce & Industry
+0291.HK,China Resources Beer,SEHK,HK,HKD,Commerce & Industry
+0300.HK,Midea Group,SEHK,HK,HKD,Commerce & Industry
+0316.HK,Orient Overseas (International) Limited,SEHK,HK,HKD,Commerce & Industry
+0322.HK,Tingyi,SEHK,HK,HKD,Commerce & Industry
+0386.HK,Sinopec Corp,SEHK,HK,HKD,Commerce & Industry
+0669.HK,Techtronic Industries,SEHK,HK,HKD,Commerce & Industry
+0762.HK,China Unicom,SEHK,HK,HKD,Commerce & Industry
+0857.HK,PetroChina Company Limited,SEHK,HK,HKD,Commerce & Industry
+0868.HK,Xinyi Glass,SEHK,HK,HKD,Commerce & Industry
+0881.HK,Zhongsheng Group,SEHK,HK,HKD,Commerce & Industry
+0883.HK,CNOOC Limited,SEHK,HK,HKD,Commerce & Industry
+0968.HK,Xinyi Solar,SEHK,HK,HKD,Commerce & Industry
+0981.HK,Semiconductor Manufacturing International Corporation,SEHK,HK,HKD,Commerce & Industry
+0992.HK,Lenovo,SEHK,HK,HKD,Commerce & Industry
+1024.HK,Kuaishou,SEHK,HK,HKD,Commerce & Industry
+1044.HK,Hengan International Group Co. Ltd,SEHK,HK,HKD,Commerce & Industry
+1088.HK,China Shenhua Energy,SEHK,HK,HKD,Commerce & Industry
+1093.HK,CSPC Pharmaceutical Group,SEHK,HK,HKD,Commerce & Industry
+1099.HK,Sinopharm Group,SEHK,HK,HKD,Commerce & Industry
+1177.HK,Sino Biopharm,SEHK,HK,HKD,Commerce & Industry
+1211.HK,BYD Company,SEHK,HK,HKD,Commerce & Industry
+1378.HK,China Hongqiao Group,SEHK,HK,HKD,Commerce & Industry
+1810.HK,Xiaomi,SEHK,HK,HKD,Commerce & Industry
+1876.HK,Budweiser Brewing Company APAC,SEHK,HK,HKD,Commerce & Industry
+1928.HK,Sands China,SEHK,HK,HKD,Commerce & Industry
+1929.HK,Chow Tai Fook,SEHK,HK,HKD,Commerce & Industry
+2015.HK,Li Auto,SEHK,HK,HKD,Commerce & Industry
+2020.HK,Anta Sports,SEHK,HK,HKD,Commerce & Industry
+2057.HK,ZTO Express,SEHK,HK,HKD,Commerce & Industry
+2269.HK,WuXi Biologics,SEHK,HK,HKD,Commerce & Industry
+2313.HK,Shenzhou International,SEHK,HK,HKD,Commerce & Industry
+2319.HK,Mengniu Dairy,SEHK,HK,HKD,Commerce & Industry
+2331.HK,Li-Ning,SEHK,HK,HKD,Commerce & Industry
+2359.HK,WuXi AppTec,SEHK,HK,HKD,Commerce & Industry
+2382.HK,Sunny Optical,SEHK,HK,HKD,Commerce & Industry
+2618.HK,JD Logistics,SEHK,HK,HKD,Commerce & Industry
+2899.HK,Zijin Mining,SEHK,HK,HKD,Commerce & Industry
+3690.HK,Meituan,SEHK,HK,HKD,Commerce & Industry
+3692.HK,Hansoh Pharmaceutical Group,SEHK,HK,HKD,Commerce & Industry
+6618.HK,JD Health,SEHK,HK,HKD,Commerce & Industry
+6690.HK,Haier,SEHK,HK,HKD,Commerce & Industry
+6862.HK,Haidilao,SEHK,HK,HKD,Commerce & Industry
+9618.HK,JD.com,SEHK,HK,HKD,Commerce & Industry
+9633.HK,Nongfu Spring,SEHK,HK,HKD,Commerce & Industry
+9888.HK,Baidu,SEHK,HK,HKD,Commerce & Industry
+9961.HK,Trip.com Group,SEHK,HK,HKD,Commerce & Industry
+9992.HK,Pop Mart,SEHK,HK,HKD,Commerce & Industry
+9999.HK,NetEase,SEHK,HK,HKD,Commerce & Industry
+600519.SS,Kweichow Moutai,SSE/SZSE,CN,CNY,Consumer Staples
+601318.SS,Ping An Insurance,SSE/SZSE,CN,CNY,Financials
+300750.SZ,CATL,SSE/SZSE,CN,CNY,Industrials
+600036.SS,China Merchants Bank,SSE/SZSE,CN,CNY,Financials
+000333.SZ,Midea Group,SSE/SZSE,CN,CNY,Consumer Discretionary
+000858.SZ,Wuliangye Yibin,SSE/SZSE,CN,CNY,Consumer Staples
+600900.SS,China Yangtze Power,SSE/SZSE,CN,CNY,Utilities
+601166.SS,Industrial Bank,SSE/SZSE,CN,CNY,Financials
+601899.SS,Zijin Mining Group,SSE/SZSE,CN,CNY,Materials
+600030.SS,CITIC Securities,SSE/SZSE,CN,CNY,Financials
+600276.SS,Jiangsu Hengrui Medicine,SSE/SZSE,CN,CNY,Health Care
+601398.SS,Industrial and Commercial Bank of China,SSE/SZSE,CN,CNY,Financials
+600887.SS,Inner Mongolia Yili Industrial Group,SSE/SZSE,CN,CNY,Consumer Staples
+300059.SZ,East Money,SSE/SZSE,CN,CNY,Financials
+000651.SZ,Gree Electric,SSE/SZSE,CN,CNY,Consumer Discretionary
+300760.SZ,Mindray,SSE/SZSE,CN,CNY,Health Care
+002594.SZ,BYD,SSE/SZSE,CN,CNY,Consumer Discretionary
+601328.SS,Bank of Communications,SSE/SZSE,CN,CNY,Financials
+600309.SS,Wanhua Chemical Group,SSE/SZSE,CN,CNY,Materials
+000725.SZ,BOE Technology Group,SSE/SZSE,CN,CNY,Information Technology
+600919.SS,Bank of Jiangsu,SSE/SZSE,CN,CNY,Financials
+002475.SZ,Luxshare Precision Industry,SSE/SZSE,CN,CNY,Information Technology
+300124.SZ,Shenzhen Inovance Technology,SSE/SZSE,CN,CNY,Industrials
+601288.SS,Agricultural Bank of China,SSE/SZSE,CN,CNY,Financials
+002415.SZ,Hangzhou Hikvision Digital Technology,SSE/SZSE,CN,CNY,Information Technology
+000568.SZ,Luzhou Lao Jiao,SSE/SZSE,CN,CNY,Consumer Staples
+601012.SS,Longi Green Energy Technology,SSE/SZSE,CN,CNY,Information Technology
+601088.SS,China Shenhua Energy,SSE/SZSE,CN,CNY,Energy
+601816.SS,Beijing-Shanghai High Speed Railway,SSE/SZSE,CN,CNY,Industrials
+600028.SS,China Petroleum & Chemical Corporation,SSE/SZSE,CN,CNY,Energy
+600809.SS,Shanxi Xinghuacun Fen Wine Factory,SSE/SZSE,CN,CNY,Consumer Staples
+601668.SS,China State Construction Engineering,SSE/SZSE,CN,CNY,Industrials
+603259.SS,WuXi AppTec,SSE/SZSE,CN,CNY,Health Care
+002714.SZ,Muyuan Foodstuff,SSE/SZSE,CN,CNY,Consumer Staples
+000001.SZ,Ping An Bank,SSE/SZSE,CN,CNY,Financials
+300498.SZ,Wens Foodstuff Group,SSE/SZSE,CN,CNY,Consumer Staples
+600016.SS,China Minsheng Bank,SSE/SZSE,CN,CNY,Financials
+601857.SS,PetroChina,SSE/SZSE,CN,CNY,Energy
+601225.SS,Shaanxi Coal Industry Company,SSE/SZSE,CN,CNY,Energy
+300308.SZ,Zhongji Innolight,SSE/SZSE,CN,CNY,Information Technology
+688981.SS,Semiconductor Manufacturing International Corporation,SSE/SZSE,CN,CNY,Information Technology
+000063.SZ,ZTE,SSE/SZSE,CN,CNY,Information Technology
+601988.SS,Bank of China,SSE/SZSE,CN,CNY,Financials
+002352.SZ,S.F. Holding,SSE/SZSE,CN,CNY,Industrials
+600406.SS,NARI Technology,SSE/SZSE,CN,CNY,Industrials
+600941.SS,China Mobile,SSE/SZSE,CN,CNY,Communication
+000338.SZ,Weichai Power,SSE/SZSE,CN,CNY,Industrials
+600050.SS,China United Network Communications,SSE/SZSE,CN,CNY,Communication
+002230.SZ,Iflytek,SSE/SZSE,CN,CNY,Information Technology
+600690.SS,Qingdao Haier,SSE/SZSE,CN,CNY,Consumer Discretionary
+601728.SS,China Telecom Corporation,SSE/SZSE,CN,CNY,Communication
+300274.SZ,Sungrow Power Supply,SSE/SZSE,CN,CNY,Industrials
+002142.SZ,Bank of Ningbo,SSE/SZSE,CN,CNY,Financials
+600837.SS,Haitong Securities Company,SSE/SZSE,CN,CNY,Financials
+000792.SZ,Qinghai Salt Lake Potash,SSE/SZSE,CN,CNY,Materials
+601601.SS,China Pacific Insurance,SSE/SZSE,CN,CNY,Financials
+000100.SZ,TCL Corporation,SSE/SZSE,CN,CNY,Information Technology
+601888.SS,China International Travel Service,SSE/SZSE,CN,CNY,Consumer Discretionary
+600000.SS,Shanghai Pudong Development Bank,SSE/SZSE,CN,CNY,Financials
+600031.SS,Sany Heavy Industry,SSE/SZSE,CN,CNY,Industrials
+601985.SS,China National Nuclear Power,SSE/SZSE,CN,CNY,Utilities
+600150.SS,China CSSC Holdings,SSE/SZSE,CN,CNY,Industrials
+688041.SS,Hygon Information Technology,SSE/SZSE,CN,CNY,Information Technology
+601766.SS,CRRC Corporation,SSE/SZSE,CN,CNY,Industrials
+601169.SS,Bank of Beijing,SSE/SZSE,CN,CNY,Financials
+002371.SZ,NAURA Technology Group,SSE/SZSE,CN,CNY,Information Technology
+600089.SS,TBEA,SSE/SZSE,CN,CNY,Industrials
+601688.SS,Huatai Securities,SSE/SZSE,CN,CNY,Financials
+601138.SS,Foxconn Industrial Internet,SSE/SZSE,CN,CNY,Information Technology
+000625.SZ,Chongqing Changan Automobile,SSE/SZSE,CN,CNY,Consumer Discretionary
+600438.SS,Tongwei Company,SSE/SZSE,CN,CNY,Information Technology
+600048.SS,Poly Real Estate Group,SSE/SZSE,CN,CNY,Real Estate
+603501.SS,Will Semiconductor,SSE/SZSE,CN,CNY,Information Technology
+600104.SS,SAIC Motor,SSE/SZSE,CN,CNY,Consumer Discretionary
+600660.SS,Fuyao Glass Industry Group,SSE/SZSE,CN,CNY,Consumer Discretionary
+000002.SZ,China Vanke,SSE/SZSE,CN,CNY,Real Estate
+300015.SZ,Aier Eye Hospital,SSE/SZSE,CN,CNY,Health Care
+601211.SS,Guotai Junan Securities,SSE/SZSE,CN,CNY,Financials
+603288.SS,Foshan Haitian Flavouring & Food Co,SSE/SZSE,CN,CNY,Consumer Staples
+600436.SS,Zhangzhou Pientzehuang Pharmaceutical,SSE/SZSE,CN,CNY,Health Care
+601919.SS,China Cosco Holdings,SSE/SZSE,CN,CNY,Industrials
+600905.SS,China Three Gorges Renewables (Group),SSE/SZSE,CN,CNY,Utilities
+601390.SS,China Railway Group Limited,SSE/SZSE,CN,CNY,Industrials
+601229.SS,Bank of Shanghai,SSE/SZSE,CN,CNY,Financials
+300122.SZ,Chongqing Zhifei Biological Products,SSE/SZSE,CN,CNY,Health Care
+002027.SZ,Focus Media Information Technology,SSE/SZSE,CN,CNY,Communication
+688012.SS,Advanced Micro-Fabrication Equipment,SSE/SZSE,CN,CNY,Information Technology
+688111.SS,Beijing Kingsoft Office Software,SSE/SZSE,CN,CNY,Information Technology
+601006.SS,Daqin Railway,SSE/SZSE,CN,CNY,Industrials
+002304.SZ,Jiangsu Yanghe Brewery Joint-Stock,SSE/SZSE,CN,CNY,Consumer Staples
+601818.SS,China Everbright Bank,SSE/SZSE,CN,CNY,Financials
+600019.SS,Baoshan Iron and Steel,SSE/SZSE,CN,CNY,Materials
+688271.SS,United Imaging,SSE/SZSE,CN,CNY,Health Care
+603019.SS,Dawning Information Industry,SSE/SZSE,CN,CNY,Information Technology
+600585.SS,Anhui Conch Cement,SSE/SZSE,CN,CNY,Materials
+002050.SZ,ZHEJIANG SANHUA INTELLIGENT CONTROLS,SSE/SZSE,CN,CNY,Industrials
+002466.SZ,Tianqi Lithium Industries,SSE/SZSE,CN,CNY,Materials
+601658.SS,Postal Savings Bank of China,SSE/SZSE,CN,CNY,Financials
+601989.SS,China Shipbuilding Industry Company,SSE/SZSE,CN,CNY,Industrials
+600938.SS,CNOOC Limited,SSE/SZSE,CN,CNY,Energy
+600999.SS,China Merchants Securities,SSE/SZSE,CN,CNY,Financials
+688036.SS,Transsion,SSE/SZSE,CN,CNY,Information Technology
+000938.SZ,Unisplendour,SSE/SZSE,CN,CNY,Information Technology
+601628.SS,China Life Insurance Company,SSE/SZSE,CN,CNY,Financials
+603986.SS,GigaDevice,SSE/SZSE,CN,CNY,Information Technology
+002049.SZ,Unigroup Guoxin Microelectronics,SSE/SZSE,CN,CNY,Information Technology
+601600.SS,Aluminum Corporation of China Limited,SSE/SZSE,CN,CNY,Materials
+600111.SS,China Northern Rare Earth Group,SSE/SZSE,CN,CNY,Materials
+688008.SS,Montage Technology,SSE/SZSE,CN,CNY,Information Technology
+300014.SZ,Eve Energy,SSE/SZSE,CN,CNY,Industrials
+601939.SS,China Construction Bank,SSE/SZSE,CN,CNY,Financials
+600958.SS,Orient Securities,SSE/SZSE,CN,CNY,Financials
+600893.SS,AVIC Aviation Engine Corporation,SSE/SZSE,CN,CNY,Industrials
+002460.SZ,Ganfeng Lithium,SSE/SZSE,CN,CNY,Materials
+601009.SS,Bank of Nanjing,SSE/SZSE,CN,CNY,Financials
+000538.SZ,Yunnan Baiyao Group,SSE/SZSE,CN,CNY,Health Care
+601669.SS,Power Construction Corporation of China,SSE/SZSE,CN,CNY,Industrials
+600009.SS,Shanghai International Airport,SSE/SZSE,CN,CNY,Industrials
+002129.SZ,Tianjin Zhonghuan Semiconductor,SSE/SZSE,CN,CNY,Information Technology
+603993.SS,China Molybdenum,SSE/SZSE,CN,CNY,Materials
+600886.SS,SDIC Power Holdings,SSE/SZSE,CN,CNY,Utilities
+600760.SS,AVIC SHENYANG AIRCRAFT COMPANY,SSE/SZSE,CN,CNY,Industrials
+000425.SZ,XCMG Construction Machinery,SSE/SZSE,CN,CNY,Industrials
+000776.SZ,GF Securities,SSE/SZSE,CN,CNY,Financials
+601916.SS,China Zheshang Bank,SSE/SZSE,CN,CNY,Financials
+600795.SS,GD Power Development,SSE/SZSE,CN,CNY,Utilities
+000661.SZ,Chang Chun High and New Technology Industry (Group),SSE/SZSE,CN,CNY,Health Care
+000166.SZ,Shenwan Hongyuan,SSE/SZSE,CN,CNY,Financials
+600426.SS,Shandong Hualu-Hengsheng Chemical,SSE/SZSE,CN,CNY,Materials
+600015.SS,Hua Xia Bank,SSE/SZSE,CN,CNY,Financials
+300782.SZ,Maxscend Microelectronics,SSE/SZSE,CN,CNY,Information Technology
+601377.SS,Industrial Securities,SSE/SZSE,CN,CNY,Financials
+601186.SS,China Railway Construction,SSE/SZSE,CN,CNY,Industrials
+000157.SZ,Zoomlion Heavy Industry Science & Technology,SSE/SZSE,CN,CNY,Industrials
+002241.SZ,GoerTek,SSE/SZSE,CN,CNY,Information Technology
+600926.SS,Bank of Hangzhou,SSE/SZSE,CN,CNY,Financials
+600547.SS,Shandong Gold-Mining,SSE/SZSE,CN,CNY,Materials
+600011.SS,Huaneng Power International,SSE/SZSE,CN,CNY,Utilities
+000977.SZ,Inspur Electronic Information Industry,SSE/SZSE,CN,CNY,Information Technology
+002252.SZ,Shanghai RAAS Blood Products,SSE/SZSE,CN,CNY,Health Care
+600674.SS,Sichuan Chuantou Energy,SSE/SZSE,CN,CNY,Utilities
+603799.SS,ZHEJIANG HUAYOU COBALT,SSE/SZSE,CN,CNY,Materials
+600584.SS,JCET,SSE/SZSE,CN,CNY,Information Technology
+600570.SS,Hundsun Technologies,SSE/SZSE,CN,CNY,Information Technology
+002236.SZ,Zhejiang Dahua Technology,SSE/SZSE,CN,CNY,Information Technology
+002179.SZ,AVIC Jonhon Optronic Technology,SSE/SZSE,CN,CNY,Information Technology
+000596.SZ,Anhui Gujing Distillery,SSE/SZSE,CN,CNY,Consumer Staples
+002311.SZ,Guangdong Haid Group,SSE/SZSE,CN,CNY,Consumer Staples
+600188.SS,Yanzhou Coal Mining,SSE/SZSE,CN,CNY,Energy
+300896.SZ,IMEIK TECHNOLOGY DEVELOPMENT,SSE/SZSE,CN,CNY,Health Care
+688256.SS,Cambricon Technologies,SSE/SZSE,CN,CNY,Information Technology
+600010.SS,Inner Mongolia Baotou Steel Union,SSE/SZSE,CN,CNY,Materials
+002271.SZ,Beijing Oriental Yuhong Waterproof Technology,SSE/SZSE,CN,CNY,Materials
+601111.SS,Air China,SSE/SZSE,CN,CNY,Industrials
+001979.SZ,China Merchants Shekou Industrial Zone Holdings,SSE/SZSE,CN,CNY,Real Estate
+300408.SZ,Chaozhou Three-Circle,SSE/SZSE,CN,CNY,Information Technology
+600845.SS,Baosight Software,SSE/SZSE,CN,CNY,Information Technology
+603369.SS,Jiangsu King's Luck Brewery Joint-Stock,SSE/SZSE,CN,CNY,Consumer Staples
+600989.SS,Ningxia Baofeng Energy Group,SSE/SZSE,CN,CNY,Materials
+600745.SS,Wingtech,SSE/SZSE,CN,CNY,Information Technology
+601788.SS,Everbright Securities,SSE/SZSE,CN,CNY,Financials
+600115.SS,China Eastern Airlines Corp,SSE/SZSE,CN,CNY,Industrials
+600029.SS,China Southern Airlines,SSE/SZSE,CN,CNY,Industrials
+002601.SZ,LB Group,SSE/SZSE,CN,CNY,Materials
+601360.SS,360 Security Technology,SSE/SZSE,CN,CNY,Information Technology
+601901.SS,Founder Securities,SSE/SZSE,CN,CNY,Financials
+002493.SZ,Rongsheng Petro Chemical,SSE/SZSE,CN,CNY,Materials
+600196.SS,Fosun Pharmaceutical,SSE/SZSE,CN,CNY,Health Care
+002459.SZ,JA Solar Technology,SSE/SZSE,CN,CNY,Information Technology
+601699.SS,Shanxi Lu'an Environmental Energy Development,SSE/SZSE,CN,CNY,Energy
+601995.SS,China International Capital Corporation,SSE/SZSE,CN,CNY,Financials
+600085.SS,Beijing Tongrentang,SSE/SZSE,CN,CNY,Health Care
+601100.SS,Jiangsu Hengli Hydraulic,SSE/SZSE,CN,CNY,Industrials
+601800.SS,China Communications Construction Company,SSE/SZSE,CN,CNY,Industrials
+000895.SZ,Henan Shuanghui Investment & Development,SSE/SZSE,CN,CNY,Consumer Staples
+002555.SZ,37 Interactive Entertainment Network Technology Group,SSE/SZSE,CN,CNY,Communication
+003816.SZ,CGN Power,SSE/SZSE,CN,CNY,Utilities
+600489.SS,Zhongjin Gold,SSE/SZSE,CN,CNY,Materials
+601066.SS,China Securities,SSE/SZSE,CN,CNY,Financials
+000963.SZ,Huadong Medicine,SSE/SZSE,CN,CNY,Health Care
+300142.SZ,Walvax Biotechnology,SSE/SZSE,CN,CNY,Health Care
+300033.SZ,Hithink RoyalFlush Information Network,SSE/SZSE,CN,CNY,Financials
+000768.SZ,AVIC Aircraft,SSE/SZSE,CN,CNY,Industrials
+601633.SS,Great Wall Motor,SSE/SZSE,CN,CNY,Consumer Discretionary
+000786.SZ,Beijing New Building Materials Public,SSE/SZSE,CN,CNY,Industrials
+002920.SZ,Huizhou Desay SV Automotive,SSE/SZSE,CN,CNY,Consumer Discretionary
+600600.SS,Tsingtao Brewery,SSE/SZSE,CN,CNY,Consumer Staples
+601868.SS,China Energy Engineering Corporation,SSE/SZSE,CN,CNY,Industrials
+002648.SZ,SATELLITE CHEMICAL,SSE/SZSE,CN,CNY,Materials
+601021.SS,Spring Airlines,SSE/SZSE,CN,CNY,Industrials
+603392.SS,BEIJING WANTAI BIOLOGICAL PHARMACY ENTERPRISE,SSE/SZSE,CN,CNY,Health Care
+000301.SZ,Jiangsu Eastern Shenghong,SSE/SZSE,CN,CNY,Materials
+002001.SZ,Zhejiang NHU,SSE/SZSE,CN,CNY,Health Care
+600741.SS,HUAYU Automotive Systems Company,SSE/SZSE,CN,CNY,Consumer Discretionary
+601336.SS,New China Life Insurance,SSE/SZSE,CN,CNY,Financials
+601689.SS,Ningbo Tuopu Group,SSE/SZSE,CN,CNY,Consumer Discretionary
+688599.SS,Trina Solar,SSE/SZSE,CN,CNY,Information Technology
+002812.SZ,Yunnan Energy New Material,SSE/SZSE,CN,CNY,Materials
+600346.SS,Hengli Petrochemical,SSE/SZSE,CN,CNY,Materials
+000983.SZ,Shanxi Coking Coal Energy Group,SSE/SZSE,CN,CNY,Energy
+601881.SS,China Galaxy Securities,SSE/SZSE,CN,CNY,Financials
+600588.SS,Yonyou Network Technology,SSE/SZSE,CN,CNY,Information Technology
+600515.SS,Hainan Airport Infrastructure,SSE/SZSE,CN,CNY,Real Estate
+601117.SS,China National Chemical Engineering,SSE/SZSE,CN,CNY,Industrials
+601838.SS,BANK OF CHENGDU,SSE/SZSE,CN,CNY,Financials
+688126.SS,National Silicon Industry Group,SSE/SZSE,CN,CNY,Information Technology
+300450.SZ,WUXI LEAD INTELLIGENT EQUIPMENT,SSE/SZSE,CN,CNY,Industrials
+002736.SZ,Guosen Securities,SSE/SZSE,CN,CNY,Financials
+002821.SZ,Asymchem Laboratories (Tianjin),SSE/SZSE,CN,CNY,Health Care
+300316.SZ,Zhejiang Jingsheng Mechanical & Electrical,SSE/SZSE,CN,CNY,Information Technology
+300433.SZ,Lens Technology,SSE/SZSE,CN,CNY,Information Technology
+600176.SS,CHINA JUSHI,SSE/SZSE,CN,CNY,Materials
+002709.SZ,Guangzhou Tinci Materials Technology,SSE/SZSE,CN,CNY,Materials
+300347.SZ,Hangzhou Tigermed Consulting,SSE/SZSE,CN,CNY,Health Care
+601618.SS,Metallurgical Corporation of China,SSE/SZSE,CN,CNY,Industrials
+601872.SS,China Merchants Energy Shipping,SSE/SZSE,CN,CNY,Energy
+000408.SZ,ZANGGE MINING COMPANY,SSE/SZSE,CN,CNY,Materials
+002180.SZ,Ninestar Corporation,SSE/SZSE,CN,CNY,Information Technology
+300661.SZ,SG Micro,SSE/SZSE,CN,CNY,Information Technology
+600372.SS,China Avionics Systems,SSE/SZSE,CN,CNY,Industrials
+601898.SS,China Coal Energy,SSE/SZSE,CN,CNY,Energy
+688396.SS,China Resources Microelectronics,SSE/SZSE,CN,CNY,Information Technology
+300496.SZ,Thunder Software Technology,SSE/SZSE,CN,CNY,Information Technology
+000733.SZ,China Zhenhua (Group) Science & Technology,SSE/SZSE,CN,CNY,Information Technology
+601877.SS,Zhejiang Chint Electrics,SSE/SZSE,CN,CNY,Industrials
+600233.SS,YTO Express Group,SSE/SZSE,CN,CNY,Industrials
+000999.SZ,China Resources Sanjiu Medical & Pharmaceutical,SSE/SZSE,CN,CNY,Health Care
+600219.SS,Shandong Nanshan Aluminium,SSE/SZSE,CN,CNY,Materials
+002007.SZ,Hualan Biological Engineering,SSE/SZSE,CN,CNY,Health Care
+600023.SS,Zhejiang Zheneng Electric Power,SSE/SZSE,CN,CNY,Utilities
+002074.SZ,GUOXUAN HIGH-TECH,SSE/SZSE,CN,CNY,Industrials
+002202.SZ,Xinjiang Goldwind Science & Technology,SSE/SZSE,CN,CNY,Industrials
+300759.SZ,Pharmaron Beijing,SSE/SZSE,CN,CNY,Health Care
+600332.SS,Guangzhou Baiyunshan Pharmaceutical Holdings,SSE/SZSE,CN,CNY,Health Care
+603806.SS,HANGZHOU FIRST PV MATERIAL,SSE/SZSE,CN,CNY,Information Technology
+600362.SS,Jiangxi Copper,SSE/SZSE,CN,CNY,Materials
+000876.SZ,New Hope Liuhe,SSE/SZSE,CN,CNY,Consumer Staples
+600183.SS,Shengyi Technology,SSE/SZSE,CN,CNY,Information Technology
+601607.SS,Shanghai Pharmaceuticals Holding,SSE/SZSE,CN,CNY,Health Care
+601799.SS,Changzhou Xingyu Automotive Lighting Systems,SSE/SZSE,CN,CNY,Consumer Discretionary
+301269.SZ,Empyrean Technology,SSE/SZSE,CN,CNY,Information Technology
+601238.SS,Guangzhou Automobile Group,SSE/SZSE,CN,CNY,Consumer Discretionary
+601878.SS,ZHESHANG SECURITIES,SSE/SZSE,CN,CNY,Financials
+601998.SS,China Citic Bank,SSE/SZSE,CN,CNY,Financials
+600918.SS,Zhongtai Securities,SSE/SZSE,CN,CNY,Financials
+300999.SZ,Yihai Kerry,SSE/SZSE,CN,CNY,Consumer Staples
+300223.SZ,Ingenic Semiconductor,SSE/SZSE,CN,CNY,Information Technology
+603260.SS,Hoshine Silicon Industry,SSE/SZSE,CN,CNY,Materials
+688303.SS,XinJiang Daqo New Energy,SSE/SZSE,CN,CNY,Information Technology
+300413.SZ,Mango Excellent Media,SSE/SZSE,CN,CNY,Communication
+601615.SS,MingYangSmartEnergyGroup,SSE/SZSE,CN,CNY,Industrials
+002410.SZ,Glodon Software,SSE/SZSE,CN,CNY,Information Technology
+600875.SS,Dongfang Electric Corporation,SSE/SZSE,CN,CNY,Industrials
+002603.SZ,Shijiazhuang Yiling Pharmaceutical,SSE/SZSE,CN,CNY,Health Care
+600061.SS,SDIC Essence,SSE/SZSE,CN,CNY,Financials
+688223.SS,Jinko Solar,SSE/SZSE,CN,CNY,Information Technology
+600460.SS,Hangzhou Silan Microelectronics,SSE/SZSE,CN,CNY,Information Technology
+600803.SS,ENN Ecological Holdings,SSE/SZSE,CN,CNY,Utilities
+300751.SZ,Suzhou Maxwell Technologies,SSE/SZSE,CN,CNY,Information Technology
+600025.SS,HuanengLancang River Hydropower,SSE/SZSE,CN,CNY,Utilities
+601319.SS,People's Insurance Company of China,SSE/SZSE,CN,CNY,Financials
+002841.SZ,Guangzhou Shiyuan Electronic Technology Company,SSE/SZSE,CN,CNY,Information Technology
+600732.SS,Shanghai Aiko Solar Energy,SSE/SZSE,CN,CNY,Information Technology
+603659.SS,Shanghai Putailai New Energy Technology,SSE/SZSE,CN,CNY,Materials
+300454.SZ,Sangfor Technologies,SSE/SZSE,CN,CNY,Information Technology
+300919.SZ,CNGR Advanced Material,SSE/SZSE,CN,CNY,Materials
+600132.SS,Chongqing Brewery,SSE/SZSE,CN,CNY,Consumer Staples
+000617.SZ,CNPC Capital Company,SSE/SZSE,CN,CNY,Financials
+300763.SZ,Ginlong Technologies,SSE/SZSE,CN,CNY,Industrials
+000069.SZ,Shenzhen Overseas Chinese Town Company,SSE/SZSE,CN,CNY,Real Estate
+600018.SS,Shanghai International Port Group,SSE/SZSE,CN,CNY,Industrials
+000708.SZ,CITIC Pacific Special Steel Group,SSE/SZSE,CN,CNY,Materials
+300628.SZ,Yealink Network Technology,SSE/SZSE,CN,CNY,Information Technology
+002938.SZ,Avary Holding (Shenzhen) Co,SSE/SZSE,CN,CNY,Information Technology
+002916.SZ,Shennan Circuits,SSE/SZSE,CN,CNY,Information Technology
+605117.SS,Ningbo Deye Technology,SSE/SZSE,CN,CNY,Industrials
+600039.SS,Sichuan Road&Bridge,SSE/SZSE,CN,CNY,Industrials
+605499.SS,Eastroc Beverage (Group),SSE/SZSE,CN,CNY,Consumer Staples
+603195.SS,GONGNIU GROUP,SSE/SZSE,CN,CNY,Industrials
+600754.SS,Shanghai Jin Jiang International Hotels,SSE/SZSE,CN,CNY,Consumer Discretionary
+603899.SS,SHANGHAI M&G STATIONERY,SSE/SZSE,CN,CNY,Industrials
+603290.SS,StarPower Semiconductor,SSE/SZSE,CN,CNY,Information Technology
+603833.SS,Oppein Home Group,SSE/SZSE,CN,CNY,Consumer Discretionary
+601865.SS,Flat Glass Group,SSE/SZSE,CN,CNY,Information Technology
+688363.SS,Bloomage Biotechnology Corporation,SSE/SZSE,CN,CNY,Health Care
+000877.SZ,Xinjiang Tianshan Cement,SSE/SZSE,CN,CNY,Materials
+688065.SS,Cathay Biotech,SSE/SZSE,CN,CNY,Materials
+300957.SZ,Yunnan Botanee Bio-Technology Group,SSE/SZSE,CN,CNY,Consumer Staples
+601236.SS,HONGTA SECURITIES,SSE/SZSE,CN,CNY,Financials
+601698.SS,China Satellite Communications,SSE/SZSE,CN,CNY,Communication
+688187.SS,Zhuzhou CRRC Times Electric,SSE/SZSE,CN,CNY,Industrials
+688561.SS,Qi An Xin Technology Group,SSE/SZSE,CN,CNY,Information Technology
+601155.SS,Future Land Holdings,SSE/SZSE,CN,CNY,Real Estate
+600606.SS,China Development Holdings,SSE/SZSE,CN,CNY,Real Estate
+300979.SZ,Huali Industrial Group Company,SSE/SZSE,CN,CNY,Consumer Discretionary
+601808.SS,China Oilfield Services,SSE/SZSE,CN,CNY,Energy
+603486.SS,Ecovacs Robotics,SSE/SZSE,CN,CNY,Consumer Discretionary
+000800.SZ,FAW Car,SSE/SZSE,CN,CNY,Industrials
+601059.SS,CINDA SECURITIES,SSE/SZSE,CN,CNY,Financials
+001289.SZ,China Longyuan Power Group Limited,SSE/SZSE,CN,CNY,Utilities
+090430.KS,Amorepacific,KRX,KR,KRW,Consumer Staples
+002790.KS,Amorepacific Holdings,KRX,KR,KRW,Consumer Staples
+278470.KS,APR,KRX,KR,KRW,Consumer Staples
+002030.KS,Asia Holdings,KRX,KR,KRW,Steels & Materials
+282330.KS,BGF Retail,KRX,KR,KRW,Consumer Staples
+138930.KS,BNK Financial,KRX,KR,KRW,Financials
+068270.KS,Celltrion,KRX,KR,KRW,Health Care
+030000.KS,Cheil Worldwide,KRX,KR,KRW,Communication Services
+185750.KS,Chong Kun Dang,KRX,KR,KRW,Health Care
+001040.KS,CJ,KRX,KR,KRW,Consumer Staples
+097950.KS,CJ CheilJedang,KRX,KR,KRW,Consumer Staples
+000120.KS,CJ Logistics,KRX,KR,KRW,Industrials
+192820.KS,Cosmax,KRX,KR,KRW,Consumer Staples
+005420.KS,Cosmo Chemical,KRX,KR,KRW,Energy & Chemicals
+021240.KS,Coway,KRX,KR,KRW,Consumer Discretionary
+112610.KS,CS Wind,KRX,KR,KRW,Heavy Industries
+483650.KS,d'Alba Global,KRX,KR,KRW,Consumer Staples
+001680.KS,Daesang,KRX,KR,KRW,Consumer Staples
+047040.KS,Daewoo E&C,KRX,KR,KRW,Constructions
+003090.KS,Daewoong,KRX,KR,KRW,Health Care
+069620.KS,Daewoong Pharmaceutical,KRX,KR,KRW,Health Care
+000990.KS,DB HiTek,KRX,KR,KRW,IT
+005830.KS,DB Insurance,KRX,KR,KRW,Financials
+000210.KS,DL,KRX,KR,KRW,Constructions
+375500.KS,DL E&C,KRX,KR,KRW,Constructions
+007340.KS,DN Automotive,KRX,KR,KRW,Consumer Discretionary
+026960.KS,Dongsuh,KRX,KR,KRW,Consumer Staples
+006040.KS,Dongwon Industries,KRX,KR,KRW,Consumer Staples
+014820.KS,Dongwon Systems,KRX,KR,KRW,Steels & Materials
+000150.KS,Doosan,KRX,KR,KRW,Heavy Industries
+241560.KS,Doosan Bobcat,KRX,KR,KRW,Heavy Industries
+034020.KS,Doosan Enerbility,KRX,KR,KRW,Heavy Industries
+454910.KS,Doosan Robotics,KRX,KR,KRW,Heavy Industries
+192080.KS,DoubleU Games,KRX,KR,KRW,Consumer Discretionary
+450080.KS,Ecopro Materials,KRX,KR,KRW,Industrials
+139480.KS,Emart,KRX,KR,KRW,Consumer Staples
+383220.KS,F&F,KRX,KR,KRW,Consumer Discretionary
+093370.KS,Foosung,KRX,KR,KRW,Energy & Chemicals
+006280.KS,Green Cross,KRX,KR,KRW,Health Care
+078930.KS,GS,KRX,KR,KRW,Energy & Chemicals
+007070.KS,GS Retail,KRX,KR,KRW,Consumer Staples
+086790.KS,Hana Financial,KRX,KR,KRW,Financials
+009420.KS,Hanall Biopharma,KRX,KR,KRW,Health Care
+300720.KS,Hanil Cement,KRX,KR,KRW,Constructions
+180640.KS,Hanjin KAL,KRX,KR,KRW,Consumer Discretionary
+161390.KS,Hankook,KRX,KR,KRW,Consumer Discretionary
+000240.KS,Hankook & Company,KRX,KR,KRW,Consumer Discretionary
+128940.KS,Hanmi Pharm,KRX,KR,KRW,Health Care
+008930.KS,Hanmi Science,KRX,KR,KRW,Health Care
+042700.KS,Hanmi Semiconductor,KRX,KR,KRW,IT
+018880.KS,Hanon Systems,KRX,KR,KRW,Consumer Discretionary
+014680.KS,Hansol Chemical,KRX,KR,KRW,Energy & Chemicals
+009240.KS,Hanssem,KRX,KR,KRW,Consumer Discretionary
+000880.KS,Hanwha,KRX,KR,KRW,Energy & Chemicals
+012450.KS,Hanwha Aerospace,KRX,KR,KRW,Industrials
+082740.KS,Hanwha Engine,KRX,KR,KRW,Heavy Industries
+088350.KS,Hanwha Life,KRX,KR,KRW,Financials
+042660.KS,Hanwha Ocean,KRX,KR,KRW,Heavy Industries
+009830.KS,Hanwha Solutions,KRX,KR,KRW,Energy & Chemicals
+272210.KS,Hanwha Systems,KRX,KR,KRW,Industrials
+267270.KS,HD Construction Equipment,KRX,KR,KRW,Heavy Industries
+267250.KS,HD Hyundai,KRX,KR,KRW,Energy & Chemicals
+267260.KS,HD Hyundai Electric,KRX,KR,KRW,Heavy Industries
+329180.KS,HD Hyundai Heavy Industries,KRX,KR,KRW,Heavy Industries
+071970.KS,HD Hyundai Marine Engine,KRX,KR,KRW,Heavy Industries
+443060.KS,HD Hyundai Marine Solution,KRX,KR,KRW,Industrials
+009540.KS,HD KSOE,KRX,KR,KRW,Heavy Industries
+017960.KS,Hankuk Carbon,KRX,KR,KRW,Energy & Chemicals
+000080.KS,HiteJinro,KRX,KR,KRW,Consumer Staples
+204320.KS,HL Mando,KRX,KR,KRW,Consumer Discretionary
+011200.KS,HMM,KRX,KR,KRW,Industrials
+008770.KS,Hotel Shilla,KRX,KR,KRW,Consumer Discretionary
+298050.KS,HS Hyosung Advanced Materials,KRX,KR,KRW,Energy & Chemicals
+352820.KS,Hybe,KRX,KR,KRW,Communication Services
+298040.KS,Hyosung Heavy Industries,KRX,KR,KRW,Heavy Industries
+298020.KS,Hyosung TNC,KRX,KR,KRW,Energy & Chemicals
+307950.KS,Hyundai AutoEver,KRX,KR,KRW,IT
+069960.KS,Hyundai Department Store,KRX,KR,KRW,Consumer Discretionary
+000720.KS,Hyundai E&C,KRX,KR,KRW,Constructions
+017800.KS,Hyundai Elevator,KRX,KR,KRW,Heavy Industries
+086280.KS,Hyundai Glovis,KRX,KR,KRW,Industrials
+001450.KS,Hyundai Marine & Fire,KRX,KR,KRW,Financials
+012330.KS,Hyundai Mobis,KRX,KR,KRW,Consumer Discretionary
+005380.KS,Hyundai Motor,KRX,KR,KRW,Consumer Discretionary
+064350.KS,Hyundai Rotem,KRX,KR,KRW,Heavy Industries
+004020.KS,Hyundai Steel,KRX,KR,KRW,Steels & Materials
+011210.KS,Hyundai WIA,KRX,KR,KRW,Consumer Discretionary
+139130.KS,IM Financial,KRX,KR,KRW,Financials
+024110.KS,Industrial Bank of Korea,KRX,KR,KRW,Financials
+007660.KS,Isu Petasys,KRX,KR,KRW,IT
+457190.KS,Isu Specialty Chemical,KRX,KR,KRW,Energy & Chemicals
+175330.KS,JB Financial,KRX,KR,KRW,Financials
+035720.KS,Kakao,KRX,KR,KRW,Communication Services
+323410.KS,KakaoBank,KRX,KR,KRW,Financials
+377300.KS,KakaoPay,KRX,KR,KRW,Financials
+035250.KS,Kangwon Land,KRX,KR,KRW,Consumer Discretionary
+105560.KS,KB Financial,KRX,KR,KRW,Financials
+002380.KS,KCC,KRX,KR,KRW,Constructions
+015760.KS,KEPCO,KRX,KR,KRW,Consumer Staples
+052690.KS,KEPCO E&C,KRX,KR,KRW,Constructions
+051600.KS,KEPCO KPS,KRX,KR,KRW,Constructions
+000270.KS,Kia,KRX,KR,KRW,Consumer Discretionary
+039490.KS,Kiwoom Securities,KRX,KR,KRW,Financials
+161890.KS,Kolmar Korea,KRX,KR,KRW,Consumer Staples
+120110.KS,Kolon Industries,KRX,KR,KRW,Energy & Chemicals
+047810.KS,Korea Aerospace,KRX,KR,KRW,Industrials
+071320.KS,Korea District Heating,KRX,KR,KRW,Consumer Staples
+036460.KS,Korea Gas,KRX,KR,KRW,Consumer Staples
+071050.KS,Korea Investment,KRX,KR,KRW,Financials
+006650.KS,Korea Petrochemical,KRX,KR,KRW,Energy & Chemicals
+010130.KS,Korea Zinc,KRX,KR,KRW,Steels & Materials
+003490.KS,Korean Air,KRX,KR,KRW,Industrials
+259960.KS,Krafton,KRX,KR,KRW,Communication Services
+030200.KS,KT,KRX,KR,KRW,Communication Services
+033780.KS,KT&G,KRX,KR,KRW,Consumer Staples
+011780.KS,Kumho Petrochemical,KRX,KR,KRW,Energy & Chemicals
+073240.KS,Kumho Tire,KRX,KR,KRW,Consumer Discretionary
+066970.KS,L&F,KRX,KR,KRW,Industrials
+003550.KS,LG,KRX,KR,KRW,IT
+051910.KS,LG Chem,KRX,KR,KRW,Energy & Chemicals
+064400.KS,LG CNS,KRX,KR,KRW,IT
+034220.KS,LG Display,KRX,KR,KRW,IT
+066570.KS,LG Electronics,KRX,KR,KRW,IT
+373220.KS,LG Energy Solution,KRX,KR,KRW,Industrials
+051900.KS,LG H&H,KRX,KR,KRW,Consumer Staples
+011070.KS,LG Innotek,KRX,KR,KRW,IT
+032640.KS,LG Uplus,KRX,KR,KRW,Communication Services
+079550.KS,LIG Nex1,KRX,KR,KRW,Industrials
+004990.KS,Lotte,KRX,KR,KRW,Consumer Staples
+011170.KS,Lotte Chemical,KRX,KR,KRW,Energy & Chemicals
+005300.KS,Lotte Chilsung,KRX,KR,KRW,Consumer Staples
+004000.KS,Lotte Fine Chemical,KRX,KR,KRW,Energy & Chemicals
+023530.KS,Lotte Shopping,KRX,KR,KRW,Consumer Discretionary
+280360.KS,Lotte Wellfood,KRX,KR,KRW,Consumer Staples
+006260.KS,LS,KRX,KR,KRW,Industrials
+010120.KS,LS Electric,KRX,KR,KRW,Industrials
+138040.KS,Meritz Financial,KRX,KR,KRW,Financials
+006800.KS,Mirae Asset Securities,KRX,KR,KRW,Financials
+081660.KS,Misto,KRX,KR,KRW,Consumer Discretionary
+002840.KS,Miwon Commercial,KRX,KR,KRW,Energy & Chemicals
+268280.KS,Miwon Specialty Chemical,KRX,KR,KRW,Energy & Chemicals
+035420.KS,Naver,KRX,KR,KRW,Communication Services
+036570.KS,NC,KRX,KR,KRW,Communication Services
+251270.KS,Netmarble,KRX,KR,KRW,Communication Services
+005940.KS,NH Investment & Securities,KRX,KR,KRW,Financials
+004370.KS,Nongshim,KRX,KR,KRW,Consumer Staples
+456040.KS,OCI,KRX,KR,KRW,Energy & Chemicals
+010060.KS,OCI Holdings,KRX,KR,KRW,Energy & Chemicals
+271560.KS,Orion,KRX,KR,KRW,Consumer Staples
+001800.KS,Orion Holdings,KRX,KR,KRW,Consumer Staples
+007310.KS,Ottogi,KRX,KR,KRW,Consumer Staples
+028670.KS,Pan Ocean,KRX,KR,KRW,Industrials
+034230.KS,Paradise,KRX,KR,KRW,Consumer Discretionary
+103140.KS,Poongsan,KRX,KR,KRW,Steels & Materials
+005490.KS,POSCO,KRX,KR,KRW,Steels & Materials
+022100.KS,POSCO DX,KRX,KR,KRW,IT
+003670.KS,POSCO Future M,KRX,KR,KRW,Industrials
+047050.KS,POSCO International,KRX,KR,KRW,Industrials
+012750.KS,S-1,KRX,KR,KRW,Industrials
+062040.KS,Sanil Electric,KRX,KR,KRW,Heavy Industries
+207940.KS,Samsung Biologics,KRX,KR,KRW,Health Care
+028260.KS,Samsung C&T,KRX,KR,KRW,Constructions
+029780.KS,Samsung Card,KRX,KR,KRW,Financials
+028050.KS,Samsung E&A,KRX,KR,KRW,Constructions
+009150.KS,Samsung Electro-Mechanics,KRX,KR,KRW,IT
+001260.KS,Samsung Epis,KRX,KR,KRW,Health Care
+000810.KS,Samsung Fire & Marine,KRX,KR,KRW,Financials
+010140.KS,Samsung Heavy Industries,KRX,KR,KRW,Heavy Industries
+032830.KS,Samsung Life,KRX,KR,KRW,Financials
+006400.KS,Samsung SDI,KRX,KR,KRW,IT
+018260.KS,Samsung SDS,KRX,KR,KRW,IT
+016360.KS,Samsung Securities,KRX,KR,KRW,Financials
+003230.KS,Samyang Foods,KRX,KR,KRW,Consumer Staples
+137310.KS,SD Biosensor,KRX,KR,KRW,Health Care
+001430.KS,Seah Besteel,KRX,KR,KRW,Steels & Materials
+003030.KS,Seah Steel Holdings,KRX,KR,KRW,Steels & Materials
+055550.KS,Shinhan Financial,KRX,KR,KRW,Financials
+004170.KS,Shinsegae,KRX,KR,KRW,Consumer Discretionary
+034730.KS,SK,KRX,KR,KRW,Energy & Chemicals
+326030.KS,SK Biopharm,KRX,KR,KRW,Health Care
+302440.KS,SK Bioscience,KRX,KR,KRW,Health Care
+285130.KS,SK Chemicals,KRX,KR,KRW,Energy & Chemicals
+000660.KS,SK Hynix,KRX,KR,KRW,IT
+361610.KS,SK IE Technology,KRX,KR,KRW,Industrials
+096770.KS,SK Innovation,KRX,KR,KRW,Energy & Chemicals
+402340.KS,SK Square,KRX,KR,KRW,IT
+017670.KS,SK Telecom,KRX,KR,KRW,Communication Services
+011790.KS,SKC,KRX,KR,KRW,Energy & Chemicals
+005850.KS,SL,KRX,KR,KRW,Consumer Discretionary
+010950.KS,S-Oil,KRX,KR,KRW,Energy & Chemicals
+003240.KS,Taekwang Industrial,KRX,KR,KRW,Energy & Chemicals
+001440.KS,Taihan Cable & Solution,KRX,KR,KRW,Industrials
+069260.KS,TKG Huchems,KRX,KR,KRW,Energy & Chemicals
+316140.KS,Woori Financial,KRX,KR,KRW,Financials
+008730.KS,Youlchon Chemical,KRX,KR,KRW,Steels & Materials
+000670.KS,Young Poong,KRX,KR,KRW,Steels & Materials
+111770.KS,Youngone,KRX,KR,KRW,Consumer Discretionary
+009970.KS,Youngone Holdings,KRX,KR,KRW,Consumer Discretionary
+000100.KS,Yuhan,KRX,KR,KRW,Health Care
+ADANIENT.NS,Adani Enterprises,NSE,IN,INR,Metals & Mining
+ADANIPORTS.NS,Adani Ports & SEZ,NSE,IN,INR,Services
+APOLLOHOSP.NS,Apollo Hospitals,NSE,IN,INR,Healthcare
+ASIANPAINT.NS,Asian Paints,NSE,IN,INR,Consumer Durables
+AXISBANK.NS,Axis Bank,NSE,IN,INR,Financial Services
+BAJAJ-AUTO.NS,Bajaj Auto,NSE,IN,INR,Automobile and Auto Components
+BAJFINANCE.NS,Bajaj Finance,NSE,IN,INR,Financial Services
+BAJAJFINSV.NS,Bajaj Finserv,NSE,IN,INR,Financial Services
+BEL.NS,Bharat Electronics,NSE,IN,INR,Capital Goods
+BHARTIARTL.NS,Bharti Airtel,NSE,IN,INR,Telecommunication
+CIPLA.NS,Cipla,NSE,IN,INR,Healthcare
+COALINDIA.NS,Coal India,NSE,IN,INR,"Oil, Gas & Consumable Fuels"
+DRREDDY.NS,Dr. Reddy's Laboratories,NSE,IN,INR,Healthcare
+EICHERMOT.NS,Eicher Motors,NSE,IN,INR,Automobile and Auto Components
+ETERNAL.NS,Eternal,NSE,IN,INR,Consumer Services
+GRASIM.NS,Grasim Industries,NSE,IN,INR,Construction Materials
+HCLTECH.NS,HCLTech,NSE,IN,INR,Information Technology
+HDFCBANK.NS,HDFC Bank,NSE,IN,INR,Financial Services
+HDFCLIFE.NS,HDFC Life,NSE,IN,INR,Financial Services
+HINDALCO.NS,Hindalco Industries,NSE,IN,INR,Metals & Mining
+HINDUNILVR.NS,Hindustan Unilever,NSE,IN,INR,Fast Moving Consumer Goods
+ICICIBANK.NS,ICICI Bank,NSE,IN,INR,Financial Services
+INDIGO.NS,IndiGo,NSE,IN,INR,Services
+INFY.NS,Infosys,NSE,IN,INR,Information Technology
+ITC.NS,ITC,NSE,IN,INR,Fast Moving Consumer Goods
+JIOFIN.NS,Jio Financial Services,NSE,IN,INR,Financial Services
+JSWSTEEL.NS,JSW Steel,NSE,IN,INR,Metals & Mining
+KOTAKBANK.NS,Kotak Mahindra Bank,NSE,IN,INR,Financial Services
+LT.NS,Larsen & Toubro,NSE,IN,INR,Construction
+M&M.NS,Mahindra & Mahindra,NSE,IN,INR,Automobile and Auto Components
+MARUTI.NS,Maruti Suzuki,NSE,IN,INR,Automobile and Auto Components
+MAXHEALTH.NS,Max Healthcare,NSE,IN,INR,Healthcare
+NESTLEIND.NS,Nestlé India,NSE,IN,INR,Fast Moving Consumer Goods
+NTPC.NS,NTPC,NSE,IN,INR,Power
+ONGC.NS,Oil and Natural Gas Corporation,NSE,IN,INR,"Oil, Gas & Consumable Fuels"
+POWERGRID.NS,Power Grid,NSE,IN,INR,Power
+SBILIFE.NS,SBI Life Insurance Company,NSE,IN,INR,Financial Services
+SHRIRAMFIN.NS,Shriram Finance,NSE,IN,INR,Financial Services
+SBIN.NS,State Bank of India,NSE,IN,INR,Financial Services
+SUNPHARMA.NS,Sun Pharma,NSE,IN,INR,Healthcare
+TATACONSUM.NS,Tata Consumer Products,NSE,IN,INR,Fast Moving Consumer Goods
+TMPV.NS,Tata Motors Passenger Vehicles,NSE,IN,INR,Automobile and Auto Components
+TATASTEEL.NS,Tata Steel,NSE,IN,INR,Metals & Mining
+TECHM.NS,Tech Mahindra,NSE,IN,INR,Information Technology
+TITAN.NS,Titan Company,NSE,IN,INR,Consumer Durables
+TRENT.NS,Trent,NSE,IN,INR,Consumer Services
+ULTRACEMCO.NS,UltraTech Cement,NSE,IN,INR,Construction Materials
+WIPRO.NS,Wipro,NSE,IN,INR,Information Technology
+ABB.NS,ABB India,NSE,IN,INR,Capital Goods
+ADANIENSOL.NS,Adani Energy Solutions,NSE,IN,INR,Power
+ADANIGREEN.NS,Adani Green Energy,NSE,IN,INR,Power
+ADANIPOWER.NS,Adani Power,NSE,IN,INR,Power
+AMBUJACEM.NS,Ambuja Cements,NSE,IN,INR,Construction Materials
+BAJAJHLDNG.NS,Bajaj Holdings,NSE,IN,INR,Financial Services
+BANKBARODA.NS,Bank of Baroda,NSE,IN,INR,Financial Services
+BPCL.NS,Bharat Petroleum,NSE,IN,INR,"Oil, Gas & Consumable Fuels"
+BRITANNIA.NS,Britannia Industries,NSE,IN,INR,Fast Moving Consumer Goods
+BOSCHLTD.NS,Bosch,NSE,IN,INR,Automobile and Auto Components
+CANBK.NS,Canara Bank,NSE,IN,INR,Financial Services
+CGPOWER.NS,CG Power and Industrial Solutions,NSE,IN,INR,Capital Goods
+CHOLAFIN.NS,Cholamandalam,NSE,IN,INR,Financial Services
+CUMMINSIND.NS,Cummins India,NSE,IN,INR,Capital Goods
+DIVISLAB.NS,Divi's Laboratories,NSE,IN,INR,Healthcare
+DLF.NS,DLF,NSE,IN,INR,Realty
+DMART.NS,DMart,NSE,IN,INR,Consumer Services
+GAIL.NS,GAIL,NSE,IN,INR,"Oil, Gas & Consumable Fuels"
+GODREJCP.NS,Godrej Consumer Products,NSE,IN,INR,Fast Moving Consumer Goods
+HDFCAMC.NS,HDFC Asset Management,NSE,IN,INR,Financial Services
+HAL.NS,Hindustan Aeronautics,NSE,IN,INR,Capital Goods
+HINDZINC.NS,Hindustan Zinc,NSE,IN,INR,Metals & Mining
+HYUNDAI.NS,Hyundai Motor India,NSE,IN,INR,Automobile and Auto Components
+INDHOTEL.NS,Indian Hotels Company,NSE,IN,INR,Consumer Services
+IOC.NS,Indian Oil Corporation,NSE,IN,INR,"Oil, Gas & Consumable Fuels"
+IRFC.NS,IRFC,NSE,IN,INR,Financial Services
+JINDALSTEL.NS,Jindal Steel,NSE,IN,INR,Metals & Mining
+LODHA.NS,Lodha,NSE,IN,INR,Realty
+LTM.NS,LTM,NSE,IN,INR,Information Technology
+MAZDOCK.NS,Mazagon Dock Shipbuilders,NSE,IN,INR,Capital Goods
+MUTHOOTFIN.NS,Muthoot Finance,NSE,IN,INR,Financial Services
+PIDILITIND.NS,Pidilite Industries,NSE,IN,INR,Chemicals
+PFC.NS,Power Finance Corporation,NSE,IN,INR,Financial Services
+PNB.NS,Punjab National Bank,NSE,IN,INR,Financial Services
+RECLTD.NS,REC,NSE,IN,INR,Financial Services
+MOTHERSON.NS,Samvardhana Motherson,NSE,IN,INR,Automobile and Auto Components
+SHREECEM.NS,Shree Cement,NSE,IN,INR,Construction Materials
+SIEMENS.NS,Siemens,NSE,IN,INR,Capital Goods
+ENRIN.NS,Siemens Energy,NSE,IN,INR,Capital Goods
+SOLARINDS.NS,Solar Industries,NSE,IN,INR,Chemicals
+TATACAP.NS,Tata Capital,NSE,IN,INR,Financial Services
+TMCV.NS,Tata Motors,NSE,IN,INR,Automobile and Auto Components
+TATAPOWER.NS,Tata Power,NSE,IN,INR,Power
+TORNTPHARM.NS,Torrent Pharmaceuticals,NSE,IN,INR,Healthcare
+TVSMOTOR.NS,TVS Motor Company,NSE,IN,INR,Automobile and Auto Components
+UNIONBANK.NS,Union Bank of India,NSE,IN,INR,Financial Services
+UNITDSPR.NS,United Spirits,NSE,IN,INR,Fast Moving Consumer Goods
+VBL.NS,Varun Beverages,NSE,IN,INR,Fast Moving Consumer Goods
+VEDL.NS,Vedanta,NSE,IN,INR,Metals & Mining
+ZYDUSLIFE.NS,Zydus Lifesciences,NSE,IN,INR,Healthcare
+VNP.TO,5N Plus Inc.,TSX,CA,CAD,Materials
+ABRA.TO,AbraSilver Resource Corp.,TSX,CA,CAD,Materials
+AAV.TO,Advantage Energy Ltd.,TSX,CA,CAD,Energy
+ARE.TO,Aecon Group Inc.,TSX,CA,CAD,Industrials
+AEM.TO,Agnico Eagle Mines Limited,TSX,CA,CAD,Materials
+AC.TO,Air Canada,TSX,CA,CAD,Industrials
+AGI.TO,Alamos Gold Inc.,TSX,CA,CAD,Materials
+AQN.TO,Algonquin Power & Utilities Corp.,TSX,CA,CAD,Utilities
+ATD.TO,Alimentation Couche-Tard Inc.,TSX,CA,CAD,Consumer Discretionary
+AAUC.TO,Allied Gold Corporation,TSX,CA,CAD,Materials
+AP-UN.TO,Allied Properties Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+ALA.TO,AltaGas Ltd.,TSX,CA,CAD,Energy
+AIF.TO,Altus Group Limited,TSX,CA,CAD,Real Estate
+USA.TO,Americas Gold And Silver Corporation,TSX,CA,CAD,Materials
+ARX.TO,ARC Resources Ltd.,TSX,CA,CAD,Energy
+ARIS.TO,Aris Mining Corporation,TSX,CA,CAD,Materials
+ATZ.TO,Aritzia Inc.,TSX,CA,CAD,Consumer Discretionary
+ACO-X.TO,ATCO Ltd.,TSX,CA,CAD,Utilities
+ATH.TO,Athabasca Oil Corporation,TSX,CA,CAD,Energy
+ATRL.TO,AtkinsRéalis Group Inc.,TSX,CA,CAD,Industrials
+ATS.TO,ATS Corporation,TSX,CA,CAD,Industrials
+ASM.TO,Avino Silver & Gold Mines Ltd.,TSX,CA,CAD,Materials
+AYA.TO,Aya Gold & Silver Inc.,TSX,CA,CAD,Materials
+BTO.TO,B2Gold Corp.,TSX,CA,CAD,Materials
+BDGI.TO,Badger Infrastructure Solutions Ltd.,TSX,CA,CAD,Industrials
+BMO.TO,Bank of Montreal,TSX,CA,CAD,Financials
+BNS.TO,Bank of Nova Scotia,TSX,CA,CAD,Financials
+ABX.TO,Barrick Gold Corporation,TSX,CA,CAD,Materials
+BHC.TO,Bausch Health Companies Inc.,TSX,CA,CAD,Healthcare
+BTE.TO,Baytex Energy Corp.,TSX,CA,CAD,Energy
+BCE.TO,BCE Inc.,TSX,CA,CAD,Communication Services
+BIR.TO,Birchcliff Energy Ltd.,TSX,CA,CAD,Energy
+BDT.TO,Bird Construction Inc.,TSX,CA,CAD,Industrials
+BB.TO,BlackBerry Limited,TSX,CA,CAD,Information Technology
+BEI-UN.TO,Boardwalk Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+BBD-B.TO,Bombardier Inc.,TSX,CA,CAD,Industrials
+BLX.TO,Boralex Inc.,TSX,CA,CAD,Energy
+BYD.TO,Boyd Group Services Inc.,TSX,CA,CAD,Consumer Discretionary
+BAM.TO,Brookfield Asset Management Ltd.,TSX,CA,CAD,Financials
+BBUC.TO,Brookfield Business Corporation,TSX,CA,CAD,Industrials
+BN.TO,Brookfield Corporation,TSX,CA,CAD,Financials
+BIP-UN.TO,Brookfield Infrastructure Partners L.P.,TSX,CA,CAD,Utilities
+BEP-UN.TO,Brookfield Renewable Partners L.P.,TSX,CA,CAD,Energy
+DOO.TO,BRP Inc.,TSX,CA,CAD,Consumer Discretionary
+CAE.TO,CAE Inc.,TSX,CA,CAD,Industrials
+CCO.TO,Cameco Corporation,TSX,CA,CAD,Energy
+CAR-UN.TO,Canadian Apartment Properties Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+CM.TO,Canadian Imperial Bank of Commerce,TSX,CA,CAD,Financials
+CNR.TO,Canadian National Railway Company,TSX,CA,CAD,Industrials
+CNQ.TO,Canadian Natural Resources Limited,TSX,CA,CAD,Energy
+CP.TO,Canadian Pacific Kansas City Limited,TSX,CA,CAD,Industrials
+CTC-A.TO,Canadian Tire Corporation Limited,TSX,CA,CAD,Consumer Discretionary
+CU.TO,Canadian Utilities Limited,TSX,CA,CAD,Utilities
+CPX.TO,Capital Power Corporation,TSX,CA,CAD,Utilities
+CS.TO,Capstone Copper Corp.,TSX,CA,CAD,Materials
+CJT.TO,Cargojet Inc.,TSX,CA,CAD,Industrials
+CCL-B.TO,CCL Industries Inc.,TSX,CA,CAD,Consumer Discretionary
+CLS.TO,Celestica Inc.,TSX,CA,CAD,Information Technology
+CVE.TO,Cenovus Energy Inc.,TSX,CA,CAD,Energy
+CG.TO,Centerra Gold Inc.,TSX,CA,CAD,Materials
+CEU.TO,CES Energy Solutions Corp.,TSX,CA,CAD,Energy
+GIB-A.TO,CGI Inc.,TSX,CA,CAD,Information Technology
+CSH-UN.TO,Chartwell Retirement Residences,TSX,CA,CAD,Real Estate
+CHP-UN.TO,Choice Properties Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+CCA.TO,Cogeco Communications Inc.,TSX,CA,CAD,Communication Services
+CIGI.TO,Colliers International Group Inc.,TSX,CA,CAD,Real Estate
+CSU.TO,Constellation Software Inc.,TSX,CA,CAD,Information Technology
+CRR-UN.TO,Crombie Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+CRT-UN.TO,CT Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+CURA.TO,"Curaleaf Holdings, Inc.",TSX,CA,CAD,Healthcare
+DFY.TO,Definity Financial Corporation,TSX,CA,CAD,Financials
+DML.TO,Denison Mines Corp.,TSX,CA,CAD,Energy
+DSG.TO,Descartes Systems Group Inc.,TSX,CA,CAD,Information Technology
+DSV.TO,Discovery Silver Corp.,TSX,CA,CAD,Materials
+DOL.TO,Dollarama Inc.,TSX,CA,CAD,Consumer Staples
+DIR-UN.TO,Dream Industrial Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+DPM.TO,Dundee Precious Metals Inc.,TSX,CA,CAD,Materials
+ELD.TO,Eldorado Gold Corporation,TSX,CA,CAD,Materials
+EFN.TO,Element Fleet Management Corp.,TSX,CA,CAD,Industrials
+EMA.TO,Emera Incorporated,TSX,CA,CAD,Utilities
+EMP-A.TO,Empire Company Limited,TSX,CA,CAD,Consumer Staples
+ENB.TO,Enbridge Inc.,TSX,CA,CAD,Energy
+EDR.TO,Endeavour Silver Corp.,TSX,CA,CAD,Materials
+EFR.TO,Energy Fuels Inc.,TSX,CA,CAD,Energy
+EQB.TO,EQB Inc.,TSX,CA,CAD,Financials
+EFX.TO,Equifax Inc.,TSX,CA,CAD,Industrials
+EQX.TO,Equinox Gold Corp.,TSX,CA,CAD,Materials
+ERO.TO,Ero Copper Corp.,TSX,CA,CAD,Materials
+EIF.TO,Exchange Income Corporation,TSX,CA,CAD,Industrials
+FFH.TO,Fairfax Financial Holdings Limited,TSX,CA,CAD,Financials
+FTT.TO,Finning International Inc.,TSX,CA,CAD,Industrials
+FCR-UN.TO,First Capital Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+AG.TO,First Majestic Silver Corp.,TSX,CA,CAD,Materials
+FM.TO,First Quantum Minerals Ltd.,TSX,CA,CAD,Materials
+FSV.TO,FirstService Corporation,TSX,CA,CAD,Real Estate
+FTS.TO,Fortis Inc.,TSX,CA,CAD,Utilities
+FVI.TO,Fortuna Mining Corp.,TSX,CA,CAD,Materials
+FNV.TO,Franco-Nevada Corporation,TSX,CA,CAD,Materials
+FRU.TO,Freehold Royalties Ltd.,TSX,CA,CAD,Energy
+GMIN.TO,G Mining Ventures Corp.,TSX,CA,CAD,Materials
+WN.TO,George Weston Limited,TSX,CA,CAD,Consumer Staples
+GFL.TO,GFL Environmental Inc.,TSX,CA,CAD,Industrials
+GEI.TO,Gibson Energy Inc.,TSX,CA,CAD,Energy
+GIL.TO,Gildan Activewear Inc.,TSX,CA,CAD,Consumer Discretionary
+GSY.TO,goeasy Ltd.,TSX,CA,CAD,Financials
+GRT-UN.TO,Granite Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+GWO.TO,Great-West Lifeco Inc.,TSX,CA,CAD,Financials
+HR-UN.TO,H&R Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+HWX.TO,Headwater Exploration Inc.,TSX,CA,CAD,Energy
+HBM.TO,Hudbay Minerals Inc.,TSX,CA,CAD,Materials
+H.TO,Hydro One Limited,TSX,CA,CAD,Utilities
+IAU.TO,I-80 Gold Corp.,TSX,CA,CAD,Materials
+IAG.TO,iA Financial Corporation Inc.,TSX,CA,CAD,Financials
+IMG.TO,Iamgold Corporation,TSX,CA,CAD,Materials
+IGM.TO,IGM Financial Inc.,TSX,CA,CAD,Financials
+IMO.TO,Imperial Oil Limited,TSX,CA,CAD,Energy
+IFC.TO,Intact Financial Corporation,TSX,CA,CAD,Financials
+IPCO.TO,International Petroleum Corporation,TSX,CA,CAD,Energy
+IIP-UN.TO,InterRent Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+IVN.TO,Ivanhoe Mines Ltd.,TSX,CA,CAD,Materials
+JWEL.TO,Jamieson Wellness Inc.,TSX,CA,CAD,Consumer Staples
+KNT.TO,K92 Mining Inc.,TSX,CA,CAD,Materials
+KEL.TO,Kelt Exploration Ltd.,TSX,CA,CAD,Energy
+KEY.TO,Keyera Corp.,TSX,CA,CAD,Energy
+KMP-UN.TO,Killam Apartment Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+KXS.TO,Kinaxis Inc.,TSX,CA,CAD,Information Technology
+K.TO,Kinross Gold Corporation,TSX,CA,CAD,Materials
+LIF.TO,Labrador Iron Ore Royalty Corporation,TSX,CA,CAD,Materials
+LB.TO,Laurentian Bank of Canada,TSX,CA,CAD,Financials
+LSPD.TO,Lightspeed Commerce Inc.,TSX,CA,CAD,Information Technology
+LNR.TO,Linamar Corporation,TSX,CA,CAD,Consumer Discretionary
+LAC.TO,Lithium Americas Corp.,TSX,CA,CAD,Materials
+L.TO,Loblaw Companies Limited,TSX,CA,CAD,Consumer Staples
+LUG.TO,Lundin Gold Inc.,TSX,CA,CAD,Materials
+LUN.TO,Lundin Mining Corporation,TSX,CA,CAD,Materials
+MG.TO,Magna International Inc.,TSX,CA,CAD,Consumer Discretionary
+MFC.TO,Manulife Financial Corporation,TSX,CA,CAD,Financials
+MFI.TO,Maple Leaf Foods Inc.,TSX,CA,CAD,Consumer Staples
+MDA.TO,MDA Space Ltd.,TSX,CA,CAD,Industrials
+MX.TO,Methanex Corporation,TSX,CA,CAD,Materials
+MRU.TO,Metro Inc.,TSX,CA,CAD,Consumer Staples
+MAU.TO,Montage Gold Corp.,TSX,CA,CAD,Materials
+MTL.TO,Mullen Group Ltd.,TSX,CA,CAD,Industrials
+NXE.TO,NexGen Energy Ltd.,TSX,CA,CAD,Energy
+NFI.TO,NFI Group Inc.,TSX,CA,CAD,Consumer Discretionary
+NGEX.TO,NGEx Minerals Ltd.,TSX,CA,CAD,Materials
+NWC.TO,North West Company Inc.,TSX,CA,CAD,Consumer Staples
+NPI.TO,Northland Power Inc.,TSX,CA,CAD,Energy
+NG.TO,NovaGold Resources Inc.,TSX,CA,CAD,Materials
+NTR.TO,Nutrien Ltd.,TSX,CA,CAD,Materials
+OGC.TO,OceanaGold Corporation,TSX,CA,CAD,Materials
+ONEX.TO,Onex Corporation,TSX,CA,CAD,Financials
+OTEX.TO,Open Text Corporation,TSX,CA,CAD,Information Technology
+OLA.TO,Orla Mining Ltd.,TSX,CA,CAD,Materials
+OR.TO,Osisko Gold Royalties Ltd.,TSX,CA,CAD,Materials
+PAAS.TO,Pan American Silver Corp.,TSX,CA,CAD,Materials
+POU.TO,Paramount Resources Ltd.,TSX,CA,CAD,Energy
+PXT.TO,Parex Resources Inc.,TSX,CA,CAD,Energy
+PPL.TO,Pembina Pipeline Corporation,TSX,CA,CAD,Energy
+PPTA.TO,Perpetua Resources Corp.,TSX,CA,CAD,Materials
+PET.TO,Pet Valu Holdings Ltd.,TSX,CA,CAD,Consumer Discretionary
+PEY.TO,Peyto Exploration & Development Corp.,TSX,CA,CAD,Energy
+POW.TO,Power Corporation of Canada,TSX,CA,CAD,Financials
+PSK.TO,PrairieSky Royalty Ltd.,TSX,CA,CAD,Energy
+PBH.TO,Premium Brands Holdings Corporation,TSX,CA,CAD,Consumer Staples
+PMZ-UN.TO,Primaris Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+QBR-B.TO,Quebecor Inc.,TSX,CA,CAD,Communication Services
+RBA.TO,"RB Global, Inc.",TSX,CA,CAD,Industrials
+QSR.TO,Restaurant Brands International Inc.,TSX,CA,CAD,Consumer Discretionary
+RCH.TO,Richelieu Hardware Ltd.,TSX,CA,CAD,Consumer Discretionary
+REI-UN.TO,RioCan Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+RCI-B.TO,Rogers Communications Inc.,TSX,CA,CAD,Communication Services
+RUS.TO,Russel Metals Inc.,TSX,CA,CAD,Industrials
+SAP.TO,Saputo Inc.,TSX,CA,CAD,Consumer Staples
+SEA.TO,Seabridge Gold Inc.,TSX,CA,CAD,Materials
+SES.TO,Secure Energy Services Inc.,TSX,CA,CAD,Industrials
+SHOP.TO,Shopify Inc.,TSX,CA,CAD,Information Technology
+SIA.TO,Sienna Senior Living Inc.,TSX,CA,CAD,Healthcare
+SVM.TO,Silvercorp Metals Inc.,TSX,CA,CAD,Materials
+SKE.TO,Skeena Resources Limited,TSX,CA,CAD,Materials
+SRU-UN.TO,SmartCentres Real Estate Investment Trust,TSX,CA,CAD,Real Estate
+SOBO.TO,South Bow Corporation,TSX,CA,CAD,Energy
+SII.TO,Sprott Inc.,TSX,CA,CAD,Financials
+SSRM.TO,SSR Mining Inc.,TSX,CA,CAD,Materials
+STN.TO,Stantec Inc.,TSX,CA,CAD,Industrials
+SJ.TO,Stella-Jones Inc.,TSX,CA,CAD,Materials
+SCR.TO,Strathcona Resources Ltd.,TSX,CA,CAD,Energy
+SLF.TO,Sun Life Financial Inc.,TSX,CA,CAD,Financials
+SU.TO,Suncor Energy Inc.,TSX,CA,CAD,Energy
+SPB.TO,Superior Plus Corp.,TSX,CA,CAD,Utilities
+TVE.TO,Tamarack Valley Energy Ltd.,TSX,CA,CAD,Energy
+TKO.TO,Taseko Mines Limited,TSX,CA,CAD,Materials
+TRP.TO,TC Energy Corporation,TSX,CA,CAD,Energy
+TECK-B.TO,Teck Resources Limited,TSX,CA,CAD,Materials
+T.TO,Telus Corporation,TSX,CA,CAD,Communication Services
+TVK.TO,TerraVest Industries Inc.,TSX,CA,CAD,Energy
+TFII.TO,TFI International Inc.,TSX,CA,CAD,Industrials
+TRI.TO,Thomson Reuters Corporation,TSX,CA,CAD,Industrials
+X.TO,TMX Group Limited,TSX,CA,CAD,Financials
+TPZ.TO,Topaz Energy Corp.,TSX,CA,CAD,Energy
+TXG.TO,Torex Gold Resources Inc.,TSX,CA,CAD,Materials
+TIH.TO,Toromont Industries Ltd.,TSX,CA,CAD,Industrials
+TD.TO,Toronto-Dominion Bank,TSX,CA,CAD,Financials
+TOU.TO,Tourmaline Oil Corp.,TSX,CA,CAD,Energy
+TA.TO,TransAlta Corporation,TSX,CA,CAD,Utilities
+TCL-A.TO,Transcontinental Inc.,TSX,CA,CAD,Consumer Discretionary
+TFPM.TO,Triple Flag Precious Metals Corp.,TSX,CA,CAD,Materials
+TSU.TO,Trisura Group Ltd.,TSX,CA,CAD,Financials
+VET.TO,Vermilion Energy Inc.,TSX,CA,CAD,Energy
+VITL-UN.TO,Vital Infrastructure Property Trust.,TSX,CA,CAD,Real Estate
+VZLA.TO,Vizsla Silver Corp.,TSX,CA,CAD,Materials
+WCN.TO,Waste Connections Inc.,TSX,CA,CAD,Industrials
+WDO.TO,Wesdome Gold Mines Ltd.,TSX,CA,CAD,Materials
+WFG.TO,West Fraser Timber Co. Ltd.,TSX,CA,CAD,Materials
+WPM.TO,Wheaton Precious Metals Corp.,TSX,CA,CAD,Materials
+WCP.TO,Whitecap Resources Inc.,TSX,CA,CAD,Energy
+WPK.TO,Winpak Ltd.,TSX,CA,CAD,Consumer Discretionary
+WSP.TO,WSP Global Inc.,TSX,CA,CAD,Industrials
+360.AX,Life360,ASX,AU,AUD,Information Technology
+4DX.AX,4DMedical,ASX,AU,AUD,Healthcare
+A2M.AX,a2 Milk Company,ASX,AU,AUD,Consumer Staples
+AAI.AX,Alcoa,ASX,AU,AUD,Materials
+AFI.AX,Australian Foundation Investment Company,ASX,AU,AUD,Financials
+AGL.AX,AGL Energy,ASX,AU,AUD,Utilities
+AIA.AX,Auckland International Airport Limited,ASX,AU,AUD,Industrials
+ALD.AX,Ampol,ASX,AU,AUD,Energy
+ALK.AX,Alkane Resources,ASX,AU,AUD,Materials
+ALL.AX,Aristocrat Leisure,ASX,AU,AUD,Consumer Discretionary
+ALQ.AX,ALS,ASX,AU,AUD,Industrials
+ALX.AX,Atlas Arteria,ASX,AU,AUD,Industrials
+AMC.AX,Amcor,ASX,AU,AUD,Materials
+AMP.AX,AMP,ASX,AU,AUD,Financials
+ANN.AX,Ansell,ASX,AU,AUD,Healthcare
+ANZ.AX,Australia & New Zealand Banking Group,ASX,AU,AUD,Financials
+APA.AX,APA Group,ASX,AU,AUD,Utilities
+APE.AX,Eagers Automotive,ASX,AU,AUD,Consumer Discretionary
+ARB.AX,ARB Corporation,ASX,AU,AUD,Consumer Discretionary
+ARG.AX,Argo Investments,ASX,AU,AUD,Financials
+ASB.AX,Austal,ASX,AU,AUD,Industrials
+ASK.AX,Abacus Storage King,ASX,AU,AUD,Real Estate
+ASX.AX,ASX,ASX,AU,AUD,Financials
+AUB.AX,AUB Group,ASX,AU,AUD,Financials
+AZJ.AX,Aurizon,ASX,AU,AUD,Industrials
+BEN.AX,Bendigo & Adelaide Bank,ASX,AU,AUD,Financials
+BFL.AX,BSP Financial Group,ASX,AU,AUD,Financials
+BGA.AX,Bega Cheese,ASX,AU,AUD,Consumer Staples
+BGL.AX,Bellevue Gold,ASX,AU,AUD,Materials
+BOQ.AX,Bank of Queensland,ASX,AU,AUD,Financials
+BPT.AX,Beach Energy,ASX,AU,AUD,Energy
+BRG.AX,Breville Group,ASX,AU,AUD,Consumer Discretionary
+BSL.AX,BlueScope,ASX,AU,AUD,Materials
+BWP.AX,BWP Trust,ASX,AU,AUD,Real Estate
+BXB.AX,Brambles,ASX,AU,AUD,Industrials
+CAR.AX,CAR Group,ASX,AU,AUD,Communication Services
+CBA.AX,Commonwealth Bank,ASX,AU,AUD,Financials
+CDA.AX,Codan,ASX,AU,AUD,Information Technology
+CEN.AX,Contact Energy,ASX,AU,AUD,Utilities
+CGF.AX,Challenger,ASX,AU,AUD,Financials
+CHC.AX,Charter Hall,ASX,AU,AUD,Real Estate
+CIA.AX,Champion Iron,ASX,AU,AUD,Materials
+CIP.AX,Centuria Industrial REIT,ASX,AU,AUD,Real Estate
+CLW.AX,Charter Hall Long WALE REIT,ASX,AU,AUD,Real Estate
+CMM.AX,Capricorn Metals,ASX,AU,AUD,Materials
+CNU.AX,Chorus,ASX,AU,AUD,Communication Services
+COH.AX,Cochlear,ASX,AU,AUD,Healthcare
+COL.AX,Coles Group,ASX,AU,AUD,Consumer Staples
+CPU.AX,Computershare,ASX,AU,AUD,Information Technology
+CQR.AX,Charter Hall Retail REIT,ASX,AU,AUD,Real Estate
+CSC.AX,Capstone Copper,ASX,AU,AUD,Materials
+CSL.AX,CSL,ASX,AU,AUD,Healthcare
+CTD.AX,Corporate Travel Management,ASX,AU,AUD,Consumer Discretionary
+CWY.AX,Cleanaway,ASX,AU,AUD,Industrials
+CYL.AX,Catalyst Metals,ASX,AU,AUD,Materials
+DBI.AX,Dalrymple Bay Infrastructure,ASX,AU,AUD,Industrials
+DNL.AX,Dyno Nobel,ASX,AU,AUD,Materials
+DOW.AX,Downer Group,ASX,AU,AUD,Industrials
+DRO.AX,Droneshield,ASX,AU,AUD,Industrials
+DRR.AX,Deterra Royalties,ASX,AU,AUD,Materials
+DXS.AX,Dexus,ASX,AU,AUD,Real Estate
+DYL.AX,Deep Yellow,ASX,AU,AUD,Energy
+EBO.AX,EBOS Group,ASX,AU,AUD,Healthcare
+EDV.AX,Endeavour Group,ASX,AU,AUD,Consumer Staples
+EMR.AX,Emerald Resources,ASX,AU,AUD,Materials
+EOS.AX,Electro Optic Systems Holdings,ASX,AU,AUD,Industrials
+EVN.AX,Evolution Mining,ASX,AU,AUD,Materials
+EVT.AX,EVT,ASX,AU,AUD,Communication Services
+FBU.AX,Fletcher Building,ASX,AU,AUD,Industrials
+FLT.AX,Flight Centre Travel Group,ASX,AU,AUD,Consumer Discretionary
+FMG.AX,Fortescue,ASX,AU,AUD,Materials
+FPH.AX,Fisher & Paykel Healthcare,ASX,AU,AUD,Healthcare
+FRW.AX,Freightways Group,ASX,AU,AUD,Industrials
+GDG.AX,Generation Development Group,ASX,AU,AUD,Financials
+GGP.AX,Greatland Resources,ASX,AU,AUD,Materials
+GMD.AX,Genesis Minerals,ASX,AU,AUD,Materials
+GMG.AX,Goodman Group,ASX,AU,AUD,Real Estate
+GNE.AX,Genesis Energy,ASX,AU,AUD,Utilities
+GPT.AX,GPT Group,ASX,AU,AUD,Real Estate
+GQG.AX,GQG Partners,ASX,AU,AUD,Financials
+HDN.AX,HomeCo Daily Needs REIT,ASX,AU,AUD,Real Estate
+HUB.AX,HUB24,ASX,AU,AUD,Financials
+HVN.AX,Harvey Norman,ASX,AU,AUD,Consumer Discretionary
+IAG.AX,Insurance Australia Group,ASX,AU,AUD,Financials
+IFL.AX,Insignia Financial,ASX,AU,AUD,Financials
+IFT.AX,Infratil,ASX,AU,AUD,Financials
+IGO.AX,IGO,ASX,AU,AUD,Materials
+ILU.AX,Iluka Resources,ASX,AU,AUD,Materials
+IMD.AX,IMDEX,ASX,AU,AUD,Materials
+JBH.AX,JB Hi-Fi,ASX,AU,AUD,Consumer Discretionary
+JHX.AX,James Hardie,ASX,AU,AUD,Materials
+L1G.AX,L1 Group,ASX,AU,AUD,Financials
+LLC.AX,Lendlease,ASX,AU,AUD,Real Estate
+LNW.AX,Light & Wonder,ASX,AU,AUD,Consumer Discretionary
+LOV.AX,Lovisa,ASX,AU,AUD,Consumer Discretionary
+LSF.AX,L1 Long Short Fund,ASX,AU,AUD,Financials
+LTR.AX,Liontown Resources,ASX,AU,AUD,Materials
+LYC.AX,Lynas Rare Earths,ASX,AU,AUD,Materials
+MCY.AX,Mercury NZ,ASX,AU,AUD,Utilities
+MEZ.AX,Meridian Energy,ASX,AU,AUD,Utilities
+MFF.AX,MFF Capital Investments,ASX,AU,AUD,Financials
+MFG.AX,Magellan Financial Group,ASX,AU,AUD,Financials
+MGR.AX,Mirvac,ASX,AU,AUD,Real Estate
+MIN.AX,Mineral Resources,ASX,AU,AUD,Materials
+MND.AX,Monadelphous Group,ASX,AU,AUD,Industrials
+MPL.AX,Medibank,ASX,AU,AUD,Financials
+MQG.AX,Macquarie Group,ASX,AU,AUD,Financials
+MSB.AX,Mesoblast,ASX,AU,AUD,Healthcare
+MTS.AX,Metcash,ASX,AU,AUD,Consumer Staples
+MXT.AX,Metrics Master Income Trust,ASX,AU,AUD,Financials
+NAB.AX,National Australia Bank,ASX,AU,AUD,Financials
+NEM.AX,Newmont,ASX,AU,AUD,Materials
+NHC.AX,New Hope,ASX,AU,AUD,Energy
+NHF.AX,Nib,ASX,AU,AUD,Financials
+NIC.AX,Nickel Industries,ASX,AU,AUD,Materials
+NSR.AX,National Storage,ASX,AU,AUD,Real Estate
+NST.AX,Northern Star Resources,ASX,AU,AUD,Materials
+NWH.AX,NRW Holdings,ASX,AU,AUD,Industrials
+NWL.AX,Netwealth Group,ASX,AU,AUD,Financials
+NWS.AX,News Corp Class B,ASX,AU,AUD,Communication Services
+NXG.AX,Nexgen Energy,ASX,AU,AUD,Energy
+NXT.AX,NextDC,ASX,AU,AUD,Information Technology
+OBM.AX,Ora Banda Mining,ASX,AU,AUD,Materials
+ORA.AX,Orora,ASX,AU,AUD,Materials
+ORG.AX,Origin Energy,ASX,AU,AUD,Utilities
+ORI.AX,Orica,ASX,AU,AUD,Materials
+PDI.AX,Predictive Discovery,ASX,AU,AUD,Materials
+PDN.AX,Paladin Energy,ASX,AU,AUD,Energy
+PLS.AX,PLS Group,ASX,AU,AUD,Materials
+PME.AX,Pro Medicus,ASX,AU,AUD,Healthcare
+PMV.AX,Premier Investments,ASX,AU,AUD,Consumer Discretionary
+PNI.AX,Pinnacle Investment Management,ASX,AU,AUD,Financials
+PPT.AX,Perpetual,ASX,AU,AUD,Financials
+PRN.AX,Perenti,ASX,AU,AUD,Materials
+PRU.AX,Perseus Mining,ASX,AU,AUD,Materials
+PXA.AX,Pexa Group,ASX,AU,AUD,Real Estate
+QAN.AX,Qantas,ASX,AU,AUD,Industrials
+QBE.AX,QBE Insurance,ASX,AU,AUD,Financials
+QUB.AX,Qube Holdings,ASX,AU,AUD,Industrials
+RDX.AX,Redox,ASX,AU,AUD,Industrials
+REA.AX,REA Group,ASX,AU,AUD,Communication Services
+REG.AX,Regis Healthcare,ASX,AU,AUD,Healthcare
+REH.AX,Reece Group,ASX,AU,AUD,Industrials
+RGN.AX,Region Group,ASX,AU,AUD,Real Estate
+RHC.AX,Ramsay Health Care,ASX,AU,AUD,Healthcare
+RIO.AX,Rio Tinto,ASX,AU,AUD,Materials
+RMD.AX,ResMed,ASX,AU,AUD,Healthcare
+RMS.AX,Ramelius Resources,ASX,AU,AUD,Materials
+RRL.AX,Regis Resources,ASX,AU,AUD,Materials
+RSG.AX,Resolute Mining,ASX,AU,AUD,Materials
+RWC.AX,Reliance Worldwide Corporation,ASX,AU,AUD,Industrials
+RYM.AX,Ryman Healthcare,ASX,AU,AUD,Healthcare
+S32.AX,South32,ASX,AU,AUD,Materials
+SCG.AX,Scentre Group,ASX,AU,AUD,Real Estate
+SDF.AX,Steadfast Group,ASX,AU,AUD,Financials
+SEK.AX,Seek,ASX,AU,AUD,Communication Services
+SFR.AX,Sandfire Resources,ASX,AU,AUD,Materials
+SGH.AX,SGH,ASX,AU,AUD,Industrials
+SGM.AX,Sims Metal,ASX,AU,AUD,Materials
+SGP.AX,Stockland,ASX,AU,AUD,Real Estate
+SHL.AX,Sonic Healthcare,ASX,AU,AUD,Healthcare
+SIG.AX,Sigma Healthcare,ASX,AU,AUD,Healthcare
+SMR.AX,Stanmore Resources,ASX,AU,AUD,Materials
+SNZ.AX,Summerset Group Holdings,ASX,AU,AUD,Healthcare
+SOL.AX,Soul Patts,ASX,AU,AUD,Financials
+SPK.AX,Spark New Zealand,ASX,AU,AUD,Communication Services
+STO.AX,Santos,ASX,AU,AUD,Energy
+SUL.AX,Super Retail Group,ASX,AU,AUD,Consumer Discretionary
+SUN.AX,Suncorp,ASX,AU,AUD,Financials
+TAH.AX,Tabcorp,ASX,AU,AUD,Consumer Discretionary
+TCL.AX,Transurban,ASX,AU,AUD,Industrials
+TLC.AX,The Lottery Corporation,ASX,AU,AUD,Consumer Discretionary
+TLS.AX,Telstra,ASX,AU,AUD,Communication Services
+TLX.AX,Telix Pharmaceuticals,ASX,AU,AUD,Healthcare
+TNE.AX,TechnologyOne,ASX,AU,AUD,Information Technology
+TPG.AX,TPG Telecom,ASX,AU,AUD,Communication Services
+TUA.AX,Tuas,ASX,AU,AUD,Communication Services
+TWE.AX,Treasury Wine Estates,ASX,AU,AUD,Consumer Staples
+VAU.AX,Vault Minerals,ASX,AU,AUD,Materials
+VCX.AX,Vicinity Centres,ASX,AU,AUD,Real Estate
+VEA.AX,Viva Energy,ASX,AU,AUD,Energy
+VGN.AX,Virgin Australia Holdings,ASX,AU,AUD,Industrials
+VNT.AX,Ventia Services Group,ASX,AU,AUD,Industrials
+WAF.AX,West African Resources,ASX,AU,AUD,Materials
+WAM.AX,WAM Capital,ASX,AU,AUD,Financials
+WBC.AX,Westpac,ASX,AU,AUD,Financials
+WDS.AX,Woodside Energy Group,ASX,AU,AUD,Energy
+WES.AX,Wesfarmers,ASX,AU,AUD,Consumer Discretionary
+WGX.AX,Westgold Resources,ASX,AU,AUD,Materials
+WHC.AX,Whitehaven Coal,ASX,AU,AUD,Energy
+WLE.AX,WAM Leaders,ASX,AU,AUD,Financials
+WOR.AX,Worley,ASX,AU,AUD,Energy
+WOW.AX,Woolworths Group,ASX,AU,AUD,Consumer Staples
+WTC.AX,Wisetech Global,ASX,AU,AUD,Information Technology
+XRO.AX,Xero,ASX,AU,AUD,Information Technology
+XYX.AX,"Block, Inc.",ASX,AU,AUD,Financials
+YAL.AX,Yancoal Australia,ASX,AU,AUD,Materials
+ZIM.AX,Zimplats Holdings,ASX,AU,AUD,Materials
+ZIP.AX,Zip,ASX,AU,AUD,Financials
+ALPA4.SA,Alpargatas,B3,BR,BRL,clothing
+ABEV3.SA,Ambev,B3,BR,BRL,beverages
+AMER3.SA,Americanas,B3,BR,BRL,retail
+AZUL4.SA,Azul,B3,BR,BRL,airlines
+B3SA3.SA,B3,B3,BR,BRL,stock exchange
+BBAS3.SA,Banco do Brasil,B3,BR,BRL,banking
+BBSE3.SA,BB Seguridade [pt],B3,BR,BRL,insurance
+BBDC3.SA,Bradesco,B3,BR,BRL,banking
+BBDC4.SA,Bradesco,B3,BR,BRL,banking
+BIDI11.SA,Banco Inter [pt],B3,BR,BRL,banking
+BPAN4.SA,Banco Pan,B3,BR,BRL,banking
+BRAP4.SA,Bradespar,B3,BR,BRL,holding
+BRML3.SA,BRMalls,B3,BR,BRL,real estate
+BRKM5.SA,Braskem,B3,BR,BRL,petrochemicals
+BRFS3.SA,BRF,B3,BR,BRL,foods
+BPAC11.SA,BTG Pactual,B3,BR,BRL,banking
+CRFB3.SA,Carrefour Brasil,B3,BR,BRL,retail
+CCRO3.SA,CCR,B3,BR,BRL,transportation
+CVCB3.SA,CVC Brasil,B3,BR,BRL,travel and tourism
+CMIG4.SA,CEMIG,B3,BR,BRL,electric utility
+CIEL3.SA,Cielo,B3,BR,BRL,payment system
+COGN3.SA,Cogna,B3,BR,BRL,higher education
+CPLE6.SA,Copel,B3,BR,BRL,electric utility
+CSAN3.SA,Cosan,B3,BR,BRL,conglomerate
+CPFE3.SA,CPFL Energia,B3,BR,BRL,electric utility
+CSNA3.SA,CSN,B3,BR,BRL,siderurgy and metallurgy
+CYRE3.SA,Cyrela Brazil Realty,B3,BR,BRL,real estate
+DXCO3.SA,Dexco,B3,BR,BRL,wood
+ECOR3.SA,EcoRodovias,B3,BR,BRL,transportation
+ENBR3.SA,EDP - Energias do Brasil,B3,BR,BRL,electric utility
+ELET3.SA,Eletrobras,B3,BR,BRL,electric utility
+ELET6.SA,Eletrobras,B3,BR,BRL,electric utility
+EMBR3.SA,Embraer,B3,BR,BRL,aerospace/defense
+ENGI11.SA,Energisa [pt],B3,BR,BRL,electric utility
+ENEV3.SA,Eneva,B3,BR,BRL,electric utility
+EGIE3.SA,ENGIE Brasil,B3,BR,BRL,electric utility
+EQTL3.SA,Equatorial Energia [pt],B3,BR,BRL,electric utility
+EZTC3.SA,Eztec [pt],B3,BR,BRL,real estate
+GGBR4.SA,Gerdau,B3,BR,BRL,siderurgy and metallurgy
+GOLL4.SA,Gol,B3,BR,BRL,airlines
+PCAR3.SA,GPA,B3,BR,BRL,retail
+SOMA3.SA,Grupo Soma,B3,BR,BRL,clothing
+FLRY3.SA,Grupo Fleury [pt],B3,BR,BRL,healthcare
+HAPV3.SA,Grupo Hapvida [pt],B3,BR,BRL,healthcare
+HYPE3.SA,Hypera Pharma,B3,BR,BRL,pharmaceutical
+IGTI11.SA,Iguatemi,B3,BR,BRL,shopping malls
+IRBR3.SA,IRB Brasil RE,B3,BR,BRL,insurance
+ITUB4.SA,Itaú Unibanco,B3,BR,BRL,banking
+ITSA4.SA,Itaúsa,B3,BR,BRL,holding
+JBSS3.SA,JBS,B3,BR,BRL,food and beverages
+JHSF3.SA,JHSF Participações,B3,BR,BRL,real estate
+KLBN11.SA,Klabin,B3,BR,BRL,pulp and paper
+RENT3.SA,Localiza,B3,BR,BRL,rental car
+LWSA3.SA,LocaWeb [pt],B3,BR,BRL,internet services
+LREN3.SA,Lojas Renner,B3,BR,BRL,department store
+MGLU3.SA,Magazine Luiza,B3,BR,BRL,department store
+MRFG3.SA,Marfrig,B3,BR,BRL,foods
+CASH3.SA,Méliuz [pt],B3,BR,BRL,cashback
+GOAU4.SA,Metalúrgica Gerdau,B3,BR,BRL,holding
+BEEF3.SA,Minerva Foods,B3,BR,BRL,foods
+MRVE3.SA,MRV,B3,BR,BRL,real estate
+MULT3.SA,Multiplan,B3,BR,BRL,shopping malls
+NTCO3.SA,Natura & Co,B3,BR,BRL,cosmetics
+PETR3.SA,Petrobras,B3,BR,BRL,oil and gas
+PETR4.SA,Petrobras,B3,BR,BRL,oil and gas
+VBBR3.SA,Petrobras Distribuidora,B3,BR,BRL,oil and gas
+PRIO3.SA,PetroRio [pt],B3,BR,BRL,oil and gas
+PETZ3.SA,Petz [pt],B3,BR,BRL,retail
+QUAL3.SA,Qualicorp,B3,BR,BRL,insurance
+RADL3.SA,RaiaDrogasil,B3,BR,BRL,drugstore
+RDOR3.SA,Rede D'Or São Luiz [pt],B3,BR,BRL,healthcare
+RAIL3.SA,Rumo,B3,BR,BRL,logistics
+SBSP3.SA,Sabesp,B3,BR,BRL,waste management
+SANB11.SA,Santander Brasil,B3,BR,BRL,banking
+ASAI3.SA,Sendas Distribuidora,B3,BR,BRL,retail
+SULA11.SA,SulAmérica Seguros,B3,BR,BRL,insurance
+SUZB3.SA,Suzano Papel e Celulose,B3,BR,BRL,pulp and paper
+TAEE11.SA,Taesa S.A.,B3,BR,BRL,electric utility
+VIVT3.SA,Telefônica Brasil,B3,BR,BRL,telecommunications
+TIMS3.SA,TIM Brasil,B3,BR,BRL,telecommunications
+TOTS3.SA,TOTVS,B3,BR,BRL,software
+UGPA3.SA,Ultrapar,B3,BR,BRL,conglomerate
+LCAM3.SA,Unidas [pt],B3,BR,BRL,rental car
+USIM5.SA,Usiminas,B3,BR,BRL,siderurgy and metallurgy
+VALE3.SA,Vale,B3,BR,BRL,mining
+VIIA3.SA,Via,B3,BR,BRL,retail
+YDUQ3.SA,YDUQS,B3,BR,BRL,higher education
+WEGE3.SA,WEG,B3,BR,BRL,industrial engineering
 AACB,Artius II Acquisition Inc. - Class A Ordinary Shares,NASDAQ,US,USD,Unknown
 AACG,"ATA Creativity Global - American Depositary Shares, each representing two common shares",NASDAQ,US,USD,Unknown
 AACI,Armada Acquisition Corp. III - Class A Ordinary Share,NASDAQ,US,USD,Unknown
@@ -1616,7 +2800,6 @@ BMRA,"Biomerica, Inc. - Common Stock",NASDAQ,US,USD,Unknown
 BMRC,Bank of Marin Bancorp - Common Stock,NASDAQ,US,USD,Unknown
 BMRN,BioMarin Pharmaceutical Inc. - Common Stock,NASDAQ,US,USD,Unknown
 BNAI,Brand Engagement Network Inc. - Common Stock,NASDAQ,US,USD,Unknown
-BNBX,BNB Plus Corp. - Common Stock,NASDAQ,US,USD,Unknown
 BNC,CEA Industries Inc. - Common Stock,NASDAQ,US,USD,Unknown
 BNGO,"Bionano Genomics, Inc. - Common Stock",NASDAQ,US,USD,Unknown
 BNKK,"Bonk, Inc. - Common Stock",NASDAQ,US,USD,Unknown
@@ -1646,6 +2829,7 @@ BRCB,"Black Rock Coffee Bar, Inc. - Class A Common Stock",NASDAQ,US,USD,Unknown
 BREZ,Breeze Acquisition Corp. II - Ordinary Shares,NASDAQ,US,USD,Unknown
 BRFH,Barfresh Food Group Inc. - Common Stock,NASDAQ,US,USD,Unknown
 BRID,Bridgford Foods Corporation - Common Stock,NASDAQ,US,USD,Unknown
+BRKH,Burtech Acquisition Corp II - Class A Ordinary Shares,NASDAQ,US,USD,Unknown
 BRKR,Bruker Corporation - Common Stock,NASDAQ,US,USD,Unknown
 BRLS,Borealis Foods Inc. - Class A Common Shares,NASDAQ,US,USD,Unknown
 BRLT,"Brilliant Earth Group, Inc. - Class A Common Stock",NASDAQ,US,USD,Unknown
@@ -2161,7 +3345,6 @@ ESEA,Euroseas Ltd. - Common Stock,NASDAQ,US,USD,Unknown
 ESLA,"Estrella Immunopharma, Inc. - Common Stock",NASDAQ,US,USD,Unknown
 ESLT,Elbit Systems Ltd. - Ordinary Shares,NASDAQ,US,USD,Unknown
 ESOA,Energy Services of America Corporation - Common Stock,NASDAQ,US,USD,Unknown
-ESPR,"Esperion Therapeutics, Inc. - Common Stock",NASDAQ,US,USD,Unknown
 ESQ,"Esquire Financial Holdings, Inc. - Common Stock",NASDAQ,US,USD,Unknown
 ESTA,Establishment Labs Holdings Inc. - Common Shares,NASDAQ,US,USD,Unknown
 ETON,"Eton Pharmaceuticals, Inc. - Common Stock",NASDAQ,US,USD,Unknown
@@ -3098,7 +4281,7 @@ MRM,MEDIROM Healthcare Technologies Inc. - American Depositary Share,NASDAQ,US,U
 MRNO,Murano Global Investments PLC - Ordinary Shares,NASDAQ,US,USD,Unknown
 MRTN,"Marten Transport, Ltd. - Common Stock",NASDAQ,US,USD,Unknown
 MRVI,"Maravai LifeSciences Holdings, Inc. - Class A common stock",NASDAQ,US,USD,Unknown
-MRX,Marex Group plc - Ordinary Shares,NASDAQ,US,USD,Unknown
+MRX,Marex Group Limited - Ordinary Shares,NASDAQ,US,USD,Unknown
 MSAI,"MultiSensor AI Holdings, Inc. - Common Stock",NASDAQ,US,USD,Unknown
 MSBI,"Midland States Bancorp, Inc. - Common Stock",NASDAQ,US,USD,Unknown
 MSEX,Middlesex Water Company - Common Stock,NASDAQ,US,USD,Unknown
@@ -4978,7 +6161,6 @@ ECVT,Ecovyst Inc. Common Stock,NYSE,US,USD,Unknown
 EDN,Empresa Distribuidora Y Comercializadora Norte S.A. (Edenor) American Depositary Shares,NYSE,US,USD,Unknown
 EDU,"New Oriental Education & Technology Group, Inc. Sponsored ADR representing 10 Ordinary Share (Cayman Islands)",NYSE,US,USD,Unknown
 EE,"Excelerate Energy, Inc. Class A Common Stock",NYSE,US,USD,Unknown
-EEX,"Emerald Holding, Inc. Common Stock",NYSE,US,USD,Unknown
 EFC,Ellington Financial Inc. Common Stock,NYSE,US,USD,Unknown
 EFOR,"Everforth, Inc. Common Stock",NYSE,US,USD,Unknown
 EFT,Eaton Vance Floating Rate Income Trust Common Shares of Beneficial Interest,NYSE,US,USD,Unknown
@@ -6267,7 +7449,6 @@ WRN,Western Copper and Gold Corporation Common Stock,NYSE American,US,USD,Unknow
 WS,"Worthington Steel, Inc. Common Shares",NYSE,US,USD,Unknown
 WSO,"Watsco, Inc. Common Stock",NYSE,US,USD,Unknown
 WSO-B,"Watsco, Inc. Class B Common Stock",NYSE,US,USD,Unknown
-WSR,Whitestone REIT Common Shares,NYSE,US,USD,Unknown
 WT,"WisdomTree, Inc. Common Stock",NYSE,US,USD,Unknown
 WTI,"W&T Offshore, Inc. Common Stock",NYSE,US,USD,Unknown
 WTM,"White Mountains Insurance Group, Ltd. Common Stock",NYSE,US,USD,Unknown
@@ -6286,7 +7467,7 @@ XPEV,"XPeng Inc. American depositary shares, each representing two Class A ordin
 XPL,Solitario Resources Corp. Common Stock,NYSE American,US,USD,Unknown
 XPO,"XPO, Inc. Common Stock",NYSE,US,USD,Unknown
 XPOF,"Xponential Fitness, Inc. Class A Common Stock",NYSE,US,USD,Unknown
-XPRO,Expro Group Holdings N.V. Common Stock,NYSE,US,USD,Unknown
+XPRO,Expro Ltd Ordinary Shares,NYSE,US,USD,Unknown
 XRN,Chiron Real Estate Inc. Common Stock,NYSE,US,USD,Unknown
 XTNT,"Xtant Medical Holdings, Inc. Common Stock",NYSE American,US,USD,Unknown
 XXI,"Twenty One Capital, Inc. Class A Common Stock",NYSE,US,USD,Unknown
