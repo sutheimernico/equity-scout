@@ -14,14 +14,19 @@ from pathlib import Path
 
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.data.constituents import (
+    INDEX_CONFIGS,
+    ConstituentSource,
     CsvConstituentSource,
     NasdaqTraderSource,
+    WikipediaIndexSource,
     WikipediaNikkei225Source,
     WikipediaSP500Source,
     WikipediaStoxx600Source,
-    combine_sources,
+    dedupe_by_ticker,
+    source_count_report,
 )
 from equity_scout.data.universe_storage import init_universe_db, save_universe_snapshot
+from equity_scout.models import Instrument
 
 _FIELDS = ["ticker", "name", "exchange", "region", "currency", "sector"]
 
@@ -35,16 +40,34 @@ def main() -> None:
                     help="DB to archive the dated universe snapshot in.")
     args = ap.parse_args()
 
-    sources = [
-        CsvConstituentSource(args.base_csv),
-        WikipediaSP500Source(),
-        WikipediaStoxx600Source(),
-        WikipediaNikkei225Source(),
-        # "Screen everything" (2026-07-14): every US-listed common stock incl. ADRs —
-        # free + keyless. Named sources above win on ticker collisions (richer metadata).
-        NasdaqTraderSource(),
+    named_sources: list[tuple[str, ConstituentSource, int]] = [
+        ("hand-curated v1 CSV", CsvConstituentSource(args.base_csv), 30),
+        ("Wikipedia S&P 500", WikipediaSP500Source(), 400),
+        ("Wikipedia STOXX 600", WikipediaStoxx600Source(), 400),
+        ("Wikipedia Nikkei 225", WikipediaNikkei225Source(), 150),
     ]
-    universe = combine_sources(sources)
+    named_sources += [
+        (cfg.name, WikipediaIndexSource(cfg), cfg.min_expected) for cfg in INDEX_CONFIGS
+    ]
+    # "Screen everything" source stays last: named sources win ticker collisions
+    # (richer metadata) — every US-listed common stock incl. ADRs, free + keyless.
+    named_sources.append(("NASDAQ Trader directory", NasdaqTraderSource(), 4000))
+
+    fetched: list[list[Instrument]] = []
+    counts: list[tuple[str, int, int]] = []
+    for name, source, floor in named_sources:
+        instruments = source.fetch()
+        fetched.append(instruments)
+        counts.append((name, len(instruments), floor))
+    universe = dedupe_by_ticker([inst for batch in fetched for inst in batch])
+
+    lines, warnings = source_count_report(counts)
+    print("Universe sources:")
+    for line in lines:
+        print(line)
+    for warning in warnings:
+        print(f"  WARNING: {warning}")
+    print(f"Combined (deduped): {len(universe)}")
     now = datetime.now(timezone.utc)
 
     out = Path(args.out)

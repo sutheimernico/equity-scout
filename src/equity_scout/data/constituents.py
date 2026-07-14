@@ -527,6 +527,17 @@ def _csi300_row_to_yahoo(rec: dict[str, str]) -> str | None:
     return None
 
 
+def source_count_report(counts: list[tuple[str, int, int]]) -> tuple[list[str], list[str]]:
+    """(source, count, floor) triples -> (report lines, warnings for below-floor sources)."""
+    lines = [f"  {name:<28} {count:>5} instruments" for name, count, _ in counts]
+    warnings = [
+        f"{name}: {count} rows < floor {floor} — page layout may have changed"
+        for name, count, floor in counts
+        if count < floor
+    ]
+    return lines, warnings
+
+
 def find_index_table(html: str, match_columns: set[str] | frozenset[str]) -> list[dict]:
     """Records of the first page table whose normalized column set covers `match_columns`.
     Page order is not guaranteed (STOXX precedent), so detection is by columns, not position."""
