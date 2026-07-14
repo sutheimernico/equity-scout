@@ -11,5 +11,6 @@ exec "$REPO_DIR/.venv/bin/python" scripts/run_scout.py \
   --provider yfinance \
   --universe data/universe_combined.csv \
   --db equity_scout.db \
+  --cache-max-age 7 \
   --use-llm --llm-top-n 3 \
   --max-workers 6

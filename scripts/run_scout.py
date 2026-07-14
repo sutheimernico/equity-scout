@@ -15,9 +15,10 @@ from equity_scout.data.cache import CachedProvider, QuoteCache
 from equity_scout.data.fake_provider import FakeProvider
 from equity_scout.data.news import YFinanceNews
 from equity_scout.data.yf_provider import FetchStats, YFinanceProvider
+from equity_scout.data.universe_storage import load_instrument_meta, upsert_instrument_meta
 from equity_scout.pipeline import run_pipeline
 from equity_scout.storage import init_db, save_run
-from equity_scout.universe import load_universe
+from equity_scout.universe import apply_meta_overlay, load_universe
 
 
 def main() -> None:
@@ -26,6 +27,9 @@ def main() -> None:
     ap.add_argument("--db", default=DEFAULT_DB_PATH)
     ap.add_argument("--cache-db", default="equity_scout_cache.db")
     ap.add_argument("--no-cache", action="store_true")
+    ap.add_argument("--cache-max-age", type=int, default=1,
+                    help="Serve cached quotes up to N days old (the scheduled weekly run uses 7 "
+                         "so the nightly prefetch warm-up is actually used).")
     ap.add_argument("--top-n", type=int, default=10)
     ap.add_argument("--max-workers", type=int, default=4, help="Bounded parallel fetch (1 = serial).")
     ap.add_argument("--provider", choices=["fake", "yfinance"], default="fake")
@@ -38,13 +42,19 @@ def main() -> None:
     args = ap.parse_args()
 
     now = datetime.now(timezone.utc)
-    universe = load_universe(args.universe)
+    universe = apply_meta_overlay(load_universe(args.universe), load_instrument_meta(args.db))
     fetch_stats = FetchStats() if args.provider == "yfinance" else None
     base = YFinanceProvider(stats=fetch_stats) if args.provider == "yfinance" else FakeProvider()
     if args.provider == "yfinance" and not args.no_cache:
-        provider = CachedProvider(base, QuoteCache(args.cache_db), run_date=now.date().isoformat())
+        provider = CachedProvider(base, QuoteCache(args.cache_db),
+                                  run_date=now.date().isoformat(),
+                                  max_age_days=args.cache_max_age)
     else:
         provider = base
+
+    def _persist_sectors(sectors: dict[str, str]) -> None:
+        upsert_instrument_meta(args.db, sectors, source="yfinance.info",
+                               updated_at=now.date().isoformat())
     analysis = ClaudeCliAnalysis() if args.use_llm else FakeAnalysis()
     # Headlines only make sense with live data; fake provider stays fully offline.
     news = None if (args.no_news or args.provider != "yfinance") else YFinanceNews()
@@ -53,7 +63,7 @@ def main() -> None:
         universe, provider, analysis=analysis, top_n=args.top_n,
         created_at=now.isoformat(timespec="seconds"), max_workers=args.max_workers,
         llm_top_n=args.llm_top_n, news=news, news_top_n=args.news_top_n,
-        fetch_stats=fetch_stats,
+        fetch_stats=fetch_stats, sector_sink=_persist_sectors,
     )
     init_db(args.db)
     save_run(args.db, run)
