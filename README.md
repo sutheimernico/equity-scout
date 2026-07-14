@@ -45,7 +45,9 @@ nohup uv run python scripts/run_research.py > research.log 2>&1 &
 # Offline deterministic run (fake provider)
 uv run python scripts/run_scout.py --provider fake --db equity_scout.db
 
-# Refresh the combined universe snapshot (S&P 500 + curated global CSV)
+# Refresh the combined universe snapshot (~7.5k tickers: every US-listed common stock incl.
+# ADRs, plus STOXX 600, Nikkei 225, Hang Seng, CSI 300, KOSPI 200, NIFTY 100, TSX Composite,
+# ASX 200, B3 and the curated CSV — see data/universe_combined.PROVENANCE.md)
 uv run python scripts/refresh_universe.py
 
 # Live run over the combined universe (yfinance, free; cached)

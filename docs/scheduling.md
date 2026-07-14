@@ -1,6 +1,6 @@
 # Scheduling equity-scout
 
-Four layers of automation, all cron-driven and local/free (always-on since v6):
+Five layers of automation, all cron-driven and local/free (always-on since v6):
 
 1. **`scripts/intraday_copilot.sh`** — every 30 minutes, ONLY inside the approximate
    US market window (15:00–22:30 Europe/Berlin Mon–Fri, guard in
@@ -21,6 +21,14 @@ Four layers of automation, all cron-driven and local/free (always-on since v6):
 4. **`scripts/receiver_keepalive.sh`** — restarts the Telegram decision receiver
    (under `flock -n`, single instance) so buy/pass/later buttons keep working after
    a reboot. Quiet no-op without Telegram config.
+5. **`scripts/nightly_prefetch.sh`** — 00:45 Mon–Sat: warms one sixth of the ~7.5k
+   universe through the read-through quote cache (2 workers, rate-limit backoff) and
+   persists newly discovered sectors to `instrument_meta`. The Monday screener runs
+   with `--cache-max-age 7`, so it ranks the whole universe from this warm cache and
+   only live-fetches misses — instead of dying on yfinance rate limits (the
+   2026-07-14 lesson: 5,275 of 6,318 names got gated as fetch victims). The rotation
+   is stateless (day-of-year modulo): a missed night heals on the next pass.
+   Appends to `prefetch.log`.
 
 `scripts/scheduled_run.sh` remains the standalone screener run (also called by the
 Monday branch of the chain).
@@ -38,6 +46,8 @@ Monday branch of the chain).
 */30 * * * 1-5 flock -n /tmp/equity-scout-intraday.lock /home/nicosutheimer/private/equity-scout/scripts/intraday_copilot.sh >> /home/nicosutheimer/private/equity-scout/intraday.log 2>&1
 # nightly training — 02:30 Tue-Sat, after the US close and settled EOD data
 30 2 * * 2-6 flock -n /tmp/equity-scout-nightly.lock /home/nicosutheimer/private/equity-scout/scripts/nightly_train.sh >> /home/nicosutheimer/private/equity-scout/train.log 2>&1
+# nightly universe prefetch — 00:45 Mon-Sat, one universe segment per night (6-night rotation)
+45 0 * * 1-6 flock -n /tmp/equity-scout-prefetch.lock /home/nicosutheimer/private/equity-scout/scripts/nightly_prefetch.sh >> /home/nicosutheimer/private/equity-scout/prefetch.log 2>&1
 ```
 
 **WSL caveat:** cron only fires while the WSL VM is running. If the laptop was off

@@ -90,6 +90,12 @@ is verified against a saved HTML fixture. If a page turns out to have no usable
 constituents table, that index is dropped with a log note and a spec/plan update — honest
 skip over a fragile scrape (house pattern).
 
+**AMENDED 2026-07-14 (implementation findings):** Taiwan 50 dropped — no en.wikipedia page
+(404); zh.wikipedia has paired columns, Chinese-only names, no sectors; TSMC is covered via
+its NYSE ADR. Brazil uses `List_of_companies_listed_on_B3` (88 rows) — the Ibovespa page has
+no constituents table. India spans two pages (NIFTY 50 + NIFTY Next 50), so the shipped
+config count is 8 for 7 regions. Final universe: 7,499 tickers.
+
 **Failure visibility:** `refresh_universe.py` logs a per-source count table and warns when
 any source returns fewer rows than a per-index sanity floor (e.g. 50% of expected count).
 A source returning 0 must never silently shrink the universe.

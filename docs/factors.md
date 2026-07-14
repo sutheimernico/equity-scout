@@ -29,6 +29,11 @@ has no usable data for an instrument, its score is `0.0`.
 - **Small sectors degrade gracefully.** A metric present for a single instrument in its sector scores
   `0.5` (neutral). With a small universe many sector groups are tiny, so sector-relative scores are
   coarse; breadth improves with the combined universe (see `PLAN.md` Phase 2).
+- **Sector source is layered.** Constituent tables provide sectors where they have them; for the
+  bulk US directory (no sector column) the persistent `instrument_meta` store overlays sectors
+  discovered on earlier live fetches (`universe.apply_meta_overlay`), and a live yfinance `.info`
+  fetch backfills + persists the rest. Only names never fetched live rank in the "Unknown" group,
+  and that group shrinks with every nightly prefetch rotation.
 
 ## Risk buckets
 

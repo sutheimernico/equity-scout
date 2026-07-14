@@ -1221,3 +1221,31 @@ git add README.md docs/ && git commit -m "docs: global universe, instrument_meta
 - **Type consistency:** `rotation_segment(tickers, segments, on)` used identically in T8 script;
   `upsert_instrument_meta(db, sectors, source, updated_at)` identical in T5/T7/T8;
   `harvest_sectors(universe, quotes)` identical in T6/T8; `IndexConfig` fields identical in T1/T2.
+
+---
+
+## Outcome (2026-07-14, executed same session)
+
+**Shipped** (commits `4981c4e..154e8d1` + docs, autopilot/work): all 12 tasks.
+Universe 6,318 → **7,499** (verified live refresh; all 8 new sources at/above floor:
+HSI 85, CSI 300 300, KOSPI 200, NIFTY 50+Next 100, TSX 219, ASX 200, B3 88).
+`instrument_meta` store + overlay + harvest close the cache-hit sector loss (regression
+test in `tests/test_sector_overlay.py`); live smoke on 30 mixed tickers (20 Unknown-US +
+10 HK/CN/KR/IN) ranked correctly and persisted 20 sectors. Nightly prefetch rotation +
+cron line shipped; Monday screener now runs `--cache-max-age 7`.
+
+**Deviations from plan:**
+- Task 2 test asserted 7 configs; reality is 8 (NIFTY spans two pages) — test fixed,
+  commit amended.
+- Frontend (Task 9): regions are fully data-driven — no change needed, no commit.
+- PROVENANCE generation in `refresh_universe.py` had a stale hardcoded source list —
+  now generated from the actual source counts (small unplanned fix, same commit as
+  the refresh).
+
+**Open / Needs Nico:**
+- Re-run `./scripts/install_crontab.sh` (adds prefetch line; intraday/nightly lines from
+  v6 may also still be pending).
+- First full warm-up takes ~6 nights of WSL uptime; the second scheduled Monday run is
+  the first fully-warm global screen.
+- Known cosmetic limits (out of scope, documented): ADRs tagged region "US", UK names
+  tagged "EU", B3 industries are lowercase granular strings.
