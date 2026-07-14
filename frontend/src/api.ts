@@ -55,6 +55,27 @@ export interface LatestRun {
   buckets: Record<string, Pick[]>;
   bucket_weights: BucketWeights;
   disclaimer: string;
+  // Server-side filter response (only present when filter params were sent).
+  filters?: { region: string | null; country: string | null; sector: string | null };
+  filter_matches?: number;
+  filter_unavailable?: boolean;
+}
+
+export interface FilterFacet {
+  value: string;
+  count: number;
+}
+
+export interface FilterOptions {
+  region_groups: string[];
+  countries: FilterFacet[];
+  sectors: FilterFacet[];
+}
+
+export interface LatestFilters {
+  region?: string;
+  country?: string;
+  sector?: string;
 }
 
 export interface RunSummary {
@@ -64,9 +85,20 @@ export interface RunSummary {
   picks: Record<string, string[]>;
 }
 
-export async function fetchLatestRun(): Promise<LatestRun> {
-  const response = await fetch("/api/latest");
+export async function fetchLatestRun(filters?: LatestFilters): Promise<LatestRun> {
+  const params = new URLSearchParams();
+  if (filters?.region) params.set("region", filters.region);
+  if (filters?.country) params.set("country", filters.country);
+  if (filters?.sector) params.set("sector", filters.sector);
+  const query = params.toString();
+  const response = await fetch(query ? `/api/latest?${query}` : "/api/latest");
   if (!response.ok) throw new Error(`/api/latest returned ${response.status}`);
+  return response.json();
+}
+
+export async function fetchFilterOptions(): Promise<FilterOptions> {
+  const response = await fetch("/api/filters");
+  if (!response.ok) throw new Error(`/api/filters returned ${response.status}`);
   return response.json();
 }
 
