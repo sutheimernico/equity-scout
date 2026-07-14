@@ -80,7 +80,7 @@ def triple_barrier_entry_label(
     `at`, or a degenerate zero/non-finite sigma) or `stock` has no full forward horizon past `at` —
     the same honesty contract as `beats_benchmark_label`. The full-horizon check is explicit here
     (unlike the lower-level `triple_barrier_labels`, which — for its other caller, the meta-model —
-    tolerates a short trailing window): this label must never be resolved on partial data."""
+    tolerates a short forward window): this label must never be resolved on partial data."""
     if at not in stock.index:
         return None
     pos = stock.index.get_loc(at)

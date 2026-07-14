@@ -95,11 +95,19 @@ def run_train_entry(
     "triple_barrier"`, see `entry_dataset.build_backfill_dataset`); its `barrier_config` (defaults
     to `BarrierConfig()` — k_pt, k_sl, horizon_days, vol_window) is persisted verbatim into the
     registered metrics so a follow-up task can derive a price target/stop from the champion's own
-    stored config. Every family is registered and promoted in its OWN registry partition with the
-    same gate constants — families never compare against each other (AUC across different label
-    definitions is not comparable)."""
+    stored config. For entry_tb `barrier_config.horizon_days` is THE horizon — the `horizon_days`
+    param is overridden by it (labels, walk-forward purge and `metrics["horizon_days"]` all follow
+    the config), so the persisted config can never disagree with the actual training horizon.
+    Every family is registered and promoted in its OWN registry partition with the same gate
+    constants — families never compare against each other (AUC across different label definitions
+    is not comparable)."""
     label_direction = FAMILY_LABEL_DIRECTION.get(family, "beats")
     tb_config = barrier_config if barrier_config is not None else BarrierConfig()
+    if family == "entry_tb":
+        # Mirrors build_backfill_dataset's derivation: the purge window and the persisted
+        # metrics["horizon_days"] must match the label horizon the dataset actually used —
+        # otherwise the walk-forward purge would under-purge (labels span the config horizon).
+        horizon_days = tb_config.horizon_days
     X, y, meta = build_backfill_dataset(
         panel, tickers, benchmark=benchmark, horizon_days=horizon_days,
         label_direction=label_direction, barrier_config=tb_config,
@@ -162,15 +170,13 @@ def run_train_entry_all(
 ) -> list[dict]:
     """Train every preset in `models` for every family in `families`; the registry gate alone
     decides which (if any) ends up champion per family. The short family trains on its own shorter
-    horizon (SHORT_HORIZON_DAYS) — the bots' trading cadence; the triple-barrier family trains on
-    its own barrier-config horizon (`barrier_config.horizon_days`, default `BarrierConfig()`) since
-    its label definition (and thus its horizon) is unrelated to the relative-return HORIZON_DAYS.
+    horizon (SHORT_HORIZON_DAYS) — the bots' trading cadence. The triple-barrier family needs no
+    entry here: `run_train_entry` derives its horizon from `barrier_config.horizon_days` itself
+    (single source of truth — the persisted config must never disagree with the training horizon).
     One preset crashing must not kill the night's other presets — log and continue, mirroring the
     cron chains' contract."""
     tb_config = barrier_config if barrier_config is not None else BarrierConfig()
-    family_horizon = {
-        "entry": horizon_days, "entry_short": SHORT_HORIZON_DAYS, "entry_tb": tb_config.horizon_days,
-    }
+    family_horizon = {"entry": horizon_days, "entry_short": SHORT_HORIZON_DAYS}
     results = []
     for family in families:
         for model in models:

@@ -155,3 +155,24 @@ def test_triple_barrier_dataset_falls_back_to_default_barrier_config():
         panel, ["AAA"], horizon_days=BarrierConfig().horizon_days, label_direction="triple_barrier"
     )
     assert len(X) == len(meta) > 0
+
+
+def test_triple_barrier_horizon_comes_from_barrier_config_not_param():
+    """Single source of truth: in TB mode `barrier_config.horizon_days` IS the horizon; the
+    separate `horizon_days` param is ignored. Otherwise a caller passing the relative-return
+    default (20) would train on horizon 20 while persisting a config that claims 40 — and the
+    follow-up target/stop derivation reads exactly that config."""
+    panel = _panel_with_vol()
+    config = BarrierConfig()  # horizon_days=40
+    _, y_wrong, meta_wrong = build_backfill_dataset(
+        panel, ["AAA", "BBB"], horizon_days=20, label_direction="triple_barrier", barrier_config=config
+    )
+    _, y_right, meta_right = build_backfill_dataset(
+        panel, ["AAA", "BBB"], horizon_days=config.horizon_days, label_direction="triple_barrier",
+        barrier_config=config,
+    )
+    pd.testing.assert_frame_equal(meta_wrong, meta_right)
+    pd.testing.assert_series_equal(y_wrong, y_right)
+    # and the config horizon is genuinely in effect: end-of-panel cropping follows 40, not 20
+    pair = panel.closes[["AAA", "SPY"]].dropna()
+    assert meta_wrong["as_of"].max() <= pair.index[-1 - config.horizon_days]

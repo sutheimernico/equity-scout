@@ -53,11 +53,14 @@ def build_backfill_dataset(
         "higher score ↔ better outcome for the bot" in both directions.
       * "triple_barrier" (family `entry_tb`) — y comes from
         `entry_eval.triple_barrier_entry_label` instead: 1 iff the ticker's OWN vol-scaled profit
-        barrier is touched before its stop barrier within `barrier_config.horizon_days` (which is
-        also used as `horizon_days` below by the caller). AUC is not comparable across label
-        definitions — that is exactly why `entry_tb` is its own registry family, never compared
-        against `entry`/`entry_short`. `barrier_config` (defaults to `BarrierConfig()`) is REQUIRED
-        context for this mode; it is ignored otherwise.
+        barrier is touched before its stop barrier within `barrier_config.horizon_days`. In this
+        mode `barrier_config.horizon_days` is THE horizon — the separate `horizon_days` param is
+        IGNORED (labels, relative_return window and end-of-panel cropping all use the config's
+        value), so the persisted barrier config can never lie about the horizon the model was
+        actually trained on (the follow-up target/stop derivation reads exactly that config). AUC
+        is not comparable across label definitions — that is exactly why `entry_tb` is its own
+        registry family, never compared against `entry`/`entry_short`. `barrier_config` (defaults
+        to `BarrierConfig()`) is REQUIRED context for this mode; it is ignored otherwise.
 
     The label and relative return are computed on windows ALIGNED to the benchmark's calendar
     (`closes[[ticker, benchmark]].dropna()`), so both legs' forward horizons end on the SAME date.
@@ -70,6 +73,11 @@ def build_backfill_dataset(
         )
     invert = label_direction == "lags"
     tb_config = barrier_config if barrier_config is not None else BarrierConfig()
+    if label_direction == "triple_barrier":
+        # Single source of truth: the barrier config IS the horizon in TB mode (see docstring).
+        # Deriving it here (instead of trusting the caller to keep two params in sync) makes it
+        # impossible for the persisted config to disagree with the actual training horizon.
+        horizon_days = tb_config.horizon_days
     closes = panel.closes
     context_df = market_context(panel, benchmark=benchmark)  # regime context once for the panel
     sample_dates = panel.rebalance_dates()

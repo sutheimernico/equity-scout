@@ -142,7 +142,13 @@ def test_entry_tb_champion_promotion_is_independent_of_entry_family(tmp_path, mo
     assert tb_result["promoted"] is True
     assert entry_champion(db, family="entry")[0] == entry_result["version"]
     assert entry_champion(db, family="entry_tb")[0] == tb_result["version"]
-    assert entry_champion(db, family="entry_tb")[2]["barrier_config"] == BarrierConfig().as_dict()
+    tb_metrics = entry_champion(db, family="entry_tb")[2]
+    assert tb_metrics["barrier_config"] == BarrierConfig().as_dict()
+    # Single source of truth: run_train_entry was called WITHOUT a horizon override (so the
+    # HORIZON_DAYS default was in play) — the trained/persisted horizon must still be the barrier
+    # config's, never the default. A mismatch here means the stored config lies about the horizon
+    # the model was actually trained on, and the target/stop derivation would build on that lie.
+    assert tb_metrics["horizon_days"] == tb_metrics["barrier_config"]["horizon_days"]
 
 
 def test_train_main_default_family_trains_entry_tb_too(tmp_path, monkeypatch):
