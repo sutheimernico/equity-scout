@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from typing import Callable
 
 from equity_scout.data.provider import MarketDataProvider
@@ -54,6 +55,18 @@ def with_retry(
                     sleep(delays[i])
     assert last_exc is not None
     raise last_exc
+
+
+def rotation_segment(tickers: list[str], segments: int, on: date) -> list[str]:
+    """Tonight's slice of the universe: sorted, split into `segments` contiguous slices, pick by
+    day-of-year modulo. Deterministic and stateless — a missed night (WSL off) heals on the next
+    pass of the rotation instead of needing a progress table."""
+    ordered = sorted(tickers)
+    if segments <= 1:
+        return ordered
+    idx = on.timetuple().tm_yday % segments
+    size = -(-len(ordered) // segments)  # ceil division
+    return ordered[idx * size:(idx + 1) * size]
 
 
 def fetch_all(
