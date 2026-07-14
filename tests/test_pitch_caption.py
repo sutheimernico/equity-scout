@@ -23,13 +23,19 @@ def test_caption_has_sections_and_stays_compact():
         Fundamentals(trailing_pe=45.0, analyst_target=190.0, analyst_count=30,
                      currency="USD"),
         one_year_return=0.38,
+        eur_price=158.60,
+        press_lines=["Analysts split on NVIDIA after earnings — Reuters"],
     )
     assert caption.splitlines()[0] == "📈 NVDA — NVIDIA Corp."
     assert "Score 81/100" in caption and "Momentum 92" in caption
     assert "KGV 45" in caption and "1 Jahr +38 %" in caption
+    assert "Kurs 172.40 USD (≈ 158.60 €)" in caption
     assert "Zone 165.00–170.00" in caption
     assert "Analysten-Ø-Ziel 190.00" in caption and "+10 %" in caption
-    assert "⚠️" in caption and "Kein Anlagerat" in caption
+    assert "🗞️ Analysts split on NVIDIA" in caption
+    assert "⚠️" in caption
+    # Disclaimer + delay footer removed on Nico's call (2026-07-15).
+    assert "Anlagerat" not in caption and "15 Min" not in caption
     assert len(caption) <= 980
 
 
@@ -39,6 +45,8 @@ def test_caption_omits_missing_data_lines():
     assert "1 Jahr" not in caption
     assert "Analysten" not in caption
     assert "⚠️" not in caption
+    assert "🗞️" not in caption
+    assert "€" not in caption  # no FX rate -> no made-up conversion
     assert "Kurs 172.40" in caption
 
 

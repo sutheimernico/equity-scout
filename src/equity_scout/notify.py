@@ -48,14 +48,30 @@ def select_candidates(
     threshold: float,
     cooldown_days: int,
     now: str,
+    min_count: int = 0,
 ) -> list[dict]:
-    return [
+    """In-zone candidates above threshold and outside cooldown — plus, when `min_count`
+    asks for more (the daily digest should pitch SEVERAL names, Nico 2026-07-15), the
+    highest-composite remaining watchlist entries outside cooldown. Topped-up entries
+    are not in-zone/above-threshold; their zone line in the pitch stays honest."""
+    outside_cooldown = [
         entry
         for entry in watchlist.get("entries", [])
-        if entry["in_zone"]
-        and entry["composite"] >= threshold
-        and not _inside_cooldown(last_pitch_at(entry["ticker"]), now, cooldown_days)
+        if not _inside_cooldown(last_pitch_at(entry["ticker"]), now, cooldown_days)
     ]
+    qualified = [
+        entry for entry in outside_cooldown
+        if entry["in_zone"] and entry["composite"] >= threshold
+    ]
+    if len(qualified) >= min_count:
+        return qualified
+    chosen = {entry["ticker"] for entry in qualified}
+    extras = sorted(
+        (entry for entry in outside_cooldown if entry["ticker"] not in chosen),
+        key=lambda entry: entry["composite"],
+        reverse=True,
+    )
+    return qualified + extras[: min_count - len(qualified)]
 
 
 def notify_watchlist(
@@ -67,6 +83,7 @@ def notify_watchlist(
     enrich: Callable[[str], Fundamentals] | None = fetch_fundamentals,
     threshold: float = DEFAULT_THRESHOLD,
     cooldown_days: int = DEFAULT_COOLDOWN_DAYS,
+    min_pitches: int = 0,
     now: str,
 ) -> int:
     """Create inbox pitches (and send them, if a sender is configured).
@@ -84,6 +101,7 @@ def notify_watchlist(
         threshold=threshold,
         cooldown_days=cooldown_days,
         now=now,
+        min_count=min_pitches,
     )
     watchlist_id = watchlist.get("watchlist_id")  # top-level snapshot id from radar_storage
     for entry in candidates:

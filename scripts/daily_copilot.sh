@@ -48,7 +48,9 @@ fi
 
 step radar               "$PY" scripts/run_radar.py
 step evidence            "$PY" scripts/run_evidence.py
-step notify              "$PY" scripts/run_notify.py
+# --min-pitches 5: the daily delivery pitches several names (topped up by composite),
+# not only strict in-zone hits (Nico 2026-07-15).
+step notify              "$PY" scripts/run_notify.py --min-pitches 5
 step score_watchlist     "$PY" scripts/run_score_watchlist.py
 step resolve_predictions "$PY" scripts/run_resolve_predictions.py
 step resolve_evidence    "$PY" scripts/run_resolve_evidence.py

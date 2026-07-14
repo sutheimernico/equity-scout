@@ -465,3 +465,33 @@ def test_main_annotates_pitches_with_evidence_and_alerts_off_watchlist(
     # ... and only the off-watchlist CLUSTER alerted (YES has one buyer -> no alert).
     alerts = load_alerts(db)
     assert [a["ticker"] for a in alerts] == ["OFFW"]
+
+
+def test_select_candidates_tops_up_to_min_count():
+    """min_count fills the daily batch with the best remaining names (Nico 2026-07-15:
+    several pitches per daily), never re-pitching names inside their cooldown."""
+    watchlist = {
+        "created_at": NOW,
+        "entries": [
+            _entry("ZONE"),  # in zone, above threshold -> qualified
+            {**_entry("BEST"), "in_zone": False, "composite": 0.95},
+            {**_entry("GOOD"), "in_zone": False, "composite": 0.80},
+            {**_entry("MEH"), "in_zone": False, "composite": 0.50},
+            {**_entry("COOL"), "in_zone": False, "composite": 0.99},  # in cooldown
+        ],
+    }
+    picked = select_candidates(
+        watchlist,
+        last_pitch_at=lambda t: NOW if t == "COOL" else None,
+        threshold=0.45, cooldown_days=7, now=NOW, min_count=3,
+    )
+    assert [entry["ticker"] for entry in picked] == ["ZONE", "BEST", "GOOD"]
+
+
+def test_select_candidates_min_count_zero_is_unchanged():
+    watchlist = {"created_at": NOW,
+                 "entries": [{**_entry("OFF"), "in_zone": False, "composite": 0.99}]}
+    assert select_candidates(
+        watchlist, last_pitch_at=lambda t: None,
+        threshold=0.45, cooldown_days=7, now=NOW,
+    ) == []

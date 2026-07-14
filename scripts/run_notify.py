@@ -31,7 +31,9 @@ from equity_scout.notify import (
     send_evidence_alerts,
 )
 from equity_scout.charts import fetch_year_closes, render_year_chart, year_return
+from equity_scout.fx import eur_rate
 from equity_scout.pitch import build_pitch, build_pitch_caption
+from equity_scout.press import fetch_press_lines
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.telegram_client import (
     build_decision_keyboard,
@@ -58,9 +60,12 @@ def _telegram_sender(
         keyboard = build_decision_keyboard(pitch_id)
         try:
             dates, closes = fetch_year_closes(entry["ticker"])
+            rate = eur_rate(fundamentals.currency if fundamentals else None)
             caption = build_pitch_caption(
                 entry, fundamentals, evidence=evidence_by_ticker.get(entry["ticker"]),
                 one_year_return=year_return(closes),
+                eur_price=entry["price"] * rate if rate is not None else None,
+                press_lines=fetch_press_lines(entry["name"]),
             )
             png = render_year_chart(entry["ticker"], dates, closes)
             return send_photo(config["token"], chat_id, png, caption, keyboard)
@@ -87,6 +92,10 @@ def main() -> int:
     parser.add_argument("--db", default=DEFAULT_DB_PATH)
     parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD)
     parser.add_argument("--cooldown-days", type=int, default=DEFAULT_COOLDOWN_DAYS)
+    parser.add_argument("--min-pitches", type=int, default=0,
+                        help="Top up to N pitches with the highest-composite watchlist "
+                             "entries outside cooldown (daily chain uses 5 — Nico wants "
+                             "several names per daily, not only strict in-zone hits).")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--inbox-only", action="store_true",
                         help="Record pitches/alerts in the inbox but send nothing to Telegram "
@@ -129,7 +138,8 @@ def main() -> int:
 
     count = notify_watchlist(
         args.db, watchlist, build=build, send=send, enrich=fetch_fundamentals,
-        threshold=args.threshold, cooldown_days=args.cooldown_days, now=now,
+        threshold=args.threshold, cooldown_days=args.cooldown_days,
+        min_pitches=args.min_pitches, now=now,
     )
     print(f"Pitches created: {count}.")
 

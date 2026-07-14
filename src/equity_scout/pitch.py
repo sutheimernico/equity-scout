@@ -170,14 +170,21 @@ def build_pitch_caption(
     fundamentals: Fundamentals | None = None,
     evidence: list[dict] | None = None,
     one_year_return: float | None = None,
+    eur_price: float | None = None,
+    press_lines: list[str] | None = None,
 ) -> str:
     """Compact, sectioned caption for the chart-photo pitch (Nico 2026-07-15: the long
-    pitch was unübersichtlich). One fact per line, hard-capped for Telegram's 1024-unit
-    photo-caption limit; the chart itself carries the price history. The long
-    `build_pitch` text stays the dashboard-inbox version."""
+    pitch was unübersichtlich; disclaimer/delay footer removed on his call same day).
+    One fact per line, hard-capped for Telegram's 1024-unit photo-caption limit; the
+    chart itself carries the price history. The long `build_pitch` text stays the
+    dashboard-inbox version. `eur_price` rides along for non-EUR listings; `press_lines`
+    are third-party headlines (see press.py) — quoted, never interpreted."""
     cur = f" {fundamentals.currency}" if fundamentals and fundamentals.currency else ""
     score = round(entry["composite"] * 100)
-    price_bits = [f"Kurs {entry['price']:.2f}{cur}"]
+    price = f"Kurs {entry['price']:.2f}{cur}"
+    if eur_price is not None:
+        price += f" (≈ {eur_price:.2f} €)"
+    price_bits = [price]
     if fundamentals is not None and fundamentals.trailing_pe is not None:
         price_bits.insert(0, f"KGV {fundamentals.trailing_pe:.0f}")
     if one_year_return is not None:
@@ -194,10 +201,11 @@ def build_pitch_caption(
         lines.append(f"🔭 Analysten-Ø-Ziel {target:.2f}{cur} ({upside:+.0f} %) — fremde Meinung")
     for evidence_line in evidence_summary_lines(evidence or []):
         lines.append(f"👥 {evidence_line}")
+    for press_line in press_lines or []:
+        lines.append(f"🗞️ {press_line}")
     risk = _risk_line(entry)
     if risk:
         lines.append(f"⚠️ {risk if len(risk) <= 90 else risk[:89] + '…'}")
-    lines.append("Kein Anlagerat · Kurse ~15 Min verzögert")
     caption = "\n".join(lines)
     return caption if len(caption) <= _CAPTION_LIMIT else caption[: _CAPTION_LIMIT - 1] + "…"
 
