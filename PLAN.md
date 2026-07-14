@@ -214,7 +214,7 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 > Nico-Direktive: Long-Modell mit explizitem Zielwert/Exit, news-getriebenes Kurzfrist-Trading
 > (ehrlich: Latenz messen statt Minuten-Trading behaupten), sichtbares tägliches Lernen.
 > **Plan: `docs/superpowers/plans/2026-07-15-vision-v7-target-exits-events-learning.md`**
-- [ ] A1 fix(sizing): Positionsgröße vom aktuellen NAV statt initial_capital (portfolio, lanes)
+- [x] A1 fix(sizing): Positionsgröße vom aktuellen NAV statt initial_capital (portfolio, lanes)
 - [ ] A3 feat(ml): Triple-Barrier-Preset für entry-Familie (labeling.py wiederverwenden)
 - [ ] B5 fix(evidence): voices-Ticker-Resolution härten + news_themes Titel-Dedupe
 - [ ] A2 feat(exits): Trade-Lifecycle für Forward-Bots (ExitRules, Exit-Grund persistiert)
