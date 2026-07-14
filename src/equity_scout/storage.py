@@ -125,6 +125,45 @@ def load_run_scores(
     ]
 
 
+def latest_run_id(db_path: str | Path) -> int | None:
+    with sqlite3.connect(db_path) as con:
+        row = con.execute("SELECT id FROM runs ORDER BY id DESC LIMIT 1").fetchone()
+    return int(row[0]) if row else None
+
+
+def run_has_scores(db_path: str | Path, run_id: int) -> bool:
+    """False for pre-feature runs (no persisted full ranking) — the API reports the
+    filter as unavailable instead of silently serving unfiltered data."""
+    with sqlite3.connect(db_path) as con:
+        try:
+            row = con.execute(
+                "SELECT 1 FROM run_scores WHERE run_id = ? LIMIT 1", (run_id,)
+            ).fetchone()
+        except sqlite3.OperationalError:
+            return False
+    return row is not None
+
+
+def run_scores_facets(db_path: str | Path, run_id: int) -> dict:
+    """Dropdown options: distinct countries and sectors of one run, with counts."""
+    with sqlite3.connect(db_path) as con:
+        try:
+            countries = con.execute(
+                "SELECT country, COUNT(*) FROM run_scores WHERE run_id = ? "
+                "GROUP BY country ORDER BY COUNT(*) DESC, country", (run_id,)
+            ).fetchall()
+            sectors = con.execute(
+                "SELECT sector, COUNT(*) FROM run_scores WHERE run_id = ? "
+                "GROUP BY sector ORDER BY COUNT(*) DESC, sector", (run_id,)
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return {"countries": [], "sectors": []}
+    return {
+        "countries": [{"value": c, "count": n} for c, n in countries],
+        "sectors": [{"value": s, "count": n} for s, n in sectors],
+    }
+
+
 def load_latest_run(db_path: str | Path) -> RunResult | None:
     with sqlite3.connect(db_path) as con:
         row = con.execute(

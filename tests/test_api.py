@@ -430,3 +430,89 @@ def test_radar_joins_latest_ml_score(tmp_path):
     assert entries[0]["ml"] == {
         "score": 71, "created_at": "2026-07-14T00:00:00+00:00", "model_version": 3,
     }
+
+
+def _scored_run(db) -> int:
+    """One saved run + full run_scores rows across regions/sectors for filter tests."""
+    from equity_scout.storage import save_run_scores
+
+    inst = Instrument("AAPL", "Apple", "NASDAQ", "US", "USD", "Technology")
+    pick = Pick(inst, "balanced", 1, 0.9,
+                {"value": 0.5, "quality": 0.5, "momentum": 0.5, "growth": 0.5})
+    run_id = save_run(db, RunResult("2026-07-15T00:00:00", 10, {}, {"balanced": [pick]}))
+    full = {
+        "balanced": [
+            Pick(Instrument("AAPL", "Apple", "NASDAQ", "US", "USD", "Technology"),
+                 "balanced", 1, 0.9, {"value": 0.5}),
+            Pick(Instrument("MC.PA", "LVMH", "PA", "EU", "EUR", "Consumer Cyclical"),
+                 "balanced", 2, 0.8, {"value": 0.6}),
+            Pick(Instrument("7203.T", "Toyota", "TSE", "JP", "JPY", "Automotive"),
+                 "balanced", 3, 0.7, {"value": 0.4}),
+        ],
+        "defensive": [
+            Pick(Instrument("SAP.DE", "SAP", "DE", "EU", "EUR", "Technology"),
+                 "defensive", 1, 0.85, {"value": 0.7}),
+        ],
+    }
+    save_run_scores(db, run_id, full)
+    return run_id
+
+
+def test_latest_filters_by_region_group_and_sector(tmp_path):
+    db = tmp_path / "f.db"
+    init_db(db)
+    _scored_run(db)
+    client = TestClient(create_app(str(db)))
+
+    body = client.get("/api/latest?region=europe").json()
+    tickers = [p["instrument"]["ticker"] for picks in body["buckets"].values() for p in picks]
+    assert sorted(tickers) == ["MC.PA", "SAP.DE"]
+    assert body["filters"] == {"region": "europe", "country": None, "sector": None}
+    assert body["filter_matches"] == 2
+
+    body = client.get("/api/latest?sector=technology").json()  # case-insensitive
+    tickers = [p["instrument"]["ticker"] for picks in body["buckets"].values() for p in picks]
+    assert sorted(tickers) == ["AAPL", "SAP.DE"]
+
+
+def test_latest_filters_by_country_and_reranks(tmp_path):
+    db = tmp_path / "fc.db"
+    init_db(db)
+    _scored_run(db)
+    client = TestClient(create_app(str(db)))
+    body = client.get("/api/latest?country=JP").json()
+    picks = body["buckets"]["balanced"]
+    assert [p["instrument"]["ticker"] for p in picks] == ["7203.T"]
+    assert picks[0]["rank"] == 1  # re-ranked within the filtered set (was global rank 3)
+
+
+def test_latest_filter_no_matches_is_honest(tmp_path):
+    db = tmp_path / "fn.db"
+    init_db(db)
+    _scored_run(db)
+    client = TestClient(create_app(str(db)))
+    body = client.get("/api/latest?country=XX").json()
+    assert body["filter_matches"] == 0
+    assert all(picks == [] for picks in body["buckets"].values())
+
+
+def test_latest_filter_unavailable_for_prefeature_run(tmp_path):
+    db = tmp_path / "fu.db"
+    init_db(db)
+    inst = Instrument("AAPL", "Apple", "NASDAQ", "US", "USD", "Technology")
+    pick = Pick(inst, "balanced", 1, 0.9, {"value": 0.5})
+    save_run(db, RunResult("2026-07-15T00:00:00", 10, {}, {"balanced": [pick]}))  # no run_scores
+    client = TestClient(create_app(str(db)))
+    body = client.get("/api/latest?region=europe").json()
+    assert body["filter_unavailable"] is True
+
+
+def test_filters_endpoint_lists_options_with_counts(tmp_path):
+    db = tmp_path / "fo.db"
+    init_db(db)
+    _scored_run(db)
+    client = TestClient(create_app(str(db)))
+    body = client.get("/api/filters").json()
+    assert {"value": "DE", "count": 1} in body["countries"]
+    assert {"value": "Technology", "count": 2} in body["sectors"]
+    assert set(body["region_groups"]) == {"europe", "americas", "asia", "oceania"}

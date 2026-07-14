@@ -29,7 +29,16 @@ from equity_scout.lane_storage import (
 from equity_scout.lanes import LANE_AUTOPILOT, LANE_NICO
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
 from equity_scout.radar_storage import load_latest_watchlist
-from equity_scout.storage import init_db, load_latest_run, load_run_summaries
+from equity_scout.storage import (
+    init_db,
+    latest_run_id,
+    load_latest_run,
+    load_run_scores,
+    load_run_summaries,
+    run_has_scores,
+    run_scores_facets,
+)
+from equity_scout.universe import REGION_GROUPS
 from equity_scout.telegram_client import ACTIONS
 from equity_scout.ml.ledger import DEFAULT_LEDGER_PATH, champion
 from equity_scout.ml.model_registry import load_champion_history, registry_summary
@@ -44,6 +53,45 @@ from equity_scout.ml.research_view import research_summary
 from equity_scout.strategy_service import BENCHMARK_NAME, build_ml_report, build_reports
 
 _DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+
+FILTER_TOP_N = 10
+
+
+def _filtered_buckets(
+    db_path: str, *, region: str | None, country: str | None, sector: str | None
+) -> dict:
+    """Filtered view over the latest run's persisted full ranking.
+
+    Returns Pick-shaped dicts so the dashboard renders filtered results with the exact
+    same components as the default view. Region accepts a group name ('europe') or a
+    single region code; ranks are re-numbered within the filtered set."""
+    echo = {"region": region, "country": country, "sector": sector}
+    run_id = latest_run_id(db_path)
+    if run_id is None or not run_has_scores(db_path, run_id):
+        return {"filters": echo, "filter_unavailable": True}
+
+    region_codes: set[str] | None = None
+    if region:
+        region_codes = REGION_GROUPS.get(region.lower(), {region.upper()})
+    rows = load_run_scores(
+        db_path, run_id, region_codes=region_codes,
+        country=country.upper() if country else None, sector=sector,
+    )
+    buckets: dict[str, list[dict]] = {b: [] for b in BUCKET_WEIGHTS}
+    for row in rows:  # ordered by bucket, global rank
+        picks = buckets.setdefault(row["bucket"], [])
+        if len(picks) >= FILTER_TOP_N:
+            continue
+        picks.append({
+            "instrument": {"ticker": row["ticker"], "name": row["name"], "exchange": "",
+                           "region": row["region"], "currency": "",
+                           "sector": row["sector"]},
+            "bucket": row["bucket"], "rank": len(picks) + 1,
+            "composite": row["composite"], "breakdown": row["breakdown"],
+            "thesis": None, "news": [],
+        })
+    return {"filters": echo, "filter_matches": len(rows), "buckets": buckets}
 
 
 def create_app(
@@ -101,7 +149,8 @@ def create_app(
         return JSONResponse({**research_summary(ledger), "disclaimer": DISCLAIMER})
 
     @app.get("/api/latest")
-    def latest() -> JSONResponse:
+    def latest(region: str | None = None, country: str | None = None,
+               sector: str | None = None) -> JSONResponse:
         run = load_latest_run(db_path)
         if run is None:
             return JSONResponse({"buckets": {}, "gated_out": {}, "disclaimer": DISCLAIMER})
@@ -115,7 +164,18 @@ def create_app(
             "bucket_weights": BUCKET_WEIGHTS,
             "disclaimer": DISCLAIMER,
         }
+        if region or country or sector:
+            payload.update(
+                _filtered_buckets(db_path, region=region, country=country, sector=sector)
+            )
         return JSONResponse(payload)
+
+    @app.get("/api/filters")
+    def filter_options() -> JSONResponse:
+        run_id = latest_run_id(db_path)
+        facets = run_scores_facets(db_path, run_id) if run_id is not None else {
+            "countries": [], "sectors": []}
+        return JSONResponse({"region_groups": sorted(REGION_GROUPS), **facets})
 
     @app.get("/api/radar")
     def radar() -> JSONResponse:
