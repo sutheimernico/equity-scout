@@ -112,7 +112,9 @@ def test_execute_buys_skips_held_unpriced_and_underfunded():
     portfolio, _ = execute_buys(
         portfolio, [_order("HELD")], {"HELD": 100.0}, now=NOW, lane=LANE_NICO
     )
-    poor = replace(portfolio, cash=100.0)
+    # cash=0 is underfunded for any positive target_value regardless of how it's sized
+    # (equity-based sizing still yields > 0 target_value from the HELD position's value).
+    poor = replace(portfolio, cash=0.0)
     updated, trades = execute_buys(
         poor,
         [_order("HELD"), _order("DARK"), _order("POOR")],
@@ -122,6 +124,44 @@ def test_execute_buys_skips_held_unpriced_and_underfunded():
     )
     assert set(updated.positions) == {"HELD"}
     assert trades == []
+
+
+def test_new_buy_sized_larger_after_big_gain():
+    # Baseline: fresh account buys BASE at 100, sized off 10_000 starting equity.
+    portfolio = new_portfolio(initial_capital=10_000.0)
+    portfolio, _ = execute_buys(
+        portfolio, [_order("BASE")], {"BASE": 100.0}, now=NOW, lane=LANE_NICO,
+        fee_rate=0.001, slippage_bps=0.0,
+    )
+    baseline_shares = portfolio.positions["BASE"].shares  # 500 stake / 100 = 5.0 shares
+
+    # BASE gains 10x (100 -> 1000), ballooning current equity well above initial_capital.
+    # A fresh order MORE should now be sized off that larger current equity.
+    updated, _ = execute_buys(
+        portfolio, [_order("MORE")], {"BASE": 1000.0, "MORE": 100.0}, now=NOW, lane=LANE_NICO,
+        fee_rate=0.001, slippage_bps=0.0,
+    )
+    assert "MORE" in updated.positions
+    assert updated.positions["MORE"].shares > baseline_shares
+
+
+def test_new_buy_sized_smaller_after_big_loss():
+    # Baseline: fresh account buys BASE at 100, sized off 10_000 starting equity.
+    portfolio = new_portfolio(initial_capital=10_000.0)
+    portfolio, _ = execute_buys(
+        portfolio, [_order("BASE")], {"BASE": 100.0}, now=NOW, lane=LANE_NICO,
+        fee_rate=0.001, slippage_bps=0.0,
+    )
+    baseline_shares = portfolio.positions["BASE"].shares  # 500 stake / 100 = 5.0 shares
+
+    # BASE craters 80% (100 -> 20), shrinking current equity below initial_capital.
+    # A fresh order LESS should now be sized off that smaller current equity.
+    updated, _ = execute_buys(
+        portfolio, [_order("LESS")], {"BASE": 20.0, "LESS": 100.0}, now=NOW, lane=LANE_NICO,
+        fee_rate=0.001, slippage_bps=0.0,
+    )
+    assert "LESS" in updated.positions
+    assert updated.positions["LESS"].shares < baseline_shares
 
 
 def test_lane_b_orders_from_watchlist():

@@ -136,7 +136,11 @@ def execute_buys(
     cash = portfolio.cash
     positions = dict(portfolio.positions)
     trades: list[TradeRecord] = []
-    target_value = portfolio.initial_capital * position_fraction
+    # Size new buys off current equity (cash + mark-to-market of what's already held), not the
+    # stale initial_capital — otherwise the account never scales its bet size up after gains and
+    # keeps over-risking a shrunken account after losses.
+    equity = cash + sum(pos.shares * prices.get(ticker, pos.cost_basis) for ticker, pos in positions.items())
+    target_value = equity * position_fraction
     for order in orders:
         price = prices.get(order.ticker)
         if order.ticker in positions or price is None or price <= 0:

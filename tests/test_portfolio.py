@@ -108,3 +108,37 @@ def test_missing_price_defers_the_sale():
     pf, trades = advance(pf, [], {}, now="d2")
     assert "HOT" in pf.positions
     assert trades == []
+
+
+def test_new_buy_sized_larger_after_big_gain():
+    # Baseline: fresh account buys HOT at 100, sized off 100_000 starting equity.
+    pf = new_portfolio(100_000.0)
+    pf, _ = advance(pf, [_pick("HOT", 0.85)], {"HOT": 100.0},
+                    now="d1", position_fraction=0.05, fee_rate=0.001, slippage_bps=0.0)
+    baseline_shares = pf.positions["HOT"].shares  # 5000 stake / 100 = 50 shares
+
+    # HOT quadruples (100 -> 400) and is still held (composite stays above exit_threshold),
+    # ballooning account equity well above the 100_000 starting capital. A fresh pick MORE
+    # should now be sized off that larger current equity, not the stale initial capital.
+    pf, trades = advance(pf, [_pick("HOT", 0.85), _pick("MORE", 0.85)],
+                         {"HOT": 400.0, "MORE": 100.0},
+                         now="d2", position_fraction=0.05, fee_rate=0.001, slippage_bps=0.0)
+    assert "MORE" in pf.positions
+    assert pf.positions["MORE"].shares > baseline_shares
+
+
+def test_new_buy_sized_smaller_after_big_loss():
+    # Baseline: fresh account buys HOT at 100, sized off 100_000 starting equity.
+    pf = new_portfolio(100_000.0)
+    pf, _ = advance(pf, [_pick("HOT", 0.85)], {"HOT": 100.0},
+                    now="d1", position_fraction=0.05, fee_rate=0.001, slippage_bps=0.0)
+    baseline_shares = pf.positions["HOT"].shares  # 5000 stake / 100 = 50 shares
+
+    # HOT craters (100 -> 20) and is still held (composite stays above exit_threshold),
+    # shrinking account equity below the 100_000 starting capital. A fresh pick LESS should
+    # now be sized off that smaller current equity, not the stale initial capital.
+    pf, trades = advance(pf, [_pick("HOT", 0.85), _pick("LESS", 0.85)],
+                         {"HOT": 20.0, "LESS": 100.0},
+                         now="d2", position_fraction=0.05, fee_rate=0.001, slippage_bps=0.0)
+    assert "LESS" in pf.positions
+    assert pf.positions["LESS"].shares < baseline_shares

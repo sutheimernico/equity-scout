@@ -98,7 +98,11 @@ def advance(
         trades.append(f"SELL {ticker} {positions[ticker].shares:.2f}@{fill:.2f} (composite {composite:.2f})")
         del positions[ticker]
 
-    target_value = portfolio.initial_capital * position_fraction
+    # Size new buys off current equity (cash + mark-to-market of what's still held after the
+    # sell leg above), not the stale initial_capital — otherwise the account never scales its
+    # bet size up after gains and keeps over-risking a shrunken account after losses.
+    equity = cash + sum(pos.shares * prices.get(ticker, pos.cost_basis) for ticker, pos in positions.items())
+    target_value = equity * position_fraction
     for pick in candidate_picks:
         ticker = pick.instrument.ticker
         price = prices.get(ticker)
