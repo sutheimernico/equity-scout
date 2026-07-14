@@ -17,7 +17,7 @@ from equity_scout.data.news import YFinanceNews
 from equity_scout.data.yf_provider import FetchStats, YFinanceProvider
 from equity_scout.data.universe_storage import load_instrument_meta, upsert_instrument_meta
 from equity_scout.pipeline import run_pipeline
-from equity_scout.storage import init_db, save_run
+from equity_scout.storage import init_db, save_run, save_run_scores
 from equity_scout.universe import apply_meta_overlay, load_universe
 
 
@@ -59,14 +59,17 @@ def main() -> None:
     # Headlines only make sense with live data; fake provider stays fully offline.
     news = None if (args.no_news or args.provider != "yfinance") else YFinanceNews()
 
+    full_ranking: dict = {}
     run = run_pipeline(
         universe, provider, analysis=analysis, top_n=args.top_n,
         created_at=now.isoformat(timespec="seconds"), max_workers=args.max_workers,
         llm_top_n=args.llm_top_n, news=news, news_top_n=args.news_top_n,
         fetch_stats=fetch_stats, sector_sink=_persist_sectors,
+        ranking_sink=full_ranking.update,
     )
     init_db(args.db)
-    save_run(args.db, run)
+    run_id = save_run(args.db, run)
+    save_run_scores(args.db, run_id, full_ranking)
 
     print(f"\nRun {run.created_at} — universe {run.universe_size}, gated out {len(run.gated_out)}")
     dq = run.data_quality

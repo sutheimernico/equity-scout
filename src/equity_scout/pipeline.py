@@ -12,7 +12,7 @@ from equity_scout.data.yf_provider import FetchStats
 from equity_scout.data_quality import build_data_quality_report
 from equity_scout.factors import score_factors
 from equity_scout.gate import apply_gate, summarize_gate
-from equity_scout.models import Instrument, Quote, RunResult
+from equity_scout.models import Instrument, Pick, Quote, RunResult
 
 
 def harvest_sectors(universe: list[Instrument], quotes: list[Quote]) -> dict[str, str]:
@@ -39,13 +39,21 @@ def run_pipeline(
     news_top_n: int | None = 5,
     fetch_stats: FetchStats | None = None,
     sector_sink: Callable[[dict[str, str]], None] | None = None,
+    ranking_sink: Callable[[dict[str, list[Pick]]], None] | None = None,
 ) -> RunResult:
     quotes = fetch_all(provider, universe, max_workers=max_workers)
     if sector_sink is not None:
         sector_sink(harvest_sectors(universe, quotes))
     passed, rejected = apply_gate(quotes, min_metrics=min_metrics)
     scores = score_factors(passed)
-    buckets = assign_buckets(scores, top_n=top_n)
+    if ranking_sink is not None:
+        # Full cross-section for the filter feature; RunResult keeps the top-N slice
+        # (ranks are a prefix of the full ranking), so news/LLM cost stays unchanged.
+        full_buckets = assign_buckets(scores, top_n=len(scores))
+        ranking_sink(full_buckets)
+        buckets = {b: picks[:top_n] for b, picks in full_buckets.items()}
+    else:
+        buckets = assign_buckets(scores, top_n=top_n)
     buckets = attach_news(buckets, news, max_per_bucket=news_top_n)
     buckets = attach_theses(buckets, analysis, max_per_bucket=llm_top_n)
     return RunResult(
