@@ -44,21 +44,24 @@ EVIDENCE_WINDOW_DAYS = 30
 
 
 def _telegram_sender(config: dict) -> Callable[[int, str], int]:
-    """Bind the resolved config into the (pitch_id, text) -> message_id send seam."""
+    """Bind the resolved config into the (pitch_id, text) -> message_id send seam.
+
+    Pitches are the short-term trading timeline -> intraday chat (falls back to the main
+    chat when no split is configured; .get covers stale config dicts without the key)."""
+    chat_id = config.get("intraday_chat_id", config["chat_id"])
 
     def send(pitch_id: int, text: str) -> int:
-        return send_message(
-            config["token"], config["chat_id"], text, build_decision_keyboard(pitch_id)
-        )
+        return send_message(config["token"], chat_id, text, build_decision_keyboard(pitch_id))
 
     return send
 
 
 def _alert_sender(config: dict) -> Callable[[str], int]:
     """Alerts go out WITHOUT a decision keyboard — they are not screener pitches."""
+    chat_id = config.get("intraday_chat_id", config["chat_id"])
 
     def send(text: str) -> int:
-        return send_message(config["token"], config["chat_id"], text, None)
+        return send_message(config["token"], chat_id, text, None)
 
     return send
 

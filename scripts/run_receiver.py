@@ -93,6 +93,9 @@ def main() -> int:
         print("Telegram not configured — receiver cannot run.", file=sys.stderr)
         return 1
     token, chat_id = config["token"], config["chat_id"]
+    # Pitches (and their outcome edits) live in the intraday chat since the channel split;
+    # chat_id itself stays the button-press security gate (the pressing USER's id).
+    pitch_chat_id = config.get("intraday_chat_id", chat_id)
 
     offset: int | None = None
     rounds = 0
@@ -107,7 +110,7 @@ def main() -> int:
                     chat_id=chat_id,
                     offset=offset,
                     answer=lambda cb, text: answer_callback(token, cb, text),
-                    edit=lambda mid, text: edit_message(token, chat_id, mid, text),
+                    edit=lambda mid, text: edit_message(token, pitch_chat_id, mid, text),
                     now=now,
                 )
             except (TelegramError, OSError) as exc:

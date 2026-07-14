@@ -76,7 +76,9 @@ def test_load_telegram_config_fail_safe(capsys):
     )
     assert "COPILOT_TG_CHAT_ID" in capsys.readouterr().err
     cfg = load_telegram_config({"COPILOT_TG_BOT_TOKEN": "t", "COPILOT_TG_CHAT_ID": "42"})
-    assert cfg == {"token": "t", "chat_id": 42}
+    # Channel split (2026-07-14): both stream ids fall back to the main chat when unset.
+    assert cfg == {"token": "t", "chat_id": 42,
+                   "intraday_chat_id": 42, "daily_chat_id": 42}
 
 
 def test_api_raises_telegram_error_on_ok_false(monkeypatch):
