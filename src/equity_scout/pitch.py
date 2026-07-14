@@ -18,8 +18,11 @@ from collections.abc import Callable
 
 from equity_scout.chat import ChatError, ask_ollama
 from equity_scout.constants import SHORT_DISCLAIMER
-from equity_scout.evidence.aggregate import evidence_block
+from equity_scout.evidence.aggregate import evidence_block, evidence_summary_lines
 from equity_scout.fundamentals import Fundamentals
+
+# Telegram photo captions cap at 1024 UTF-16 code units; headroom for emoji + edits.
+_CAPTION_LIMIT = 980
 
 PITCH_LLM_UNAVAILABLE_PREFIX = "(Automatische Kurzeinschätzung nicht verfügbar)"
 # Telegram's 4096 hard limit counts UTF-16 code units, not Python chars; the 96-unit
@@ -150,6 +153,53 @@ def _structured_body(
         _risk_line(entry),
     ]
     return "\n\n".join(block for block in blocks if block)
+
+
+def _top_factors(breakdown: dict, n: int = 2) -> str:
+    labels = {"value": "Value", "quality": "Quality", "momentum": "Momentum",
+              "growth": "Growth", "low_vol": "Low-Vol"}
+    ranked = sorted(
+        ((labels.get(k, k), v) for k, v in breakdown.items() if k in labels),
+        key=lambda kv: kv[1], reverse=True,
+    )
+    return ", ".join(f"{label} {value * 100:.0f}" for label, value in ranked[:n])
+
+
+def build_pitch_caption(
+    entry: dict,
+    fundamentals: Fundamentals | None = None,
+    evidence: list[dict] | None = None,
+    one_year_return: float | None = None,
+) -> str:
+    """Compact, sectioned caption for the chart-photo pitch (Nico 2026-07-15: the long
+    pitch was unübersichtlich). One fact per line, hard-capped for Telegram's 1024-unit
+    photo-caption limit; the chart itself carries the price history. The long
+    `build_pitch` text stays the dashboard-inbox version."""
+    cur = f" {fundamentals.currency}" if fundamentals and fundamentals.currency else ""
+    score = round(entry["composite"] * 100)
+    price_bits = [f"Kurs {entry['price']:.2f}{cur}"]
+    if fundamentals is not None and fundamentals.trailing_pe is not None:
+        price_bits.insert(0, f"KGV {fundamentals.trailing_pe:.0f}")
+    if one_year_return is not None:
+        price_bits.append(f"1 Jahr {one_year_return * 100:+.0f} %")
+    lines = [
+        f"📈 {entry['ticker']} — {entry['name']}",
+        f"🧮 Score {score}/100 · stark: {_top_factors(entry['breakdown'])}",
+        "💰 " + " · ".join(price_bits),
+        f"🎯 Zone {entry['entry_zone_low']:.2f}–{entry['entry_zone_high']:.2f}{cur}",
+    ]
+    target = fundamentals.analyst_target if fundamentals else None
+    if target is not None and entry["price"] > 0:
+        upside = (target / entry["price"] - 1.0) * 100
+        lines.append(f"🔭 Analysten-Ø-Ziel {target:.2f}{cur} ({upside:+.0f} %) — fremde Meinung")
+    for evidence_line in evidence_summary_lines(evidence or []):
+        lines.append(f"👥 {evidence_line}")
+    risk = _risk_line(entry)
+    if risk:
+        lines.append(f"⚠️ {risk if len(risk) <= 90 else risk[:89] + '…'}")
+    lines.append("Kein Anlagerat · Kurse ~15 Min verzögert")
+    caption = "\n".join(lines)
+    return caption if len(caption) <= _CAPTION_LIMIT else caption[: _CAPTION_LIMIT - 1] + "…"
 
 
 def build_pitch(

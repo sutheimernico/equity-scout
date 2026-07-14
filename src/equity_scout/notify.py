@@ -63,7 +63,7 @@ def notify_watchlist(
     watchlist: dict,
     *,
     build: Callable[[dict, Fundamentals | None], str],
-    send: Callable[[int, str], int] | None,
+    send: Callable[[int, str, dict, Fundamentals | None], int] | None,
     enrich: Callable[[str], Fundamentals] | None = fetch_fundamentals,
     threshold: float = DEFAULT_THRESHOLD,
     cooldown_days: int = DEFAULT_COOLDOWN_DAYS,
@@ -102,7 +102,9 @@ def notify_watchlist(
         )
         if send is not None:
             try:
-                set_message_id(db_path, pitch_id, send(pitch_id, text))
+                # entry + fundamentals ride along so the sender can build the compact
+                # chart-photo variant (2026-07-15 redesign); the inbox keeps `text`.
+                set_message_id(db_path, pitch_id, send(pitch_id, text, entry, fundamentals))
             except TelegramError as err:
                 print(
                     f"Warnung: Telegram-Versand für {entry['ticker']} fehlgeschlagen: {err}",

@@ -142,8 +142,86 @@ def send_long_message(token: str, chat_id: int, text: str) -> int:
     return message_id
 
 
+def build_multipart(
+    fields: dict[str, str], file_field: str, filename: str, blob: bytes, boundary: str
+) -> tuple[bytes, str]:
+    """multipart/form-data body + content type, stdlib-only (no requests dependency).
+    Pure so the encoding is unit-testable without the network."""
+    parts: list[bytes] = []
+    for name, value in fields.items():
+        parts.append(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n'
+            f"{value}\r\n".encode("utf-8")
+        )
+    parts.append(
+        f'--{boundary}\r\nContent-Disposition: form-data; name="{file_field}"; '
+        f'filename="{filename}"\r\nContent-Type: image/png\r\n\r\n'.encode("utf-8")
+    )
+    parts.append(blob)
+    parts.append(f"\r\n--{boundary}--\r\n".encode("utf-8"))
+    return b"".join(parts), f"multipart/form-data; boundary={boundary}"
+
+
+def send_photo(
+    token: str, chat_id: int, png: bytes, caption: str, keyboard: dict | None = None
+) -> int:
+    """sendPhoto with caption (cap: 1024 UTF-16 units — the caption builder enforces it)
+    and optional decision keyboard. Returns the message_id."""
+    import uuid
+
+    fields: dict[str, str] = {"chat_id": str(chat_id), "caption": caption}
+    if keyboard is not None:
+        fields["reply_markup"] = json.dumps(keyboard)
+    body, content_type = build_multipart(fields, "photo", "chart.png", png, uuid.uuid4().hex)
+    request = urllib.request.Request(
+        API.format(token=token, method="sendPhoto"),
+        data=body, headers={"Content-Type": content_type},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise TelegramError(
+            f"sendPhoto failed with HTTP {exc.code}: "
+            f"{exc.read().decode('utf-8', errors='replace')}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise TelegramError(f"sendPhoto failed: {exc.reason}") from exc
+    if not payload.get("ok"):
+        raise TelegramError(f"sendPhoto failed: {payload.get('description', 'unknown')}")
+    return int(payload["result"]["message_id"])
+
+
 def edit_message(token: str, chat_id: int, message_id: int, text: str) -> None:
     _api(token, "editMessageText", {"chat_id": chat_id, "message_id": message_id, "text": text})
+
+
+def edit_caption(token: str, chat_id: int, message_id: int, caption: str) -> None:
+    _api(token, "editMessageCaption",
+         {"chat_id": chat_id, "message_id": message_id, "caption": caption})
+
+
+def edit_pitch_outcome(
+    edit_text: Callable[[int, str], None],
+    edit_photo_caption: Callable[[int, str], None],
+    message_id: int,
+    text: str,
+) -> None:
+    """Write the decision outcome onto the original message, whatever its type: text
+    pitches take the full outcome text; photo pitches (chart + caption, since the
+    2026-07-15 redesign) reject editMessageText, so fall back to a short caption
+    (header + decision line, capped for the 1024-unit caption limit). An unchanged
+    message ("message is not modified") counts as success — the self-heal path
+    re-attempts edits idempotently."""
+    try:
+        edit_text(message_id, text)
+        return
+    except TelegramError as exc:
+        if "not modified" in str(exc).lower():
+            return
+    lines = text.splitlines()
+    short = "\n".join([lines[0], lines[-1]]) if len(lines) > 1 else text
+    edit_photo_caption(message_id, short[:980])
 
 
 def answer_callback(token: str, callback_query_id: str, text: str) -> None:

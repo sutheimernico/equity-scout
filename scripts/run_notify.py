@@ -30,12 +30,14 @@ from equity_scout.notify import (
     notify_watchlist,
     send_evidence_alerts,
 )
-from equity_scout.pitch import build_pitch
+from equity_scout.charts import fetch_year_closes, render_year_chart, year_return
+from equity_scout.pitch import build_pitch, build_pitch_caption
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.telegram_client import (
     build_decision_keyboard,
     load_telegram_config,
     send_message,
+    send_photo,
 )
 
 # Congress filings arrive up to 45 days late; a 30-day window over EVENT dates keeps
@@ -43,15 +45,29 @@ from equity_scout.telegram_client import (
 EVIDENCE_WINDOW_DAYS = 30
 
 
-def _telegram_sender(config: dict) -> Callable[[int, str], int]:
-    """Bind the resolved config into the (pitch_id, text) -> message_id send seam.
-
-    Pitches are the short-term trading timeline -> intraday chat (falls back to the main
-    chat when no split is configured; .get covers stale config dicts without the key)."""
+def _telegram_sender(
+    config: dict, evidence_by_ticker: dict[str, list[dict]]
+) -> Callable[[int, str, dict, object], int]:
+    """Send seam: chart-photo pitch with a compact sectioned caption (2026-07-15 redesign
+    — Nico: kurz, klar sektioniert, mit 1-Jahres-Chart). Any chart/photo failure falls
+    back to the classic long text message so a pitch is never lost to matplotlib or a
+    missing price history. The inbox always keeps the long text."""
     chat_id = config.get("intraday_chat_id", config["chat_id"])
 
-    def send(pitch_id: int, text: str) -> int:
-        return send_message(config["token"], chat_id, text, build_decision_keyboard(pitch_id))
+    def send(pitch_id: int, text: str, entry: dict, fundamentals) -> int:
+        keyboard = build_decision_keyboard(pitch_id)
+        try:
+            dates, closes = fetch_year_closes(entry["ticker"])
+            caption = build_pitch_caption(
+                entry, fundamentals, evidence=evidence_by_ticker.get(entry["ticker"]),
+                one_year_return=year_return(closes),
+            )
+            png = render_year_chart(entry["ticker"], dates, closes)
+            return send_photo(config["token"], chat_id, png, caption, keyboard)
+        except Exception as exc:  # noqa: BLE001 - photo path is best-effort by design
+            print(f"Hinweis: Chart-Pitch für {entry['ticker']} nicht möglich ({exc}) — "
+                  "sende Text-Pitch.", file=sys.stderr)
+            return send_message(config["token"], chat_id, text, keyboard)
 
     return send
 
@@ -86,13 +102,6 @@ def main() -> int:
     config = (
         None if (args.dry_run or args.inbox_only) else load_telegram_config(dict(os.environ))
     )
-    if config is None:
-        send = None
-        alert_send = None
-        print("Telegram not configured — writing inbox pitches only.")
-    else:
-        send = _telegram_sender(config)
-        alert_send = _alert_sender(config)
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     watchlist_tickers = [entry["ticker"] for entry in watchlist.get("entries", [])]
@@ -104,6 +113,14 @@ def main() -> int:
         ),
         score_index,
     )
+
+    if config is None:
+        send = None
+        alert_send = None
+        print("Telegram not configured — writing inbox pitches only.")
+    else:
+        send = _telegram_sender(config, evidence_by_ticker)
+        alert_send = _alert_sender(config)
 
     def build(entry: dict, fundamentals) -> str:
         return build_pitch(

@@ -212,6 +212,18 @@ def evidence_block(events: list[dict]) -> str | None:
     return "\n".join(["Externe Signale:", *lines, DELAY_NOTE])
 
 
+def evidence_summary_lines(events: list[dict], limit: int = 2, width: int = 90) -> list[str]:
+    """The evidence block's strongest lines, caption-compact: chart-photo captions cap at
+    1024 chars, so 'wer kauft/redet' must fit in one or two short lines."""
+    lines: list[str] = []
+    for candidate in (_congress_line(events), _insider_line(events)):
+        if candidate:
+            lines.append(candidate)
+    lines += _fund_lines(events)
+    lines += _voice_lines(events)
+    return [ln if len(ln) <= width else ln[: width - 1] + "…" for ln in lines[:limit]]
+
+
 def select_evidence_alerts(
     clusters: dict[str, list[dict]],
     *,

@@ -15,6 +15,16 @@ def test_alerts_section_renders_ticker_and_reasons():
     assert "3 Käufer" in text
 
 
+def test_alert_reason_headlines_are_truncated():
+    text = build_digest(
+        [], date_label="2026-07-15",
+        alerts_today=[{"ticker": "AMZN", "reasons": ["Stimme: " + "x" * 300],
+                       "buyer_count": 1}],
+    )
+    line = next(ln for ln in text.splitlines() if "AMZN" in ln)
+    assert len(line) < 110 and line.rstrip().endswith("…")
+
+
 def test_alerts_section_omitted_when_empty():
     text = build_digest([], date_label="2026-07-14", alerts_today=[])
     assert "Heute aufgefallen" not in text

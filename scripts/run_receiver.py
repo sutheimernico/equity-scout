@@ -33,7 +33,9 @@ from equity_scout.telegram_client import (
     DECISION_LABELS,
     TelegramError,
     answer_callback,
+    edit_caption,
     edit_message,
+    edit_pitch_outcome,
     get_updates,
     load_telegram_config,
     poll_updates,
@@ -110,7 +112,13 @@ def main() -> int:
                     chat_id=chat_id,
                     offset=offset,
                     answer=lambda cb, text: answer_callback(token, cb, text),
-                    edit=lambda mid, text: edit_message(token, pitch_chat_id, mid, text),
+                    # Photo pitches (chart + caption) reject editMessageText; the outcome
+                    # helper falls back to a short caption edit for those.
+                    edit=lambda mid, text: edit_pitch_outcome(
+                        lambda m, t: edit_message(token, pitch_chat_id, m, t),
+                        lambda m, c: edit_caption(token, pitch_chat_id, m, c),
+                        mid, text,
+                    ),
                     now=now,
                 )
             except (TelegramError, OSError) as exc:

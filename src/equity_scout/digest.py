@@ -60,7 +60,12 @@ def build_digest(
     if alerts_today:
         lines.append("📌 Heute aufgefallen:")
         for alert in alerts_today:
-            reasons = ", ".join(_SOURCE_LABEL.get(r, r) for r in alert["reasons"])
+            # Voice reasons carry whole press headlines — cap them so the digest scans
+            # as a list (Nico 2026-07-15: kurz und übersichtlich).
+            reasons = ", ".join(
+                (r if len(r) <= 90 else r[:89] + "…")
+                for r in (_SOURCE_LABEL.get(r, r) for r in alert["reasons"])
+            )
             buyers = alert.get("buyer_count") or 0
             suffix = f" ({buyers} Käufer)" if buyers > 1 else ""
             lines.append(f"  {alert['ticker']}: {reasons}{suffix}")

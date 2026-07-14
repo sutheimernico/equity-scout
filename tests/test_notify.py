@@ -95,7 +95,8 @@ def test_notify_watchlist_creates_pitches_and_sends(tmp_path):
     }
     sent: list[tuple[int, str]] = []
 
-    def fake_send(pitch_id: int, text: str) -> int:
+    def fake_send(pitch_id: int, text: str, entry: dict, fundamentals) -> int:
+        assert entry["ticker"]  # sender gets the entry for the chart-photo variant
         sent.append((pitch_id, text))
         return 500 + pitch_id
 
@@ -132,7 +133,7 @@ def test_notify_watchlist_continues_after_telegram_error(tmp_path, capsys):
     watchlist = {"created_at": NOW, "entries": [_entry("BOOM"), _entry("OKAY")]}
     sent: list[int] = []
 
-    def flaky_send(pitch_id: int, text: str) -> int:
+    def flaky_send(pitch_id: int, text: str, entry: dict, fundamentals) -> int:
         if "BOOM" in text:
             raise TelegramError("chat not found")
         sent.append(pitch_id)
