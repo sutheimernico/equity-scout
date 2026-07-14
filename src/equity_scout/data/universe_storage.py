@@ -28,6 +28,12 @@ def init_universe_db(db_path: str | Path) -> None:
                 instruments TEXT NOT NULL,
                 UNIQUE (as_of)
             );
+            CREATE TABLE IF NOT EXISTS instrument_meta (
+                ticker TEXT PRIMARY KEY,
+                sector TEXT NOT NULL,
+                source TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             """
         )
 
@@ -58,6 +64,37 @@ def load_latest_universe_snapshot(db_path: str | Path) -> tuple[str, list[Instru
         return None
     as_of, instruments_json = row
     return as_of, [Instrument(**d) for d in json.loads(instruments_json)]
+
+
+def upsert_instrument_meta(
+    db_path: str | Path, sectors: dict[str, str], source: str, updated_at: str
+) -> None:
+    """Persist live-discovered sectors. The quote cache stores only metrics, so a sector seen
+    on a live fetch would otherwise be lost on every later cache hit (the 2026-07-14 lesson);
+    this table makes a once-seen sector durable."""
+    if not sectors:
+        return
+    init_universe_db(db_path)
+    with sqlite3.connect(db_path) as con:
+        con.executemany(
+            "INSERT INTO instrument_meta (ticker, sector, source, updated_at) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(ticker) DO UPDATE SET sector = excluded.sector, "
+            "source = excluded.source, updated_at = excluded.updated_at",
+            [(t, s, source, updated_at) for t, s in sectors.items()],
+        )
+
+
+def load_instrument_meta(db_path: str | Path) -> dict[str, str]:
+    """ticker -> sector for every stored row; {} when the DB/table doesn't exist yet."""
+    if not Path(db_path).exists():
+        return {}
+    with sqlite3.connect(db_path) as con:
+        try:
+            rows = con.execute("SELECT ticker, sector FROM instrument_meta").fetchall()
+        except sqlite3.OperationalError:
+            return {}
+    return dict(rows)
 
 
 def load_universe_snapshot(db_path: str | Path, as_of: str) -> list[Instrument] | None:
