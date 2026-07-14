@@ -27,8 +27,26 @@ class TelegramError(RuntimeError):
     """Bot API failure with Telegram's actual reason (HTTP error body or ok=false description)."""
 
 
+def _optional_chat_id(env: dict, key: str, fallback: int) -> int:
+    """Optional per-stream chat id; unset or malformed falls back to the main chat so a
+    partial config degrades to today's single-chat behavior instead of losing messages."""
+    raw = env.get(key)
+    if not raw:
+        return fallback
+    try:
+        return int(raw)
+    except ValueError:
+        print(f"{key} is not an integer — falling back to COPILOT_TG_CHAT_ID.", file=sys.stderr)
+        return fallback
+
+
 def load_telegram_config(env: dict) -> dict | None:
-    """{"token": str, "chat_id": int} or None (with a stderr hint) if unusable."""
+    """{"token", "chat_id", "intraday_chat_id", "daily_chat_id"} or None if unusable.
+
+    chat_id is Nico's private chat (= his user id): the button-press security gate and the
+    fallback for both streams. intraday: pitches + evidence alerts (the trading timeline);
+    daily: the digest. Both may be group/channel ids the bot is a member of.
+    """
     token = env.get("COPILOT_TG_BOT_TOKEN")
     raw_chat = env.get("COPILOT_TG_CHAT_ID")
     if not token or not raw_chat:
@@ -38,7 +56,12 @@ def load_telegram_config(env: dict) -> dict | None:
     except ValueError:
         print("COPILOT_TG_CHAT_ID is not an integer — Telegram disabled.", file=sys.stderr)
         return None
-    return {"token": token, "chat_id": chat_id}
+    return {
+        "token": token,
+        "chat_id": chat_id,
+        "intraday_chat_id": _optional_chat_id(env, "COPILOT_TG_CHAT_ID_INTRADAY", chat_id),
+        "daily_chat_id": _optional_chat_id(env, "COPILOT_TG_CHAT_ID_DAILY", chat_id),
+    }
 
 
 def _api(token: str, method: str, params: dict, timeout: float = 35.0) -> dict:
@@ -84,6 +107,39 @@ def send_message(token: str, chat_id: int, text: str, keyboard: dict | None = No
     if keyboard is not None:
         params["reply_markup"] = keyboard
     return int(_api(token, "sendMessage", params)["result"]["message_id"])
+
+
+def split_message(text: str, limit: int = 4000) -> list[str]:
+    """Telegram caps sendMessage at 4096 chars; split at line boundaries (hard-split a
+    single over-long line) so a long daily digest arrives complete instead of erroring."""
+    if len(text) <= limit:
+        return [text]
+    chunks: list[str] = []
+    current = ""
+    for line in text.split("\n"):
+        while len(line) > limit:  # a single line longer than the cap: hard split
+            if current:
+                chunks.append(current)
+                current = ""
+            chunks.append(line[:limit])
+            line = line[limit:]
+        candidate = f"{current}\n{line}" if current else line
+        if len(candidate) > limit:
+            chunks.append(current)
+            current = line
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def send_long_message(token: str, chat_id: int, text: str) -> int:
+    """send_message per chunk, in order; returns the LAST message_id."""
+    message_id = 0
+    for chunk in split_message(text):
+        message_id = send_message(token, chat_id, chunk)
+    return message_id
 
 
 def edit_message(token: str, chat_id: int, message_id: int, text: str) -> None:
