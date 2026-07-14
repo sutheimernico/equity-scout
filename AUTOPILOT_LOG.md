@@ -147,3 +147,4 @@
 - 2026-07-14 fix: first 6.6k-universe scout run died twice — (1) factors._clean crashed on yfinance string values in numeric fields (now honest None for non-numeric/non-finite), (2) 8-worker fetch hammered straight through Yahoo rate limits (with_retry now backs off 30s/60s on rate-limit errors, scout default 4 workers); 3 new tests; rerun resumes via read-through cache
 - 2026-07-14 fix: closed-end funds (no ETF flag in the directory) polluted the first 6.6k screen — 'funds?' added to the non-common name filter (Calamos CEFs out, REIT common stock stays); universe 6592 -> 6318; scout re-run from cache
 - 2026-07-15 A1: paper sizing now from current equity (portfolio+lanes), 4 regression tests (6a8b2d0)
+- 2026-07-15 A3: triple-barrier entry_tb family, barrier config persisted + horizon single-source fix (e4134c7, 26ba882)
