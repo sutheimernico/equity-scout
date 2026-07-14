@@ -25,6 +25,30 @@ def load_universe(csv_path: str | Path) -> list[Instrument]:
     return rows
 
 
+# Yahoo exchange suffix -> ISO country, for splitting the coarse "EU" region tag into
+# countries (filter feature). Non-EU region tags already are countries.
+_SUFFIX_COUNTRY = {"PA": "FR", "DE": "DE", "MI": "IT", "MC": "ES", "AS": "NL", "SW": "CH",
+                   "ST": "SE", "L": "GB", "BR": "BE", "OL": "NO", "CO": "DK", "HE": "FI",
+                   "VI": "AT", "LS": "PT", "IR": "IE"}
+REGION_GROUPS: dict[str, set[str]] = {
+    "europe": {"EU", "UK"},
+    "americas": {"US", "CA", "BR"},
+    "asia": {"JP", "HK", "CN", "KR", "IN"},
+    "oceania": {"AU"},
+}
+
+
+def country_of(region: str, ticker: str) -> str:
+    """ISO country for a universe row. US-listed ADRs count as US (listing venue), same
+    honest limitation as the region tag itself."""
+    if region == "UK":
+        return "GB"
+    if region != "EU":
+        return region
+    _, _, suffix = ticker.rpartition(".")
+    return _SUFFIX_COUNTRY.get(suffix, "EU") if suffix else "EU"
+
+
 def apply_meta_overlay(
     instruments: list[Instrument], sectors: dict[str, str]
 ) -> list[Instrument]:
