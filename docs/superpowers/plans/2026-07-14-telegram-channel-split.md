@@ -107,3 +107,28 @@ done
 
 - [ ] `uv run pytest -p no:warnings` all green, `uv run ruff check .` clean, `bash -n` scripts.
 - [ ] README Telegram env vars section, spec/plan outcome, report Needs-Nico steps.
+
+---
+
+## Outcome (2026-07-14, executed same session)
+
+**Shipped** (commits `828dc17..`): channel config with fallbacks + `split_message`/
+`send_long_message` chunking (7 tests), pitches/alerts routed to the intraday chat
+(receiver outcome-edits follow), digest day-sections ("Heute aufgefallen" +
+"Chancen im Blick", 5 tests) + Telegram daily-chat delivery (SMTP/stdout unchanged),
+15-min intraday cadence with a line-managing crontab installer (old `*/30` line gets
+replaced, not duplicated). Digest smoke on the production DB rendered today's 21
+congress/voices alerts correctly.
+
+**Deviations:** two pre-existing tests asserted the old config shape / stdout wording —
+updated with a channel-split note. Cadence is 15 min, not literally 10 ("oder so"-Spielraum):
+yfinance prices are ~15 min delayed, faster polling adds only rate-limit load.
+
+**Finding (pre-existing, NOT fixed, out of scope):** voices ticker resolution matched
+"Micron" to MSN instead of MU in one live alert — the deterministic name→ticker boundary
+in `evidence/voices.py` deserves a look.
+
+**Needs Nico (one-time, ~5 min):** create the two chats (e.g. two groups with the bot,
+or keep everything in the private chat and skip the extra vars), set
+`COPILOT_TG_BOT_TOKEN`, `COPILOT_TG_CHAT_ID`, `COPILOT_TG_CHAT_ID_INTRADAY`,
+`COPILOT_TG_CHAT_ID_DAILY` in `.env`, re-run `./scripts/install_crontab.sh`.

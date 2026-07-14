@@ -212,7 +212,9 @@ inbox-only / stdout; set them in your local `.env`, never commit values):
 | Variable | Purpose |
 |---|---|
 | `COPILOT_TG_BOT_TOKEN` | Telegram bot token (@BotFather) for pitch messages |
-| `COPILOT_TG_CHAT_ID` | your numeric Telegram chat id (sender security gate) |
+| `COPILOT_TG_CHAT_ID` | your numeric Telegram chat id (sender security gate + fallback for both streams) |
+| `COPILOT_TG_CHAT_ID_INTRADAY` | optional: chat for the 15-min trading stream (pitches + evidence alerts) |
+| `COPILOT_TG_CHAT_ID_DAILY` | optional: chat for the daily digest (day summary + opportunities) |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` | SMTP account for the daily digest |
 | `DIGEST_TO` | digest recipient address |
 | `OLLAMA_HOST` / `OLLAMA_MODEL` | local LLM for pitch texts (existing assistant settings) |
