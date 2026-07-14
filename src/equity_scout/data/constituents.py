@@ -481,3 +481,105 @@ def parse_index_records(records: list[dict], config: IndexConfig) -> list[Instru
             )
         )
     return out
+
+
+def _digits_zfill_suffix(
+    field: str, width: int, suffix: str
+) -> Callable[[dict[str, str]], str | None]:
+    """Mapper factory: extract digits from `field`, zero-pad to `width`, append `suffix`.
+    Covers Hang Seng ('SEHK: 5' -> 0005.HK) and KOSPI ('090430' -> 090430.KS)."""
+
+    def _map(rec: dict[str, str]) -> str | None:
+        digits = "".join(ch for ch in rec.get(field, "") if ch.isdigit())
+        return f"{digits.zfill(width)}{suffix}" if digits else None
+
+    return _map
+
+
+def _symbol_suffix(
+    field: str, suffix: str, dot_to_dash: bool = False
+) -> Callable[[dict[str, str]], str | None]:
+    """Mapper factory: take the symbol as-is (optionally Yahoo's '.'->'-'), append `suffix`."""
+
+    def _map(rec: dict[str, str]) -> str | None:
+        base = rec.get(field, "").strip().upper()
+        if not base:
+            return None
+        if base.endswith(".0"):  # pandas may parse an all-numeric code column as float
+            base = base[:-2]
+        if dot_to_dash:
+            base = base.replace(".", "-")
+        return f"{base}{suffix}"
+
+    return _map
+
+
+def _csi300_row_to_yahoo(rec: dict[str, str]) -> str | None:
+    """CSI 300: 6-digit code + exchange column ('Shanghai' -> .SS, 'Shenzhen' -> .SZ)."""
+    digits = "".join(ch for ch in rec.get("ticker", "") if ch.isdigit())
+    if len(digits) != 6:
+        return None
+    exchange = rec.get("exchange", "").lower()
+    if "shanghai" in exchange:
+        return f"{digits}.SS"
+    if "shenzhen" in exchange:
+        return f"{digits}.SZ"
+    return None
+
+
+# Verified against the live pages 2026-07-14 (table shapes in the plan doc). Taiwan 50 is
+# deliberately absent: no usable en.wikipedia constituents table exists (404), and the
+# zh.wikipedia layout has paired columns, Chinese-only names and no sectors — TSMC is covered
+# through its NYSE ADR anyway. Brazil rides the B3 listing page; the Ibovespa page has no
+# constituents table.
+INDEX_CONFIGS: list[IndexConfig] = [
+    IndexConfig(
+        name="Hang Seng Index", url="https://en.wikipedia.org/wiki/Hang_Seng_Index",
+        match_columns={"ticker", "name", "sub-index"}, name_column="name",
+        sector_column="sub-index", row_to_yahoo=_digits_zfill_suffix("ticker", 4, ".HK"),
+        region="HK", currency="HKD", exchange="SEHK", min_expected=60,
+    ),
+    IndexConfig(
+        name="CSI 300", url="https://en.wikipedia.org/wiki/CSI_300_Index",
+        match_columns={"ticker", "company", "segment", "exchange"}, name_column="company",
+        sector_column="segment", row_to_yahoo=_csi300_row_to_yahoo,
+        region="CN", currency="CNY", exchange="SSE/SZSE", min_expected=250,
+    ),
+    IndexConfig(
+        name="KOSPI 200", url="https://en.wikipedia.org/wiki/KOSPI_200",
+        match_columns={"company", "symbol", "gics sector"}, name_column="company",
+        sector_column="gics sector", row_to_yahoo=_digits_zfill_suffix("symbol", 6, ".KS"),
+        region="KR", currency="KRW", exchange="KRX", min_expected=150,
+    ),
+    IndexConfig(
+        name="NIFTY 50", url="https://en.wikipedia.org/wiki/NIFTY_50",
+        match_columns={"company name", "symbol", "sector"}, name_column="company name",
+        sector_column="sector", row_to_yahoo=_symbol_suffix("symbol", ".NS"),
+        region="IN", currency="INR", exchange="NSE", min_expected=40,
+    ),
+    IndexConfig(
+        name="NIFTY Next 50", url="https://en.wikipedia.org/wiki/NIFTY_Next_50",
+        match_columns={"company name", "symbol", "sector"}, name_column="company name",
+        sector_column="sector", row_to_yahoo=_symbol_suffix("symbol", ".NS"),
+        region="IN", currency="INR", exchange="NSE", min_expected=40,
+    ),
+    IndexConfig(
+        name="S&P/TSX Composite", url="https://en.wikipedia.org/wiki/S%26P/TSX_Composite_Index",
+        match_columns={"ticker", "company", "sector"}, name_column="company",
+        sector_column="sector", row_to_yahoo=_symbol_suffix("ticker", ".TO", dot_to_dash=True),
+        region="CA", currency="CAD", exchange="TSX", min_expected=150,
+    ),
+    IndexConfig(
+        name="S&P/ASX 200", url="https://en.wikipedia.org/wiki/S%26P/ASX_200",
+        match_columns={"code", "company", "sector"}, name_column="company",
+        sector_column="sector", row_to_yahoo=_symbol_suffix("code", ".AX"),
+        region="AU", currency="AUD", exchange="ASX", min_expected=150,
+    ),
+    IndexConfig(
+        name="B3 listed companies",
+        url="https://en.wikipedia.org/wiki/List_of_companies_listed_on_B3",
+        match_columns={"company", "ticker", "industry"}, name_column="company",
+        sector_column="industry", row_to_yahoo=_symbol_suffix("ticker", ".SA"),
+        region="BR", currency="BRL", exchange="B3", min_expected=60,
+    ),
+]
