@@ -8,7 +8,8 @@ index's native ticker to a Yahoo Finance symbol so yfinance can fetch it.
 from __future__ import annotations
 
 import re
-from typing import Protocol
+from dataclasses import dataclass
+from typing import Callable, Protocol
 
 from equity_scout.models import Instrument
 from equity_scout.universe import load_universe
@@ -414,3 +415,69 @@ class NasdaqTraderSource:
             resp.raise_for_status()
             instruments.extend(parse(resp.text))
         return instruments
+
+
+# --- Generic Wikipedia index source (universe v4 "whole world", 2026-07-14) ---------------------
+
+_FOOTNOTE = re.compile(r"\s*\[\d+\]\s*$")
+
+
+def normalize_column(raw: str) -> str:
+    """Wikipedia table headers carry footnote refs ('Sector[15]', 'Sector [10]') and stray
+    NBSPs; normalize so configs can address columns stably across page edits."""
+    return _FOOTNOTE.sub("", str(raw).replace("\xa0", " ")).strip().lower()
+
+
+@dataclass(frozen=True)
+class IndexConfig:
+    """One Wikipedia constituents table -> Instruments, declaratively.
+
+    `row_to_yahoo` gets the normalized record (lowercased, footnote-free keys; string values)
+    and returns the Yahoo symbol or None to skip the row (honest skip over a guessed symbol).
+    `min_expected` is a sanity floor: refresh warns when a source shrinks below it.
+    """
+
+    name: str
+    url: str
+    match_columns: frozenset[str] | set[str]
+    name_column: str
+    sector_column: str | None
+    row_to_yahoo: Callable[[dict[str, str]], str | None]
+    region: str
+    currency: str
+    exchange: str
+    min_expected: int
+
+
+def _normalize_record(record: dict) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for key, value in record.items():
+        text = "" if value is None else str(value).strip()
+        if text.lower() == "nan":
+            text = ""
+        out[normalize_column(key)] = text
+    return out
+
+
+def parse_index_records(records: list[dict], config: IndexConfig) -> list[Instrument]:
+    """Pure transform: raw table records + config -> Instruments. Rows without a mappable
+    symbol or a name are skipped."""
+    out: list[Instrument] = []
+    for raw in records:
+        rec = _normalize_record(raw)
+        yahoo = config.row_to_yahoo(rec)
+        name = rec.get(config.name_column, "")
+        if not yahoo or not name:
+            continue
+        sector = rec.get(config.sector_column, "") if config.sector_column else ""
+        out.append(
+            Instrument(
+                ticker=yahoo,
+                name=name,
+                exchange=config.exchange,
+                region=config.region,
+                currency=config.currency,
+                sector=sector or "Unknown",
+            )
+        )
+    return out
