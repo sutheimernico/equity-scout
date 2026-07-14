@@ -21,14 +21,24 @@ def retry_delays(attempts: int, base: float = 0.5, cap: float = 8.0) -> list[flo
     return [min(cap, base * (2 ** i)) for i in range(max(0, attempts - 1))]
 
 
+def is_rate_limit_error(exc: Exception) -> bool:
+    """Duck-typed: yfinance raises YFRateLimitError, but this module stays yfinance-free."""
+    return "ratelimit" in type(exc).__name__.lower()
+
+
 def with_retry(
     fn: Callable[[], object],
     attempts: int = 3,
     base: float = 0.5,
     cap: float = 8.0,
+    rate_limit_base: float = 30.0,
     sleep: Callable[[float], None] = time.sleep,
 ):
-    """Call fn(); on exception retry up to `attempts` total with backoff. Re-raise the last error."""
+    """Call fn(); on exception retry up to `attempts` total with backoff. Re-raise the last error.
+
+    Rate-limit errors get a MUCH longer backoff (30s/60s/... instead of sub-second): Yahoo
+    throttles per IP, and hammering through the block just extends it — the 6.6k-universe run
+    died on exactly this (2026-07-14). The long waits make a big first crawl slow but finish."""
     delays = retry_delays(attempts, base, cap)
     last_exc: Exception | None = None
     for i in range(attempts):
@@ -38,7 +48,10 @@ def with_retry(
             last_exc = exc
             logger.warning("with_retry: attempt %d/%d failed: %r", i + 1, attempts, exc)
             if i < len(delays):
-                sleep(delays[i])
+                if is_rate_limit_error(exc):
+                    sleep(rate_limit_base * (2**i))
+                else:
+                    sleep(delays[i])
     assert last_exc is not None
     raise last_exc
 

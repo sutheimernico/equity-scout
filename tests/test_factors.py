@@ -58,3 +58,14 @@ def test_value_ranked_within_sector():
     scores = {s.instrument.ticker: s for s in score_factors(quotes)}
     assert scores["TA"].value == 1.0 and scores["EA"].value == 1.0  # cheap tops its sector
     assert scores["TB"].value == 0.0 and scores["EB"].value == 0.0
+
+
+def test_clean_rejects_non_numeric_and_non_finite_values():
+    from equity_scout.factors import _clean
+
+    assert _clean("Infinity", False) is None  # yfinance string garbage (live crash 2026-07-14)
+    assert _clean(True, False) is None  # bool is not a metric
+    assert _clean(float("nan"), False) is None
+    assert _clean(float("inf"), False) is None
+    assert _clean(2.5, False) == 2.5
+    assert _clean(-1.0, True) is None

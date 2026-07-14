@@ -27,7 +27,7 @@ def main() -> None:
     ap.add_argument("--cache-db", default="equity_scout_cache.db")
     ap.add_argument("--no-cache", action="store_true")
     ap.add_argument("--top-n", type=int, default=10)
-    ap.add_argument("--max-workers", type=int, default=8, help="Bounded parallel fetch (1 = serial).")
+    ap.add_argument("--max-workers", type=int, default=4, help="Bounded parallel fetch (1 = serial).")
     ap.add_argument("--provider", choices=["fake", "yfinance"], default="fake")
     ap.add_argument("--use-llm", action="store_true")
     ap.add_argument("--llm-top-n", type=int, default=3,

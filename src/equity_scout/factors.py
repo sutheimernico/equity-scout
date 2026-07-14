@@ -9,6 +9,8 @@ Each metric becomes a percentile in [0,1]. Two refinements over a naive rank:
 """
 from __future__ import annotations
 
+import math
+
 from equity_scout.models import FactorScore, Quote
 
 # family -> list of (field_name, higher_is_better, require_positive)
@@ -24,11 +26,16 @@ _SECTOR_RELATIVE = {"value", "quality", "growth"}
 
 
 def _clean(value: float | None, require_positive: bool) -> float | None:
-    if value is None:
+    # yfinance .info is untyped JSON: across thousands of exotic listings, numeric fields
+    # occasionally arrive as strings ("Infinity", "N/A") or bools — anything non-numeric is an
+    # honest None, never coerced (live crash on the first 6.6k-universe run, 2026-07-14).
+    if value is None or isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value):
         return None
     if require_positive and value <= 0:
         return None
-    return value
+    return float(value)
 
 
 def _percentiles(values: dict[str, float], higher_is_better: bool) -> dict[str, float]:

@@ -56,3 +56,39 @@ def test_fetch_all_preserves_order_parallel_and_serial():
     parallel = fetch_all(provider, universe, max_workers=4)
     assert [q.instrument.ticker for q in serial] == ["A", "B", "C"]
     assert [q.instrument.ticker for q in parallel] == ["A", "B", "C"]
+
+
+def test_with_retry_uses_long_backoff_for_rate_limit_errors():
+    from equity_scout.data.fetch import with_retry
+
+    class YFRateLimitError(Exception):
+        pass
+
+    sleeps: list[float] = []
+    calls = {"n": 0}
+
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise YFRateLimitError("Too Many Requests")
+        return "ok"
+
+    result = with_retry(flaky, attempts=3, rate_limit_base=30.0, sleep=sleeps.append)
+    assert result == "ok"
+    assert sleeps == [30.0, 60.0]  # 30s * 2^i, not the sub-second default backoff
+
+
+def test_with_retry_keeps_short_backoff_for_ordinary_errors():
+    from equity_scout.data.fetch import with_retry
+
+    sleeps: list[float] = []
+    calls = {"n": 0}
+
+    def flaky():
+        calls["n"] += 1
+        if calls["n"] < 2:
+            raise OSError("transient")
+        return "ok"
+
+    assert with_retry(flaky, attempts=3, base=0.5, cap=8.0, sleep=sleeps.append) == "ok"
+    assert sleeps and sleeps[0] < 30.0
