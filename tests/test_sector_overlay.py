@@ -46,6 +46,41 @@ class _SectorProvider:
         return _quote(replace(instrument, sector="Technology"))
 
 
+class _EmptyThenFullProvider:
+    """First call returns an empty quote (rate-limit fallback), later calls a real one."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def fetch_quote(self, instrument: Instrument) -> Quote:
+        self.calls += 1
+        if self.calls == 1:
+            return Quote(instrument=instrument, trailing_pe=None, price_to_book=None,
+                         return_on_equity=None, profit_margins=None, revenue_growth=None,
+                         earnings_growth=None, momentum_6m=None, volatility_6m=None, price=None)
+        return _quote(instrument)
+
+
+def test_regression_empty_quote_is_never_served_from_cache(tmp_path):
+    """2026-07-14 world-scan lesson: a rate-limited fetch falls back to an all-None quote;
+    caching THAT as fresh poisons every run inside the max-age window. Empty quotes must
+    be treated as cache misses (and healed by the next successful fetch)."""
+    provider = _EmptyThenFullProvider()
+    cache = QuoteCache(tmp_path / "c.db")
+    cached = CachedProvider(provider, cache, run_date="2026-07-14", max_age_days=7)
+
+    first = cached.fetch_quote(_inst("A"))
+    assert first.momentum_6m is None  # the failed fetch itself still surfaces honestly
+
+    second = cached.fetch_quote(_inst("A"))  # must NOT serve the empty cached row
+    assert provider.calls == 2
+    assert second.momentum_6m == 0.1
+
+    third = cached.fetch_quote(_inst("A"))  # the good quote IS served from cache now
+    assert provider.calls == 2
+    assert third.price == 100.0
+
+
 def test_regression_cache_hit_keeps_meta_sector(tmp_path):
     """Run 1 fetches live (sector discovered + harvested). Run 2 hits the cache — without the
     meta overlay the sector reverts to Unknown; with it, ranking still sees 'Technology'."""

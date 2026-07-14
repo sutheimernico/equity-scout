@@ -54,8 +54,18 @@ def is_fresh(fetched_on: str, run_date: str, max_age_days: int) -> bool:
     return 0 <= delta <= max_age_days
 
 
+def is_empty_metrics(metrics: dict) -> bool:
+    """All-None metrics are a failed fetch's fallback quote, not data (2026-07-14 world-scan
+    lesson: caching those as fresh poisoned a whole week of runs)."""
+    return all(metrics.get(f) is None for f in _METRIC_FIELDS)
+
+
 class CachedProvider:
-    """Decorator provider: serve from cache when fresh, else delegate to inner and cache it."""
+    """Decorator provider: serve from cache when fresh, else delegate to inner and cache it.
+
+    Empty (all-None) rows are treated as cache MISSES on read and never stored on write:
+    a rate-limited fetch must be retried on the next run, not replayed for max_age_days.
+    """
 
     def __init__(self, inner, cache: QuoteCache, run_date: str, max_age_days: int = 1) -> None:
         self._inner = inner
@@ -65,8 +75,14 @@ class CachedProvider:
 
     def fetch_quote(self, instrument: Instrument) -> Quote:
         cached = self._cache.get(instrument.ticker)
-        if cached is not None and is_fresh(cached[0], self._run_date, self._max_age_days):
+        if (
+            cached is not None
+            and is_fresh(cached[0], self._run_date, self._max_age_days)
+            and not is_empty_metrics(cached[1])
+        ):
             return Quote(instrument=instrument, **cached[1])
         quote = self._inner.fetch_quote(instrument)
-        self._cache.put(instrument.ticker, metrics_of(quote), self._run_date)
+        metrics = metrics_of(quote)
+        if not is_empty_metrics(metrics):
+            self._cache.put(instrument.ticker, metrics, self._run_date)
         return quote
