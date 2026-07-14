@@ -210,6 +210,26 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       fehlender Accept-Header); log-and-continue hat gehalten, 9/30 Ticker sauber geprüft
       (live 2026-07-14 nach EDGAR-Freischaltung)
 
+## Phase: Vision v7 — Ziel-Exits, Event-Engine, Lern-Loop (2026-07-15)
+> Nico-Direktive: Long-Modell mit explizitem Zielwert/Exit, news-getriebenes Kurzfrist-Trading
+> (ehrlich: Latenz messen statt Minuten-Trading behaupten), sichtbares tägliches Lernen.
+> **Plan: `docs/superpowers/plans/2026-07-15-vision-v7-target-exits-events-learning.md`**
+- [ ] A1 fix(sizing): Positionsgröße vom aktuellen NAV statt initial_capital (portfolio, lanes)
+- [ ] A3 feat(ml): Triple-Barrier-Preset für entry-Familie (labeling.py wiederverwenden)
+- [ ] B5 fix(evidence): voices-Ticker-Resolution härten + news_themes Titel-Dedupe
+- [ ] A2 feat(exits): Trade-Lifecycle für Forward-Bots (ExitRules, Exit-Grund persistiert)
+- [ ] B1 feat(events): Earnings-Kalender (yfinance) + Digest-Sektion + Intraday-Awareness
+- [ ] C3 fix(pnl): Dividenden für Einzelaktien-Lanes/Portfolio (TTM anteilig)
+- [ ] A4 feat(ml): Kursziel + Stop pro Pick aus Champion-Barrier-Konfig (API)
+- [ ] A5 feat(bots): konfidenzgewichtetes Sizing statt equal-weight
+- [ ] B2 feat(events): EDGAR 8-K near-realtime Collector als Evidence-Quelle
+- [ ] C1 feat(learning): tägliche Lernkurve (n_train/n_resolved/hit-rate/rank-IC als Zeitreihe)
+- [ ] A6 feat(pitch): 🎯 Kursziel + 🛑 Stop in Pitch/Inbox/Frontend
+- [ ] B3 feat(events): Beat/Miss/Guidance-Klassifikator + events-Tabelle (published_at/seen_at)
+- [ ] C2 feat(ml): Promotion-Gate gegen Multiple-Testing härten (8 Kandidaten/Nacht)
+- [ ] B4 feat(events): Event-Reaktions-Lane paper-only mit Latenz-Log + 1h/1d/5d-Auswertung
+- [ ] C4 docs+fix: Rebalance-Kadenz-Mismatch + Survivorship-Kennzeichnung im Modell-Report
+
 ## Needs Nico (loop cannot do these itself)
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
 - Any data source that would require a paid key (do NOT sign up — log here instead).
