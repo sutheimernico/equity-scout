@@ -28,6 +28,20 @@ sectioned — score + why, KGV, price/1y move, who bought/said what.
 **Live proof:** demo photo pitch (9022.T, 378-char caption, 53 kB chart) delivered to the
 Daily-Equity-Scout chat via the real code path. Gate: 628 tests + ruff green.
 
+## Iteration 2 (same day, Nico): EUR, press voices, multi-pitch, no footer
+
+- Caption footer ("Kein Anlagerat · Kurse ~15 Min verzögert") REMOVED on Nico's call —
+  honesty framing stays in the dashboard/inbox long text and the README, not in his
+  private phone captions.
+- 💰 line always carries the € price next to the native currency (`fx.eur_rate`, yfinance
+  `<CUR>EUR=X`, per-process cache, GBp pence handled; no rate → no made-up figure).
+- 🗞️ press lines: up to 2 recent third-party headlines per pitched stock (press.py,
+  keyless Google-News RSS via the voices transport; quoted, never interpreted;
+  failures degrade to no lines).
+- Daily pitches SEVERAL names: `select_candidates(min_count)` tops up with the
+  highest-composite watchlist entries outside cooldown; daily chain runs
+  `run_notify --min-pitches 5`. Topped-up names keep their honest zone line.
+
 ## Out of scope / notes
 
 - Charts only for pitches (2–5/day), not for digest lines or evidence alerts (volume).

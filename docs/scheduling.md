@@ -54,11 +54,14 @@ Monday branch of the chain).
 
 ## Telegram delivery (2026-07-14, revised same day)
 
-Nico's setup: ONE chat, ONE delivery per day. The 18:00 chain sends the day's pitches
-(with buy/pass/later decision buttons — his manual lane vs. the ML bots trading on
-their own) followed by the digest (today's evidence: "Kongress hat X gekauft", top
-opportunities, hit rates). The 15-min chain is inbox-only (`run_notify --inbox-only`).
-Without any Telegram env everything stays in the dashboard inbox.
+Nico's setup: ONE chat, ONE delivery per day. The 18:00 chain sends the day's pitches —
+at least five (`--min-pitches 5`, topped up by composite), each a 1-year-chart photo with
+a compact caption (Score, KGV, Kurs + €-Umrechnung, Zone, Analysten-Ziel, Evidenz,
+Pressestimmen, Risiko) and buy/pass/later decision buttons (his manual lane vs. the ML
+bots trading on their own) — followed by the digest (today's evidence: "Kongress hat X
+gekauft", top opportunities, hit rates). The 15-min chain is inbox-only
+(`run_notify --inbox-only`). Without any Telegram env everything stays in the dashboard
+inbox.
 
 - `COPILOT_TG_BOT_TOKEN` + `COPILOT_TG_CHAT_ID` — the bot and Nico's private chat
   (= his user id; also the security gate for buy/pass/later button presses).
