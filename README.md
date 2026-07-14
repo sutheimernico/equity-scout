@@ -202,6 +202,10 @@ Autopilot vs. Markt, the default view), **Radar** (watchlist entry zones), **Inb
 buy/pass/later pitches), **Modell** (champion metrics + resolved-prediction honesty) — followed by
 the research views (Strategien / Machine Learning / Aktien-Screener / Assistent), all in one dark
 "trading-terminal" identity (near-black blue-violet base, phosphor-green signal, mono numerals).
+The screener filters server-side by region group (Europa/Amerika/Asien/Ozeanien), country and
+sector over each run's FULL persisted ranking (`run_scores`, ~6k names), not just the stored top
+picks. Telegram pitches arrive as a 1-year chart photo with a compact sectioned caption (score,
+KGV, 1y move, evidence, risk); any chart failure falls back to the classic text pitch.
 Build once and serve it from the API: `cd frontend && npm run build && cd ..`, then
 `uv run python scripts/run_api.py --db equity_scout.db` serves the built dashboard at
 `localhost:8000`.

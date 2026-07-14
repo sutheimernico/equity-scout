@@ -104,3 +104,18 @@ def country_of(region: str, ticker: str) -> str:
   which now persists `run_scores`. Verify `/api/filters` returns real options.
 - [ ] `uv run pytest -p no:warnings` + `ruff` + FE build green.
 - [ ] README (filter feature), spec/plan outcome sections; commit docs.
+
+---
+
+## Outcome (2026-07-15, executed same session)
+
+**Shipped** (commits `2b838c9..5ff2349` + backfill): all 5 tasks. `country_of` + REGION_GROUPS,
+`ranking_sink` → `run_scores` (6,117 rows verified on the live run), `/api/latest` filter
+params + `/api/filters` facets (23 API tests), German filter bar in FunnelView (server-side,
+replaces the old top-30-only client filter; typecheck + build green). Backfill scout ran —
+facets live: US 4465, CN 294, JP 223, CA 203, AU 190, KR 166, GB 100, IN 99; sectors led by
+Industrials/Financial Services/Technology. Sample "JP + Technology" → 8035.T, 6758.T.
+
+**Notes:** sector taxonomy stays a heterogeneous mix (yfinance GICS + Nikkei headings + B3
+industries) as speced — "Wasser" exists only where a source names it that way. 453 names
+still sector-"Unknown" (shrinks with the nightly prefetch rotation).
