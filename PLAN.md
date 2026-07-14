@@ -205,6 +205,10 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       poolen
 - [ ] Beobachten: yfinance-Fehlerquote + Laufzeit des ersten 6.6k-Scout-Laufs (FetchStats im
       Data-Quality-Report); ggf. Universum per Mindest-Preis/-Historie vorfiltern
+- [ ] Bug: Form-4-Collector wirft bei ~21 Watchlist-Tickern XML-Parse-Fehler ("tag mismatch:
+      meta/head" = SEC liefert eine HTML-Seite statt XML — vermutlich Filing-Index-URL oder
+      fehlender Accept-Header); log-and-continue hat gehalten, 9/30 Ticker sauber geprüft
+      (live 2026-07-14 nach EDGAR-Freischaltung)
 
 ## Needs Nico (loop cannot do these itself)
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
