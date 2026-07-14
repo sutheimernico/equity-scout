@@ -324,8 +324,11 @@ _OTHER_LISTED_URL = "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt
 # Word-boundary match: a security NAME containing one of these is not common stock
 # (warrants/rights/units/preferreds/notes). "United Airlines" must NOT match "unit".
 _NON_COMMON_NAME = re.compile(
-    r"\b(warrants?|rights?|units?|preferred|preference|notes?|debentures?)\b", re.IGNORECASE
-)
+    r"\b(warrants?|rights?|units?|preferred|preference|notes?|debentures?|funds?)\b",
+    re.IGNORECASE,
+)  # "funds?": closed-end funds carry no ETF flag in the directory but polluted the first
+# 6.6k screen (Calamos CEFs in the defensive bucket, 2026-07-14) — a fund is not an
+# operating company and its "fundamentals" are meaningless in a stock factor screen.
 
 # otherlisted.txt Exchange column -> readable label.
 _OTHER_EXCHANGES = {"A": "NYSE American", "N": "NYSE", "P": "NYSE Arca", "Z": "Cboe BZX", "V": "IEX"}

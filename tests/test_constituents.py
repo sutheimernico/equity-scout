@@ -173,3 +173,14 @@ def test_parse_other_listed_maps_symbols_and_filters():
     assert tickers == ["BRK-B", "TM"]  # dot -> dash for Yahoo; ETF + preferred ($) dropped
     assert instruments[0].exchange == "NYSE"
     assert instruments[1].name.startswith("Toyota")  # ADRs stay: global exposure via US listing
+
+
+def test_closed_end_funds_are_not_common_stock():
+    from equity_scout.data.constituents import parse_other_listed
+
+    fixture = """ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol
+CSQ|Calamos Strategic Total Return Fund|O|CSQ|N|100|N|CSQ
+BXP|BXP, Inc. Common Stock|N|BXP|N|100|N|BXP
+File Creation Time: 0714202522:01|||||||"""
+    tickers = [i.ticker for i in parse_other_listed(fixture)]
+    assert tickers == ["BXP"]  # CEF dropped, operating company stays
