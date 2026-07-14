@@ -89,9 +89,11 @@ def register_challenger(
     family: str = "entry",
 ) -> int:
     """Persist a fitted model as a new challenger version (never a champion by itself — call
-    `promote_if_better` to promote it). `family` partitions the registry ("entry" long model vs
-    "entry_short") — champions and promotion comparisons never cross families, so the long and
-    short bots each keep their own honest accounting. Returns the assigned version."""
+    `promote_if_better` to promote it). `family` partitions the registry ("entry" long model,
+    "entry_short", "entry_tb" the triple-barrier model — any string works, these three are just
+    what the training CLI uses today) — champions and promotion comparisons never cross families,
+    so each family keeps its own honest accounting (AUC across different label definitions is not
+    comparable). Returns the assigned version."""
     init_registry_db(db_path)
     artifact = pickle.dumps(model)
     with sqlite3.connect(db_path) as conn:

@@ -10,6 +10,7 @@ import pytest
 
 from equity_scout.ml.entry_features import FEATURE_COLUMNS
 from equity_scout.ml.entry_model import EntryModel, train_entry_model
+from equity_scout.ml.labeling import BarrierConfig
 from equity_scout.ml.model_registry import (
     RegistryError,
     entry_champion,
@@ -231,3 +232,44 @@ def test_promotion_appends_champion_history(tmp_path):
     assert history[0]["promoted_at"] == NOW
     assert history[1]["auc"] == 0.80
     assert load_champion_history(db, family="entry_short") == []
+
+
+def test_entry_tb_family_never_competes_with_entry_champion(tmp_path):
+    """entry_tb gets its own champion track (F3, AUC across label definitions is not comparable):
+    a strong entry_tb challenger must never displace the `entry` family's champion, and vice
+    versa, even though both live in the same registry db."""
+    db = str(tmp_path / "reg.db")
+    v_entry = register_challenger(db, _model(1), metrics=_metrics(0.80), n_train=20, now=NOW, family="entry")
+    assert promote_if_better(db, v_entry) is True
+
+    v_tb = register_challenger(db, _model(2), metrics=_metrics(0.90), n_train=20, now=NOW, family="entry_tb")
+    assert promote_if_better(db, v_tb) is True  # bootstraps entry_tb's OWN champion track
+
+    assert entry_champion(db, family="entry")[0] == v_entry  # untouched by the entry_tb promotion
+    assert entry_champion(db, family="entry_tb")[0] == v_tb
+    assert _champion_count(db) == 2  # one champion per family, never a single global champion
+
+    # a WEAKER entry_tb challenger still cannot touch the (higher-AUC) entry champion
+    v_tb_weak = register_challenger(
+        db, _model(3), metrics=_metrics(0.55), n_train=20, now=NOW, family="entry_tb"
+    )
+    assert promote_if_better(db, v_tb_weak) is False
+    assert entry_champion(db, family="entry")[0] == v_entry
+    assert entry_champion(db, family="entry_tb")[0] == v_tb
+
+
+def test_barrier_config_round_trips_through_registry(tmp_path):
+    """The barrier config (k_pt, k_sl, horizon, vol window) MUST be retrievable from the champion's
+    stored metrics — a follow-up task derives price target/stop from exactly this."""
+    db = str(tmp_path / "reg.db")
+    config = BarrierConfig(k_pt=2.5, k_sl=1.2, horizon_days=35, vol_window=45)
+    metrics = _metrics(0.80)
+    metrics["barrier_config"] = config.as_dict()
+    version = register_challenger(
+        db, _model(1), metrics=metrics, n_train=20, now=NOW, family="entry_tb"
+    )
+    assert promote_if_better(db, version) is True
+
+    _, _, got_metrics = entry_champion(db, family="entry_tb")
+    assert got_metrics["barrier_config"] == config.as_dict()
+    assert BarrierConfig(**got_metrics["barrier_config"]) == config

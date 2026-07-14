@@ -9,6 +9,7 @@ from equity_scout.market import PricePanel
 from equity_scout.ml.entry_dataset import build_backfill_dataset
 from equity_scout.ml.entry_eval import HORIZON_DAYS
 from equity_scout.ml.entry_features import FEATURE_COLUMNS
+from equity_scout.ml.labeling import BarrierConfig
 
 
 def _panel(n: int = 500) -> PricePanel:
@@ -108,3 +109,49 @@ def test_min_history_is_propagated_into_feature_building():
     # a stricter min_history must actually drop early rows, not silently build from 252
     assert len(meta_high) < len(meta_low)
     assert meta_high["as_of"].min() > meta_low["as_of"].min()
+
+
+def test_invalid_label_direction_raises():
+    panel = _panel()
+    with pytest.raises(ValueError):
+        build_backfill_dataset(panel, ["AAA"], label_direction="bogus")
+
+
+# --- label_direction="triple_barrier" (entry_tb family) ---
+def _panel_with_vol(n: int = 500) -> PricePanel:
+    """Like `_panel()` but with a small daily oscillation added on top of the smooth exponential
+    growth. `_panel()`'s series have a CONSTANT daily return (pure geometric growth), so their
+    trailing realized vol is exactly 0 — every triple-barrier label would come back None (a
+    zero-width barrier is rejected, see `triple_barrier_entry_label`). The oscillation gives the
+    trailing vol window something real to measure."""
+    idx = pd.bdate_range("2019-01-01", periods=n)
+    data = {
+        "SPY": [100.0 * 1.0004**i + 0.05 * ((-1) ** i) for i in range(n)],
+        "AAA": [100.0 * 1.0006**i + 0.05 * ((-1) ** i) for i in range(n)],
+        "BBB": [100.0 * 1.0002**i + 0.05 * ((-1) ** i) for i in range(n)],
+    }
+    return PricePanel(pd.DataFrame(data, index=idx))
+
+
+def test_build_backfill_dataset_triple_barrier_shape():
+    panel = _panel_with_vol()
+    config = BarrierConfig(k_pt=2.0, k_sl=1.0, horizon_days=40, vol_window=60)
+    X, y, meta = build_backfill_dataset(
+        panel,
+        ["AAA", "BBB"],
+        horizon_days=config.horizon_days,
+        label_direction="triple_barrier",
+        barrier_config=config,
+    )
+    assert list(X.columns) == list(FEATURE_COLUMNS)
+    assert len(X) == len(y) == len(meta) > 0
+    assert list(meta.columns) == ["ticker", "as_of", "relative_return"]
+    assert set(y.unique()) <= {0, 1}
+
+
+def test_triple_barrier_dataset_falls_back_to_default_barrier_config():
+    panel = _panel_with_vol()
+    X, _, meta = build_backfill_dataset(
+        panel, ["AAA"], horizon_days=BarrierConfig().horizon_days, label_direction="triple_barrier"
+    )
+    assert len(X) == len(meta) > 0

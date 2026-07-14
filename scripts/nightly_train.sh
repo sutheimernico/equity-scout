@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Nightly model training + research batch (plan v6 P5): after US close, retrain every
-# entry-model preset for BOTH families (long "entry" + short "entry_short") — the hardened
-# registry gate alone decides champion promotions — then run a bounded research-loop batch
-# (own DSR-hurdle ledger), then advance the forward paper accounts so the ML bots trade on
-# the freshest champions.
+# entry-model preset for every family (long "entry", short "entry_short", triple-barrier
+# "entry_tb") — the hardened registry gate alone decides champion promotions, per family —
+# then run a bounded research-loop batch (own DSR-hurdle ledger), then advance the forward
+# paper accounts so the ML bots trade on the freshest champions.
 #
 # Same contract as daily_copilot.sh: steps degrade independently, .venv python (cron has no
 # uv), .env sourced when present, everything appends to train.log.

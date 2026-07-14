@@ -11,6 +11,7 @@ from equity_scout.ml.entry_eval import (
     forward_return,
     rank_ic,
     relative_forward_return,
+    triple_barrier_entry_label,
 )
 
 
@@ -92,3 +93,94 @@ def test_classification_scores_empty_metrics_are_none():
     assert scores["brier"] is None
     assert scores["auc"] is None
     assert scores["log_loss"] is None
+
+
+# --- triple_barrier_entry_label (entry_tb's label seam) ---
+def _tb_series(pre_horizon: list[float], forward: list[float]) -> pd.Series:
+    """`pre_horizon` trailing daily prices (feeds trailing vol) followed by `forward` prices from
+    the event day onward. Index is a plain business-day range; the event is the last pre_horizon
+    date."""
+    values = pre_horizon + forward
+    idx = pd.date_range("2026-01-01", periods=len(values), freq="B")
+    return pd.Series(values, index=idx)
+
+
+def test_triple_barrier_entry_label_profit_hit_first():
+    pre = [100.0 + 0.05 * ((-1) ** i) for i in range(61)]  # 60 trailing returns → sigma is finite
+    at_price = pre[-1]
+    forward = [at_price * 1.10] * 15  # a fast, decisive +10% move that holds
+    stock = _tb_series(pre, forward)
+    at = stock.index[60]
+    label = triple_barrier_entry_label(stock, at, horizon_days=14, k_pt=2.0, k_sl=1.0, vol_window=60)
+    assert label == 1
+
+
+def test_triple_barrier_entry_label_stop_hit_first():
+    pre = [100.0 + 0.05 * ((-1) ** i) for i in range(61)]
+    at_price = pre[-1]
+    forward = [at_price * 0.90] * 15  # a fast, decisive -10% move that holds
+    stock = _tb_series(pre, forward)
+    at = stock.index[60]
+    label = triple_barrier_entry_label(stock, at, horizon_days=14, k_pt=2.0, k_sl=1.0, vol_window=60)
+    assert label == 0
+
+
+def test_triple_barrier_entry_label_timeout_is_zero_not_sign():
+    # Small trailing noise (finite, small sigma) then a slow drift that never clears either
+    # sigma-scaled barrier within the horizon — must be 0 (a miss), never resolved by the drift's
+    # sign the way the meta-model's `on_timeout="sign"` would.
+    pre = [100.0 + 0.05 * ((-1) ** i) for i in range(61)]
+    at_price = pre[-1]
+    forward = [at_price + 0.01 * i for i in range(15)]  # tiny upward drift, well inside any barrier
+    stock = _tb_series(pre, forward)
+    at = stock.index[60]
+    label = triple_barrier_entry_label(stock, at, horizon_days=14, k_pt=2.0, k_sl=1.0, vol_window=60)
+    assert label == 0
+
+
+def test_triple_barrier_entry_label_none_without_enough_trailing_vol_history():
+    stock = _tb_series([100.0] * 10, [101.0] * 5)
+    at = stock.index[5]
+    assert (
+        triple_barrier_entry_label(stock, at, horizon_days=3, k_pt=2.0, k_sl=1.0, vol_window=60)
+        is None
+    )
+
+
+def test_triple_barrier_entry_label_none_on_zero_vol():
+    # A perfectly flat price has zero trailing vol → a zero-width barrier would trigger on any
+    # tick; must be dropped (None), not fabricated.
+    stock = _tb_series([100.0] * 61, [100.0] * 10)
+    at = stock.index[60]
+    assert (
+        triple_barrier_entry_label(stock, at, horizon_days=5, k_pt=2.0, k_sl=1.0, vol_window=60)
+        is None
+    )
+
+
+def test_triple_barrier_entry_label_none_without_full_horizon():
+    pre = [100.0 + 0.05 * ((-1) ** i) for i in range(61)]
+    stock = _tb_series(pre, [101.0] * 3)  # only 3 forward days for a 5-day horizon
+    at = stock.index[60]
+    assert (
+        triple_barrier_entry_label(stock, at, horizon_days=5, k_pt=2.0, k_sl=1.0, vol_window=60)
+        is None
+    )
+
+
+def test_triple_barrier_entry_label_vol_scaling_flips_the_same_move():
+    """The same +3% move is a profit hit for a calm ticker (its tiny sigma-scaled barrier is well
+    under 3%) but a timeout-miss for a volatile ticker (its sigma-scaled barrier is well over 3%) —
+    proof the barrier is genuinely vol-scaled, not a fixed fraction."""
+    calm_pre = [100.0 + 0.01 * ((-1) ** i) for i in range(61)]
+    wild_pre = [100.0 + 4.0 * ((-1) ** i) for i in range(61)]
+    move = [calm_pre[-1] * 1.03] * 10  # same +3% move applied to both (same base price)
+
+    calm = _tb_series(calm_pre, move)
+    wild = _tb_series(wild_pre, move)
+    at = calm.index[60]
+
+    label_calm = triple_barrier_entry_label(calm, at, horizon_days=9, k_pt=2.0, k_sl=1.0, vol_window=60)
+    label_wild = triple_barrier_entry_label(wild, at, horizon_days=9, k_pt=2.0, k_sl=1.0, vol_window=60)
+    assert label_calm == 1
+    assert label_wild == 0

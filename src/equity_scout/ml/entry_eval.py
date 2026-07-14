@@ -1,11 +1,17 @@
 """Labels and out-of-sample metrics for the entry-quality model.
 
-Label = did the stock BEAT the benchmark (SPY) over the forward horizon — a relative
-return, not an absolute one (spec §5.2). Metrics are classification/ranking metrics
-(AUC, Brier, log-loss, Rank-IC) because the model outputs a probability, not a return.
-Everything here is computed on OUT-OF-SAMPLE predictions by the caller — this module
-has no notion of train/test, it just scores arrays honestly (AUC is None, never faked,
-when a fold has one class).
+Two label strategies live here, one per registry family:
+  * `beats_benchmark_label` (families `entry`/`entry_short`) — did the stock BEAT the benchmark
+    (SPY) over the forward horizon, a relative return, not an absolute one (spec §5.2).
+  * `triple_barrier_entry_label` (family `entry_tb`) — did the stock reach its OWN vol-scaled
+    profit target before its stop, an absolute, single-asset question with no benchmark involved.
+AUC across the two is NOT comparable (different label definitions), which is exactly why they are
+gated as separate registry families (see `model_registry.py`).
+
+Metrics are classification/ranking metrics (AUC, Brier, log-loss, Rank-IC) because the model
+outputs a probability, not a return. Everything here is computed on OUT-OF-SAMPLE predictions by
+the caller — this module has no notion of train/test, it just scores arrays honestly (AUC is None,
+never faked, when a fold has one class).
 """
 from __future__ import annotations
 
@@ -14,6 +20,8 @@ import math
 import numpy as np
 import pandas as pd
 from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
+
+from equity_scout.ml.labeling import trailing_daily_vol, triple_barrier_labels
 
 HORIZON_DAYS = 20  # ~4 weeks, the primary forward horizon
 SECONDARY_HORIZON_DAYS = 60  # ~12 weeks
@@ -56,6 +64,43 @@ def beats_benchmark_label(
     horizon is not fully observable (no peeking past the data)."""
     rel = relative_forward_return(stock, benchmark, at, horizon_days)
     return None if rel is None else int(rel > 0.0)
+
+
+def triple_barrier_entry_label(
+    stock: pd.Series, at: pd.Timestamp, *, horizon_days: int, k_pt: float, k_sl: float, vol_window: int
+) -> int | None:
+    """The `entry_tb` family's label: 1 if the vol-scaled profit barrier (`k_pt` × the ticker's own
+    trailing daily-return volatility) is touched before the vol-scaled stop barrier (`k_sl` × the
+    same sigma) within `horizon_days`, else 0 — stop hit first OR neither barrier touched by the
+    time barrier. Unlike the meta-model's triple-barrier label, a timeout is NOT resolved by the
+    sign of the final return: this label answers "did we reach the target before the stop", so an
+    inconclusive timeout is honestly a miss, not a coin flip on the drift (`on_timeout="zero"`).
+
+    None when trailing vol is not yet observable (fewer than `vol_window` trailing returns up to
+    `at`, or a degenerate zero/non-finite sigma) or `stock` has no full forward horizon past `at` —
+    the same honesty contract as `beats_benchmark_label`. The full-horizon check is explicit here
+    (unlike the lower-level `triple_barrier_labels`, which — for its other caller, the meta-model —
+    tolerates a short trailing window): this label must never be resolved on partial data."""
+    if at not in stock.index:
+        return None
+    pos = stock.index.get_loc(at)
+    if pos + horizon_days >= len(stock):  # no full forward horizon past `at` — mirrors forward_return
+        return None
+    sigma_series = trailing_daily_vol(stock.loc[:at], window=vol_window)
+    sigma = float(sigma_series.iloc[-1]) if len(sigma_series) else float("nan")
+    if not math.isfinite(sigma) or sigma <= 0:
+        return None
+    labels = triple_barrier_labels(
+        stock,
+        pd.DatetimeIndex([at]),
+        horizon_days=horizon_days,
+        profit_take=k_pt * sigma,
+        stop_loss=k_sl * sigma,
+        on_timeout="zero",
+    )
+    if at not in labels.index:  # no full forward horizon inside `stock` past `at`
+        return None
+    return int(labels.loc[at])
 
 
 def classification_scores(y_true: np.ndarray, y_prob: np.ndarray) -> dict:
