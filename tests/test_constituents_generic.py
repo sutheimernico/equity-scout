@@ -2,6 +2,8 @@
 from equity_scout.data.constituents import (
     INDEX_CONFIGS,
     IndexConfig,
+    WikipediaIndexSource,
+    find_index_table,
     normalize_column,
     parse_index_records,
 )
@@ -133,6 +135,36 @@ def test_b3_ticker_gets_sa_suffix():
     )
     assert out[0].ticker == "ALPA4.SA"
     assert out[0].region == "BR"
+
+
+_FAKE_HTML = """
+<html><body>
+<table><tr><th>Year</th><th>Closing level</th></tr>
+<tr><td>1999</td><td>100</td></tr></table>
+<table><tr><th>Ticker</th><th>Name</th><th>Sub-index</th></tr>
+<tr><td>SEHK: 5</td><td>HSBC Holdings plc</td><td>Finance</td></tr>
+<tr><td>SEHK: 700</td><td>Tencent Holdings</td><td>Commerce</td></tr></table>
+</body></html>
+"""
+
+
+def test_find_index_table_picks_by_normalized_columns():
+    records = find_index_table(_FAKE_HTML, {"ticker", "name", "sub-index"})
+    assert len(records) == 2
+    assert records[0]["Name"] == "HSBC Holdings plc"
+
+
+def test_find_index_table_returns_empty_when_absent():
+    assert find_index_table(_FAKE_HTML, {"ticker", "company", "segment", "exchange"}) == []
+
+
+def test_wikipedia_index_source_parses_fake_html():
+    class FakeSource(WikipediaIndexSource):
+        def _get(self) -> str:  # override network
+            return _FAKE_HTML
+
+    out = FakeSource(_cfg("Hang Seng Index")).fetch()
+    assert [i.ticker for i in out] == ["0005.HK", "0700.HK"]
 
 
 def test_all_configs_have_positive_floor_and_unique_names():

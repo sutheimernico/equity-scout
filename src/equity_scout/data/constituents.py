@@ -527,6 +527,46 @@ def _csi300_row_to_yahoo(rec: dict[str, str]) -> str | None:
     return None
 
 
+def find_index_table(html: str, match_columns: set[str] | frozenset[str]) -> list[dict]:
+    """Records of the first page table whose normalized column set covers `match_columns`.
+    Page order is not guaranteed (STOXX precedent), so detection is by columns, not position."""
+    import io
+
+    import pandas as pd
+
+    try:
+        tables = pd.read_html(io.StringIO(html))
+    except ValueError:  # no tables in page
+        return []
+    for table in tables:
+        normalized = {normalize_column(c) for c in table.columns}
+        if set(match_columns).issubset(normalized):
+            return table.to_dict("records")
+    return []
+
+
+class WikipediaIndexSource:
+    """Config-driven Wikipedia constituents scraper. One class serves every standard-table
+    index page; odd pages (Nikkei bullets) keep their bespoke sources."""
+
+    USER_AGENT = "equity-scout/0.1 (research; contact: nico.sutheimer@bekumoo.de)"
+
+    def __init__(self, config: IndexConfig) -> None:
+        self.config = config
+
+    def _get(self) -> str:
+        import httpx
+
+        resp = httpx.get(self.config.url, headers={"User-Agent": self.USER_AGENT},
+                         timeout=30, follow_redirects=True)
+        resp.raise_for_status()
+        return resp.text
+
+    def fetch(self) -> list[Instrument]:
+        records = find_index_table(self._get(), set(self.config.match_columns))
+        return parse_index_records(records, self.config)
+
+
 # Verified against the live pages 2026-07-14 (table shapes in the plan doc). Taiwan 50 is
 # deliberately absent: no usable en.wikipedia constituents table exists (404), and the
 # zh.wikipedia layout has paired columns, Chinese-only names and no sectors — TSMC is covered
