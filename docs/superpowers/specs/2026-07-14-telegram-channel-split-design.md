@@ -3,6 +3,11 @@
 **Date:** 2026-07-14
 **Status:** Approved design (Nico, verbal spec + blanket go, same session as global universe)
 
+> **REVISED same day (Nico):** one chat, daily-only. The existing chat receives exactly one
+> delivery per day (18:00 chain: pitches WITH decision buttons + digest); the 15-min chain
+> became inbox-only (`run_notify --inbox-only`). The channel-routing env vars stay available
+> but are not needed for this setup. Sections below describe the original two-chat design.
+
 ## Goal (Nico's words, condensed)
 
 Two Telegram chats:

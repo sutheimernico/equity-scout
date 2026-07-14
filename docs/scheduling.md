@@ -7,9 +7,10 @@ Five layers of automation, all cron-driven and local/free (always-on since v6):
    adding information), ONLY inside the approximate US market window (15:00–22:30
    Europe/Berlin Mon–Fri, guard in `src/equity_scout/market_hours.py`): radar entry
    zones → fast evidence collectors (congress mirror, news themes, voices —
-   `run_evidence.py --fast`) → notify. This is the intraday timeline that lands in the
-   intraday Telegram chat (channel split, see below). Existing cooldowns + idempotency
-   keys prevent alert spam; every pitch names the price delay. Appends to `intraday.log`.
+   `run_evidence.py --fast`) → notify `--inbox-only`. REVISED 2026-07-14: the intraday
+   timeline accumulates in the dashboard inbox only — Nico gets exactly ONE Telegram
+   delivery per day (18:00 chain: pitches with decision buttons + digest). Existing
+   cooldowns + idempotency keys prevent alert spam. Appends to `intraday.log`.
 2. **`scripts/daily_copilot.sh`** — the full unattended copilot chain at 18:00:
    (Mondays: screener first) → radar → ALL evidence collectors (incl. 13F + Form 4;
    EDGAR stays out of the 30-min loop by etiquette) → notify → score watchlist →
@@ -51,18 +52,19 @@ Monday branch of the chain).
 45 0 * * 1-6 flock -n /tmp/equity-scout-prefetch.lock /home/nicosutheimer/private/equity-scout/scripts/nightly_prefetch.sh >> /home/nicosutheimer/private/equity-scout/prefetch.log 2>&1
 ```
 
-## Telegram channel split (2026-07-14)
+## Telegram delivery (2026-07-14, revised same day)
 
-One bot, up to three chats — all env-driven, everything falls back to the single main
-chat when the extra ids are unset (and to the dashboard inbox when Telegram is entirely
-unconfigured):
+Nico's setup: ONE chat, ONE delivery per day. The 18:00 chain sends the day's pitches
+(with buy/pass/later decision buttons — his manual lane vs. the ML bots trading on
+their own) followed by the digest (today's evidence: "Kongress hat X gekauft", top
+opportunities, hit rates). The 15-min chain is inbox-only (`run_notify --inbox-only`).
+Without any Telegram env everything stays in the dashboard inbox.
 
 - `COPILOT_TG_BOT_TOKEN` + `COPILOT_TG_CHAT_ID` — the bot and Nico's private chat
   (= his user id; also the security gate for buy/pass/later button presses).
-- `COPILOT_TG_CHAT_ID_INTRADAY` — short-term stream: pitches (with decision buttons)
-  and evidence alerts from the 15-min chain. May be a group the bot is a member of.
-- `COPILOT_TG_CHAT_ID_DAILY` — the daily digest (18:00 chain): today's evidence
-  ("Kongress hat X gekauft"), top opportunities, open/decided pitches, hit rates.
+- `COPILOT_TG_CHAT_ID_INTRADAY` / `COPILOT_TG_CHAT_ID_DAILY` — optional split targets
+  (both fall back to the main chat). With the inbox-only intraday chain these only
+  matter if the daily chain's pitches and digest should land in separate chats.
 
 The installer REPLACES outdated managed lines (e.g. the old `*/30` intraday line), so
 re-running `./scripts/install_crontab.sh` after an update never leaves two schedules

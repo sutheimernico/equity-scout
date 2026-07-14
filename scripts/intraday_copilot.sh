@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# 30-minute intraday copilot: radar entry-zone check + FAST evidence collectors
-# (congress mirror, news themes, voices) + pitches/evidence alerts — so suggestions
-# arrive through the trading day, not once at 18:00.
+# 15-minute intraday copilot: radar entry-zone check + FAST evidence collectors
+# (congress mirror, news themes, voices) + pitches/evidence alerts. INBOX-ONLY since
+# the 2026-07-14 revision: Nico wants only the daily summary on his phone — the
+# intraday timeline accumulates in the dashboard inbox; Telegram sending happens
+# once a day in daily_copilot.sh (pitches with decision buttons + digest).
 #
 # Design rules (same contract as daily_copilot.sh):
 # - Runs ONLY inside the approximate US market window (market_hours.py guard);
@@ -51,5 +53,5 @@ step() {
 echo "[$(date -Is)] ===== intraday_copilot start =====" >> "$LOG"
 step radar    "$PY" scripts/run_radar.py
 step evidence "$PY" scripts/run_evidence.py --fast
-step notify   "$PY" scripts/run_notify.py
+step notify   "$PY" scripts/run_notify.py --inbox-only
 echo "[$(date -Is)] ===== intraday_copilot end =====" >> "$LOG"

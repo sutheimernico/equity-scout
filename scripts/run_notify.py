@@ -72,6 +72,10 @@ def main() -> int:
     parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD)
     parser.add_argument("--cooldown-days", type=int, default=DEFAULT_COOLDOWN_DAYS)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--inbox-only", action="store_true",
+                        help="Record pitches/alerts in the inbox but send nothing to Telegram "
+                             "(the 15-min chain uses this — Nico wants only the daily summary "
+                             "on the phone; the timeline lives in the dashboard).")
     args = parser.parse_args()
 
     watchlist = load_latest_watchlist(args.db)
@@ -79,7 +83,9 @@ def main() -> int:
         print("No watchlist found — run scripts/run_radar.py first.", file=sys.stderr)
         return 1
 
-    config = None if args.dry_run else load_telegram_config(dict(os.environ))
+    config = (
+        None if (args.dry_run or args.inbox_only) else load_telegram_config(dict(os.environ))
+    )
     if config is None:
         send = None
         alert_send = None
