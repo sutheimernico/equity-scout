@@ -2,13 +2,14 @@
 
 Five layers of automation, all cron-driven and local/free (always-on since v6):
 
-1. **`scripts/intraday_copilot.sh`** — every 30 minutes, ONLY inside the approximate
-   US market window (15:00–22:30 Europe/Berlin Mon–Fri, guard in
-   `src/equity_scout/market_hours.py`): radar entry zones → fast evidence collectors
-   (congress mirror, news themes, voices — `run_evidence.py --fast`) → notify. This is
-   what makes suggestions arrive through the trading day. Existing cooldowns +
-   idempotency keys prevent alert spam; yfinance prices are ~15 min delayed and every
-   pitch says so. Appends to `intraday.log`.
+1. **`scripts/intraday_copilot.sh`** — every 15 minutes (densest honest cadence:
+   yfinance prices are ~15 min delayed, so polling faster adds request load without
+   adding information), ONLY inside the approximate US market window (15:00–22:30
+   Europe/Berlin Mon–Fri, guard in `src/equity_scout/market_hours.py`): radar entry
+   zones → fast evidence collectors (congress mirror, news themes, voices —
+   `run_evidence.py --fast`) → notify. This is the intraday timeline that lands in the
+   intraday Telegram chat (channel split, see below). Existing cooldowns + idempotency
+   keys prevent alert spam; every pitch names the price delay. Appends to `intraday.log`.
 2. **`scripts/daily_copilot.sh`** — the full unattended copilot chain at 18:00:
    (Mondays: screener first) → radar → ALL evidence collectors (incl. 13F + Form 4;
    EDGAR stays out of the 30-min loop by etiquette) → notify → score watchlist →
@@ -42,13 +43,30 @@ Monday branch of the chain).
 0 18 * * 1-5 /home/nicosutheimer/private/equity-scout/scripts/daily_copilot.sh >> /home/nicosutheimer/private/equity-scout/copilot.log 2>&1
 # receiver keepalive — flock guarantees a single instance; no-op without Telegram env
 */5 * * * * flock -n /tmp/equity-scout-receiver.lock /home/nicosutheimer/private/equity-scout/scripts/receiver_keepalive.sh >> /home/nicosutheimer/private/equity-scout/receiver.log 2>&1
-# intraday chain — cron fires blindly every 30 min; the market-window guard inside exits quietly
-*/30 * * * 1-5 flock -n /tmp/equity-scout-intraday.lock /home/nicosutheimer/private/equity-scout/scripts/intraday_copilot.sh >> /home/nicosutheimer/private/equity-scout/intraday.log 2>&1
+# intraday chain — cron fires blindly every 15 min; the market-window guard inside exits quietly
+*/15 * * * 1-5 flock -n /tmp/equity-scout-intraday.lock /home/nicosutheimer/private/equity-scout/scripts/intraday_copilot.sh >> /home/nicosutheimer/private/equity-scout/intraday.log 2>&1
 # nightly training — 02:30 Tue-Sat, after the US close and settled EOD data
 30 2 * * 2-6 flock -n /tmp/equity-scout-nightly.lock /home/nicosutheimer/private/equity-scout/scripts/nightly_train.sh >> /home/nicosutheimer/private/equity-scout/train.log 2>&1
 # nightly universe prefetch — 00:45 Mon-Sat, one universe segment per night (6-night rotation)
 45 0 * * 1-6 flock -n /tmp/equity-scout-prefetch.lock /home/nicosutheimer/private/equity-scout/scripts/nightly_prefetch.sh >> /home/nicosutheimer/private/equity-scout/prefetch.log 2>&1
 ```
+
+## Telegram channel split (2026-07-14)
+
+One bot, up to three chats — all env-driven, everything falls back to the single main
+chat when the extra ids are unset (and to the dashboard inbox when Telegram is entirely
+unconfigured):
+
+- `COPILOT_TG_BOT_TOKEN` + `COPILOT_TG_CHAT_ID` — the bot and Nico's private chat
+  (= his user id; also the security gate for buy/pass/later button presses).
+- `COPILOT_TG_CHAT_ID_INTRADAY` — short-term stream: pitches (with decision buttons)
+  and evidence alerts from the 15-min chain. May be a group the bot is a member of.
+- `COPILOT_TG_CHAT_ID_DAILY` — the daily digest (18:00 chain): today's evidence
+  ("Kongress hat X gekauft"), top opportunities, open/decided pitches, hit rates.
+
+The installer REPLACES outdated managed lines (e.g. the old `*/30` intraday line), so
+re-running `./scripts/install_crontab.sh` after an update never leaves two schedules
+running in parallel.
 
 **WSL caveat:** cron only fires while the WSL VM is running. If the laptop was off
 at 18:00, that day's chain simply did not happen (the receiver comes back within
