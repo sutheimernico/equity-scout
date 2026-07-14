@@ -42,6 +42,8 @@ def build_digest(
     date_label: str,
     decided_since: str | None = None,
     evidence_stats: dict[str, dict] | None = None,
+    alerts_today: list[dict] | None = None,
+    opportunities: list[dict] | None = None,
 ) -> str:
     """German plain-text digest: all open pitches first, then recent decisions.
 
@@ -50,8 +52,31 @@ def build_digest(
     correct because all writers produce UTC "+00:00" ISO strings (see inbox_storage).
     evidence_stats (evidence.ledger.stats_by_source shape) appends the measured
     per-source hit-rates — queries, not promises; omitted entirely when None/empty.
+    alerts_today (evidence.storage.load_alerts rows) and opportunities (radar watchlist
+    entries) render the day-summary sections for the Telegram daily chat; both are
+    omitted entirely when None/empty.
     """
     lines = [f"Copilot-Digest {date_label}", ""]
+    if alerts_today:
+        lines.append("📌 Heute aufgefallen:")
+        for alert in alerts_today:
+            reasons = ", ".join(_SOURCE_LABEL.get(r, r) for r in alert["reasons"])
+            buyers = alert.get("buyer_count") or 0
+            suffix = f" ({buyers} Käufer)" if buyers > 1 else ""
+            lines.append(f"  {alert['ticker']}: {reasons}{suffix}")
+        lines.append("")
+    if opportunities:
+        lines.append("🎯 Chancen im Blick:")
+        for entry in opportunities:
+            marks = ""
+            if entry.get("in_zone"):
+                marks += " · in Zone"
+            if (entry.get("value_gap") or 0) > 0:
+                marks += " · unterbewertet"
+            lines.append(
+                f"  {entry['ticker']} · Score {round(entry['composite'] * 100)}/100{marks}"
+            )
+        lines.append("")
     open_pitches = [p for p in pitches if p["status"] == "open"]
     decided = [
         p for p in pitches

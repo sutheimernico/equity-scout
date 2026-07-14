@@ -90,14 +90,16 @@ def test_main_without_smtp_config_prints_digest_and_exits_0(tmp_path, monkeypatc
         db, ticker="EXE", watchlist_id=1, price=90.72, composite=0.59,
         zone_low=85.0, zone_high=95.0, pitch="Pitch", created_at="2026-07-05T10:00:00+00:00",
     )
-    for var in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "DIGEST_TO"):
+    # Channel split (2026-07-14): stdout is the fallback when BOTH delivery paths are off.
+    for var in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "DIGEST_TO",
+                "COPILOT_TG_BOT_TOKEN", "COPILOT_TG_CHAT_ID"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setattr(sys, "argv", ["run_digest.py", "--db", db])
 
     assert main() == 0
     out = capsys.readouterr().out
     assert "EXE" in out
-    assert "SMTP not configured" in out
+    assert "Neither SMTP nor Telegram configured" in out
 
 
 def test_build_digest_appends_measured_evidence_stats():
