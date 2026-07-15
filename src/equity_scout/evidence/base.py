@@ -7,6 +7,7 @@ explicit human-readable reason — a dead source must never be mistaken for a qu
 """
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 
 SOURCE_CONGRESS = "congress"
@@ -38,3 +39,14 @@ class CollectorResult:
     status: str
     events: list[EvidenceEvent] = field(default_factory=list)
     detail: str = ""  # skip/error reason; empty when status is "ok"
+
+
+def title_hash(title: str) -> str:
+    """Normalized-title hash for syndication dedupe (voices mentions, news-theme
+    headlines). Google News suffixes titles with " - <outlet>"; strip it so the same
+    story syndicated to two outlets/feeds hashes identically (live finding 2026-07-13)."""
+    story = title.rsplit(" - ", 1)[0] if " - " in title else title
+    normalized = " ".join(
+        "".join(ch if ch.isalnum() else " " for ch in story.lower()).split()
+    )
+    return hashlib.sha256(normalized.encode()).hexdigest()[:16]

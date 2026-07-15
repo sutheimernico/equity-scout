@@ -158,13 +158,23 @@ def test_resolve_ticker_generic_first_words_never_resolve_via_first_word_rule():
     # capitalized English word — "Amazon Prime raises subscription prices" must never
     # fire a Prime Medicine alert. With Amazon as a candidate, the headline resolves
     # to AMZN; without it, to nothing at all.
-    prme = ("PRME", "Prime Medicine, Inc.")
+    prme = ("PRME", "Prime Medicine, Inc. - Common Stock")  # raw universe CSV form
     title = "Amazon Prime raises subscription prices"
     assert resolve_ticker(title, [prme]) is None
     assert resolve_ticker(title, [prme, ("AMZN", "Amazon.com, Inc.")]) == "AMZN"
     # Full-name mentions of a guarded company still resolve — the guard only closes
-    # the bare-first-word shortcut, not the name channel.
+    # the bare-first-word shortcut, not the name channel; the listing tail must not
+    # block the match (exercised in raw CSV form on purpose).
     assert resolve_ticker("Prime Medicine reports trial data", [prme]) == "PRME"
+
+
+def test_resolve_ticker_strips_no_dash_listing_tail():
+    # NASDAQ tails also occur without the " - " separator; truncating at the marker
+    # exposes fresh trailing suffixes ("... Inc. Class A") that must be re-stripped
+    # before the full-name match. "Select" is a guarded first word, so only the full
+    # name can produce this hit.
+    wttr = ("WTTR", "Select Water Solutions, Inc. Class A common stock")
+    assert resolve_ticker("Select Water Solutions wins contract", [wttr]) == "WTTR"
 
 
 # --- collector -----------------------------------------------------------------

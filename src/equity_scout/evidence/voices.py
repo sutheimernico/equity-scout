@@ -38,7 +38,6 @@ manually before trusting voice person scores (see plan P1, honest limits).
 """
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -51,6 +50,7 @@ from equity_scout.evidence.base import (
     STATUS_OK,
     CollectorResult,
     EvidenceEvent,
+    title_hash,
 )
 from equity_scout.evidence.edgar import _normalize as _normalize_issuer
 
@@ -112,6 +112,35 @@ _GENERIC_FIRST_WORDS = frozenset(
     "SHELL STANDARD TARGET UNITED VICTORY VISION".split()
 )
 
+# Adjacent-token pairs that start a listing tail inside a universe CSV name
+# ("Common Stock", "Class A Ordinary Shares", "American Depositary Shares (each
+# representing ...)"). Everything from the marker on is exchange boilerplate that
+# never appears in a headline. Both "Depositary" and NASDAQ's "Depository" occur.
+_NAME_TAIL_MARKERS = frozenset({
+    ("COMMON", "STOCK"), ("COMMON", "SHARES"), ("ORDINARY", "SHARES"),
+    ("ORDINARY", "SHARE"), ("DEPOSITARY", "SHARES"), ("DEPOSITARY", "SHARE"),
+    ("DEPOSITORY", "SHARES"), ("DEPOSITORY", "SHARE"), ("AMERICAN", "DEPOSITARY"),
+    ("AMERICAN", "DEPOSITORY"), ("DEPOSITARY", "RECEIPTS"), ("DEPOSITORY", "RECEIPTS"),
+})
+
+
+def _normalize_universe_name(name: str) -> str:
+    """Issuer normalization for universe CSV names, which carry listing tails
+    ("Prime Medicine, Inc. - Common Stock") that `edgar._normalize` does not strip —
+    ~64% of universe_combined.csv has one, so without this the full-name channel never
+    matches a real headline. Deliberately a voices-local wrapper: `edgar._normalize`
+    also normalizes 13F issuer names, where changing exact-vs-prefix match behavior
+    could silently reshuffle EDGAR ambiguity sets."""
+    base = name.split(" - ", 1)[0]  # NASDAQ-style "<name> - <listing tail>"
+    tokens = _normalize_issuer(base).split()
+    for i in range(len(tokens) - 1):
+        if (tokens[i], tokens[i + 1]) in _NAME_TAIL_MARKERS:
+            # Truncation can expose new trailing suffixes ("... Inc Class A"), so the
+            # kept head goes through the shared normalization once more.
+            return _normalize_issuer(" ".join(tokens[:i]))
+    return " ".join(tokens)
+
+
 _FEED_URLS: dict[str, str] = {
     "google-news": (
         "https://news.google.com/rss/search?q=%22{query}%22%20when:2d"
@@ -172,23 +201,13 @@ def parse_feed_dated(xml_text: str) -> list[tuple[str, str]]:
     return items
 
 
-def _title_hash(title: str) -> str:
-    # Google News suffixes titles with " - <outlet>"; strip it so the same story
-    # syndicated to two outlets hashes identically (live finding 2026-07-13).
-    story = title.rsplit(" - ", 1)[0] if " - " in title else title
-    normalized = " ".join(
-        "".join(ch if ch.isalnum() else " " for ch in story.lower()).split()
-    )
-    return hashlib.sha256(normalized.encode()).hexdigest()[:16]
-
-
 def dedupe_mentions(mentions: list[Mention]) -> list[Mention]:
     """Same story syndicated across feeds/outlets collapses via normalized-title hash
     (feed GUIDs differ per outlet and are useless for this)."""
     seen: set[tuple[str, str]] = set()
     unique: list[Mention] = []
     for mention in mentions:
-        key = (mention.speaker, _title_hash(mention.title))
+        key = (mention.speaker, title_hash(mention.title))
         if key in seen:
             continue
         seen.add(key)
@@ -235,11 +254,12 @@ def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
     `_GENERIC_FIRST_WORDS`) a capitalized occurrence in the original title — "Target"
     the retailer vs "target prices", "Micron" alone for "Micron Technology, Inc."
     when no other tracked company starts with "Micron", but never "Prime" alone for
-    Prime Medicine ("Amazon Prime raises prices" is not a PRME mention).
-    Only when no name channel matches at all does a candidate fall back to the raw
-    all-caps TICKER-TOKEN channel, itself
-    filtered by `_SYMBOL_STOPWORDS` (see module docstring: media/portal acronyms like
-    MSN must never resolve as a ticker). All channel hits pool into one set before the
+    Prime Medicine ("Amazon Prime raises prices" is not a PRME mention). Names are
+    normalized via `_normalize_universe_name`, so listing tails ("- Common Stock")
+    never block a match. Only when no name channel matches at all does a candidate
+    fall back to the raw all-caps TICKER-TOKEN channel, itself filtered by
+    `_SYMBOL_STOPWORDS` (see module docstring: media/portal acronyms like MSN must
+    never resolve as a ticker). All channel hits pool into one set before the
     ambiguity check, so a headline that genuinely names two different companies is
     still an honest non-match.
     """
@@ -253,7 +273,7 @@ def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
     )
     padded_title = f" {normalized_title} "
 
-    norm_names = {ticker: _normalize_issuer(name) for ticker, name in universe}
+    norm_names = {ticker: _normalize_universe_name(name) for ticker, name in universe}
     # First word of each multi-word name, only when it's unique across the universe —
     # "Micron" alone is safe to trust, "American" (Airlines vs Express) is not.
     first_word_owners: dict[str, set[str]] = {}
@@ -265,8 +285,7 @@ def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
         return any(tok.upper() == word and tok[:1].isupper() for tok in tokens)
 
     matched: set[str] = set()
-    for ticker, _name in universe:
-        norm_name = norm_names[ticker]
+    for ticker, norm_name in norm_names.items():
         name_hit = False
         if norm_name and " " in norm_name:
             if f" {norm_name} " in padded_title:

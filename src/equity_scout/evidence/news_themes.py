@@ -16,7 +16,6 @@ is context, never a forecast (by the time a theme is in the news, it is in the p
 """
 from __future__ import annotations
 
-import hashlib
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -28,6 +27,7 @@ from equity_scout.evidence.base import (
     STATUS_OK,
     CollectorResult,
     EvidenceEvent,
+    title_hash,
 )
 
 FEEDS: dict[str, str] = {
@@ -120,16 +120,6 @@ def fetch_headlines(
     return headlines, feed_status
 
 
-def _title_hash(title: str) -> str:
-    # Google News suffixes titles with " - <outlet>"; strip it so the same story
-    # syndicated to two feeds hashes identically (mirrors voices._title_hash).
-    story = title.rsplit(" - ", 1)[0] if " - " in title else title
-    normalized = " ".join(
-        "".join(ch if ch.isalnum() else " " for ch in story.lower()).split()
-    )
-    return hashlib.sha256(normalized.encode()).hexdigest()[:16]
-
-
 def dedupe_headlines(headlines: list[Headline]) -> list[Headline]:
     """Same story syndicated across feeds collapses to one — otherwise a single wire
     article counted from N feeds inflates both the hit count and the distinct-source
@@ -137,7 +127,7 @@ def dedupe_headlines(headlines: list[Headline]) -> list[Headline]:
     seen: set[str] = set()
     unique: list[Headline] = []
     for headline in headlines:
-        key = _title_hash(headline.title)
+        key = title_hash(headline.title)
         if key in seen:
             continue
         seen.add(key)
