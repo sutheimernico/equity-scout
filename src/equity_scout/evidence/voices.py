@@ -52,7 +52,7 @@ from equity_scout.evidence.base import (
     EvidenceEvent,
     title_hash,
 )
-from equity_scout.evidence.edgar import _normalize as _normalize_issuer
+from equity_scout.evidence.edgar import _SUFFIX_TOKENS
 
 # Person -> title aliases (the query always uses the canonical name; aliases only
 # widen TITLE attribution). Managers of the 8 funds edgar.TRACKED_FUNDS follows —
@@ -130,14 +130,30 @@ def _normalize_universe_name(name: str) -> str:
     ~64% of universe_combined.csv has one, so without this the full-name channel never
     matches a real headline. Deliberately a voices-local wrapper: `edgar._normalize`
     also normalizes 13F issuer names, where changing exact-vs-prefix match behavior
-    could silently reshuffle EDGAR ambiguity sets."""
+    could silently reshuffle EDGAR ambiguity sets.
+
+    Suffix stripping uses edgar's `_SUFFIX_TOKENS` vocabulary but adds a floor for
+    TAIL-STRIPPED names: when the result would collapse to a single generic token
+    ("City Holding Company - Common Stock" -> "CITY"), the last multi-word form is
+    kept ("CITY HOLDING") so the full-name channel demands the two-word mention —
+    otherwise every title-case "New York City ..." headline becomes a CHCO match.
+    Names WITHOUT a tail keep the plain `edgar._normalize` result (TGT stays
+    "TARGET"): that single-token exposure predates tail stripping and is tracked as
+    its own backlog item."""
     base = name.split(" - ", 1)[0]  # NASDAQ-style "<name> - <listing tail>"
-    tokens = _normalize_issuer(base).split()
+    tokens = "".join(ch if ch.isalnum() else " " for ch in base.upper()).split()
+    had_tail = base != name
     for i in range(len(tokens) - 1):
         if (tokens[i], tokens[i + 1]) in _NAME_TAIL_MARKERS:
-            # Truncation can expose new trailing suffixes ("... Inc Class A"), so the
-            # kept head goes through the shared normalization once more.
-            return _normalize_issuer(" ".join(tokens[:i]))
+            tokens = tokens[:i]
+            had_tail = True
+            break
+    if tokens and tokens[0] == "THE":
+        tokens.pop(0)
+    while tokens and tokens[-1] in _SUFFIX_TOKENS:
+        if had_tail and len(tokens) == 2 and tokens[0] in _GENERIC_FIRST_WORDS:
+            break  # keep the last multi-word form, e.g. "CITY HOLDING"
+        tokens.pop()
     return " ".join(tokens)
 
 

@@ -168,6 +168,18 @@ def test_resolve_ticker_generic_first_words_never_resolve_via_first_word_rule():
     assert resolve_ticker("Prime Medicine reports trial data", [prme]) == "PRME"
 
 
+def test_resolve_ticker_tail_stripped_generic_name_keeps_two_word_form():
+    # Tail stripping must not collapse "City Holding Company - Common Stock" to the
+    # bare generic token "CITY": the single-token branch has no generic-word gate, so
+    # every title-case "New York City ..." headline would fire a CHCO mention. The
+    # kept two-word form ("CITY HOLDING") still matches real coverage of the company.
+    chco = ("CHCO", "City Holding Company - Common Stock")
+    assert resolve_ticker(
+        "Michael Burry warns New York City office market is doomed", [chco]
+    ) is None
+    assert resolve_ticker("City Holding Company beats estimates", [chco]) == "CHCO"
+
+
 def test_resolve_ticker_strips_no_dash_listing_tail():
     # NASDAQ tails also occur without the " - " separator; truncating at the marker
     # exposes fresh trailing suffixes ("... Inc. Class A") that must be re-stripped
