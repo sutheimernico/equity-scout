@@ -21,8 +21,9 @@ deterministically, with no LLM anywhere in this module:
 Ticker resolution (`resolve_ticker`) trusts the COMPANY NAME channel over the raw
 all-caps TICKER-TOKEN channel: a name match (full normalized name, or — for a
 single-token name, or the distinguishing first word of a multi-word name when that
-word is unique across the whole universe — a capitalized occurrence in the original
-title) is accepted even when a coincidental all-caps token would otherwise collide.
+word is unique across the whole universe and not a generic English word
+(`_GENERIC_FIRST_WORDS`) — a capitalized occurrence in the original title) is
+accepted even when a coincidental all-caps token would otherwise collide.
 Raw ticker tokens are gated by `_SYMBOL_STOPWORDS`, which also lists common
 media/portal acronyms (MSN, CNBC, ...): a portal name can literally equal an unrelated
 real ticker. Live bug (2026-07-15): a Michael Burry headline about "Micron" (not
@@ -94,6 +95,21 @@ MAX_HEADLINE_AGE_DAYS = 3  # feeds return archive hits; a stale mention is not n
 _SYMBOL_STOPWORDS = frozenset(
     "A AI ALL AN ARE BBC BE BY CEO CFO CNBC CNN DO EPS ETF EU FED FOR FT GDP GO I IN "
     "IPO IT ITS MSN NEW NOW ON OR OUT Q RSS SEC SEE SO TV UK US USA VS WSJ".split()
+)
+
+# Generic English words the distinguishing-FIRST-WORD rule must never trust, even
+# when unique across the universe: "Amazon Prime raises subscription prices" must not
+# resolve to Prime Medicine (PRME) just because no other tracked company starts with
+# "Prime" — headline title-case and sentence-initial capitalization make ordinary
+# words look like name mentions. Curated from the coordinator-flagged classics plus a
+# scan of universe_combined.csv (2026-07-15) for one-owner generic first words
+# (PACIFIC->PACB, LANDMARK->LARK, FALCON->FBYD "Falcon 9", NEXT->NXTT, ...). Blocked
+# companies still resolve via their full normalized name — an honest miss, not a guess.
+_GENERIC_FIRST_WORDS = frozenset(
+    "ADVANCE AMERICAN BUILDERS CITY CUSTOMERS FALCON FEDERAL FIRST FREEDOM GARDEN "
+    "GENERAL GLOBAL GRAND GROUP INSURANCE LANDMARK LEGEND LIFE LIGHT MAIN NATIONAL "
+    "NEXT NOBLE OCEAN OPTION PACIFIC PREMIER PRIME PROGRESS PURE SECURE SELECT "
+    "SHELL STANDARD TARGET UNITED VICTORY VISION".split()
 )
 
 _FEED_URLS: dict[str, str] = {
@@ -215,9 +231,11 @@ def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
     Company name is the higher-trust channel and is tried first for every candidate:
     the full normalized name as a substring, OR (for a single-token name, or the
     distinguishing FIRST word of a multi-word name when that word is longer than 3
-    chars and unique across the whole universe) a capitalized occurrence in the
-    original title — "Target" the retailer vs "target prices", "Micron" alone for
-    "Micron Technology, Inc." when no other tracked company starts with "Micron".
+    chars, unique across the whole universe, and not a generic English word per
+    `_GENERIC_FIRST_WORDS`) a capitalized occurrence in the original title — "Target"
+    the retailer vs "target prices", "Micron" alone for "Micron Technology, Inc."
+    when no other tracked company starts with "Micron", but never "Prime" alone for
+    Prime Medicine ("Amazon Prime raises prices" is not a PRME mention).
     Only when no name channel matches at all does a candidate fall back to the raw
     all-caps TICKER-TOKEN channel, itself
     filtered by `_SYMBOL_STOPWORDS` (see module docstring: media/portal acronyms like
@@ -257,6 +275,7 @@ def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
                 first_word = norm_name.split()[0]
                 name_hit = (
                     len(first_word) > 3  # "A", "AN" alone are too generic to trust
+                    and first_word not in _GENERIC_FIRST_WORDS
                     and len(first_word_owners.get(first_word, ())) == 1
                     and capitalized_original(first_word)
                 )

@@ -129,8 +129,14 @@ def test_resolve_ticker_symbol_stopwords_never_match():
 
 def test_resolve_ticker_portal_acronyms_never_resolve_as_ticker():
     # A guard against real tickers that coincidentally equal a media/portal acronym.
-    portal_universe = [("MSN", "Placeholder One Inc."), ("CNBC", "Placeholder Two Inc.")]
-    assert resolve_ticker("Market wrap via MSN and CNBC today", portal_universe) is None
+    # SINGLE candidate on purpose: with two portal tickers, None would already fall
+    # out of ambiguity pooling — here only the stopword gate can produce it.
+    assert resolve_ticker(
+        "Market wrap via MSN today", [("MSN", "Placeholder One Inc.")]
+    ) is None
+    assert resolve_ticker(
+        "CNBC interview moves markets", [("CNBC", "Placeholder Two Inc.")]
+    ) is None
 
 
 def test_resolve_ticker_company_name_beats_portal_acronym_collision():
@@ -145,6 +151,20 @@ def test_resolve_ticker_company_name_beats_portal_acronym_collision():
     ]
     title = "Micron soars on AI chip demand - MSN"
     assert resolve_ticker(title, universe) == "MU"
+
+
+def test_resolve_ticker_generic_first_words_never_resolve_via_first_word_rule():
+    # "Prime" is PRME's unique first word in the real universe, but it's an ordinary
+    # capitalized English word — "Amazon Prime raises subscription prices" must never
+    # fire a Prime Medicine alert. With Amazon as a candidate, the headline resolves
+    # to AMZN; without it, to nothing at all.
+    prme = ("PRME", "Prime Medicine, Inc.")
+    title = "Amazon Prime raises subscription prices"
+    assert resolve_ticker(title, [prme]) is None
+    assert resolve_ticker(title, [prme, ("AMZN", "Amazon.com, Inc.")]) == "AMZN"
+    # Full-name mentions of a guarded company still resolve — the guard only closes
+    # the bare-first-word shortcut, not the name channel.
+    assert resolve_ticker("Prime Medicine reports trial data", [prme]) == "PRME"
 
 
 # --- collector -----------------------------------------------------------------
