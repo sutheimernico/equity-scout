@@ -4,11 +4,21 @@ Pure math (sma/fib/swing-low/atr/compute_entry_plan) is network-free and unit-te
 The yfinance fetch is isolated at the bottom (lazy import), mirroring data/yf_provider.py.
 
 Framing: these are REFERENCE levels, not buy signals. No price prediction.
+
+`compute_target_stop` is a different kind of number: a deterministic, model-derived price
+target/stop from the `entry_tb` champion's own vol-scaled barrier config — not a rule-based
+reference level and not an LLM guess (see `pitch.py`'s guardrail against LLM price targets), but
+still an honest computation with an explicit gap (None) when the champion or its history is
+missing, never a fallback default.
 """
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+
+import pandas as pd
+
+from equity_scout.ml.labeling import trailing_daily_vol
 
 
 def clean_prices(values: list[float]) -> list[float]:
@@ -188,6 +198,39 @@ def compute_entry_plan(
         levels=levels, dca_tranches=dca, dip_tranches=dip,
         near_reference=near_reference, reference_note=note,
     )
+
+
+def compute_target_stop(closes: list[float], barrier_config: dict) -> dict | None:
+    """Model-derived price target + stop, from the `entry_tb` champion's OWN vol-scaled barrier
+    config (`ml.labeling.BarrierConfig.as_dict()`): `target = price * (1 + k_pt * sigma)`,
+    `stop = price * (1 - k_sl * sigma)`, with `sigma` the ticker's OWN trailing daily-return
+    volatility over `vol_window` trailing days. Reuses `trailing_daily_vol` (the exact function the
+    training label is built from, `ml.entry_eval.triple_barrier_entry_label`) so the live number can
+    never drift from what the champion was actually trained on.
+
+    `price` is the last CLEAN close (mirrors `compute_entry_plan`), `sigma` is read as of that same
+    last date — the live equivalent of "at" in the training label.
+
+    None (an honest gap, never a guessed default) when there is not yet a full `vol_window` of
+    trailing daily returns to compute sigma from (fewer than `vol_window + 1` clean closes), or
+    sigma is degenerate (zero/non-finite, e.g. a flat price series)."""
+    clean = clean_prices(closes)
+    vol_window = int(barrier_config["vol_window"])
+    if len(clean) < vol_window + 1:
+        return None
+    sigma_series = trailing_daily_vol(pd.Series(clean), window=vol_window)
+    sigma = float(sigma_series.iloc[-1])
+    if not math.isfinite(sigma) or sigma <= 0:
+        return None
+    price = clean[-1]
+    k_pt = float(barrier_config["k_pt"])
+    k_sl = float(barrier_config["k_sl"])
+    return {
+        "target": round(price * (1 + k_pt * sigma), 2),
+        "stop": round(price * (1 - k_sl * sigma), 2),
+        "sigma": round(sigma, 6),
+        "horizon_days": int(barrier_config["horizon_days"]),
+    }
 
 
 def fetch_entry_history(ticker: str) -> tuple[list[float], list[float], list[float]]:

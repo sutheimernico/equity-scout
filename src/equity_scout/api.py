@@ -41,7 +41,7 @@ from equity_scout.storage import (
 from equity_scout.universe import REGION_GROUPS
 from equity_scout.telegram_client import ACTIONS
 from equity_scout.ml.ledger import DEFAULT_LEDGER_PATH, champion
-from equity_scout.ml.model_registry import load_champion_history, registry_summary
+from equity_scout.ml.model_registry import entry_champion, load_champion_history, registry_summary
 from equity_scout.ml.prediction_ledger import (
     drift_snapshot,
     latest_scores,
@@ -309,14 +309,28 @@ def create_app(
         if cache_key in entry_cache:
             return JSONResponse(entry_cache[cache_key])
         closes, highs, lows = entry_mod.fetch_entry_history(t)
+
+        # A4: model-derived target/stop from the entry_tb champion's OWN vol-scaled barrier config
+        # (never re-derived from hardcoded defaults). No champion / no persisted barrier_config /
+        # too little price history for its vol_window -> an honest gap (None), never a guess.
+        champ = entry_champion(db_path, family="entry_tb")
+        barrier_config = champ[2].get("barrier_config") if champ is not None else None
+        target_stop = entry_mod.compute_target_stop(closes, barrier_config) if barrier_config else None
+
         try:
             plan = entry_mod.compute_entry_plan(t, closes, highs, lows)
         except ValueError:
             # Too little valid price history (bad/illiquid ticker, or a thin yfinance response).
-            payload = {"available": False, "ticker": t, "disclaimer": DISCLAIMER}
+            payload = {
+                "available": False, "ticker": t, "target_stop": target_stop,
+                "disclaimer": DISCLAIMER,
+            }
             entry_cache[cache_key] = payload
             return JSONResponse(payload)
-        payload = {"available": True, "plan": asdict(plan), "disclaimer": DISCLAIMER}
+        payload = {
+            "available": True, "plan": asdict(plan), "target_stop": target_stop,
+            "disclaimer": DISCLAIMER,
+        }
         entry_cache[cache_key] = payload
         return JSONResponse(payload)
 

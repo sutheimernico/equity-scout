@@ -1,8 +1,16 @@
 import math
+import statistics
 
 import pytest
 
-from equity_scout.entry import atr, compute_entry_plan, fib_levels, recent_swing_low, sma
+from equity_scout.entry import (
+    atr,
+    compute_entry_plan,
+    compute_target_stop,
+    fib_levels,
+    recent_swing_low,
+    sma,
+)
 
 
 def test_sma_uses_last_window():
@@ -140,3 +148,53 @@ def test_near_reference_false_when_above_anchor():
     plan = compute_entry_plan("UP", closes, [c + 1 for c in closes], [c - 1 for c in closes])
     assert plan.sma200 is not None and plan.price > plan.sma200
     assert plan.near_reference is False
+
+
+# --- compute_target_stop: A4, model-derived (entry_tb champion) price target + stop -----------
+
+
+def test_compute_target_stop_matches_vol_scaled_formula():
+    # 6 closes -> 5 daily returns, exactly enough for one vol_window=5 sigma reading.
+    closes = [100.0, 102.0, 101.0, 105.0, 103.0, 108.0]
+    barrier_config = {"k_pt": 2.0, "k_sl": 1.0, "horizon_days": 40, "vol_window": 5}
+
+    # Hand-calculated expectation, independent of trailing_daily_vol: sample std (ddof=1) of the
+    # 5 daily pct-changes, then the documented barrier formula.
+    returns = [closes[i] / closes[i - 1] - 1.0 for i in range(1, len(closes))]
+    sigma = statistics.stdev(returns)
+    price = closes[-1]
+    expected_target = round(price * (1 + 2.0 * sigma), 2)
+    expected_stop = round(price * (1 - 1.0 * sigma), 2)
+
+    result = compute_target_stop(closes, barrier_config)
+    assert result is not None
+    assert result["target"] == expected_target
+    assert result["stop"] == expected_stop
+    assert math.isclose(result["sigma"], sigma, abs_tol=1e-6)
+    assert result["horizon_days"] == 40
+
+
+def test_compute_target_stop_none_when_history_shorter_than_vol_window():
+    # Only 5 closes (4 returns) for vol_window=5 -> not even one trailing-vol reading yet.
+    closes = [100.0, 102.0, 101.0, 105.0, 103.0]
+    barrier_config = {"k_pt": 2.0, "k_sl": 1.0, "horizon_days": 40, "vol_window": 5}
+    assert compute_target_stop(closes, barrier_config) is None
+
+
+def test_compute_target_stop_none_on_degenerate_zero_vol():
+    # Perfectly flat price series -> sigma is 0, a degenerate barrier width. Honest gap, not a
+    # target == stop == price nonsense value.
+    closes = [100.0] * 10
+    barrier_config = {"k_pt": 2.0, "k_sl": 1.0, "horizon_days": 40, "vol_window": 5}
+    assert compute_target_stop(closes, barrier_config) is None
+
+
+def test_compute_target_stop_uses_last_clean_price_as_current_price():
+    # A trailing non-finite/zero entry (bad feed row) must be dropped, same as compute_entry_plan.
+    closes = [100.0, 102.0, 101.0, 105.0, 103.0, 108.0, float("nan")]
+    barrier_config = {"k_pt": 2.0, "k_sl": 1.0, "horizon_days": 40, "vol_window": 5}
+    result = compute_target_stop(closes, barrier_config)
+    assert result is not None
+    # last CLEAN price is 108.0, not the trailing NaN row.
+    assert result["target"] > 108.0
+    assert result["stop"] < 108.0

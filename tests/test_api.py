@@ -74,6 +74,8 @@ def test_entry_endpoint_returns_plan(tmp_path, monkeypatch):
     assert body["plan"]["ticker"] == "AAPL"
     assert "disclaimer" in body
     assert len(body["plan"]["dca_tranches"]) == 4
+    # A4: no entry_tb champion registered in this fresh db -> honest gap, not a guess.
+    assert body["target_stop"] is None
 
 
 def test_entry_endpoint_rejects_bad_ticker(tmp_path):
@@ -88,7 +90,9 @@ def test_entry_endpoint_unavailable_on_short_history(tmp_path, monkeypatch):
     client = TestClient(create_app(str(tmp_path / "x.db")))
     resp = client.get("/api/entry/ZZZZ")
     assert resp.status_code == 200
-    assert resp.json()["available"] is False
+    body = resp.json()
+    assert body["available"] is False
+    assert body["target_stop"] is None
 
 
 def test_entry_endpoint_caches_within_day(tmp_path, monkeypatch):
@@ -121,6 +125,104 @@ def test_entry_endpoint_accepts_dotted_ticker(tmp_path, monkeypatch):
     body = resp.json()
     assert body["available"] is True
     assert body["plan"]["ticker"] == "BRK.B"
+
+
+def _register_entry_tb_champion(db: str, barrier_config: dict) -> None:
+    """Register + promote a tiny real entry_tb champion carrying `barrier_config` in its metrics
+    (A4's real-world layout: `ml.labeling.BarrierConfig.as_dict()` persisted under that key,
+    `ml.model_registry.entry_champion`/`register_challenger` read/write path)."""
+    import numpy as np
+    import pandas as pd
+
+    from equity_scout.ml.entry_features import FEATURE_COLUMNS
+    from equity_scout.ml.entry_model import train_entry_model
+    from equity_scout.ml.model_registry import promote_if_better, register_challenger
+
+    rng = np.random.default_rng(0)
+    X = pd.DataFrame(rng.normal(size=(20, len(FEATURE_COLUMNS))), columns=list(FEATURE_COLUMNS))
+    y = pd.Series((X[FEATURE_COLUMNS[0]] > 0.0).astype(int).to_numpy())
+    version = register_challenger(
+        db, train_entry_model(X, y),
+        metrics={"auc": 0.7, "n_oos": 200, "barrier_config": barrier_config}, n_train=20,
+        now="2026-07-05T12:00:00+00:00", family="entry_tb",
+    )
+    assert promote_if_better(db, version) is True
+
+
+def test_entry_endpoint_target_stop_from_entry_tb_champion(tmp_path, monkeypatch):
+    import statistics
+
+    db = str(tmp_path / "x.db")
+    barrier_config = {"k_pt": 2.0, "k_sl": 1.0, "horizon_days": 40, "vol_window": 5}
+    _register_entry_tb_champion(db, barrier_config)
+
+    closes = [100.0, 102.0, 101.0, 105.0, 103.0, 108.0]  # 6 closes -> one vol_window=5 sigma reading
+    monkeypatch.setattr(
+        entry_mod, "fetch_entry_history",
+        lambda t: (closes, [c + 1 for c in closes], [c - 1 for c in closes]),
+    )
+    client = TestClient(create_app(db))
+    resp = client.get("/api/entry/AAPL")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["available"] is True
+
+    # Same hand-calculated expectation as test_entry.py's unit test for compute_target_stop.
+    returns = [closes[i] / closes[i - 1] - 1.0 for i in range(1, len(closes))]
+    sigma = statistics.stdev(returns)
+    price = closes[-1]
+    assert body["target_stop"]["target"] == round(price * (1 + 2.0 * sigma), 2)
+    assert body["target_stop"]["stop"] == round(price * (1 - 1.0 * sigma), 2)
+    assert body["target_stop"]["horizon_days"] == 40
+
+
+def test_entry_endpoint_target_stop_none_when_champion_lacks_barrier_config(tmp_path, monkeypatch):
+    # An entry_tb champion whose metrics predate A3 (no persisted barrier_config) must not crash
+    # the endpoint and must not fall back to a guessed default -> honest gap.
+    import numpy as np
+    import pandas as pd
+
+    from equity_scout.ml.entry_features import FEATURE_COLUMNS
+    from equity_scout.ml.entry_model import train_entry_model
+    from equity_scout.ml.model_registry import promote_if_better, register_challenger
+
+    db = str(tmp_path / "x.db")
+    rng = np.random.default_rng(0)
+    X = pd.DataFrame(rng.normal(size=(20, len(FEATURE_COLUMNS))), columns=list(FEATURE_COLUMNS))
+    y = pd.Series((X[FEATURE_COLUMNS[0]] > 0.0).astype(int).to_numpy())
+    version = register_challenger(
+        db, train_entry_model(X, y), metrics={"auc": 0.7, "n_oos": 200}, n_train=20,
+        now="2026-07-05T12:00:00+00:00", family="entry_tb",
+    )
+    assert promote_if_better(db, version) is True
+
+    closes = [100 + i for i in range(260)]
+    monkeypatch.setattr(
+        entry_mod, "fetch_entry_history",
+        lambda t: (closes, [c + 1 for c in closes], [c - 1 for c in closes]),
+    )
+    client = TestClient(create_app(db))
+    body = client.get("/api/entry/AAPL").json()
+    assert body["available"] is True
+    assert body["target_stop"] is None
+
+
+def test_entry_endpoint_target_stop_none_on_short_history_with_champion(tmp_path, monkeypatch):
+    # Champion present with the default vol_window=60, but the fetched history (30 closes) is
+    # long enough for compute_entry_plan (>= 2) yet too short for a trailing-vol reading -> the
+    # plan and the target/stop gap are independent: available True, target_stop None.
+    db = str(tmp_path / "x.db")
+    _register_entry_tb_champion(db, {"k_pt": 2.0, "k_sl": 1.0, "horizon_days": 40, "vol_window": 60})
+
+    closes = [100.0 + i for i in range(30)]
+    monkeypatch.setattr(
+        entry_mod, "fetch_entry_history",
+        lambda t: (closes, [c + 1 for c in closes], [c - 1 for c in closes]),
+    )
+    client = TestClient(create_app(db))
+    body = client.get("/api/entry/AAPL").json()
+    assert body["available"] is True
+    assert body["target_stop"] is None
 
 
 def test_radar_endpoint_returns_latest_watchlist_or_empty(tmp_path):
