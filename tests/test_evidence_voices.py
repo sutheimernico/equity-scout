@@ -189,6 +189,32 @@ def test_resolve_ticker_strips_no_dash_listing_tail():
     assert resolve_ticker("Select Water Solutions wins contract", [wttr]) == "WTTR"
 
 
+def test_classify_mention_masks_speaker_name_before_ticker_resolution():
+    # The speaker attribution must never double as company evidence: "Bill Ackman"
+    # fabricated a BILL Holdings ledger call, "Stanley Druckenmiller" a Stanley
+    # Black & Decker context mention (live regression, B5 round 5).
+    universe = [
+        ("BILL", "BILL Holdings, Inc. - Common Stock"),
+        ("SWK", "Stanley Black & Decker"),
+        ("NKE", "Nike, Inc."),
+    ]
+    fabricated_call = mention(
+        "Bill Ackman buys more shares of an undisclosed company", speaker="Bill Ackman"
+    )
+    assert classify_mention(fabricated_call, universe, []) is None
+    fabricated_context = mention(
+        "Stanley Druckenmiller sees trouble ahead for markets",
+        speaker="Stanley Druckenmiller",
+    )
+    assert classify_mention(fabricated_context, universe, []) is None
+    # Positive control: with the speaker masked, a genuine company mention still
+    # resolves — even one sharing the speaker's first name as its ticker.
+    genuine = mention("Bill Ackman buys BILL Holdings stock", speaker="Bill Ackman")
+    assert classify_mention(genuine, universe, []) == (KIND_CALL, "BILL", "bullish")
+    nike = mention("Bill Ackman buys Nike shares", speaker="Bill Ackman")
+    assert classify_mention(nike, universe, []) == (KIND_CALL, "NKE", "bullish")
+
+
 # --- collector -----------------------------------------------------------------
 
 

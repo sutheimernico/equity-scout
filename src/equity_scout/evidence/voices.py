@@ -38,6 +38,7 @@ manually before trusting voice person scores (see plan P1, honest limits).
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -243,6 +244,23 @@ def _name_in_title(speaker: str, aliases: list[str], title_lower: str) -> int:
     return min(positions) if positions else -1
 
 
+def _mask_speaker(title: str, speaker: str, aliases: list[str]) -> str:
+    """Blank the speaker's own name (same candidate rule as `_name_in_title`: full
+    name, aliases, bare surname over 3 chars) before ticker resolution. Person names
+    collide with company names — "Bill Ackman" matched BILL Holdings and "Stanley
+    Druckenmiller" matched Stanley Black & Decker, fabricating ledger calls out of
+    the speaker attribution itself. Longer spans go first so the surname replacement
+    never leaves a dangling first name behind."""
+    candidates = [speaker, *aliases]
+    last_name = speaker.split()[-1]
+    if len(last_name) > 3:
+        candidates.append(last_name)
+    masked = title
+    for candidate in sorted(candidates, key=len, reverse=True):
+        masked = re.sub(re.escape(candidate), " ", masked, flags=re.IGNORECASE)
+    return masked
+
+
 def _direction_after(title_lower: str, name_pos: int) -> tuple[str, int] | None:
     """(direction, position) of the earliest closed-list phrase AFTER the name."""
     hits: list[tuple[int, str]] = []
@@ -325,12 +343,16 @@ def classify_mention(
     mention: Mention, universe: list[tuple[str, str]], aliases: list[str]
 ) -> tuple[str, str, str | None] | None:
     """-> (kind, ticker, direction|None) or None when the mention is unusable
-    (name not in title, or no unambiguous ticker)."""
+    (name not in title, or no unambiguous ticker). The speaker's name is masked out
+    of the title before ticker resolution: the attribution itself must never double
+    as the company evidence (see `_mask_speaker`)."""
     title_lower = mention.title.lower()
     name_pos = _name_in_title(mention.speaker, aliases, title_lower)
     if name_pos < 0:
         return None
-    ticker = resolve_ticker(mention.title, universe)
+    ticker = resolve_ticker(
+        _mask_speaker(mention.title, mention.speaker, aliases), universe
+    )
     if ticker is None:
         return None
     directed = _direction_after(title_lower, name_pos)
