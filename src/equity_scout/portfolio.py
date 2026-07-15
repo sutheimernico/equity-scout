@@ -52,6 +52,37 @@ def new_portfolio(initial_capital: float = 100_000.0, benchmark_ticker: str = "S
     )
 
 
+def credit_dividends(
+    portfolio: Portfolio,
+    prices: dict[str, float],
+    dividend_yields: dict[str, float] | None,
+    days_elapsed: float,
+) -> Portfolio:
+    """Accrue TTM dividend income into cash for the calendar days since the last advance.
+
+    Per held position the credit is ``position_value * (annual_yield / 365) * days_elapsed`` — a flat
+    pro-rata slice of the trailing-twelve-month yield, added to cash so it flows into NAV via
+    ``mark_to_market`` (no Position/Portfolio schema change, no storage migration). ``days_elapsed`` is
+    one scalar for the whole book: "since the last run" spans the same period for every position.
+
+    Honest-by-omission (paper-only, free data): a missing / None / negative yield credits exactly 0.0,
+    and ``days_elapsed <= 0`` credits nothing. Non-US tickers usually have no yield at yfinance — that
+    passes through as "no dividend assumed", never an estimate.
+    """
+    if days_elapsed <= 0 or not dividend_yields:
+        return portfolio
+    credit = 0.0
+    for ticker, pos in portfolio.positions.items():
+        annual_yield = dividend_yields.get(ticker)
+        if annual_yield is None or annual_yield < 0:
+            continue
+        position_value = pos.shares * prices.get(ticker, pos.cost_basis)
+        credit += position_value * (annual_yield / 365.0) * days_elapsed
+    if credit == 0.0:
+        return portfolio
+    return replace(portfolio, cash=portfolio.cash + credit)
+
+
 def advance(
     portfolio: Portfolio,
     candidate_picks: list[Pick],
@@ -64,6 +95,8 @@ def advance(
     fee_rate: float = 0.001,
     slippage_bps: float = 5.0,
     benchmark_price: float | None = None,
+    days_elapsed: float = 0.0,
+    dividend_yields: dict[str, float] | None = None,
 ) -> tuple[Portfolio, list[str]]:
     """Rebalance the paper portfolio against the latest picks. Sell weak holdings, then buy fresh picks.
 
@@ -71,7 +104,12 @@ def advance(
     falls below the lower ``exit_threshold`` (a holding that dropped out of the screen counts as 0).
     Both legs pay ``fee_rate`` commission plus ``slippage_bps`` against the fill (buys fill above the
     quote, sells below). Initializes the benchmark on the first advance. Returns (portfolio, trades).
+
+    ``dividend_yields`` (annualised TTM yields, decimal) accrued over ``days_elapsed`` calendar days are
+    credited to cash BEFORE trading, so the income is part of the equity this rebalance sizes against.
+    Both default to no-op, so existing callers are unaffected. See ``credit_dividends`` for the rule.
     """
+    portfolio = credit_dividends(portfolio, prices, dividend_yields, days_elapsed)
     cash = portfolio.cash
     positions = dict(portfolio.positions)
     benchmark_shares = portfolio.benchmark_shares

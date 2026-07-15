@@ -52,6 +52,30 @@ def quote_from_info_and_history(
     )
 
 
+def fetch_dividend_yield(ticker: str) -> float | None:
+    """TTM dividend yield (annualised decimal, e.g. 0.03 = 3%) for ``ticker`` via yfinance, or None.
+
+    Reads ``trailingAnnualDividendYield`` — the realised trailing-twelve-month yield, reliably a
+    decimal fraction. ``dividendYield`` is deliberately NOT used as a fallback: yfinance has returned
+    it inconsistently (sometimes a percent like 3.0, sometimes 0.03), and guessing the scale would
+    fabricate a number. None — no data, common for non-US names — is honest: the caller credits no
+    dividend rather than an estimate. Single attempt (no retry): a missing/failed yield just means
+    "no dividend this run" and self-heals next run, so it isn't worth the retry latency. Lazy import
+    keeps this network-free at module load.
+    """
+    try:
+        import yfinance as yf
+
+        info = yf.Ticker(ticker).info or {}
+        value = info.get("trailingAnnualDividendYield")
+        if value is None:
+            return None
+        value = float(value)
+        return value if value >= 0 else None  # NaN and negatives fall through to None
+    except Exception:  # noqa: BLE001 - any provider hiccup → honest "no dividend"
+        return None
+
+
 class FetchStats:
     """Thread-safe counters for one run's yfinance fetches (`fetch_all` uses a thread pool).
 

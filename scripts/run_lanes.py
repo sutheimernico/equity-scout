@@ -19,13 +19,15 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from equity_scout.constants import DEFAULT_DB_PATH
+from equity_scout.data.yf_provider import fetch_dividend_yield
 from equity_scout.inbox_storage import load_pitches
 from equity_scout.lane_storage import (
     executed_pitch_ids,
     load_lane_portfolio,
+    load_lane_valuations,
     record_trades,
     save_lane_portfolio,
     save_lane_valuation,
@@ -42,7 +44,7 @@ from equity_scout.lanes import (
     execute_buys,
     lane_b_orders,
 )
-from equity_scout.portfolio import mark_to_market, new_portfolio
+from equity_scout.portfolio import credit_dividends, mark_to_market, new_portfolio
 from equity_scout.radar_storage import load_latest_watchlist
 
 DEFAULT_THRESHOLD = 0.45
@@ -105,6 +107,23 @@ def _lane_a_orders(db_path: str) -> list[BuyOrder]:
     return orders
 
 
+def _days_since_last_run(db_path: str, now: str) -> float:
+    """Calendar days since either lane was last valued (day-keyed history), for the dividend span.
+
+    Both lanes are always valued together, so their latest ``valued_on`` matches; taking the max is
+    just belt-and-braces. 0.0 on the first run (no prior valuation) so the first advance credits no
+    dividend, and 0.0 on a same-day re-run so re-running the CLI within one day double-counts nothing.
+    """
+    last: str | None = None
+    for lane in (LANE_NICO, LANE_AUTOPILOT):
+        vals = load_lane_valuations(db_path, lane)
+        if vals and (last is None or vals[-1]["valued_on"] > last):
+            last = vals[-1]["valued_on"]
+    if last is None:
+        return 0.0
+    return float(max((date.fromisoformat(now[:10]) - date.fromisoformat(last)).days, 0))
+
+
 def _fmt_value(value: float) -> str:
     """German number format: 10.234,00 (thousands dot, decimal comma)."""
     return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -122,11 +141,16 @@ def run_lanes(
     fetch_price: Callable[[str], float | None],
     params: LaneParams,
     threshold: float,
+    fetch_dividend_yield: Callable[[str], float | None] | None = None,
 ) -> dict:
     """Advance both lanes in one run — shared ``now``, shared ``prices``, shared ``params``.
 
-    Sequence per lane, identical: apply_exits -> execute_buys -> mark_to_market -> persist
-    (portfolio + day-keyed valuation + trade ledger). Returns a per-lane summary dict.
+    Sequence per lane, identical: credit_dividends -> apply_exits -> execute_buys -> mark_to_market
+    -> persist (portfolio + day-keyed valuation + trade ledger). Returns a per-lane summary dict.
+
+    ``fetch_dividend_yield`` (optional, injected like ``fetch_price``) supplies TTM yields; the accrual
+    spans ``_days_since_last_run``. Both are shared by construction, so the fairness invariant holds:
+    the two lanes see the same yields and the same span. Omitted → no dividend credited (honest zero).
     """
     nico = load_lane_portfolio(db_path, LANE_NICO) or new_portfolio(
         initial_capital=INITIAL_CAPITAL
@@ -154,6 +178,16 @@ def run_lanes(
     prices = {ticker: price for ticker in union if (price := fetch_price(ticker)) is not None}
     spy = prices.get("SPY")
 
+    # TTM dividend yields for the held/candidate names (SPY is the benchmark, not a position, so it
+    # is skipped). One dict + one span for BOTH lanes → the dividend credit stays fairness-neutral.
+    dividend_yields: dict[str, float] = {}
+    if fetch_dividend_yield is not None:
+        dividend_yields = {
+            ticker: y for ticker in union - {"SPY"}
+            if (y := fetch_dividend_yield(ticker)) is not None
+        }
+    days_elapsed = _days_since_last_run(db_path, now)
+
     summary: dict = {}
     # ONE loop body over both lanes with ONE now, ONE prices, ONE params: the lanes cannot
     # see different inputs. opened_at/now are UTC-aware ISO strings — lanes._held_days subtracts
@@ -163,6 +197,7 @@ def run_lanes(
         (LANE_NICO, nico, lane_a),
         (LANE_AUTOPILOT, autopilot, lane_b),
     ):
+        portfolio = credit_dividends(portfolio, prices, dividend_yields, days_elapsed)
         portfolio, sells = apply_exits(
             portfolio, prices, now=now, lane=lane, rules=params.rules,
             fee_rate=params.fee_rate, slippage_bps=params.slippage_bps,
@@ -221,7 +256,8 @@ def main() -> int:
         position_fraction=args.position_fraction,
     )
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    run_lanes(args.db, now=now, fetch_price=_fetch_spot, params=params, threshold=args.threshold)
+    run_lanes(args.db, now=now, fetch_price=_fetch_spot, params=params,
+              threshold=args.threshold, fetch_dividend_yield=fetch_dividend_yield)
     return 0
 
 

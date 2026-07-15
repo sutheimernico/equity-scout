@@ -90,6 +90,22 @@ def append_valuation(db_path: str | Path, created_at: str, valuation: Valuation)
         )
 
 
+def latest_valuation_at(db_path: str | Path) -> str | None:
+    """``created_at`` of the most recent recorded valuation, or None if none exist yet.
+
+    Used to derive the dividend accrual span (days since the last run). Ordered by id DESC so it is
+    correct regardless of row count — unlike ``load_valuations``, which returns the OLDEST N rows.
+    """
+    with sqlite3.connect(db_path) as con:
+        try:
+            row = con.execute(
+                "SELECT created_at FROM valuations ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+        except sqlite3.OperationalError:
+            return None  # valuations table not created yet
+    return row[0] if row else None
+
+
 def load_valuations(db_path: str | Path, limit: int = 100) -> list[dict]:
     with sqlite3.connect(db_path) as con:
         try:

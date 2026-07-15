@@ -3,6 +3,7 @@ from equity_scout.portfolio import advance, mark_to_market, new_portfolio
 from equity_scout.portfolio_storage import (
     append_valuation,
     init_portfolio_db,
+    latest_valuation_at,
     load_portfolio,
     load_valuations,
     save_portfolio,
@@ -47,3 +48,17 @@ def test_valuation_history_is_ordered(tmp_path):
     append_valuation(db, "d2", mark_to_market(pf, {}))
     history = load_valuations(db)
     assert [v["created_at"] for v in history] == ["d1", "d2"]
+
+
+def test_latest_valuation_at_returns_most_recent(tmp_path):
+    db = tmp_path / "p.db"
+    init_portfolio_db(db)
+    assert latest_valuation_at(db) is None  # none recorded yet
+    pf = new_portfolio(100_000.0)
+    append_valuation(db, "2026-07-05T00:00:00", mark_to_market(pf, {}))
+    append_valuation(db, "2026-07-10T00:00:00", mark_to_market(pf, {}))
+    assert latest_valuation_at(db) == "2026-07-10T00:00:00"
+
+
+def test_latest_valuation_at_without_table_returns_none(tmp_path):
+    assert latest_valuation_at(tmp_path / "empty.db") is None

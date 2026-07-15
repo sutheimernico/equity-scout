@@ -152,12 +152,53 @@ def test_benchmark_shares_persist_across_runs(tmp_path):
     assert day2_val["benchmark_return"] == pytest.approx(0.10)  # +10% held from inception
 
 
+def test_run_lanes_credits_dividends_between_runs(tmp_path):
+    """A held position accrues its TTM dividend into cash over the days between runs (C3)."""
+    db = str(tmp_path / "arena.db")
+    _seed_watchlist(db, ticker="CAND")  # in-zone, composite 0.6 → autopilot buys at threshold 0.45
+    day1 = "2026-07-05T14:00:00+00:00"
+    day2 = "2026-08-04T14:00:00+00:00"  # 30 calendar days later
+    prices = _prices({"CAND": 100.0, "SPY": 400.0})
+    params = LaneParams(rules=ExitRules())
+    dividend = lambda ticker: 0.0365 if ticker == "CAND" else None  # noqa: E731
+
+    run_lanes(db, now=day1, fetch_price=prices, params=params, threshold=0.45,
+              fetch_dividend_yield=dividend)
+    auto_day1 = load_lane_portfolio(db, LANE_AUTOPILOT)
+    shares = auto_day1.positions["CAND"].shares
+
+    run_lanes(db, now=day2, fetch_price=prices, params=params, threshold=0.45,
+              fetch_dividend_yield=dividend)
+    auto_day2 = load_lane_portfolio(db, LANE_AUTOPILOT)
+
+    # Flat price + 30 days < max holding → no trade on day 2, so the whole cash delta is dividend.
+    expected = shares * 100.0 * (0.0365 / 365.0) * 30
+    assert auto_day2.cash - auto_day1.cash == pytest.approx(expected)
+    assert "CAND" in auto_day2.positions  # still held, not sold
+
+
+def test_run_lanes_no_dividend_fetch_credits_nothing(tmp_path):
+    """Default (no fetch_dividend_yield) keeps the honest zero — no dividend is invented."""
+    db = str(tmp_path / "arena.db")
+    _seed_watchlist(db, ticker="CAND")
+    day1 = "2026-07-05T14:00:00+00:00"
+    day2 = "2026-08-04T14:00:00+00:00"
+    prices = _prices({"CAND": 100.0, "SPY": 400.0})
+    params = LaneParams(rules=ExitRules())
+
+    run_lanes(db, now=day1, fetch_price=prices, params=params, threshold=0.45)
+    cash_day1 = load_lane_portfolio(db, LANE_AUTOPILOT).cash
+    run_lanes(db, now=day2, fetch_price=prices, params=params, threshold=0.45)
+    assert load_lane_portfolio(db, LANE_AUTOPILOT).cash == cash_day1
+
+
 def test_main_happy_path_exits_zero(tmp_path, monkeypatch, capsys):
     db = str(tmp_path / "arena.db")
     _seed_watchlist(db, ticker="CAND")
     _seed_buy_pitch(db, ticker="PICK")
     prices = {"PICK": 90.0, "CAND": 100.0, "SPY": 400.0}
     monkeypatch.setattr(run_lanes_mod, "_fetch_spot", lambda ticker: prices.get(ticker))
+    monkeypatch.setattr(run_lanes_mod, "fetch_dividend_yield", lambda ticker: None)
     monkeypatch.setattr(sys, "argv", ["run_lanes.py", "--db", db, "--threshold", "0.45"])
 
     assert main() == 0

@@ -1,11 +1,23 @@
 from equity_scout.models import Instrument, Pick
-from equity_scout.portfolio import advance, mark_to_market, new_portfolio
+from equity_scout.portfolio import (
+    Portfolio,
+    Position,
+    advance,
+    credit_dividends,
+    mark_to_market,
+    new_portfolio,
+)
 
 
 def _pick(ticker, composite):
     inst = Instrument(ticker, ticker, "US", "US", "USD", "Tech")
     return Pick(inst, "aggressive", 1, composite,
                 {"value": 0.5, "quality": 0.5, "momentum": 0.9, "growth": 0.9})
+
+
+def _position(ticker, shares, price):
+    inst = Instrument(ticker, ticker, "US", "US", "USD", "Tech")
+    return Position(inst, shares, price, "d0", last_price=price)
 
 
 def test_buys_only_picks_above_threshold():
@@ -125,6 +137,49 @@ def test_new_buy_sized_larger_after_big_gain():
                          now="d2", position_fraction=0.05, fee_rate=0.001, slippage_bps=0.0)
     assert "MORE" in pf.positions
     assert pf.positions["MORE"].shares > baseline_shares
+
+
+def test_credit_dividends_full_year_credits_the_ttm_yield():
+    # 50 shares @ 100 = 5_000 position value; a 3% TTM yield over a full 365-day span credits ~3%.
+    pf = Portfolio(100_000.0, cash=1_000.0, positions={"DIV": _position("DIV", 50.0, 100.0)})
+    out = credit_dividends(pf, {"DIV": 100.0}, {"DIV": 0.03}, days_elapsed=365)
+    assert abs((out.cash - pf.cash) - 150.0) < 1e-9  # 5_000 * 0.03
+
+
+def test_credit_dividends_missing_yield_credits_zero():
+    # Honesty rule: no yield data for the ticker → exactly zero credited, never an estimate.
+    pf = Portfolio(100_000.0, cash=1_000.0, positions={"DIV": _position("DIV", 50.0, 100.0)})
+    assert credit_dividends(pf, {"DIV": 100.0}, {}, days_elapsed=365).cash == pf.cash
+    assert credit_dividends(pf, {"DIV": 100.0}, None, days_elapsed=365).cash == pf.cash
+
+
+def test_credit_dividends_negative_yield_credits_zero():
+    pf = Portfolio(100_000.0, cash=1_000.0, positions={"DIV": _position("DIV", 50.0, 100.0)})
+    assert credit_dividends(pf, {"DIV": 100.0}, {"DIV": -0.05}, days_elapsed=365).cash == pf.cash
+
+
+def test_credit_dividends_zero_days_credits_zero():
+    pf = Portfolio(100_000.0, cash=1_000.0, positions={"DIV": _position("DIV", 50.0, 100.0)})
+    assert credit_dividends(pf, {"DIV": 100.0}, {"DIV": 0.03}, days_elapsed=0.0).cash == pf.cash
+
+
+def test_advance_credits_prorated_dividend_to_cash():
+    # Hold DIV (composite 0.60, above the 0.55 exit floor so it is neither sold nor re-bought) and
+    # advance a full year with a 3% TTM yield → cash grows by 3% of the 5_000 position value.
+    pf = Portfolio(100_000.0, cash=95_000.0, positions={"DIV": _position("DIV", 50.0, 100.0)})
+    pf, trades = advance(
+        pf, [_pick("DIV", 0.60)], {"DIV": 100.0}, now="d1",
+        exit_threshold=0.55, days_elapsed=365, dividend_yields={"DIV": 0.03},
+    )
+    assert "DIV" in pf.positions and trades == []
+    assert abs(pf.cash - 95_150.0) < 1e-9  # 95_000 + 5_000 * 0.03
+
+
+def test_advance_without_dividend_args_leaves_cash_unchanged():
+    # Defaults (days_elapsed=0.0 / dividend_yields=None) must not credit anything — no behavior change.
+    pf = Portfolio(100_000.0, cash=95_000.0, positions={"DIV": _position("DIV", 50.0, 100.0)})
+    pf, _ = advance(pf, [_pick("DIV", 0.60)], {"DIV": 100.0}, now="d1", exit_threshold=0.55)
+    assert pf.cash == 95_000.0
 
 
 def test_new_buy_sized_smaller_after_big_loss():

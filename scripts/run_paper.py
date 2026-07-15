@@ -12,12 +12,13 @@ from datetime import datetime, timezone
 
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.data.fake_provider import FakeProvider
-from equity_scout.data.yf_provider import YFinanceProvider
+from equity_scout.data.yf_provider import YFinanceProvider, fetch_dividend_yield
 from equity_scout.models import Instrument
 from equity_scout.portfolio import advance, mark_to_market, new_portfolio
 from equity_scout.portfolio_storage import (
     append_valuation,
     init_portfolio_db,
+    latest_valuation_at,
     load_portfolio,
     save_portfolio,
 )
@@ -55,9 +56,28 @@ def main() -> None:
     benchmark_price = provider.fetch_quote(bench).price
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    # Dividend accrual span: days since the last recorded valuation (the prior run — append happens
+    # below). First ever run has no prior valuation → 0.0 days → no dividend (nothing accrued yet).
+    last_valued_at = latest_valuation_at(args.db)
+    days_elapsed = (
+        max((datetime.fromisoformat(now) - datetime.fromisoformat(last_valued_at)).total_seconds()
+            / 86_400.0, 0.0)
+        if last_valued_at else 0.0
+    )
+
+    # TTM dividend yields over the SAME channel as prices (yfinance). The fake provider stays fully
+    # offline → no yields → no dividend assumed. A missing/None yield per ticker is dropped (honest).
+    dividend_yields: dict[str, float] = {}
+    if isinstance(provider, YFinanceProvider):
+        dividend_yields = {
+            t: y for t in needed if (y := fetch_dividend_yield(t)) is not None
+        }
+
     portfolio, trades = advance(portfolio, picks, prices, now=now,
                                 threshold=args.threshold, exit_threshold=args.exit_threshold,
-                                benchmark_price=benchmark_price)
+                                benchmark_price=benchmark_price,
+                                days_elapsed=days_elapsed, dividend_yields=dividend_yields)
     save_portfolio(args.db, portfolio)
     valuation = mark_to_market(portfolio, prices, benchmark_price=benchmark_price)
     append_valuation(args.db, now, valuation)
