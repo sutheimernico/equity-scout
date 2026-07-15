@@ -220,10 +220,10 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] A2 feat(exits): Trade-Lifecycle für Forward-Bots (ExitRules, Exit-Grund persistiert)
 - [x] B1 feat(events): Earnings-Kalender (yfinance) + Digest-Sektion + Intraday-Awareness
 - [x] C3 fix(pnl): Dividenden für Einzelaktien-Lanes/Portfolio (TTM anteilig)
-- [ ] A4 feat(ml): Kursziel + Stop pro Pick aus Champion-Barrier-Konfig (API)
-- [ ] A5 feat(bots): konfidenzgewichtetes Sizing statt equal-weight
-- [ ] B2 feat(events): EDGAR 8-K near-realtime Collector als Evidence-Quelle
-- [ ] C1 feat(learning): tägliche Lernkurve (n_train/n_resolved/hit-rate/rank-IC als Zeitreihe)
+- [x] A4 feat(ml): Kursziel + Stop pro Pick aus Champion-Barrier-Konfig (API)
+- [x] A5 feat(bots): konfidenzgewichtetes Sizing statt equal-weight
+- [x] B2 feat(events): EDGAR 8-K near-realtime Collector als Evidence-Quelle
+- [x] C1 feat(learning): tägliche Lernkurve (n_train/n_resolved/hit-rate/rank-IC als Zeitreihe)
 - [ ] A6 feat(pitch): 🎯 Kursziel + 🛑 Stop in Pitch/Inbox/Frontend
 - [ ] B3 feat(events): Beat/Miss/Guidance-Klassifikator + events-Tabelle (published_at/seen_at)
 - [ ] C2 feat(ml): Promotion-Gate gegen Multiple-Testing härten (8 Kandidaten/Nacht)
