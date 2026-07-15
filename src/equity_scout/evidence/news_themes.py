@@ -7,12 +7,16 @@ independently and is reported per feed, never silently). Theme detection is
 DETERMINISTIC counting: a theme is a token bigram (fallback unigram) that appears in
 >= min_hits headlines from >= min_sources distinct feeds — no LLM anywhere in this
 module, so a theme can always be traced back to the exact headlines that caused it.
+The same wire story often lands in two feeds under a different outlet suffix; it is
+deduped by normalized-title hash (mirrors voices.dedupe_mentions) BEFORE counting, so
+one syndicated article can never masquerade as two independent source confirmations.
 A theme only becomes ticker evidence when that ticker's OWN recent headlines contain
 the theme phrase — "the theme touches this stock" stays a observable text fact, and
 is context, never a forecast (by the time a theme is in the news, it is in the price).
 """
 from __future__ import annotations
 
+import hashlib
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -116,6 +120,31 @@ def fetch_headlines(
     return headlines, feed_status
 
 
+def _title_hash(title: str) -> str:
+    # Google News suffixes titles with " - <outlet>"; strip it so the same story
+    # syndicated to two feeds hashes identically (mirrors voices._title_hash).
+    story = title.rsplit(" - ", 1)[0] if " - " in title else title
+    normalized = " ".join(
+        "".join(ch if ch.isalnum() else " " for ch in story.lower()).split()
+    )
+    return hashlib.sha256(normalized.encode()).hexdigest()[:16]
+
+
+def dedupe_headlines(headlines: list[Headline]) -> list[Headline]:
+    """Same story syndicated across feeds collapses to one — otherwise a single wire
+    article counted from N feeds inflates both the hit count and the distinct-source
+    count MIN_HITS/MIN_SOURCES rely on (live finding 2026-07-15)."""
+    seen: set[str] = set()
+    unique: list[Headline] = []
+    for headline in headlines:
+        key = _title_hash(headline.title)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(headline)
+    return unique
+
+
 def _tokens(title: str) -> list[str]:
     return [
         token
@@ -139,7 +168,7 @@ def detect_themes(
     """
     bigram_seen: dict[str, list[Headline]] = {}
     unigram_seen: dict[str, list[Headline]] = {}
-    for headline in headlines:
+    for headline in dedupe_headlines(headlines):
         tokens = _tokens(headline.title)
         for phrase in {f"{a} {b}" for a, b in zip(tokens, tokens[1:], strict=False)}:
             bigram_seen.setdefault(phrase, []).append(headline)

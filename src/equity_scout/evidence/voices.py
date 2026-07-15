@@ -18,6 +18,20 @@ deterministically, with no LLM anywhere in this module:
 - Mentions without a resolvable ticker are skipped — there is no ticker to attach them
   to, and inventing one would be a guess.
 
+Ticker resolution (`resolve_ticker`) trusts the COMPANY NAME channel over the raw
+all-caps TICKER-TOKEN channel: a name match (full normalized name, or — for a
+single-token name, or the distinguishing first word of a multi-word name when that
+word is unique across the whole universe — a capitalized occurrence in the original
+title) is accepted even when a coincidental all-caps token would otherwise collide.
+Raw ticker tokens are gated by `_SYMBOL_STOPWORDS`, which also lists common
+media/portal acronyms (MSN, CNBC, ...): a portal name can literally equal an unrelated
+real ticker. Live bug (2026-07-15): a Michael Burry headline about "Micron" (not
+"Micron Technology" verbatim, so the old exact-name check missed it) syndicated with
+a " - MSN" outlet suffix resolved to ticker MSN instead of MU, because the raw-token
+channel had no guard against portal words and the name channel could not recognize
+the bare company mention. Both channels still pool into one ambiguity check, so a
+headline that genuinely names two different companies remains an honest non-match.
+
 The closed verb list needs real-world tuning: read the first weeks of voice calls
 manually before trusting voice person scores (see plan P1, honest limits).
 """
@@ -72,12 +86,14 @@ BEARISH_PHRASES = (
 
 MAX_HEADLINE_AGE_DAYS = 3  # feeds return archive hits; a stale mention is not news
 
-# All-caps title tokens that look like tickers but are almost always English words or
-# finance boilerplate. Universe tickers colliding with real words ("ALL", "SO") lose
-# symbol matching and must match via company name instead — an honest miss, not a guess.
+# All-caps title tokens that look like tickers but are almost always English words,
+# finance boilerplate, or media/portal acronyms (MSN, CNBC, ... — a portal name can
+# equal a real, unrelated ticker; live bug 2026-07-15, see module docstring). Universe
+# tickers colliding with these words lose symbol matching and must match via company
+# name instead — an honest miss, not a guess.
 _SYMBOL_STOPWORDS = frozenset(
-    "A I AI AN ALL ARE BE BY CEO DO ETF FOR GO IN IT ITS NEW NOW ON OR OUT Q SEE SO "
-    "TV UK US VS".split()
+    "A AI ALL AN ARE BBC BE BY CEO CFO CNBC CNN DO EPS ETF EU FED FOR FT GDP GO I IN "
+    "IPO IT ITS MSN NEW NOW ON OR OUT Q RSS SEC SEE SO TV UK US USA VS WSJ".split()
 )
 
 _FEED_URLS: dict[str, str] = {
@@ -196,10 +212,18 @@ def _direction_after(title_lower: str, name_pos: int) -> tuple[str, int] | None:
 def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
     """Exactly one universe company per title, or None — ambiguity is a non-match.
 
-    Two deterministic channels: (1) an all-caps token equal to a universe ticker
-    (stopword-filtered), (2) the company's normalized name contained in the normalized
-    title. Single-token company names additionally require a capitalized occurrence in
-    the original title ("Target" the retailer vs "target prices").
+    Company name is the higher-trust channel and is tried first for every candidate:
+    the full normalized name as a substring, OR (for a single-token name, or the
+    distinguishing FIRST word of a multi-word name when that word is longer than 3
+    chars and unique across the whole universe) a capitalized occurrence in the
+    original title — "Target" the retailer vs "target prices", "Micron" alone for
+    "Micron Technology, Inc." when no other tracked company starts with "Micron".
+    Only when no name channel matches at all does a candidate fall back to the raw
+    all-caps TICKER-TOKEN channel, itself
+    filtered by `_SYMBOL_STOPWORDS` (see module docstring: media/portal acronyms like
+    MSN must never resolve as a ticker). All channel hits pool into one set before the
+    ambiguity check, so a headline that genuinely names two different companies is
+    still an honest non-match.
     """
     tokens = ["".join(ch for ch in tok if ch.isalnum()) for tok in title.split()]
     caps_tokens = {
@@ -211,18 +235,35 @@ def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
     )
     padded_title = f" {normalized_title} "
 
+    norm_names = {ticker: _normalize_issuer(name) for ticker, name in universe}
+    # First word of each multi-word name, only when it's unique across the universe —
+    # "Micron" alone is safe to trust, "American" (Airlines vs Express) is not.
+    first_word_owners: dict[str, set[str]] = {}
+    for ticker, norm_name in norm_names.items():
+        if norm_name and " " in norm_name:
+            first_word_owners.setdefault(norm_name.split()[0], set()).add(ticker)
+
+    def capitalized_original(word: str) -> bool:
+        return any(tok.upper() == word and tok[:1].isupper() for tok in tokens)
+
     matched: set[str] = set()
-    for ticker, name in universe:
-        if ticker in caps_tokens:
+    for ticker, _name in universe:
+        norm_name = norm_names[ticker]
+        name_hit = False
+        if norm_name and " " in norm_name:
+            if f" {norm_name} " in padded_title:
+                name_hit = True
+            else:  # try the name's unique, distinguishing first word instead
+                first_word = norm_name.split()[0]
+                name_hit = (
+                    len(first_word) > 3  # "A", "AN" alone are too generic to trust
+                    and len(first_word_owners.get(first_word, ())) == 1
+                    and capitalized_original(first_word)
+                )
+        elif norm_name:  # single-token name: demand a capitalized original occurrence
+            name_hit = capitalized_original(norm_name)
+        if name_hit or ticker in caps_tokens:
             matched.add(ticker)
-            continue
-        norm_name = _normalize_issuer(name)
-        if not norm_name or f" {norm_name} " not in padded_title:
-            continue
-        if " " not in norm_name:  # single-token name: demand a capitalized original
-            if not any(tok.upper() == norm_name and tok[:1].isupper() for tok in tokens):
-                continue
-        matched.add(ticker)
     return matched.pop() if len(matched) == 1 else None
 
 

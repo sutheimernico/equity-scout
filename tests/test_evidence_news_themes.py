@@ -6,6 +6,7 @@ from equity_scout.evidence.news_themes import (
     FEEDS,
     Headline,
     collect_news_themes,
+    dedupe_headlines,
     detect_themes,
     match_ticker_headlines,
     parse_feed,
@@ -49,6 +50,24 @@ def test_detect_themes_requires_hits_and_distinct_sources():
     # Same three hits from ONE feed only: no cross-source confirmation, no theme.
     single_source = [Headline(h.title, "google-news") for h in _energy_headlines()]
     assert detect_themes(single_source) == []
+
+
+def test_dedupe_headlines_collapses_same_story_across_feeds():
+    first = Headline("Energy prices surge across Europe", "google-news")
+    syndicated = Headline("Energy Prices Surge Across Europe - Reuters", "fed")
+    assert dedupe_headlines([first, syndicated]) == [first]
+
+
+def test_detect_themes_dedupes_syndicated_story_across_a_third_feed():
+    # "Energy prices surge across Europe" is the SAME wire story reprinted under a
+    # different outlet suffix by a third feed. Before dedup that would be 3 hits / 3
+    # sources (clears MIN_HITS=3 and MIN_SOURCES=2); after dedup the duplicate
+    # collapses into its first occurrence, leaving only 2 distinct articles — below
+    # MIN_HITS, so the syndicated copy must not manufacture a theme on its own.
+    headlines = _energy_headlines()[:2] + [
+        Headline("Energy prices surge across Europe - Reuters", "fed"),
+    ]
+    assert detect_themes(headlines) == []
 
 
 def test_detect_themes_holds_unigrams_to_a_higher_bar():

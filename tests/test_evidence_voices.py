@@ -127,6 +127,26 @@ def test_resolve_ticker_symbol_stopwords_never_match():
     assert resolve_ticker("Burry ALL IN ON US stocks", UNIVERSE) is None
 
 
+def test_resolve_ticker_portal_acronyms_never_resolve_as_ticker():
+    # A guard against real tickers that coincidentally equal a media/portal acronym.
+    portal_universe = [("MSN", "Placeholder One Inc."), ("CNBC", "Placeholder Two Inc.")]
+    assert resolve_ticker("Market wrap via MSN and CNBC today", portal_universe) is None
+
+
+def test_resolve_ticker_company_name_beats_portal_acronym_collision():
+    # Live bug 2026-07-15: a headline about "Micron" (not "Micron Technology" verbatim)
+    # syndicated with a " - MSN" outlet suffix resolved to ticker MSN instead of MU,
+    # because the name channel missed the bare mention and the raw-token channel had
+    # no guard against the portal acronym. MU must resolve; MSN must never.
+    universe = [
+        *UNIVERSE,
+        ("MU", "Micron Technology, Inc."),
+        ("MSN", "Placeholder Networks Inc."),
+    ]
+    title = "Micron soars on AI chip demand - MSN"
+    assert resolve_ticker(title, universe) == "MU"
+
+
 # --- collector -----------------------------------------------------------------
 
 
