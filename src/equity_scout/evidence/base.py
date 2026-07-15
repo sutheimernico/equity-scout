@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 SOURCE_CONGRESS = "congress"
 SOURCE_13F = "thirteen_f"
 SOURCE_NEWS_THEME = "news_theme"
+SOURCE_NEWS = "news"  # classified beat/miss/guidance events from news headlines (B3)
 SOURCE_INSIDER = "insider"
 SOURCE_VOICE = "voice"
 SOURCE_8K = "edgar_8k"

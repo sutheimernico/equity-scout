@@ -9,6 +9,13 @@ kills the run. Only NEWLY inserted events are ledger-logged (predict-then-resolv
 horizon 60d) — a re-collected fact can never inflate the sample. The 13F, Form 4
 insider and 8-K collectors all stay politely `unconfigured` without EDGAR_USER_AGENT
 in the environment.
+
+After the ledger step, watchlist news headlines + the 8-K events just collected are
+also run through the deterministic beat/miss/guidance/earnings-filed classifier
+(evidence/event_classifier.py) and stored in `classified_events`
+(evidence/event_storage.py) with an honest published_at/seen_at pair (Strang B3) —
+that table is separate from `evidence_events`/the ledger, and this script does not
+itself measure latency (Strang B4).
 """
 from __future__ import annotations
 
@@ -24,6 +31,8 @@ from equity_scout.evidence.base import STATUS_OK, CollectorResult
 from equity_scout.evidence.congress import fetch_congress_trades
 from equity_scout.evidence.edgar import collect_13f
 from equity_scout.evidence.edgar_8k import collect_8k
+from equity_scout.evidence.event_classifier import build_classified_events
+from equity_scout.evidence.event_storage import save_classified_events
 from equity_scout.evidence.form4 import collect_form4
 from equity_scout.evidence.ledger import log_evidence
 from equity_scout.evidence.news_themes import collect_news_themes
@@ -75,20 +84,28 @@ def run_evidence(
     return {"lines": lines, "new_events": new_total, "ledgered": ledgered_total}
 
 
-def _watchlist_headlines(db_path: str) -> dict[str, list[str]]:
-    """Fresh yfinance headlines per watchlist ticker for the news-theme matcher.
+def _watchlist_news(db_path: str) -> dict[str, list[dict]]:
+    """Fresh yfinance headlines (title/publisher/published/link) per watchlist ticker —
+    one fetch shared by the news-theme matcher and the beat/miss/guidance classifier
+    (Strang B3), so neither hits yfinance twice for the same ticker.
 
     No watchlist -> {} (the theme radar still detects market-wide themes; it just
-    cannot attach any to tickers)."""
+    cannot attach any to tickers, and there is nothing to classify)."""
     watchlist = load_latest_watchlist(db_path)
     if watchlist is None:
         return {}
     provider = YFinanceNews(limit=5)
     return {
-        entry["ticker"]: [
-            item.get("title", "") for item in provider.news_for(entry["ticker"])
-        ]
+        entry["ticker"]: provider.news_for(entry["ticker"])
         for entry in watchlist.get("entries", [])
+    }
+
+
+def _titles_only(news_by_ticker: dict[str, list[dict]]) -> dict[str, list[str]]:
+    """The news-theme matcher only needs titles; the classifier needs the full items."""
+    return {
+        ticker: [item.get("title", "") for item in items]
+        for ticker, items in news_by_ticker.items()
     }
 
 
@@ -106,22 +123,28 @@ def main() -> int:
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     universe = [(i.ticker, i.name) for i in load_universe(args.universe)]
-    ticker_headlines = _watchlist_headlines(args.db)
-    # Same watchlist tickers _watchlist_headlines already loaded — Form 4 is a
-    # per-issuer lookup, so it follows the watchlist's "actively tracked only" scope
-    # rather than the full universe (see evidence/form4.py's module docstring).
+    news_by_ticker = _watchlist_news(args.db)
+    ticker_headlines = _titles_only(news_by_ticker)
+    # Same watchlist tickers _watchlist_news already loaded — Form 4 is a per-issuer
+    # lookup, so it follows the watchlist's "actively tracked only" scope rather than
+    # the full universe (see evidence/form4.py's module docstring).
     watchlist_tickers = list(ticker_headlines)
     # 8-K is per-issuer like Form 4, but scoped to the broader tracked-tickers union
     # (watchlist + main paper portfolio + both arena lanes, see tracked_tickers.py) —
     # positions already held deserve near-realtime disclosure evidence too, not just
     # watchlist candidates.
     eightk_tickers = sorted(tracked_tickers(args.db))
+    # Called eagerly (once) so its events can also feed the beat/miss/guidance
+    # classifier below without a second EDGAR round-trip; collect_8k never raises
+    # (every failure degrades to a CollectorResult status), so this is as safe as the
+    # lazy lambda it replaces.
+    eightk_result = collect_8k(now=now, env=dict(os.environ), tickers=eightk_tickers)
 
     collectors: list[Callable[[], CollectorResult]] = [
         lambda: fetch_congress_trades(now=now),
         lambda: collect_news_themes(now=now, ticker_headlines=ticker_headlines),
         lambda: collect_voices(now=now, universe=universe),
-        lambda: collect_8k(now=now, env=dict(os.environ), tickers=eightk_tickers),
+        lambda: eightk_result,
     ]
     if not args.fast:
         collectors += [
@@ -137,6 +160,15 @@ def main() -> int:
         f"Neu gespeichert: {result['new_events']} Ereignisse,"
         f" davon im Ledger: {result['ledgered']}."
     )
+
+    # Strang B3: deterministic beat/miss/guidance classification of watchlist news
+    # headlines + the 8-K events just collected above, with an honest published_at/
+    # seen_at pair for later latency measurement (Strang B4 — not done here).
+    classified = build_classified_events(
+        news_by_ticker=news_by_ticker, eightk_events=eightk_result.events
+    )
+    new_classified = save_classified_events(args.db, classified, seen_at=now)
+    print(f"Klassifizierte Events (Beat/Miss/Guidance): {len(new_classified)} neu.")
     return 0
 
 
