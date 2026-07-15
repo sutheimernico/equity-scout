@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import {
   fetchModelHistory,
+  type DailyCurvePoint,
   type ModelHistoryPoint,
   type ModelHistoryResponse,
 } from "../api";
@@ -50,6 +51,87 @@ function AucCurve({ points }: { points: ModelHistoryPoint[] }) {
         </circle>
       ))}
     </svg>
+  );
+}
+
+// Daily learning curve (Strang C, task C1): one point per calendar day (nightly snapshot), so
+// training is visible day-to-day instead of only on rare champion-flip events. Same
+// dependency-free inline-SVG approach as AucCurve above, but the x-axis is calendar days and the
+// y-axis is the ROLLING live hit-rate. Days without a resolved-window reading (hit_rate == null)
+// are skipped from the line — an honest gap, not a fake 0.
+function DailyCurve({ points }: { points: DailyCurvePoint[] }) {
+  if (points.length === 0) {
+    return (
+      <p className="muted">
+        Noch kein Tages-Snapshot — die Kurve startet ehrlich beim ersten nächtlichen
+        Trainingslauf, kein rückwirkender Backfill.
+      </p>
+    );
+  }
+  const scored = points.filter((p) => p.hit_rate != null);
+  if (scored.length === 0) {
+    return <p className="muted">Noch keine aufgelösten Vorhersagen im rollierenden Fenster.</p>;
+  }
+  const W = 560;
+  const H = 120;
+  const x = (i: number) => (scored.length === 1 ? W / 2 : (i / (scored.length - 1)) * (W - 20) + 10);
+  const y = (rate: number) => H - rate * H;
+  const path = scored
+    .map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.hit_rate as number)}`)
+    .join(" ");
+  return (
+    <svg
+      className="learning-curve"
+      viewBox={`0 0 ${W} ${H + 20}`}
+      role="img"
+      aria-label="Tägliche Lernkurve: rollierende Live-Trefferquote pro Kalendertag"
+    >
+      <line x1="0" x2={W} y1={y(0.5)} y2={y(0.5)} className="lc-coinflip" />
+      <text x="4" y={y(0.5) - 4} className="lc-label">
+        0,50 = Münzwurf
+      </text>
+      <path d={path} className="lc-path" fill="none" />
+      {scored.map((p, i) => (
+        <circle key={p.snapshot_date} cx={x(i)} cy={y(p.hit_rate as number)} r={3} className="lc-dot">
+          <title>
+            {`${p.snapshot_date} · n_train=${p.n_train ?? "n/a"} · n_resolved=${p.n_resolved ?? 0}` +
+              ` · Trefferquote ${((p.hit_rate as number) * 100).toFixed(0)} %` +
+              (p.rank_ic != null ? ` · Rank-IC ${p.rank_ic.toFixed(2)}` : "")}
+          </title>
+        </circle>
+      ))}
+    </svg>
+  );
+}
+
+function DailyLearningSection({ points }: { points: DailyCurvePoint[] }) {
+  const latest = points.length > 0 ? points[points.length - 1] : null;
+  return (
+    <section className="strat-block">
+      <div className="chip-row" style={{ marginBottom: "var(--space-3)" }}>
+        <Chip>
+          <b>Tägliche Lernkurve</b>
+        </Chip>
+        <Chip>
+          {points.length} Tages-Snapshot{points.length === 1 ? "" : "s"}
+        </Chip>
+        {latest && (
+          <Chip>n_train zuletzt: {latest.n_train ?? "n/a"}</Chip>
+        )}
+      </div>
+      <DailyCurve points={points} />
+      {points.length > 0 && points.length < 5 && (
+        <p className="muted">
+          Erst {points.length} Snapshot{points.length === 1 ? "" : "s"} seit dem ersten Lauf —
+          die Kurve ist noch kurz, wächst aber ehrlich Tag für Tag.
+        </p>
+      )}
+      <p className="muted">
+        Ein Punkt pro Kalendertag (nächtlicher Snapshot direkt nach dem Training): n_train des
+        aktuellen Champions, rollierende Live-Trefferquote und Rank-IC der aufgelösten
+        Vorhersagen. Zeigt tägliches Lernen — nicht nur seltene Champion-Wechsel.
+      </p>
+    </section>
   );
 }
 
@@ -117,6 +199,8 @@ export function LearningCurvePanel() {
         Champion wird nur promotet, wenn er das Gate schlägt (Mindest-AUC-Abstand, Mindest-n,
         kein Münzwurf-Band). Eine flache oder fallende Kurve ist ein ehrliches Ergebnis.
       </Explain>
+
+      <DailyLearningSection points={data.daily_curve} />
 
       {!data.available ? (
         <p className="state">

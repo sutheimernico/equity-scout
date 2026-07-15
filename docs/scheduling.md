@@ -22,8 +22,12 @@ Five layers of automation, all cron-driven and local/free (always-on since v6):
    and appends to `copilot.log`.
 3. **`scripts/nightly_train.sh`** — 02:30 Tue–Sat (post-US-close): retrain every
    entry-model preset for both families (long + short; the registry gate alone
-   promotes), a 25-trial research batch, then advance the forward paper accounts so
-   the ML bots trade the freshest champions. Appends to `train.log`.
+   promotes) → a daily learning-curve snapshot (`run_learning_snapshot.py`, Strang C
+   task C1: the champion's `n_train` + rolling `n_resolved`/hit-rate/Rank-IC as one
+   persisted point per calendar day, so `/api/model/history`'s `daily_curve` shows
+   daily training even on nights the champion does not flip) → a 25-trial research
+   batch, then advance the forward paper accounts so the ML bots trade the freshest
+   champions. Appends to `train.log`.
 4. **`scripts/receiver_keepalive.sh`** — restarts the Telegram decision receiver
    (under `flock -n`, single instance) so buy/pass/later buttons keep working after
    a reboot. Quiet no-op without Telegram config.

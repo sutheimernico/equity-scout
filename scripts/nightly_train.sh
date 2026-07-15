@@ -3,7 +3,10 @@
 # entry-model preset for every family (long "entry", short "entry_short", triple-barrier
 # "entry_tb") — the hardened registry gate alone decides champion promotions, per family —
 # then run a bounded research-loop batch (own DSR-hurdle ledger), then advance the forward
-# paper accounts so the ML bots trade on the freshest champions.
+# paper accounts so the ML bots trade on the freshest champions. A daily learning-curve
+# snapshot (Strang C, task C1) is written right after training, so the champion's n_train and
+# the rolling live hit-rate/Rank-IC are captured freshest — one persisted point per calendar
+# day, visible in the dashboard even on nights the champion does not flip.
 #
 # Same contract as daily_copilot.sh: steps degrade independently, .venv python (cron has no
 # uv), .env sourced when present, everything appends to train.log.
@@ -34,7 +37,8 @@ step() {
 }
 
 echo "[$(date -Is)] ===== nightly_train start =====" >> "$LOG"
-step train_entry    "$PY" scripts/run_train_entry.py
-step research_batch "$PY" scripts/run_research.py --trials 25
-step forward_paper  "$PY" scripts/run_forward_paper.py --refresh
+step train_entry       "$PY" scripts/run_train_entry.py
+step learning_snapshot "$PY" scripts/run_learning_snapshot.py
+step research_batch    "$PY" scripts/run_research.py --trials 25
+step forward_paper     "$PY" scripts/run_forward_paper.py --refresh
 echo "[$(date -Is)] ===== nightly_train end =====" >> "$LOG"

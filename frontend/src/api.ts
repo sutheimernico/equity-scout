@@ -588,11 +588,25 @@ export interface Promotion {
   n_oos: number | null;
 }
 
+// One persisted point per calendar day (scripts/run_learning_snapshot.py, chained after the
+// nightly retrain) — daily training visible even on nights the champion does not flip. Fields
+// are null when a metric was not determinable that day (no champion yet, nothing resolved yet
+// in the rolling window) — an honest gap, never a fabricated 0.
+export interface DailyCurvePoint {
+  snapshot_date: string;
+  created_at: string;
+  n_train: number | null;
+  n_resolved: number | null;
+  hit_rate: number | null;
+  rank_ic: number | null;
+}
+
 export interface ModelHistoryResponse {
   available: boolean;
   families: Record<string, ModelHistoryPoint[]>;
   promotions: Promotion[];
   resolved_windows: ResolvedWindow[];
+  daily_curve: DailyCurvePoint[];
   disclaimer: string;
 }
 

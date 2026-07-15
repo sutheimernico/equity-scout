@@ -489,11 +489,35 @@ def test_model_history_reports_families_and_promotions(tmp_path):
     assert entry[-1]["horizon_days"] == 20
     assert payload["promotions"][0]["version"] == version
     assert {w["window_days"] for w in payload["resolved_windows"]} == {30, 90}
+    assert payload["daily_curve"] == []  # no snapshot persisted yet -> empty, not a crash
     assert "disclaimer" in payload
 
     model_payload = client.get("/api/model").json()
     assert "resolved_windows" in model_payload
     assert model_payload["drift"] is None  # no feature_means/predictions yet -> honest None
+
+
+def test_model_history_reports_daily_curve_chronologically(tmp_path):
+    from equity_scout.ml.learning_curve import save_snapshot
+
+    db = str(tmp_path / "curve.db")
+    save_snapshot(
+        db, snapshot_date="2026-07-15", created_at="2026-07-15T02:30:00+00:00",
+        n_train=120, n_resolved=40, hit_rate=0.55, rank_ic=0.12,
+    )
+    save_snapshot(
+        db, snapshot_date="2026-07-14", created_at="2026-07-14T02:30:00+00:00",
+        n_train=None, n_resolved=0, hit_rate=None, rank_ic=None,
+    )
+
+    client = TestClient(create_app(db))
+    payload = client.get("/api/model/history").json()
+    assert [p["snapshot_date"] for p in payload["daily_curve"]] == ["2026-07-14", "2026-07-15"]
+    assert payload["daily_curve"][0]["n_train"] is None  # honest gap, not a fabricated 0
+    assert payload["daily_curve"][1]["hit_rate"] == 0.55
+    # existing fields stay intact alongside the new one (backward compatible)
+    assert payload["available"] is False
+    assert payload["families"] == {}
 
 
 def test_signal_stack_returns_honest_nulls_on_empty_db(tmp_path):

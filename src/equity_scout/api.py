@@ -41,6 +41,7 @@ from equity_scout.storage import (
 from equity_scout.universe import REGION_GROUPS
 from equity_scout.telegram_client import ACTIONS
 from equity_scout.ml.ledger import DEFAULT_LEDGER_PATH, champion
+from equity_scout.ml.learning_curve import load_daily_curve
 from equity_scout.ml.model_registry import entry_champion, load_champion_history, registry_summary
 from equity_scout.ml.prediction_ledger import (
     drift_snapshot,
@@ -527,6 +528,11 @@ def create_app(
                 resolved_stats_windowed(db_path, window_days=window, now=now)
                 for window in (30, 90)
             ],
+            # Daily learning curve (plan v6 strand C, task C1): one point per calendar day
+            # (scripts/run_learning_snapshot.py, chained after the nightly retrain), so daily
+            # training is visible even on nights the champion does not flip. Empty until the
+            # first snapshot has run — never backfilled.
+            "daily_curve": load_daily_curve(db_path),
             "disclaimer": DISCLAIMER,
         })
 
