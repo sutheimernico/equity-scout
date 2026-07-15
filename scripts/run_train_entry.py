@@ -81,11 +81,15 @@ def run_train_entry(
     horizon_days: int = HORIZON_DAYS,
     family: str = "entry",
     barrier_config: BarrierConfig | None = None,
+    n_candidates: int = 1,
 ) -> dict:
     """Build the backfill, evaluate OUT-OF-SAMPLE, fit on the full set (with OOS isotonic
     calibration when the sample supports it), register the challenger and promote it iff it clears
     the registry's promotion gate (`promote_if_better`: baseline quality + minimum AUC delta over
-    the champion, see model_registry.py). Returns {version, metrics, promoted, n_train}. Prints an
+    the champion, see model_registry.py). `n_candidates` is forwarded to `promote_if_better`'s
+    multiple-testing guard (C2) — the caller's job to say how many presets are competing against
+    this same family's champion tonight (see `run_train_entry_all`); defaults to 1 (a single,
+    standalone training run). Returns {version, metrics, promoted, n_train}. Prints an
     honest German summary (a weak/undefined AUC is reported as no demonstrated edge; too few OOS
     rows is reported as such rather than silently not promoting).
 
@@ -133,7 +137,7 @@ def run_train_entry(
     version = register_challenger(
         db_path, fitted, metrics=metrics, n_train=n_train, now=now, family=family
     )
-    promoted = promote_if_better(db_path, version, now=now)
+    promoted = promote_if_better(db_path, version, now=now, n_candidates=n_candidates)
 
     label = FAMILY_PRINT_LABEL.get(family, f"{family}-Modell")
     print(f"{label} v{version} ({model}) auf {n_train} Zeilen trainiert.")
@@ -174,9 +178,15 @@ def run_train_entry_all(
     entry here: `run_train_entry` derives its horizon from `barrier_config.horizon_days` itself
     (single source of truth — the persisted config must never disagree with the training horizon).
     One preset crashing must not kill the night's other presets — log and continue, mirroring the
-    cron chains' contract."""
+    cron chains' contract.
+
+    C2 multiple-testing guard: `len(models)` presets compete against the SAME champion within each
+    family (families never compare against each other — each has its own champion track), so
+    `len(models)` — not `len(models) * len(families)` — is the candidate count passed to every
+    `promote_if_better` call via `run_train_entry`'s `n_candidates`."""
     tb_config = barrier_config if barrier_config is not None else BarrierConfig()
     family_horizon = {"entry": horizon_days, "entry_short": SHORT_HORIZON_DAYS}
+    n_candidates = len(models)
     results = []
     for family in families:
         for model in models:
@@ -186,7 +196,7 @@ def run_train_entry_all(
                         db_path, panel=panel, tickers=tickers, now=now, model=model,
                         benchmark=benchmark,
                         horizon_days=family_horizon.get(family, horizon_days),
-                        family=family, barrier_config=tb_config,
+                        family=family, barrier_config=tb_config, n_candidates=n_candidates,
                     )
                 )
             except Exception as err:  # noqa: BLE001 — one broken preset is a report, not a crash

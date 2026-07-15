@@ -99,6 +99,68 @@ def test_challenger_below_min_delta_does_not_displace(tmp_path):
     assert entry_champion(db)[0] == v1
 
 
+def test_n_candidates_one_matches_legacy_threshold(tmp_path):
+    """C2: n_candidates=1 (the default, and every pre-C2 call site) must reproduce the exact legacy
+    MIN_AUC_DELTA threshold — a delta just below it still rejects, a delta right at it still
+    promotes, whether or not n_candidates=1 is passed explicitly."""
+    db = str(tmp_path / "reg.db")
+    v1 = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=20, now=NOW)
+    assert promote_if_better(db, v1, n_candidates=1) is True
+    v2 = register_challenger(db, _model(2), metrics=_metrics(0.705), n_train=20, now=NOW)
+    assert promote_if_better(db, v2, n_candidates=1) is False  # delta 0.005 < MIN_AUC_DELTA (0.01)
+    v3 = register_challenger(db, _model(3), metrics=_metrics(0.71), n_train=20, now=NOW)
+    assert promote_if_better(db, v3, n_candidates=1) is True  # delta 0.01 == MIN_AUC_DELTA -> promotes
+    assert entry_champion(db)[0] == v3
+
+
+def test_borderline_candidate_promoted_at_n1_rejected_at_n4(tmp_path):
+    """C2: the whole point of the multiple-testing guard — a delta that clears the single-candidate
+    hurdle (0.01) can fail the 4-candidate hurdle (0.01 * sqrt(4) == 0.02), because testing 4 nightly
+    presets against the same champion makes a lucky 0.015 wiggle far more likely than testing 1."""
+    delta = 0.015
+    db1 = str(tmp_path / "n1.db")
+    v1 = register_challenger(db1, _model(1), metrics=_metrics(0.70), n_train=20, now=NOW)
+    promote_if_better(db1, v1, n_candidates=1)
+    v2 = register_challenger(db1, _model(2), metrics=_metrics(0.70 + delta), n_train=20, now=NOW)
+    assert promote_if_better(db1, v2, n_candidates=1) is True  # 0.015 >= MIN_AUC_DELTA
+
+    db4 = str(tmp_path / "n4.db")
+    w1 = register_challenger(db4, _model(1), metrics=_metrics(0.70), n_train=20, now=NOW)
+    promote_if_better(db4, w1, n_candidates=4)
+    w2 = register_challenger(db4, _model(2), metrics=_metrics(0.70 + delta), n_train=20, now=NOW)
+    assert promote_if_better(db4, w2, n_candidates=4) is False  # 0.015 < 0.02 -> rejected
+    assert entry_champion(db4)[0] == w1
+
+
+def test_clearly_better_candidate_still_promoted_at_n4(tmp_path):
+    """C2: the guard raises the bar, it doesn't freeze promotion — a genuinely large improvement
+    still gets through even with 4 simultaneous candidates."""
+    db = str(tmp_path / "reg.db")
+    v1 = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=20, now=NOW)
+    promote_if_better(db, v1, n_candidates=4)
+    v2 = register_challenger(db, _model(2), metrics=_metrics(0.80), n_train=20, now=NOW)  # delta 0.10
+    assert promote_if_better(db, v2, n_candidates=4) is True
+    assert entry_champion(db)[0] == v2
+
+
+def test_effective_threshold_grows_monotonically_with_n_candidates(tmp_path):
+    """C2: the effective threshold at n=16 must be at least as strict as at n=4 — a delta that
+    exactly clears the n=4 hurdle (0.01 * sqrt(4) == 0.02) must not clear the stricter n=16 hurdle
+    (0.01 * sqrt(16) == 0.04)."""
+    delta = 0.02
+    db4 = str(tmp_path / "n4.db")
+    v1 = register_challenger(db4, _model(1), metrics=_metrics(0.70), n_train=20, now=NOW)
+    promote_if_better(db4, v1, n_candidates=4)
+    v2 = register_challenger(db4, _model(2), metrics=_metrics(0.70 + delta), n_train=20, now=NOW)
+    assert promote_if_better(db4, v2, n_candidates=4) is True  # exactly at the n=4 hurdle
+
+    db16 = str(tmp_path / "n16.db")
+    w1 = register_challenger(db16, _model(1), metrics=_metrics(0.70), n_train=20, now=NOW)
+    promote_if_better(db16, w1, n_candidates=16)
+    w2 = register_challenger(db16, _model(2), metrics=_metrics(0.70 + delta), n_train=20, now=NOW)
+    assert promote_if_better(db16, w2, n_candidates=16) is False  # below the stricter n=16 hurdle
+
+
 def test_promote_if_better_is_idempotent(tmp_path):
     db = str(tmp_path / "reg.db")
     v1 = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=20, now=NOW)

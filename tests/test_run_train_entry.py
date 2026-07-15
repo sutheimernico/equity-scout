@@ -99,6 +99,31 @@ def test_train_cli_promotes_strictly_better_challenger(tmp_path, monkeypatch):
     assert entry_champion(db)[0] == 2
 
 
+def test_run_train_entry_all_passes_presets_per_family_as_n_candidates(tmp_path, monkeypatch):
+    """C2: the multiple-testing guard's candidate count is the number of presets competing against
+    ONE family's champion (len(models)) — never the total across families (len(models) *
+    len(families)). run_train_entry_all must wire len(models) into every promote_if_better call,
+    regardless of how many families it loops over."""
+    db = str(tmp_path / "train.db")
+    monkeypatch.setattr(train_mod, "walk_forward_evaluate", lambda *a, **k: _metrics(0.65))
+    seen_n_candidates = []
+    real_promote = train_mod.promote_if_better
+
+    def _spy_promote(*args, **kwargs):
+        seen_n_candidates.append(kwargs["n_candidates"])
+        return real_promote(*args, **kwargs)
+
+    monkeypatch.setattr(train_mod, "promote_if_better", _spy_promote)
+
+    train_mod.run_train_entry_all(
+        db, panel=_panel_with_vol(), tickers=["AAA", "BBB"], now=NOW,
+        models=("random_forest", "elastic_net"), families=("entry", "entry_short"),
+    )
+
+    # 2 presets x 2 families = 4 calls, each with n_candidates == 2 (presets PER family, not 4)
+    assert seen_n_candidates == [2, 2, 2, 2]
+
+
 def test_train_main_happy_path_exits_zero(tmp_path, monkeypatch, capsys):
     db = str(tmp_path / "train.db")
     monkeypatch.setattr(train_mod, "_load_panel", lambda tickers, start: _panel())

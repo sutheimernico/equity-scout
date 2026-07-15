@@ -13,6 +13,10 @@ never wins. The champion flip (unset old, set new) happens in one transaction.
 Storage follows the repo idiom (raw sqlite3, idempotent init, per-function connections). The pickle
 load is guarded: a corrupt or wrong-shaped artifact raises `RegistryError` rather than surfacing a
 raw unpickling error to the caller.
+
+Multiple-testing guard (C2): a nightly run tests several presets against the same champion within
+one family. Testing N candidates against a fixed AUC-delta bar inflates the odds that noise alone
+clears it at least once, so the bar itself must rise with N — see `_min_auc_delta`.
 """
 from __future__ import annotations
 
@@ -24,9 +28,10 @@ import sqlite3
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.ml.entry_model import EntryModel
 
-# Minimum OOS AUC improvement a challenger must show over the incumbent champion to be promoted.
-# Nightly retrains are nightly trials against the same OOS metric; without a floor, noise alone
-# would eventually swap the champion (F2).
+# Minimum OOS AUC improvement a challenger must show over the incumbent champion to be promoted,
+# when exactly one candidate is tested (n_candidates=1). Nightly retrains are nightly trials
+# against the same OOS metric; without a floor, noise alone would eventually swap the champion
+# (F2). See `_min_auc_delta` for how this scales up when several candidates compete at once (C2).
 MIN_AUC_DELTA = 0.01
 
 # Minimum OOS row count for a promotion decision to be trustworthy. Below this, an AUC estimate is
@@ -145,6 +150,29 @@ def _metric(metrics_json: str, key: str) -> float:
     return raw if raw is not None else float("-inf")
 
 
+def _min_auc_delta(n_candidates: int) -> float:
+    """The AUC-delta hurdle a challenger must clear, given `n_candidates` presets simultaneously
+    tested against the same champion (C2, multiple-testing guard).
+
+    `n_candidates=1` returns `MIN_AUC_DELTA` unchanged — every pre-C2 call site (implicit or
+    explicit single-candidate promotion) sees the exact legacy threshold.
+
+    For n_candidates > 1, the hurdle grows with `sqrt(n_candidates)`: this is the simplest solid
+    correction available without the raw OOS predictions (dropped after scoring, never persisted —
+    a proper bootstrap or an exact per-candidate z-test is not possible on what's stored). It is a
+    deliberately simple, conservative proxy for the well-known result that the expected best-of-N
+    draws from i.i.d. noise grows with N — favoring caution (raising the bar, risking a missed
+    promotion) over precision (risking a champion swapped by a lucky preset). It is NOT a rigorous
+    per-candidate significance test; that would need `se ≈ sqrt(auc*(1-auc)/n_oos)` and a
+    Bonferroni-corrected critical z-value, both of which are computable from the persisted metrics,
+    but calibrating them to reproduce exactly `MIN_AUC_DELTA` at n_candidates=1 needs a nominal
+    alpha this repo cannot yet justify — this monotone proxy is preferred as the "einfachste solide
+    Korrektur" until that groundwork exists."""
+    if n_candidates < 1:
+        raise ValueError(f"n_candidates must be >= 1, got {n_candidates}")
+    return MIN_AUC_DELTA * math.sqrt(n_candidates)
+
+
 def _no_edge(auc: float | None) -> bool:
     """No demonstrated ranking edge: AUC undefined/non-finite, or within a coin-flip band of 0.5.
     Enforced here (not just printed by the CLI) so a null result can never become champion."""
@@ -180,16 +208,22 @@ def entry_champion(
 
 
 def promote_if_better(
-    db_path: str, version: int, *, metric_key: str = "auc", now: str = ""
+    db_path: str, version: int, *, metric_key: str = "auc", now: str = "", n_candidates: int = 1
 ) -> bool:
     """Promote `version` to champion iff it clears the promotion gate (F2):
 
     1. Baseline quality — its OOS `metric_key` is not a no-edge result (`_no_edge`) and rests on at
        least `MIN_OOS_N` OOS rows. Applies even to the very first model: an empty arena has no
        champion rather than a fake one bootstrapped off an undemonstrated edge.
-    2. If a champion already exists, `version` must beat it by at least `MIN_AUC_DELTA` — nightly
-       retrains are nightly trials, so noise alone (a tie or a marginally-better score) must not be
-       able to swap the champion.
+    2. If a champion already exists, `version` must beat it by at least `_min_auc_delta(n_candidates)`
+       — nightly retrains are nightly trials, so noise alone (a tie or a marginally-better score)
+       must not be able to swap the champion.
+
+    `n_candidates` (C2, multiple-testing guard) is how many presets are being tested against THIS
+    SAME champion tonight — e.g. run_train_entry_all passes the preset count per family, not the
+    total across families (each family's champion only ever competes against its own family's
+    presets). Defaults to 1, which reproduces the exact pre-C2 threshold (`_min_auc_delta(1) ==
+    MIN_AUC_DELTA`) — every existing single-candidate call site is unaffected.
 
     Promotion is scoped to the candidate's FAMILY: the long and short registries never compare
     against each other's champions. Returns True iff a promotion happened; idempotent
@@ -213,7 +247,7 @@ def promote_if_better(
             return False  # fails baseline quality → never becomes champion, first or not
         if champ is not None:
             delta = _metric(cand[0], metric_key) - _metric(champ[1], metric_key)
-            if delta < MIN_AUC_DELTA:
+            if delta < _min_auc_delta(n_candidates):
                 return False  # improvement over the incumbent is below the noise-guard threshold
 
         # bootstrap (no champion) or a challenger clearing both gates → flip in one transaction
