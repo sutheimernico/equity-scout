@@ -1,5 +1,14 @@
+import datetime
+import sys
+import types
+
 import equity_scout.data.fetch as fetch_mod
-from equity_scout.data.yf_provider import FetchStats, YFinanceProvider, quote_from_info_and_history
+from equity_scout.data.yf_provider import (
+    FetchStats,
+    YFinanceProvider,
+    fetch_earnings_dates,
+    quote_from_info_and_history,
+)
 from equity_scout.models import Instrument
 
 
@@ -89,3 +98,48 @@ def test_quote_backfills_unknown_sector_from_info():
 
     no_info = quote_from_info_and_history(unknown, {}, [1.0, 2.0])
     assert no_info.instrument.sector == "Unknown"  # honest absence, never guessed
+
+
+# --- fetch_earnings_dates (lazy import, same fake-module pattern as test_fundamentals.py) ---
+
+
+def _fake_yfinance(calendar) -> types.ModuleType:
+    fake_yf = types.ModuleType("yfinance")
+    fake_yf.Ticker = lambda ticker: types.SimpleNamespace(calendar=calendar)
+    return fake_yf
+
+
+def test_fetch_earnings_dates_returns_sorted_iso_strings(monkeypatch):
+    calendar = {"Earnings Date": [datetime.date(2026, 7, 23), datetime.date(2026, 7, 22)]}
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yfinance(calendar))
+    assert fetch_earnings_dates("AAPL") == ["2026-07-22", "2026-07-23"]
+
+
+def test_fetch_earnings_dates_empty_when_calendar_has_no_earnings_key(monkeypatch):
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yfinance({}))
+    assert fetch_earnings_dates("XYZ") == []
+
+
+def test_fetch_earnings_dates_returns_empty_on_none_calendar(monkeypatch):
+    """yfinance's own .calendar can be None (e.g. delisted) — never crash on it."""
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yfinance(None))
+    assert fetch_earnings_dates("XYZ") == []
+
+
+def test_fetch_earnings_dates_returns_empty_on_exception(monkeypatch):
+    fake_yf = types.ModuleType("yfinance")
+
+    def boom(ticker):
+        raise RuntimeError("network down")
+
+    fake_yf.Ticker = boom
+    monkeypatch.setitem(sys.modules, "yfinance", fake_yf)
+    assert fetch_earnings_dates("AAPL") == []
+
+
+def test_fetch_earnings_dates_ignores_unparseable_entries(monkeypatch):
+    """Defensive: a malformed entry (neither a date nor an ISO string) is dropped,
+    not raised — honest partial data beats a crashed fetch."""
+    calendar = {"Earnings Date": [datetime.date(2026, 7, 22), None, 42]}
+    monkeypatch.setitem(sys.modules, "yfinance", _fake_yfinance(calendar))
+    assert fetch_earnings_dates("AAPL") == ["2026-07-22"]

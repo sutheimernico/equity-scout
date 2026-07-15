@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Daily copilot chain: (Mondays: screener first) -> radar -> evidence -> notify ->
-# score watchlist -> resolve predictions -> resolve evidence -> lanes -> digest.
+# Daily copilot chain: (Mondays: screener first) -> radar -> earnings -> evidence ->
+# notify -> score watchlist -> resolve predictions -> resolve evidence -> lanes -> digest.
 #
 # Design rules:
 # - Every step degrades independently: a failed step is logged and the chain
@@ -47,6 +47,7 @@ if [ "$(date +%u)" = "1" ]; then
 fi
 
 step radar               "$PY" scripts/run_radar.py
+step earnings            "$PY" scripts/run_earnings.py
 step evidence            "$PY" scripts/run_evidence.py
 # --min-pitches 5: the daily delivery pitches several names (topped up by composite),
 # not only strict in-zone hits (Nico 2026-07-15).

@@ -76,6 +76,48 @@ def fetch_dividend_yield(ticker: str) -> float | None:
         return None
 
 
+def _earnings_dates_from_calendar(calendar: dict) -> list[str]:
+    """Pure: extract sorted ISO date strings from a yfinance ``Ticker.calendar`` dict.
+
+    ``calendar["Earnings Date"]`` is normally a list of `datetime.date` objects; entries that
+    are already ISO strings (cheap test doubles) are accepted too, and anything else (None,
+    an int, ...) is silently dropped rather than raising — one malformed entry should not
+    blank out the rest of a real response.
+    """
+    dates = calendar.get("Earnings Date") or []
+    out = []
+    for d in dates:
+        if hasattr(d, "isoformat"):
+            out.append(d.isoformat())
+        elif isinstance(d, str):
+            out.append(d)
+    return sorted(set(out))
+
+
+def fetch_earnings_dates(ticker: str) -> list[str]:
+    """Upcoming earnings dates for ``ticker`` as sorted ISO date strings, or [] if unknown.
+
+    Reads ``Ticker.calendar``, not ``Ticker.earnings_dates``: ``.calendar`` hits Yahoo's
+    lightweight quoteSummary ``calendarEvents`` module — the same request family as ``.info``,
+    used by ``fetch_dividend_yield`` above — and its "Earnings Date" entry IS Yahoo's own
+    upcoming-earnings estimate (usually a one- or two-day window), always forward-looking.
+    ``.earnings_dates`` instead scrapes an HTML calendar table that mixes already-reported and
+    estimated rows, pushing the "is this date actually upcoming" filtering (and the fragility
+    of an HTML-table scrape) onto the caller — an extra failure mode this repo does not need.
+    Many non-US tickers have no calendar coverage at all; that surfaces as an honest empty
+    list, never a guess. Lazy import + broad except mirror ``fetch_dividend_yield``'s guard.
+    """
+    try:
+        import yfinance as yf
+
+        calendar = yf.Ticker(ticker).calendar
+        if not isinstance(calendar, dict):
+            return []
+        return _earnings_dates_from_calendar(calendar)
+    except Exception:  # noqa: BLE001 - any provider hiccup → honest "no earnings known"
+        return []
+
+
 class FetchStats:
     """Thread-safe counters for one run's yfinance fetches (`fetch_all` uses a thread pool).
 

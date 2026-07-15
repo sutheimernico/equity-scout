@@ -7,15 +7,19 @@ Five layers of automation, all cron-driven and local/free (always-on since v6):
    adding information), ONLY inside the approximate US market window (15:00–22:30
    Europe/Berlin Mon–Fri, guard in `src/equity_scout/market_hours.py`): radar entry
    zones → fast evidence collectors (congress mirror, news themes, voices —
-   `run_evidence.py --fast`) → notify `--inbox-only`. REVISED 2026-07-14: the intraday
+   `run_evidence.py --fast`) → notify `--inbox-only` (logs a line when a watchlist
+   ticker has a known earnings date in the next few days — awareness only, it does
+   not change pitch content or any decision). REVISED 2026-07-14: the intraday
    timeline accumulates in the dashboard inbox only — Nico gets exactly ONE Telegram
    delivery per day (18:00 chain: pitches with decision buttons + digest). Existing
    cooldowns + idempotency keys prevent alert spam. Appends to `intraday.log`.
 2. **`scripts/daily_copilot.sh`** — the full unattended copilot chain at 18:00:
-   (Mondays: screener first) → radar → ALL evidence collectors (incl. 13F + Form 4;
-   EDGAR stays out of the 30-min loop by etiquette) → notify → score watchlist →
-   resolve predictions → resolve evidence → lanes → digest. Every step degrades
-   independently and appends to `copilot.log`.
+   (Mondays: screener first) → radar → earnings-calendar refresh (`run_earnings.py`,
+   Strang B1: yfinance calendar for every watchlist/depot ticker) → ALL evidence
+   collectors (incl. 13F + Form 4; EDGAR stays out of the 30-min loop by etiquette) →
+   notify → score watchlist → resolve predictions → resolve evidence → lanes → digest
+   (now with a "📅 Earnings diese Woche" section). Every step degrades independently
+   and appends to `copilot.log`.
 3. **`scripts/nightly_train.sh`** — 02:30 Tue–Sat (post-US-close): retrain every
    entry-model preset for both families (long + short; the registry gate alone
    promotes), a 25-trial research batch, then advance the forward paper accounts so

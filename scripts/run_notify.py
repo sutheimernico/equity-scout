@@ -20,6 +20,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 
 from equity_scout.constants import DEFAULT_DB_PATH
+from equity_scout.earnings_storage import earnings_within
 from equity_scout.evidence.aggregate import attach_track_records
 from equity_scout.evidence.person_storage import person_score_index
 from equity_scout.evidence.storage import events_in_window
@@ -45,6 +46,28 @@ from equity_scout.telegram_client import (
 # Congress filings arrive up to 45 days late; a 30-day window over EVENT dates keeps
 # the pitch block about recent facts while the delay note carries the honesty context.
 EVIDENCE_WINDOW_DAYS = 30
+# Intraday earnings awareness (Strang B1, scope note below): a tighter window than the
+# daily digest's 7-day "this week" — the 15-min chain runs close to real time, so "soon"
+# means the next couple of trading days, not the whole week.
+EARNINGS_LOOKAHEAD_DAYS = 3
+
+
+def _earnings_soon_lines(
+    db_path: str, watchlist_tickers: list[str], *, today: str, days: int
+) -> list[str]:
+    """Watchlist tickers with a known earnings date within `days` of `today`, formatted
+    for a log line.
+
+    Deliberately LOG-ONLY: this does not touch pitch text, candidate selection, or any
+    score — reacting to an earnings date (e.g. holding off a pitch, flagging elevated
+    risk) is a classification decision this task explicitly does not make; see
+    docs/superpowers/plans (Strang B3, beat/miss classifier) for where that belongs.
+    This is the intraday chain's "aware of earnings days" hook: it surfaces the fact,
+    nothing more.
+    """
+    watch_set = set(watchlist_tickers)
+    upcoming = earnings_within(db_path, today=today, days=days)
+    return [f"{e['ticker']} am {e['earnings_date']}" for e in upcoming if e["ticker"] in watch_set]
 
 
 def _telegram_sender(
@@ -114,6 +137,11 @@ def main() -> int:
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     watchlist_tickers = [entry["ticker"] for entry in watchlist.get("entries", [])]
+    earnings_soon = _earnings_soon_lines(
+        args.db, watchlist_tickers, today=now[:10], days=EARNINGS_LOOKAHEAD_DAYS
+    )
+    if earnings_soon:
+        print("Earnings in Kürze (Watchlist): " + "; ".join(earnings_soon))
     # Measured person scores (weekly run_person_scores refresh) annotate both surfaces.
     score_index = person_score_index(args.db)
     evidence_by_ticker = attach_track_records(

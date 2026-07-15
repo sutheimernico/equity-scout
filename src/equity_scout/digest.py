@@ -44,6 +44,7 @@ def build_digest(
     evidence_stats: dict[str, dict] | None = None,
     alerts_today: list[dict] | None = None,
     opportunities: list[dict] | None = None,
+    earnings_this_week: list[dict] | None = None,
 ) -> str:
     """German plain-text digest: all open pitches first, then recent decisions.
 
@@ -52,9 +53,10 @@ def build_digest(
     correct because all writers produce UTC "+00:00" ISO strings (see inbox_storage).
     evidence_stats (evidence.ledger.stats_by_source shape) appends the measured
     per-source hit-rates — queries, not promises; omitted entirely when None/empty.
-    alerts_today (evidence.storage.load_alerts rows) and opportunities (radar watchlist
-    entries) render the day-summary sections for the Telegram daily chat; both are
-    omitted entirely when None/empty.
+    alerts_today (evidence.storage.load_alerts rows), opportunities (radar watchlist
+    entries) and earnings_this_week (earnings_storage.earnings_within rows: ticker +
+    earnings_date) render the day-summary sections for the Telegram daily chat; all
+    three are omitted entirely when None/empty.
     """
     lines = [f"Copilot-Digest {date_label}", ""]
     if alerts_today:
@@ -81,6 +83,11 @@ def build_digest(
             lines.append(
                 f"  {entry['ticker']} · Score {round(entry['composite'] * 100)}/100{marks}"
             )
+        lines.append("")
+    if earnings_this_week:
+        lines.append("📅 Earnings diese Woche:")
+        for e in earnings_this_week:
+            lines.append(f"  {e['ticker']}: {e['earnings_date']}")
         lines.append("")
     open_pitches = [p for p in pitches if p["status"] == "open"]
     decided = [

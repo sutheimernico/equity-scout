@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.digest import build_digest, load_smtp_config, send_digest
+from equity_scout.earnings_storage import earnings_within
 from equity_scout.evidence.ledger import stats_by_source
 from equity_scout.evidence.storage import load_alerts
 from equity_scout.inbox_storage import load_pitches
@@ -27,6 +28,7 @@ from equity_scout.telegram_client import (
 )
 
 OPPORTUNITY_TOP_N = 3
+EARNINGS_LOOKAHEAD_DAYS = 7  # "diese Woche" — matches the daily digest's own cadence
 
 
 def main() -> int:
@@ -46,6 +48,9 @@ def main() -> int:
     opportunities = sorted(
         watchlist.get("entries", []), key=lambda e: e["composite"], reverse=True
     )[:OPPORTUNITY_TOP_N]
+    earnings_this_week = earnings_within(
+        args.db, today=date_label, days=EARNINGS_LOOKAHEAD_DAYS
+    )
 
     text = build_digest(
         pitches,
@@ -54,6 +59,7 @@ def main() -> int:
         evidence_stats=stats_by_source(args.db),
         alerts_today=alerts_today,
         opportunities=opportunities,
+        earnings_this_week=earnings_this_week,
     )
 
     smtp_config = load_smtp_config(dict(os.environ))

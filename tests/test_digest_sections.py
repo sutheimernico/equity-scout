@@ -59,3 +59,50 @@ def test_section_order_header_alerts_opportunities_pitches():
     order = [text.index("Heute aufgefallen"), text.index("Chancen im Blick"),
              text.index("Offene Pitches")]
     assert order == sorted(order)
+
+
+def test_earnings_section_renders_ticker_and_date():
+    text = build_digest(
+        [], date_label="2026-07-15",
+        earnings_this_week=[{"ticker": "AAPL", "earnings_date": "2026-07-22"}],
+    )
+    assert "📅 Earnings diese Woche" in text
+    line = next(ln for ln in text.splitlines() if "AAPL" in ln)
+    assert "2026-07-22" in line
+
+
+def test_earnings_section_renders_multiple_entries():
+    text = build_digest(
+        [], date_label="2026-07-15",
+        earnings_this_week=[
+            {"ticker": "AAPL", "earnings_date": "2026-07-22"},
+            {"ticker": "MSFT", "earnings_date": "2026-07-16"},
+        ],
+    )
+    assert "AAPL" in text and "MSFT" in text
+
+
+def test_earnings_section_omitted_when_empty():
+    text = build_digest([], date_label="2026-07-14", earnings_this_week=[])
+    assert "Earnings diese Woche" not in text
+
+
+def test_earnings_section_omitted_when_none():
+    text = build_digest([], date_label="2026-07-14", earnings_this_week=None)
+    assert "Earnings diese Woche" not in text
+
+
+def test_section_order_header_alerts_opportunities_earnings_pitches():
+    text = build_digest(
+        [{"status": "open", "ticker": "AAPL", "composite": 0.7, "price": 100.0,
+          "created_at": "2026-07-14T10:00:00+00:00"}],
+        date_label="2026-07-14",
+        alerts_today=[{"ticker": "KHC", "reasons": ["congress"], "buyer_count": 1}],
+        opportunities=[{"ticker": "NVDA", "composite": 0.8, "in_zone": False, "value_gap": 0.0}],
+        earnings_this_week=[{"ticker": "MSFT", "earnings_date": "2026-07-16"}],
+    )
+    order = [
+        text.index("Heute aufgefallen"), text.index("Chancen im Blick"),
+        text.index("Earnings diese Woche"), text.index("Offene Pitches"),
+    ]
+    assert order == sorted(order)

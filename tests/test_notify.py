@@ -467,6 +467,64 @@ def test_main_annotates_pitches_with_evidence_and_alerts_off_watchlist(
     assert [a["ticker"] for a in alerts] == ["OFFW"]
 
 
+# --- intraday earnings awareness: log-only, no pitch/decision impact (B1 scope) ---
+
+
+def test_main_logs_upcoming_earnings_for_watchlist_tickers(tmp_path, monkeypatch, capsys):
+    """A watchlist ticker with an earnings date inside the lookahead window is surfaced
+    on stdout — visibility only, the pitch text itself is untouched (build_pitch is
+    stubbed here and does not receive earnings info)."""
+    from datetime import datetime, timedelta, timezone
+
+    from equity_scout.earnings_storage import save_earnings_dates
+
+    db = str(tmp_path / "run.db")
+    _seed_watchlist_db(db)  # watchlist ticker: YES
+    soon = (datetime.now(timezone.utc).date() + timedelta(days=2)).isoformat()
+    save_earnings_dates(db, "YES", [soon], fetched_on=NOW)
+    monkeypatch.delenv("COPILOT_TG_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("COPILOT_TG_CHAT_ID", raising=False)
+    monkeypatch.setattr(
+        run_notify_mod, "build_pitch", lambda entry, fund, evidence=None: f"PITCH {entry['ticker']}"
+    )
+    monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
+    monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db])
+
+    assert main() == 0
+
+    out = capsys.readouterr().out
+    assert f"YES am {soon}" in out
+    assert load_pitches(db)[0]["pitch"] == "PITCH YES"  # pitch content untouched
+
+
+def test_main_stays_silent_when_no_watchlist_ticker_has_upcoming_earnings(
+    tmp_path, monkeypatch, capsys
+):
+    db = str(tmp_path / "run.db")
+    _seed_watchlist_db(db)  # watchlist ticker: YES, no earnings row saved
+    monkeypatch.delenv("COPILOT_TG_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("COPILOT_TG_CHAT_ID", raising=False)
+    monkeypatch.setattr(
+        run_notify_mod, "build_pitch", lambda entry, fund, evidence=None: f"PITCH {entry['ticker']}"
+    )
+    monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
+    monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db])
+
+    assert main() == 0
+    assert "Earnings" not in capsys.readouterr().out
+
+
+def test_earnings_soon_lines_ignores_off_watchlist_tickers(tmp_path):
+    from equity_scout.earnings_storage import save_earnings_dates
+
+    db = str(tmp_path / "run.db")
+    save_earnings_dates(db, "OFFW", ["2026-07-16"], fetched_on=NOW)
+    lines = run_notify_mod._earnings_soon_lines(
+        db, ["YES"], today="2026-07-15", days=7
+    )
+    assert lines == []
+
+
 def test_select_candidates_tops_up_to_min_count():
     """min_count fills the daily batch with the best remaining names (Nico 2026-07-15:
     several pitches per daily), never re-pitching names inside their cooldown."""
