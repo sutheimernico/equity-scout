@@ -8,7 +8,7 @@ import pytest
 from equity_scout.forward_paper import ForwardAccount, advance_account
 from equity_scout.market import MarketView, PricePanel
 from equity_scout.strategies.base import TargetWeight, normalise_weights, weights_dict
-from equity_scout.strategies.ml_bot import MLLongStrategy, MLShortStrategy
+from equity_scout.strategies.ml_bot import MLLongStrategy, MLShortStrategy, _confidence_weights
 
 NOW = "2026-07-13T12:00:00+00:00"
 
@@ -209,3 +209,112 @@ def test_short_bot_targets_are_short_at_reduced_exposure(wavy_panel):
     assert len(targets) == 2
     assert all(tw.side == "short" for tw in targets)
     assert sum(tw.weight for tw in targets) == pytest.approx(0.5)  # DEFAULT_SHORT_EXPOSURE
+
+
+# --- confidence-weighted sizing (A5) ------------------------------------------------
+
+
+def test_confidence_weights_score_proportional_when_cap_does_not_bind():
+    weights = _confidence_weights(
+        {"A": 90, "B": 60, "C": 30}, ["A", "B", "C"], exposure=1.0, max_weight_per_position=1.0
+    )
+    assert weights["A"] > weights["B"] > weights["C"]
+    assert sum(weights.values()) == pytest.approx(1.0)
+    assert weights["A"] == pytest.approx(0.5)
+    assert weights["B"] == pytest.approx(1 / 3)
+    assert weights["C"] == pytest.approx(1 / 6)
+
+
+def test_confidence_weights_cap_clips_and_leaves_excess_as_cash():
+    weights = _confidence_weights(
+        {"A": 100, "B": 1, "C": 1}, ["A", "B", "C"], exposure=1.0, max_weight_per_position=2 / 3
+    )
+    assert weights["A"] == pytest.approx(2 / 3)  # clipped, not renormalised
+    assert sum(weights.values()) < 1.0  # clipped mass stays cash, never redistributed
+
+
+def test_confidence_weights_equal_scores_match_old_equal_weight():
+    """Regression: with equal scores the formula collapses to the pre-A5 equal split."""
+    weights = _confidence_weights(
+        {"A": 80, "B": 80}, ["A", "B"], exposure=1.0, max_weight_per_position=1.0
+    )
+    assert weights == {"A": pytest.approx(0.5), "B": pytest.approx(0.5)}
+
+
+def test_confidence_weights_zero_scores_fall_back_to_equal_weight():
+    weights = _confidence_weights(
+        {"A": 0, "B": 0}, ["A", "B"], exposure=1.0, max_weight_per_position=1.0
+    )
+    assert weights == {"A": pytest.approx(0.5), "B": pytest.approx(0.5)}  # no ZeroDivisionError
+
+
+class _SequentialStubModel:
+    """Champion stand-in that returns a DIFFERENT fixed score per call, in call order.
+
+    `score_universe` scores tickers in the order it is given them (`dict.fromkeys(tickers)`
+    preserves insertion order), so this lets a test pin a KNOWN, distinct score to each ticker —
+    `_StubModel` returns the same score for every row and so cannot exercise confidence-weighted
+    sizing at all.
+    """
+
+    def __init__(self, scores: list[int]):
+        self._scores = list(scores)
+        self._i = 0
+
+    def score_row(self, features: dict) -> int:
+        score = self._scores[self._i]
+        self._i += 1
+        return score
+
+
+def test_long_bot_weights_scale_with_confidence(wavy_panel):
+    bot = MLLongStrategy(
+        model=_SequentialStubModel([90, 60, 30]),
+        tickers=["VEU", "VWO", "VNQ"],
+        top_k=3,
+        threshold=0,
+    )
+    view = MarketView(wavy_panel, wavy_panel.dates[-1])
+    weights = {tw.ticker: tw.weight for tw in bot.decide(view.as_of, view)}
+    assert weights["VEU"] > weights["VWO"] > weights["VNQ"]  # higher score -> bigger weight
+    assert sum(weights.values()) == pytest.approx(1.0)  # dynamic cap (2/3) doesn't bind here
+
+
+def test_long_bot_per_position_cap_binds_on_concentrated_scores(wavy_panel):
+    bot = MLLongStrategy(
+        model=_SequentialStubModel([100, 1, 1]),
+        tickers=["VEU", "VWO", "VNQ"],
+        top_k=3,
+        threshold=0,
+    )
+    view = MarketView(wavy_panel, wavy_panel.dates[-1])
+    weights = {tw.ticker: tw.weight for tw in bot.decide(view.as_of, view)}
+    assert weights["VEU"] == pytest.approx(2 / 3)  # clipped to 2x the 3-way equal-weight share
+    assert sum(weights.values()) < 1.0  # clipped mass stays cash, not re-levered onto the rest
+
+
+def test_long_bot_explicit_cap_overrides_dynamic_default(wavy_panel):
+    bot = MLLongStrategy(
+        model=_SequentialStubModel([90, 60, 30]),
+        tickers=["VEU", "VWO", "VNQ"],
+        top_k=3,
+        threshold=0,
+        max_weight_per_position=0.2,
+    )
+    view = MarketView(wavy_panel, wavy_panel.dates[-1])
+    weights = {tw.ticker: tw.weight for tw in bot.decide(view.as_of, view)}
+    assert weights["VEU"] == pytest.approx(0.2)
+    assert weights["VWO"] == pytest.approx(0.2)
+    assert weights["VNQ"] < 0.2  # below the fixed cap, so left unclipped
+
+
+def test_short_bot_weights_scale_with_confidence(wavy_panel):
+    bot = MLShortStrategy(
+        model=_SequentialStubModel([90, 60]), tickers=["VEU", "VWO"], top_k=2, threshold=0
+    )
+    view = MarketView(wavy_panel, wavy_panel.dates[-1])
+    targets = bot.decide(view.as_of, view)
+    weights = {tw.ticker: tw.weight for tw in targets}
+    assert all(tw.side == "short" for tw in targets)  # side untouched by confidence weighting
+    assert weights["VEU"] > weights["VWO"]
+    assert sum(weights.values()) == pytest.approx(0.5)  # DEFAULT_SHORT_EXPOSURE, cap doesn't bind
