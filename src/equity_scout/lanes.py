@@ -17,6 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import datetime
 
+from equity_scout.exits import ExitRules, exit_reason
 from equity_scout.models import Instrument
 from equity_scout.portfolio import Portfolio, Position
 
@@ -26,16 +27,6 @@ LANE_AUTOPILOT = "autopilot"
 DEFAULT_POSITION_FRACTION = 0.05
 DEFAULT_FEE_RATE = 0.001
 DEFAULT_SLIPPAGE_BPS = 5.0
-
-
-@dataclass(frozen=True)
-class ExitRules:
-    """v1 exit rules (spec §7): deliberately simple and identical for both lanes."""
-
-    profit_target: float = 0.20  # sell when price > cost_basis * (1 + target)
-    stop_loss: float = 0.15  # sell when price < cost_basis * (1 - stop)
-    max_holding_days: int = 180  # sell when held longer than this
-
 
 @dataclass(frozen=True)
 class BuyOrder:
@@ -64,13 +55,15 @@ def _held_days(opened_at: str, now: str) -> int:
 
 
 def _exit_reason(position: Position, price: float, now: str, rules: ExitRules) -> str | None:
-    if price > position.cost_basis * (1.0 + rules.profit_target):
-        return f"Kursziel erreicht (+{rules.profit_target * 100:.0f} %)"
-    if price < position.cost_basis * (1.0 - rules.stop_loss):
-        return f"Stop-Loss ausgelöst (−{rules.stop_loss * 100:.0f} %)"
-    if _held_days(position.opened_at, now) > rules.max_holding_days:
-        return f"Maximale Haltedauer überschritten ({rules.max_holding_days} Tage)"
-    return None
+    """Delegates the threshold decision to the shared exits.exit_reason (plan v7 A2 extraction);
+    only computes the return-since-entry and holding period from this module's own Position shape.
+
+    Return uses (price - cost_basis) / cost_basis rather than price / cost_basis - 1 — the two are
+    mathematically equivalent but NOT bit-identical in floating point, and this module's boundary
+    tests (e.g. price exactly at cost_basis * 0.85) depend on the exact original rounding.
+    """
+    return_pct = (price - position.cost_basis) / position.cost_basis
+    return exit_reason(return_pct, _held_days(position.opened_at, now), rules)
 
 
 def apply_exits(

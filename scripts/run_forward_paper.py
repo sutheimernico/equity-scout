@@ -20,7 +20,13 @@ from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_FORWARD_DB_PATH, DIS
 from equity_scout.data.etf_panel import load_etf_panel
 from equity_scout.etf_universe import ETF_TICKERS
 from equity_scout.forward_paper import ForwardAccount, advance_account
-from equity_scout.forward_storage import append_valuation, init_forward_db, load_account, save_account
+from equity_scout.forward_storage import (
+    append_exit,
+    append_valuation,
+    init_forward_db,
+    load_account,
+    save_account,
+)
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.strategies.ml_bot import SHORTABLE_TICKERS, MLLongStrategy, MLShortStrategy
 from equity_scout.strategies.registry import default_strategies
@@ -37,6 +43,8 @@ def _advance_and_report(strategy, panel, args, as_of) -> None:
     status = "current"
     if valuation is not None:
         append_valuation(args.db, strategy.name, valuation)
+        for exit_event in valuation.exits:
+            append_exit(args.db, strategy.name, exit_event)
         # A booked zero-equity valuation is the simulated margin call — say it, loudly.
         status = "LIQUIDIERT" if valuation.equity <= 0.0 else "advanced"
     print(
@@ -44,6 +52,8 @@ def _advance_and_report(strategy, panel, args, as_of) -> None:
         f"{advanced.equity / advanced.initial_capital - 1:>8.1%}"
         f"{advanced.benchmark_equity / advanced.initial_capital - 1:>8.1%}{status:>10}"
     )
+    for exit_event in (valuation.exits if valuation is not None else ()):
+        print(f"  → Exit {exit_event.ticker}: {exit_event.reason}")
 
 
 def main() -> None:
