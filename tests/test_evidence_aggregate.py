@@ -13,6 +13,7 @@ from equity_scout.evidence.aggregate import (
     select_evidence_alerts,
 )
 from equity_scout.evidence.base import (
+    SOURCE_8K,
     SOURCE_13F,
     SOURCE_CONGRESS,
     SOURCE_INSIDER,
@@ -61,6 +62,39 @@ def _theme(ticker: str, theme: str) -> dict:
         "event_date": "2026-07-03",
         "details": {"theme": theme, "hits": 5, "sources": ["a", "b"]},
     }
+
+
+def _eightk(ticker: str, accession: str, items: list[str], filing_date: str = "2026-07-05") -> dict:
+    return {
+        "source": SOURCE_8K,
+        "ticker": ticker,
+        "event_key": accession,
+        "event_date": filing_date,
+        "details": {"items": items, "filing_date": filing_date, "published_at": f"{filing_date}T20:30:00.000Z"},
+    }
+
+
+def test_evidence_block_renders_8k_filing():
+    block = evidence_block([_eightk("EXE", "0000320193-26-000011", ["2.02"])])
+    assert block is not None
+    assert "8-K eingereicht, Item 2.02 (gemeldet 2026-07-05)" in block
+    assert DELAY_NOTE in block
+
+
+def test_evidence_block_deduplicates_repeated_8k_filings():
+    block = evidence_block(
+        [
+            _eightk("EXE", "0000320193-26-000011", ["2.02"]),
+            _eightk("EXE", "0000320193-26-000011", ["2.02"]),
+        ]
+    )
+    assert block is not None
+    assert block.count("8-K eingereicht") == 1
+
+
+def test_8k_alone_never_triggers_an_alert():
+    clusters = {"EXE": [_eightk("EXE", "0000320193-26-000011", ["2.02", "9.01"])]}
+    assert select_evidence_alerts(clusters) == []
 
 
 def test_evidence_block_renders_all_three_sources_with_delay_note():

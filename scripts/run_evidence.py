@@ -1,13 +1,14 @@
-"""Evidence CLI: collect congress / 13F / news-theme / insider / voice events -> store -> ledger.
+"""Evidence CLI: collect congress / 13F / news-theme / insider / voice / 8-K events
+-> store -> ledger.
 
 Usage:
     python scripts/run_evidence.py [--db equity_scout.db] [--universe data/universe_combined.csv]
 
 Each collector degrades independently (CollectorResult status); one dead source never
 kills the run. Only NEWLY inserted events are ledger-logged (predict-then-resolve,
-horizon 60d) — a re-collected fact can never inflate the sample. The 13F and Form 4
-insider collectors both stay politely `unconfigured` without EDGAR_USER_AGENT in the
-environment.
+horizon 60d) — a re-collected fact can never inflate the sample. The 13F, Form 4
+insider and 8-K collectors all stay politely `unconfigured` without EDGAR_USER_AGENT
+in the environment.
 """
 from __future__ import annotations
 
@@ -22,12 +23,14 @@ from equity_scout.data.news import YFinanceNews
 from equity_scout.evidence.base import STATUS_OK, CollectorResult
 from equity_scout.evidence.congress import fetch_congress_trades
 from equity_scout.evidence.edgar import collect_13f
+from equity_scout.evidence.edgar_8k import collect_8k
 from equity_scout.evidence.form4 import collect_form4
 from equity_scout.evidence.ledger import log_evidence
 from equity_scout.evidence.news_themes import collect_news_themes
 from equity_scout.evidence.storage import record_events
 from equity_scout.evidence.voices import collect_voices
 from equity_scout.radar_storage import load_latest_watchlist
+from equity_scout.tracked_tickers import tracked_tickers
 from equity_scout.universe import load_universe
 
 
@@ -95,9 +98,9 @@ def main() -> int:
     parser.add_argument("--universe", default=DEFAULT_UNIVERSE_PATH)
     parser.add_argument(
         "--fast", action="store_true",
-        help="intraday mode: only the fast sources (congress, news themes, voices);"
-        " 13F/Form 4 stay daily — filings do not change intraday and EDGAR etiquette"
-        " forbids hammering it every 30 minutes",
+        help="intraday mode: only the fast sources (congress, news themes, voices,"
+        " 8-K); 13F/Form 4 stay daily — filings do not change intraday and EDGAR"
+        " etiquette forbids hammering it every 30 minutes",
     )
     args = parser.parse_args()
 
@@ -108,11 +111,17 @@ def main() -> int:
     # per-issuer lookup, so it follows the watchlist's "actively tracked only" scope
     # rather than the full universe (see evidence/form4.py's module docstring).
     watchlist_tickers = list(ticker_headlines)
+    # 8-K is per-issuer like Form 4, but scoped to the broader tracked-tickers union
+    # (watchlist + main paper portfolio + both arena lanes, see tracked_tickers.py) —
+    # positions already held deserve near-realtime disclosure evidence too, not just
+    # watchlist candidates.
+    eightk_tickers = sorted(tracked_tickers(args.db))
 
     collectors: list[Callable[[], CollectorResult]] = [
         lambda: fetch_congress_trades(now=now),
         lambda: collect_news_themes(now=now, ticker_headlines=ticker_headlines),
         lambda: collect_voices(now=now, universe=universe),
+        lambda: collect_8k(now=now, env=dict(os.environ), tickers=eightk_tickers),
     ]
     if not args.fast:
         collectors += [

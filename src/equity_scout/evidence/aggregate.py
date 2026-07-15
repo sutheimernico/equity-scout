@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from equity_scout.constants import SHORT_DISCLAIMER
 from equity_scout.evidence.base import (
+    SOURCE_8K,
     SOURCE_13F,
     SOURCE_CONGRESS,
     SOURCE_INSIDER,
@@ -194,6 +195,26 @@ def _voice_lines(events: list[dict]) -> list[str]:
     return calls + mentions
 
 
+def _eightk_lines(events: list[dict]) -> list[str]:
+    """One line per 8-K filing (deduped by event_key/accession — a re-collected filing
+    must not repeat). No buyer, no direction: this is a disclosure, not a purchase —
+    same "context, not a signal" footing as _theme_lines, so it never feeds
+    select_evidence_alerts or the compact caption summary."""
+    lines = []
+    seen: set[str] = set()
+    for event in events:
+        if event["source"] != SOURCE_8K:
+            continue
+        key = event["event_key"]
+        if key in seen:
+            continue
+        seen.add(key)
+        items = ", ".join(event["details"].get("items", [])) or "?"
+        filed = event["details"].get("filing_date", event["event_date"])
+        lines.append(f"• 8-K eingereicht, Item {items} (gemeldet {filed})")
+    return lines
+
+
 def evidence_block(events: list[dict]) -> str | None:
     """The pitch's "Externe Signale" section, or None when there is nothing to say."""
     lines = []
@@ -206,6 +227,7 @@ def evidence_block(events: list[dict]) -> str | None:
     lines += _fund_lines(events)
     lines += _voice_lines(events)
     lines += _theme_lines(events)
+    lines += _eightk_lines(events)
     if not lines:
         return None
     lines += _track_record_lines(events)

@@ -15,6 +15,7 @@ SOURCE_13F = "thirteen_f"
 SOURCE_NEWS_THEME = "news_theme"
 SOURCE_INSIDER = "insider"
 SOURCE_VOICE = "voice"
+SOURCE_8K = "edgar_8k"
 
 STATUS_OK = "ok"
 STATUS_UNCONFIGURED = "unconfigured"
