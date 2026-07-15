@@ -229,6 +229,14 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [ ] C2 feat(ml): Promotion-Gate gegen Multiple-Testing härten (8 Kandidaten/Nacht)
 - [ ] B4 feat(events): Event-Reaktions-Lane paper-only mit Latenz-Log + 1h/1d/5d-Auswertung
 - [ ] C4 docs+fix: Rebalance-Kadenz-Mismatch + Survivorship-Kennzeichnung im Modell-Report
+- [ ] Backlog (B5-Review-Fund, pre-existing): tail-lose Single-Token-Firmennamen in
+      voices.resolve_ticker bleiben exponiert — konkrete Instanzen SHEL.L ("Shell"),
+      TGT ("Target"), NXT.L ("Next"): generische kapitalisierte Wörter in Headlines lösen
+      auf diese Ticker auf. Fix-Idee: Single-Token-Namenskanal ebenfalls gegen
+      _GENERIC_FIRST_WORDS gaten und/oder Mehrwort-Firmennamen im Titel bevorzugen.
+- [ ] Backlog (B5-Review-Fund): _GENERIC_FIRST_WORDS ist ein manueller Snapshot des Universe
+      (2026-07-15) — bei Universe-Refresh können neue eindeutige generische First-Words entstehen.
+      Idee: Scan-Skript unter scripts/ oder Drift-Check im Data-Quality-Report.
 
 ## Needs Nico (loop cannot do these itself)
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
