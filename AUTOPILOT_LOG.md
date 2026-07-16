@@ -148,3 +148,4 @@
 - 2026-07-14 fix: closed-end funds (no ETF flag in the directory) polluted the first 6.6k screen — 'funds?' added to the non-common name filter (Calamos CEFs out, REIT common stock stays); universe 6592 -> 6318; scout re-run from cache
 - 2026-07-15 A1: paper sizing now from current equity (portfolio+lanes), 4 regression tests (6a8b2d0)
 - 2026-07-15 A3: triple-barrier entry_tb family, barrier config persisted + horizon single-source fix (e4134c7, 26ba882)
+- 2026-07-16 v8/A1: telegram_client speaks optional HTML parse_mode (escape_html/strip_html, parse-failure plain-text retry on every send/edit path); builders opt in via A3/A6

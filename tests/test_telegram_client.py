@@ -15,10 +15,12 @@ import pytest
 from equity_scout.telegram_client import (
     TelegramError,
     build_decision_keyboard,
+    escape_html,
     extract_decision,
     load_telegram_config,
     poll_updates,
     send_message,
+    strip_html,
 )
 
 CHAT_ID = 4242
@@ -101,6 +103,57 @@ def test_api_raises_telegram_error_with_http_error_body(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", refuse)
     with pytest.raises(TelegramError, match="bot was blocked"):
         send_message("token", CHAT_ID, "hallo")
+
+
+def test_escape_html_covers_the_three_markup_chars():
+    assert escape_html("Barnes & Noble <AT&T> 5>3") == "Barnes &amp; Noble &lt;AT&amp;T&gt; 5&gt;3"
+
+
+def test_strip_html_removes_builder_tags_and_unescapes():
+    html = '<b>ACME &amp; Co</b>\n<blockquote expandable>Detail &lt;x&gt;</blockquote>'
+    assert strip_html(html) == "ACME & Co\nDetail <x>"
+
+
+def test_send_message_html_falls_back_to_plain_on_parse_failure(monkeypatch):
+    """An entity-parse rejection retries ONCE without parse_mode, tags stripped —
+    degraded formatting must never cost the daily delivery."""
+    bodies: list[dict] = []
+
+    def fake_urlopen(request, timeout):
+        bodies.append(json.loads(request.data.decode("utf-8")))
+        if "parse_mode" in bodies[-1]:
+            return io.BytesIO(json.dumps({
+                "ok": False,
+                "description": "Bad Request: can't parse entities: Unsupported start tag",
+            }).encode("utf-8"))
+        return io.BytesIO(json.dumps({"ok": True, "result": {"message_id": 7}}).encode("utf-8"))
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    message_id = send_message("token", CHAT_ID, "<b>Hi</b>", parse_mode="HTML")
+    assert message_id == 7
+    assert len(bodies) == 2
+    assert bodies[0]["parse_mode"] == "HTML"
+    assert "parse_mode" not in bodies[1]
+    assert bodies[1]["text"] == "Hi"
+
+
+def test_send_message_html_does_not_mask_other_errors(monkeypatch):
+    body = json.dumps({"ok": False, "description": "Bad Request: chat not found"}).encode("utf-8")
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout: io.BytesIO(body))
+    with pytest.raises(TelegramError, match="chat not found"):
+        send_message("token", CHAT_ID, "<b>Hi</b>", parse_mode="HTML")
+
+
+def test_send_message_without_parse_mode_sends_no_parse_mode(monkeypatch):
+    bodies: list[dict] = []
+
+    def fake_urlopen(request, timeout):
+        bodies.append(json.loads(request.data.decode("utf-8")))
+        return io.BytesIO(json.dumps({"ok": True, "result": {"message_id": 1}}).encode("utf-8"))
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    send_message("token", CHAT_ID, "hallo")
+    assert "parse_mode" not in bodies[0]
 
 
 def test_api_raises_telegram_error_on_url_error(monkeypatch):

@@ -6,11 +6,15 @@ generalized from allow/deny to the buy/pass/later action set. Design rules kept:
 - fail-safe config: missing/malformed env yields None + stderr hint, never a crash
 - the receiver consumes EVERY update's offset, matching or not, so stale button
   presses can't wedge the queue
-Plain text messages only (no parse_mode), so no escaping is needed.
+Messages may opt into Telegram HTML via parse_mode="HTML" (v8 clarity redesign);
+builders must escape dynamic content with escape_html(). Every HTML send falls
+back to a stripped plain-text retry on a parse failure — a malformed message must
+never cost the daily delivery.
 """
 from __future__ import annotations
 
 import json
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -25,6 +29,26 @@ DECISION_LABELS = {"buy": "✅ Kaufen", "pass": "❌ Ablehnen", "later": "⏸ Sp
 
 class TelegramError(RuntimeError):
     """Bot API failure with Telegram's actual reason (HTTP error body or ok=false description)."""
+
+
+def escape_html(text: str) -> str:
+    """Escape dynamic content for parse_mode="HTML" — Telegram treats only &, <, > as markup."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+# Tags the builders are allowed to emit (Bot API HTML style). The plain-text fallback
+# strips exactly these; an unknown tag would have failed the HTML send anyway.
+_TAG_RE = re.compile(r"</?(?:b|strong|i|em|u|s|code|pre|a|blockquote|tg-spoiler)(?:\s[^>]*)?>")
+
+
+def strip_html(text: str) -> str:
+    """Best-effort plain-text rendering of builder HTML for the parse-failure retry."""
+    plain = _TAG_RE.sub("", text)
+    return plain.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+
+
+def _is_parse_failure(exc: TelegramError) -> bool:
+    return "can't parse entities" in str(exc).lower()
 
 
 def _optional_chat_id(env: dict, key: str, fallback: int) -> int:
@@ -101,12 +125,27 @@ def build_decision_keyboard(pitch_id: int) -> dict:
     }
 
 
-def send_message(token: str, chat_id: int, text: str, keyboard: dict | None = None) -> int:
-    """Returns the Telegram message_id (stored so the receiver can edit later)."""
+def send_message(
+    token: str, chat_id: int, text: str, keyboard: dict | None = None,
+    parse_mode: str | None = None,
+) -> int:
+    """Returns the Telegram message_id (stored so the receiver can edit later).
+
+    With parse_mode set, a Telegram entity-parse rejection is retried ONCE as
+    stripped plain text — degraded formatting beats a lost message."""
     params: dict = {"chat_id": chat_id, "text": text}
+    if parse_mode is not None:
+        params["parse_mode"] = parse_mode
     if keyboard is not None:
         params["reply_markup"] = keyboard
-    return int(_api(token, "sendMessage", params)["result"]["message_id"])
+    try:
+        return int(_api(token, "sendMessage", params)["result"]["message_id"])
+    except TelegramError as exc:
+        if parse_mode is None or not _is_parse_failure(exc):
+            raise
+        params.pop("parse_mode")
+        params["text"] = strip_html(text)
+        return int(_api(token, "sendMessage", params)["result"]["message_id"])
 
 
 def split_message(text: str, limit: int = 4000) -> list[str]:
@@ -134,11 +173,17 @@ def split_message(text: str, limit: int = 4000) -> list[str]:
     return chunks
 
 
-def send_long_message(token: str, chat_id: int, text: str) -> int:
-    """send_message per chunk, in order; returns the LAST message_id."""
+def send_long_message(
+    token: str, chat_id: int, text: str, parse_mode: str | None = None
+) -> int:
+    """send_message per chunk, in order; returns the LAST message_id.
+
+    split_message cuts at line boundaries, so HTML callers must keep each tag pair
+    on one line (multi-line tags like <blockquote> risk being severed; the per-chunk
+    plain-text fallback then still delivers the content, just unformatted)."""
     message_id = 0
     for chunk in split_message(text):
-        message_id = send_message(token, chat_id, chunk)
+        message_id = send_message(token, chat_id, chunk, parse_mode=parse_mode)
     return message_id
 
 
@@ -162,16 +207,10 @@ def build_multipart(
     return b"".join(parts), f"multipart/form-data; boundary={boundary}"
 
 
-def send_photo(
-    token: str, chat_id: int, png: bytes, caption: str, keyboard: dict | None = None
-) -> int:
-    """sendPhoto with caption (cap: 1024 UTF-16 units — the caption builder enforces it)
-    and optional decision keyboard. Returns the message_id."""
+def _post_photo(token: str, fields: dict[str, str], png: bytes) -> int:
+    """One multipart sendPhoto POST; raises TelegramError like _api does."""
     import uuid
 
-    fields: dict[str, str] = {"chat_id": str(chat_id), "caption": caption}
-    if keyboard is not None:
-        fields["reply_markup"] = json.dumps(keyboard)
     body, content_type = build_multipart(fields, "photo", "chart.png", png, uuid.uuid4().hex)
     request = urllib.request.Request(
         API.format(token=token, method="sendPhoto"),
@@ -192,13 +231,58 @@ def send_photo(
     return int(payload["result"]["message_id"])
 
 
-def edit_message(token: str, chat_id: int, message_id: int, text: str) -> None:
-    _api(token, "editMessageText", {"chat_id": chat_id, "message_id": message_id, "text": text})
+def send_photo(
+    token: str, chat_id: int, png: bytes, caption: str, keyboard: dict | None = None,
+    parse_mode: str | None = None,
+) -> int:
+    """sendPhoto with caption (cap: 1024 UTF-16 units — the caption builder enforces it)
+    and optional decision keyboard. Returns the message_id. Same parse-failure
+    plain-text retry as send_message."""
+    fields: dict[str, str] = {"chat_id": str(chat_id), "caption": caption}
+    if parse_mode is not None:
+        fields["parse_mode"] = parse_mode
+    if keyboard is not None:
+        fields["reply_markup"] = json.dumps(keyboard)
+    try:
+        return _post_photo(token, fields, png)
+    except TelegramError as exc:
+        if parse_mode is None or not _is_parse_failure(exc):
+            raise
+        fields.pop("parse_mode")
+        fields["caption"] = strip_html(caption)
+        return _post_photo(token, fields, png)
 
 
-def edit_caption(token: str, chat_id: int, message_id: int, caption: str) -> None:
-    _api(token, "editMessageCaption",
-         {"chat_id": chat_id, "message_id": message_id, "caption": caption})
+def edit_message(
+    token: str, chat_id: int, message_id: int, text: str, parse_mode: str | None = None
+) -> None:
+    params: dict = {"chat_id": chat_id, "message_id": message_id, "text": text}
+    if parse_mode is not None:
+        params["parse_mode"] = parse_mode
+    try:
+        _api(token, "editMessageText", params)
+    except TelegramError as exc:
+        if parse_mode is None or not _is_parse_failure(exc):
+            raise
+        params.pop("parse_mode")
+        params["text"] = strip_html(text)
+        _api(token, "editMessageText", params)
+
+
+def edit_caption(
+    token: str, chat_id: int, message_id: int, caption: str, parse_mode: str | None = None
+) -> None:
+    params: dict = {"chat_id": chat_id, "message_id": message_id, "caption": caption}
+    if parse_mode is not None:
+        params["parse_mode"] = parse_mode
+    try:
+        _api(token, "editMessageCaption", params)
+    except TelegramError as exc:
+        if parse_mode is None or not _is_parse_failure(exc):
+            raise
+        params.pop("parse_mode")
+        params["caption"] = strip_html(caption)
+        _api(token, "editMessageCaption", params)
 
 
 def edit_pitch_outcome(

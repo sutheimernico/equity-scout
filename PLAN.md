@@ -243,7 +243,7 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 > "auf den ersten Blick gute Aktie / schlechte Aktie", kein Müll, Absätze + Detailtiefe zum
 > Nachlesen. Plus Sektorrotation und weitere recherchierte Strategien (Regime-Ampel, 52W-High,
 > F-Score). **Spec: `docs/superpowers/specs/2026-07-16-vision-v8-clarity-sector-rotation.md`**
-- [ ] A1 feat(telegram): HTML `parse_mode` einführen — `escape_html()`-Helper, alle Sende-/Edit-
+- [x] A1 feat(telegram): HTML `parse_mode` einführen — `escape_html()`-Helper, alle Sende-/Edit-
       Pfade (Text, Foto-Caption, Caption-Edit) auf HTML umstellen, defensiver Plain-Text-Retry
       bei 400-Fehler; alle dynamischen Inhalte escaped; Tests für Escaping + Fallback
 - [ ] A2 feat(pitch): deterministisches Ampel-Urteil 🟢/🟡/🔴 (`compute_verdict`: Score-Bänder ×
