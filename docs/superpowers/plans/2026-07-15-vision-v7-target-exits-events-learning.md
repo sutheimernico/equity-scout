@@ -90,6 +90,44 @@ unserem Zeithorizont etwas zu holen ist. Kein Fake, keine Behauptung.
 zusätzlich `npm run typecheck`/`build`. Commits: Conventional Commits, ein Task = ein Commit,
 zentral nach Gate (Agents committen nicht selbst).
 
-## Outcome
+## Outcome (2026-07-16, subagent-driven)
 
-_(wird nach Abschluss gefüllt)_
+**Alle 12 Tasks umgesetzt** in 4 Wellen (W2 A2·C3·B1 · W3 A4·A5·B2·C1 · W4 A6·B3·C2 · W5 B4·C4),
+jeder Task Implementer→Spec/Quality-Review→zentraler Commit, Gate (pytest+ruff, FE zusätzlich
+typecheck+build) nach jeder Welle grün. Commits `593f263..66d757d` auf `autopilot/work`, nicht
+gepusht. Zwei echte Bugs im Review gefunden und gefixt (s.u.).
+
+### Abweichungen von der Plan-Prosa (Kontext-Kartierung deckte veraltete Annahmen auf)
+- **C3:** `advance()` hatte kein „letzter Lauf"-Konzept → `days_elapsed`-Skalar vom Caller; `load_valuations`
+  liefert die ÄLTESTEN N → neue `latest_valuation_at`. Dividende via Cash-Gutschrift, kein Position-Schema-Change.
+- **B1:** yfinance `.calendar` (nur kommende Termine) statt `.earnings_dates`; „Intraday kennt Earnings" bewusst
+  nur log-only (Klassifikation/Reaktion gehört zu B3/B4).
+- **A4:** Barrier-Konfig ist vol-skaliert (`k_pt`/`k_sl`/`vol_window`), nicht flache pt/sl; nutzt `trailing_daily_vol`
+  wieder (kein Drift zum Label). Andockpunkt `/api/entry`, nicht LLM.
+- **B2:** SEC `submissions`-API (trägt schon `items`+`acceptanceDateTime`) statt Atom-Feed; 8-K haben KEINE
+  Freitext-Titel → nur Item-Code-Kategorie.
+- **B3:** Richtungsklassifikation aus News-Headlines (8-K nur Kategorie). **Review-Bug gefixt:** `street`/`consensus`
+  + „will not/unlikely to" lösten fälschlich `beat` aus → auf `unknown` korrigiert (konservativ).
+- **C2:** real 12 Kandidaten/Nacht (nicht 8); Multiple-Testing pro Familie (4 Presets) → `MIN_AUC_DELTA*sqrt(n)`.
+  Bootstrap verworfen (rohe OOS-Vorhersagen werden nicht persistiert).
+- **B4:** Als ehrliche **Event-Study-Auswertung** gebaut, NICHT als handelnde Lane (Lanes sind long-only). 1h
+  ehrlich als „mit kostenlosen Daten nicht messbar" markiert (keine Intraday-Bars). **Review-Bug gefixt:**
+  Look-ahead im Anker (intraday-`seen_at` nahm den noch-nicht-feststehenden selben-Tag-Close) → marktschluss-bewusster
+  Anker (16:00 ET, DST via zoneinfo).
+- **C4:** Kadenz-Mismatch dokumentiert (nicht behoben — Verhaltensänderung wäre riskant/out-of-scope).
+- **Integrations-Fix (finaler Review):** C4-Caveats erschienen nicht in der Lernkurven-Ansicht → `/api/model/history`
+  + `LearningCurvePanel` zeigen jetzt dieselben `MODEL_CAVEATS`.
+
+### Offene Punkte / Needs Nico
+- **merge/push:** `autopilot/work` → `main` ist noch offen (öffentliches Repo, alles lokal). Nicos Entscheidung.
+- **Vorbestehender Test-Flake (nicht v7):** `test_entry_model::test_calibrated_model_scores_through_the_calibrator`
+  ist nicht-deterministisch (~1/5 isoliert rot, ungeseedete numpy-Arrays) — verstößt gegen die LOOP-Determinismus-Regel.
+  Bewusst NICHT im v7-Scope gefixt; Fix-Vorschlag: Test/Fixture seeden.
+- **A6 Rate-Limit-Beobachtung:** Sobald ein `entry_tb`-Champion existiert, löst die `--inbox-only`-15-min-Kette
+  pro Pick einen 1y-Preis-Fetch aus (fürs Kursziel im Inbox-Text) — potenzielle yfinance-Last, die das Projekt
+  sonst meidet. Ggf. target_stop im Intraday-Pfad cachen/überspringen.
+- **Kleinere Backlog-Funde:** B1 single-date-Robustheit; B2 8-K/A-Ausschluss + roher-8-K-Ledger-hit_rate (bis B3
+  gerichtet); `forward_storage.load_exits` bisher ohne Leser (Audit-Trail nur per DB); B3 Mehrwort-Hedge-Lücke.
+- **Datenvoraussetzungen für den echten Effekt:** target_stop/Kursziel, Lernkurve und Event-Reaktions-Auswertung
+  brauchen einen trainierten `entry_tb`-Champion bzw. aufgelaufene klassifizierte Events — sichtbar werden sie erst
+  nach den nächtlichen Läufen.
