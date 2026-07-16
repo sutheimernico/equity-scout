@@ -260,8 +260,10 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       ⇒ ehrliche Ein-Zeilen-Meldung statt Mittelmaß; Digest nennt Anzahl unter der Schwelle
       → umgesetzt via bestehendem `--threshold` als Qualitätsgrenze für Top-ups (kein neues
       Flag nötig); Leermeldung + Schwellen-Transparenz in run_notify; Digest-Zeile folgt in A6
-- [ ] A5 feat(receiver): 🔎-Details-Button pro Pitch (`detail:<pitch_id>` callback) — Receiver
+- [x] A5 feat(receiver): 🔎-Details-Button pro Pitch (`detail:<pitch_id>` callback) — Receiver
       antwortet mit der langen erklärenden Pitch-Version als eigene Nachricht (HTML, Absätze)
+      → HTML-Variante wird beim Pitch-Erzeugen persistiert (`pitch_html`, ein gecachter
+      Ollama-Call für beide Varianten); Detail-Press ist keine Entscheidung, Pitch bleibt offen
 - [ ] C1 feat(regime): `regime.py` — 4 Signale (SPY vs. 200d-MA, VIX-Band, Breadth = % Universum
       > 200d-MA aus Cache, Zinskurve ^TNX−^IRX) → Composite-Ampel 0–4 grün; pure Funktionen,
       Fake-Daten-Tests, ehrliche Degradierung wenn ein Signal keine Daten hat

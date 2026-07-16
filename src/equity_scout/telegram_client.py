@@ -25,6 +25,10 @@ ACTIONS = ("buy", "pass", "later")
 # Single source for the German action labels — buttons, receiver acks, and message
 # edits must all render the same wording.
 DECISION_LABELS = {"buy": "✅ Kaufen", "pass": "❌ Ablehnen", "later": "⏸ Später"}
+# v8 read-more request: not a decision (never enters decide_pitch), the receiver
+# replies with the long explanatory pitch instead.
+DETAIL_ACTION = "detail"
+CALLBACK_ACTIONS = (*ACTIONS, DETAIL_ACTION)
 
 
 class TelegramError(RuntimeError):
@@ -120,7 +124,8 @@ def build_decision_keyboard(pitch_id: int) -> dict:
             [
                 {"text": DECISION_LABELS[action], "callback_data": f"{action}:{pitch_id}"}
                 for action in ACTIONS
-            ]
+            ],
+            [{"text": "🔎 Details", "callback_data": f"{DETAIL_ACTION}:{pitch_id}"}],
         ]
     }
 
@@ -321,12 +326,12 @@ def get_updates(token: str, offset: int | None, long_poll: int = 20) -> list[dic
 
 def extract_decision(update: dict, chat_id: int) -> tuple[str, int, str] | None:
     """(action, pitch_id, callback_query_id) — or None for anything not a valid,
-    same-chat buy/pass/later press. The sender check is the security gate."""
+    same-chat buy/pass/later/detail press. The sender check is the security gate."""
     cq = update.get("callback_query")
     if not cq or cq.get("from", {}).get("id") != chat_id:
         return None
     action, _, raw_id = str(cq.get("data", "")).partition(":")
-    if action not in ACTIONS:
+    if action not in CALLBACK_ACTIONS:
         return None
     try:
         pitch_id = int(raw_id)

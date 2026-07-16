@@ -87,6 +87,7 @@ def notify_watchlist(
     build: Callable[[dict, Fundamentals | None], str],
     send: Callable[[int, str, dict, Fundamentals | None], int] | None,
     enrich: Callable[[str], Fundamentals] | None = fetch_fundamentals,
+    build_html: Callable[[dict, Fundamentals | None], str] | None = None,
     threshold: float = DEFAULT_THRESHOLD,
     cooldown_days: int = DEFAULT_COOLDOWN_DAYS,
     min_pitches: int = 0,
@@ -114,7 +115,8 @@ def notify_watchlist(
         fundamentals = enrich(entry["ticker"]) if enrich is not None else None
         text = build(entry, fundamentals)
         # Persisted at creation time (not recomputed on read): the damping rule needs
-        # the entry's readings, which the inbox row does not keep.
+        # the entry's readings, and the HTML detail variant needs entry/fundamentals —
+        # neither of which the inbox row keeps.
         verdict = compute_verdict(entry)
         pitch_id = create_pitch(
             db_path,
@@ -128,6 +130,7 @@ def notify_watchlist(
             created_at=now,
             verdict=verdict["level"],
             verdict_why=verdict["why"],
+            pitch_html=build_html(entry, fundamentals) if build_html is not None else None,
         )
         if send is not None:
             try:

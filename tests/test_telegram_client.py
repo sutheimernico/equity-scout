@@ -38,6 +38,10 @@ def test_build_decision_keyboard_has_three_action_buttons():
     buttons = kb["inline_keyboard"][0]
     assert [b["callback_data"] for b in buttons] == ["buy:7", "pass:7", "later:7"]
     assert "Kaufen" in buttons[0]["text"]
+    # v8: second row carries the read-more button.
+    detail_row = kb["inline_keyboard"][1]
+    assert [b["callback_data"] for b in detail_row] == ["detail:7"]
+    assert "Details" in detail_row[0]["text"]
 
 
 def test_extract_decision_accepts_valid_actions_only():
@@ -45,6 +49,7 @@ def test_extract_decision_accepts_valid_actions_only():
     assert extract_decision(_update(2, "explode:7"), CHAT_ID) is None
     assert extract_decision(_update(3, "buy:notanint"), CHAT_ID) is None
     assert extract_decision({"update_id": 4}, CHAT_ID) is None
+    assert extract_decision(_update(5, "detail:7"), CHAT_ID) == ("detail", 7, "cb5")
 
 
 def test_extract_decision_rejects_wrong_sender():

@@ -34,6 +34,7 @@ from equity_scout.notify import (
     send_evidence_alerts,
 )
 from equity_scout.charts import fetch_year_closes, render_year_chart, year_return
+from equity_scout.chat import ask_ollama
 from equity_scout.fx import eur_rate
 from equity_scout.pitch import build_pitch, build_pitch_caption
 from equity_scout.press import fetch_press_lines
@@ -206,14 +207,36 @@ def main() -> int:
         send = _telegram_sender(config, evidence_by_ticker, get_year_closes, target_stop_for)
         alert_send = _alert_sender(config)
 
+    # Both pitch variants share ONE interpretive Ollama answer per candidate — the
+    # cache keys on (question, context), which are identical for the same entry.
+    # A ChatError is not cached: each variant degrades to its own honest fallback.
+    ask_cache: dict[tuple[str, str], str] = {}
+
+    def cached_ask(question: str, context: str) -> str:
+        key = (question, context)
+        if key not in ask_cache:
+            ask_cache[key] = ask_ollama(question, context)
+        return ask_cache[key]
+
     def build(entry: dict, fundamentals) -> str:
         return build_pitch(
-            entry, fundamentals, evidence=evidence_by_ticker.get(entry["ticker"]),
+            entry, fundamentals, ask=cached_ask,
+            evidence=evidence_by_ticker.get(entry["ticker"]),
             target_stop=target_stop_for(entry["ticker"]),
+        )
+
+    def build_html(entry: dict, fundamentals) -> str:
+        # Stored on the pitch row for the 🔎-Details button (A5): the receiver cannot
+        # rebuild it later — entry/fundamentals are gone by then.
+        return build_pitch(
+            entry, fundamentals, ask=cached_ask,
+            evidence=evidence_by_ticker.get(entry["ticker"]),
+            target_stop=target_stop_for(entry["ticker"]), html=True,
         )
 
     count = notify_watchlist(
         args.db, watchlist, build=build, send=send, enrich=fetch_fundamentals,
+        build_html=build_html,
         threshold=args.threshold, cooldown_days=args.cooldown_days,
         min_pitches=args.min_pitches, now=now,
     )

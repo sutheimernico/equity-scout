@@ -132,6 +132,60 @@ def test_duplicate_press_on_decided_pitch_reattempts_edit(tmp_path):
     assert "✅ Kaufen" in edits[0][1] and NOW in edits[0][1]  # original decision + its timestamp
 
 
+def test_detail_press_sends_stored_html_and_keeps_pitch_open(tmp_path):
+    """🔎 Details replies with the stored HTML long pitch; it is NOT a decision."""
+    db = str(tmp_path / "inbox.db")
+    pitch_id = create_pitch(
+        db, ticker="EXE", watchlist_id=1, price=90.0, composite=0.6,
+        zone_low=85.0, zone_high=95.0, pitch="Plain", created_at=NOW,
+        pitch_html="<b>EXE</b>\n\n<blockquote expandable>Tiefe</blockquote>",
+    )
+    set_message_id(db, pitch_id, 777)
+    acks: list[tuple[str, str]] = []
+    details: list[tuple[str, str | None]] = []
+
+    process_round(
+        db, fetch=lambda o: [_update(10, f"detail:{pitch_id}")], chat_id=42, offset=None,
+        answer=lambda cb_id, text: acks.append((cb_id, text)),
+        edit=lambda m, t: None,
+        send_detail=lambda text, mode: details.append((text, mode)),
+        now=NOW,
+    )
+    assert load_pitches(db)[0]["status"] == "open"  # still decidable afterwards
+    assert acks == [("cb10", "Details folgen.")]
+    assert details == [("<b>EXE</b>\n\n<blockquote expandable>Tiefe</blockquote>", "HTML")]
+
+
+def test_detail_press_falls_back_to_plain_for_pre_v8_rows(tmp_path):
+    db = str(tmp_path / "inbox.db")
+    pitch_id = _seed_pitch(db)  # no pitch_html
+    details: list[tuple[str, str | None]] = []
+
+    process_round(
+        db, fetch=lambda o: [_update(10, f"detail:{pitch_id}")], chat_id=42, offset=None,
+        answer=lambda c, t: None, edit=lambda m, t: None,
+        send_detail=lambda text, mode: details.append((text, mode)),
+        now=NOW,
+    )
+    assert details == [("Pitch", None)]
+
+
+def test_detail_press_on_unknown_pitch_answers_politely(tmp_path):
+    db = str(tmp_path / "inbox.db")
+    _seed_pitch(db)
+    acks: list[tuple[str, str]] = []
+    details: list[tuple[str, str | None]] = []
+
+    process_round(
+        db, fetch=lambda o: [_update(10, "detail:12345")], chat_id=42, offset=None,
+        answer=lambda cb_id, text: acks.append((cb_id, text)), edit=lambda m, t: None,
+        send_detail=lambda text, mode: details.append((text, mode)),
+        now=NOW,
+    )
+    assert acks == [("cb10", "Pitch nicht gefunden.")]
+    assert details == []
+
+
 def test_main_survives_round_errors_with_backoff(tmp_path, monkeypatch, capsys):
     """A dead network must not kill the unattended loop: warn, back off 5s, keep polling."""
     sleeps: list[float] = []

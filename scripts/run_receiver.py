@@ -31,6 +31,7 @@ from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.inbox_storage import decide_pitch, get_pitch
 from equity_scout.telegram_client import (
     DECISION_LABELS,
+    DETAIL_ACTION,
     TelegramError,
     answer_callback,
     edit_caption,
@@ -39,6 +40,7 @@ from equity_scout.telegram_client import (
     get_updates,
     load_telegram_config,
     poll_updates,
+    send_message,
 )
 
 
@@ -59,11 +61,30 @@ def process_round(
     offset: int | None,
     answer: Callable[[str, str], None],
     edit: Callable[[int, str], None],
+    send_detail: Callable[[str, str | None], object] | None = None,
     now: str,
 ) -> int | None:
-    """One polling round: apply decisions, ack buttons, edit messages."""
+    """One polling round: apply decisions, ack buttons, edit messages. A detail press
+    (v8 🔎 button) replies with the stored long pitch — `send_detail(text, parse_mode)`
+    gets the HTML variant when the row has one, else the plain inbox text. It is not
+    a decision: the pitch stays open and can still be decided afterwards."""
     decisions, offset = poll_updates(fetch, offset, chat_id)
     for action, pitch_id, callback_id in decisions:
+        if action == DETAIL_ACTION:
+            pitch = get_pitch(db_path, pitch_id)
+            if pitch is None:
+                _try_telegram(answer, callback_id, "Pitch nicht gefunden.", what="Telegram-Ack")
+                continue
+            _try_telegram(answer, callback_id, "Details folgen.", what="Telegram-Ack")
+            if send_detail is not None:
+                html = pitch.get("pitch_html")
+                _try_telegram(
+                    send_detail,
+                    html or pitch["pitch"],
+                    "HTML" if html else None,
+                    what="Telegram-Detail",
+                )
+            continue
         if decide_pitch(db_path, pitch_id, action, decided_at=now):
             label = DECISION_LABELS[action]
             _try_telegram(answer, callback_id, f"{label} vermerkt", what="Telegram-Ack")
@@ -118,6 +139,9 @@ def main() -> int:
                         lambda m, t: edit_message(token, pitch_chat_id, m, t),
                         lambda m, c: edit_caption(token, pitch_chat_id, m, c),
                         mid, text,
+                    ),
+                    send_detail=lambda text, mode: send_message(
+                        token, pitch_chat_id, text, parse_mode=mode
                     ),
                     now=now,
                 )

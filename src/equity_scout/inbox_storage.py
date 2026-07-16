@@ -15,7 +15,7 @@ from equity_scout.telegram_client import ACTIONS
 
 _COLUMNS = (
     "id, created_at, ticker, watchlist_id, price, composite, zone_low, zone_high, "
-    "pitch, status, decided_at, telegram_message_id, verdict, verdict_why"
+    "pitch, status, decided_at, telegram_message_id, verdict, verdict_why, pitch_html"
 )
 
 
@@ -36,14 +36,16 @@ def init_inbox_db(db_path: str = DEFAULT_DB_PATH) -> None:
                 decided_at TEXT,
                 telegram_message_id INTEGER,
                 verdict TEXT,
-                verdict_why TEXT
+                verdict_why TEXT,
+                pitch_html TEXT
             )"""
         )
-        # v8 migration for pre-existing inboxes: rows from before the verdict column
-        # simply stay NULL (surfaces render an honest absence, never a recomputed guess —
-        # the readings that fed the damping rule are not persisted).
+        # v8 migration for pre-existing inboxes: rows from before these columns simply
+        # stay NULL (surfaces render an honest absence, never a recomputed guess — the
+        # readings that fed the damping rule are not persisted, and the HTML detail
+        # variant cannot be rebuilt without the original entry/fundamentals).
         existing = {row[1] for row in conn.execute("PRAGMA table_info(pitches)")}
-        for column in ("verdict", "verdict_why"):
+        for column in ("verdict", "verdict_why", "pitch_html"):
             if column not in existing:
                 conn.execute(f"ALTER TABLE pitches ADD COLUMN {column} TEXT")
 
@@ -61,15 +63,16 @@ def create_pitch(
     created_at: str,
     verdict: str | None = None,
     verdict_why: str | None = None,
+    pitch_html: str | None = None,
 ) -> int:
     init_inbox_db(db_path)
     with sqlite3.connect(db_path) as conn:
         cursor = conn.execute(
             "INSERT INTO pitches (created_at, ticker, watchlist_id, price, composite,"
-            " zone_low, zone_high, pitch, verdict, verdict_why)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " zone_low, zone_high, pitch, verdict, verdict_why, pitch_html)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (created_at, ticker, watchlist_id, price, composite, zone_low, zone_high, pitch,
-             verdict, verdict_why),
+             verdict, verdict_why, pitch_html),
         )
         assert cursor.lastrowid is not None
         return int(cursor.lastrowid)

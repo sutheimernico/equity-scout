@@ -24,10 +24,12 @@ def _no_fund(ticker: str) -> Fundamentals:
     return Fundamentals(None, None, None, None)
 
 
-def _stub_build_pitch(entry: dict, fund, evidence=None, target_stop=None) -> str:
-    """Stand-in for build_pitch matching its real (post-A6) signature — for tests that
+def _stub_build_pitch(
+    entry: dict, fund, evidence=None, target_stop=None, ask=None, html=False
+) -> str:
+    """Stand-in for build_pitch matching its real (post-v8) signature — for tests that
     only care that main() reaches a pitch, not its exact text."""
-    return f"PITCH {entry['ticker']}"
+    return f"PITCH-HTML {entry['ticker']}" if html else f"PITCH {entry['ticker']}"
 
 
 def _entry(ticker: str, composite: float = 0.6, in_zone: bool = True) -> dict:
@@ -445,7 +447,7 @@ def test_main_annotates_pitches_with_evidence_and_alerts_off_watchlist(
     )
     monkeypatch.delenv("COPILOT_TG_BOT_TOKEN", raising=False)
     monkeypatch.delenv("COPILOT_TG_CHAT_ID", raising=False)
-    def _stub_build_pitch_with_evidence_count(entry, fund, evidence=None, target_stop=None):
+    def _stub_build_pitch_with_evidence_count(entry, fund, evidence=None, target_stop=None, ask=None, html=False):
         return f"PITCH {entry['ticker']} ev={len(evidence or [])}"
 
     monkeypatch.setattr(run_notify_mod, "build_pitch", _stub_build_pitch_with_evidence_count)
@@ -632,7 +634,7 @@ def test_main_target_stop_stays_none_and_no_fetch_without_entry_tb_champion(
 
     seen: list[dict | None] = []
 
-    def fake_build_pitch(entry, fund=None, ask=None, evidence=None, target_stop=None):
+    def fake_build_pitch(entry, fund=None, ask=None, evidence=None, target_stop=None, html=False):
         seen.append(target_stop)
         return f"PITCH {entry['ticker']}"
 
@@ -644,7 +646,9 @@ def test_main_target_stop_stays_none_and_no_fetch_without_entry_tb_champion(
     monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db])
 
     assert main() == 0
-    assert seen == [None]
+    # v8: build_pitch runs twice per candidate (plain inbox text + stored HTML detail
+    # variant) — the honest None must reach BOTH, with still zero price fetches.
+    assert seen == [None, None]
 
 
 def test_main_computes_target_stop_once_per_ticker_and_reaches_both_builders(
@@ -674,7 +678,7 @@ def test_main_computes_target_stop_once_per_ticker_and_reaches_both_builders(
     seen_in_build: list[dict | None] = []
     seen_in_caption: list[dict | None] = []
 
-    def fake_build_pitch(entry, fund=None, ask=None, evidence=None, target_stop=None):
+    def fake_build_pitch(entry, fund=None, ask=None, evidence=None, target_stop=None, html=False):
         seen_in_build.append(target_stop)
         return f"PITCH {entry['ticker']}"
 
@@ -702,8 +706,10 @@ def test_main_computes_target_stop_once_per_ticker_and_reaches_both_builders(
 
     assert main() == 0
 
-    assert fetch_calls == ["YES"]  # exactly one fetch for the ticker, reused by both builders
+    assert fetch_calls == ["YES"]  # exactly one fetch for the ticker, reused by all builders
     expected = compute_target_stop(closes, barrier_config)
     assert expected is not None
-    assert seen_in_build == [expected]
+    # v8: plain inbox text + stored HTML detail variant -> two build_pitch calls,
+    # both fed the SAME target_stop computed from the single fetch.
+    assert seen_in_build == [expected, expected]
     assert seen_in_caption == [expected]

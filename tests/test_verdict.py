@@ -111,3 +111,16 @@ def test_notify_persists_computed_verdict(tmp_path):
     row = load_pitches(db)[0]
     assert row["verdict"] == "green"
     assert "laut Modell" in row["verdict_why"]
+    assert row["pitch_html"] is None  # no build_html seam given -> honest absence
+
+
+def test_notify_persists_html_variant_when_built(tmp_path):
+    db = str(tmp_path / "inbox.db")
+    watchlist = {"created_at": NOW, "entries": [_entry()]}
+    notify_watchlist(
+        db, watchlist,
+        build=lambda entry, fund: "PITCH",
+        build_html=lambda entry, fund: "<b>PITCH</b>",
+        send=None, enrich=None, now=NOW,
+    )
+    assert load_pitches(db)[0]["pitch_html"] == "<b>PITCH</b>"
