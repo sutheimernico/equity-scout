@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Daily copilot chain: (Mondays: screener first) -> radar -> earnings -> evidence ->
-# notify -> score watchlist -> resolve predictions -> resolve evidence -> lanes -> digest.
+# notify -> score watchlist -> resolve predictions -> resolve evidence ->
+# resolve events -> lanes -> digest.
 #
 # Design rules:
 # - Every step degrades independently: a failed step is logged and the chain
@@ -55,6 +56,9 @@ step notify              "$PY" scripts/run_notify.py --min-pitches 5
 step score_watchlist     "$PY" scripts/run_score_watchlist.py
 step resolve_predictions "$PY" scripts/run_resolve_predictions.py
 step resolve_evidence    "$PY" scripts/run_resolve_evidence.py
+# Event-reaction study (Strang B4): 1d/5d windows only (1h is not measurable on
+# daily closes) — 1x/day is plenty, so this is not in intraday_copilot.sh's 15-min chain.
+step resolve_events      "$PY" scripts/run_resolve_events.py
 step lanes               "$PY" scripts/run_lanes.py
 step digest              "$PY" scripts/run_digest.py
 

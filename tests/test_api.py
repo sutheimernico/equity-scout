@@ -458,6 +458,9 @@ def test_evidence_endpoint_returns_events_alerts_and_stats(tmp_path):
     assert body["stats_by_source"]["congress"]["n_open"] == 1
     assert body["stats_by_source"]["congress"]["n_resolved"] == 0
     assert body["person_scores"] == []  # present even when nothing is measured yet
+    # Event-reaction study (Strang B4): present and honest even with nothing queued yet.
+    assert body["event_reactions"]["n_resolved"] == 0
+    assert body["event_reactions"]["1h"]["measurable"] is False
     assert "disclaimer" in body
 
 

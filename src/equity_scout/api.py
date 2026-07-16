@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from equity_scout.buckets import BUCKET_WEIGHTS
 from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_FORWARD_DB_PATH, DISCLAIMER
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
+from equity_scout.evidence.event_reactions import aggregate_reactions
 from equity_scout.evidence.ledger import stats_by_source
 from equity_scout.evidence.person_storage import load_person_scores
 from equity_scout.evidence.storage import events_in_window, load_alerts
@@ -390,8 +391,10 @@ def create_app(
     @app.get("/api/evidence")
     def evidence() -> JSONResponse:
         # Edge monitor: recent raw events (30d), the alerts that fired, the MEASURED
-        # per-source hit-rates from the predict-then-resolve ledger, and the measured
-        # person track records (gated entries carry scoreable=False, never a number).
+        # per-source hit-rates from the predict-then-resolve ledger, the measured
+        # person track records (gated entries carry scoreable=False, never a number),
+        # and the honest event-reaction study (Strang B4: is our latency worth
+        # anything on beat/miss/guidance events — 1h always marked not measurable).
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         return JSONResponse(
             {
@@ -399,6 +402,7 @@ def create_app(
                 "recent_alerts": load_alerts(db_path, limit=20),
                 "stats_by_source": stats_by_source(db_path),
                 "person_scores": load_person_scores(db_path),
+                "event_reactions": aggregate_reactions(db_path),
                 "disclaimer": DISCLAIMER,
             }
         )
