@@ -238,6 +238,47 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       (2026-07-15) — bei Universe-Refresh können neue eindeutige generische First-Words entstehen.
       Idee: Scan-Skript unter scripts/ oder Drift-Check im Data-Quality-Report.
 
+## Phase: Vision v8 — Klarheit auf einen Blick + Sektorrotation + Markt-Ampel (2026-07-16)
+> Nico-Direktive: Notifications sind unübersichtlich/unverständlich/nicht zielgerichtet — Ziel:
+> "auf den ersten Blick gute Aktie / schlechte Aktie", kein Müll, Absätze + Detailtiefe zum
+> Nachlesen. Plus Sektorrotation und weitere recherchierte Strategien (Regime-Ampel, 52W-High,
+> F-Score). **Spec: `docs/superpowers/specs/2026-07-16-vision-v8-clarity-sector-rotation.md`**
+- [ ] A1 feat(telegram): HTML `parse_mode` einführen — `escape_html()`-Helper, alle Sende-/Edit-
+      Pfade (Text, Foto-Caption, Caption-Edit) auf HTML umstellen, defensiver Plain-Text-Retry
+      bei 400-Fehler; alle dynamischen Inhalte escaped; Tests für Escaping + Fallback
+- [ ] A2 feat(pitch): deterministisches Ampel-Urteil 🟢/🟡/🔴 (`compute_verdict`: Score-Bänder ×
+      Risikosignale, pure Funktion, getestet) + Ein-Satz-Warum; ehrlich gelabelt als
+      "Einstiegs-Attraktivität laut Modell", in Caption + Langpitch + Inbox-API + Frontend
+- [ ] A3 feat(pitch): Layout-Redesign mit Absätzen — Caption: fetter Kopf (Ticker + Urteil),
+      Leerzeilen zwischen Blöcken (Überblick / Fakten / Risiko); Langpitch: `<b>`-Abschnitts-
+      überschriften + `<blockquote expandable>` für den Detailteil (Bot-API-Support in Captions
+      prüfen; Fallback laut Spec)
+- [ ] A4 feat(notify): Qualitäts-Gate statt Auffüllen — `--min-pitches`-Auffülllogik ersetzen
+      durch Score-Schwelle (`--min-score`, Default aus bisheriger Threshold-Praxis); 0 Kandidaten
+      ⇒ ehrliche Ein-Zeilen-Meldung statt Mittelmaß; Digest nennt Anzahl unter der Schwelle
+- [ ] A5 feat(receiver): 🔎-Details-Button pro Pitch (`detail:<pitch_id>` callback) — Receiver
+      antwortet mit der langen erklärenden Pitch-Version als eigene Nachricht (HTML, Absätze)
+- [ ] C1 feat(regime): `regime.py` — 4 Signale (SPY vs. 200d-MA, VIX-Band, Breadth = % Universum
+      > 200d-MA aus Cache, Zinskurve ^TNX−^IRX) → Composite-Ampel 0–4 grün; pure Funktionen,
+      Fake-Daten-Tests, ehrliche Degradierung wenn ein Signal keine Daten hat
+- [ ] B1 feat(strategies): `SectorRotationStrategy` — 11 SPDR-Sektor-ETFs (XLK XLF XLV XLI XLE
+      XLU XLB XLP XLY XLRE XLC), Top-3 nach 12M/6M-Momentum-Blend, monatlich, Absolut-Momentum-
+      Cash-Fallback (BIL) wie GEM; in `default_strategies()` registrieren; Backtest läuft mit
+- [ ] B3 feat(sectors): Sektor-Momentum-Snapshot — Ranking aller 11 Sektor-ETFs (1M/3M/6M/12M)
+      als pure Funktion + `/api/sectors` + Dashboard-Karte "Sektoren"
+- [ ] A6 feat(digest): Digest-Redesign — HTML-Sektionen mit fetten Überschriften + Absätzen;
+      Kopfzeile = Markt-Ampel (C1) + Top-3-Sektoren (B3), beide degradieren ehrlich wenn Daten
+      fehlen; bestehende Sektionen (Alerts/Chancen/Earnings/Pitches/Evidenz) bleiben inhaltlich
+- [ ] B2 feat(forward): Sektor-Rotation als Forward-Paper-Konto aufnehmen + im Strategien-
+      Dashboard sichtbar (build_reports nimmt Registry-Strategien auto auf — verifizieren)
+- [ ] C2 feat(api): `/api/regime` + Dashboard-Ampel (Strategien- oder Übersichts-Kopf) — gleiche
+      Ampel wie im Digest, ein Klick zeigt die 4 Einzelsignale mit Werten
+- [ ] D1 feat(factors): 52-Week-High-Proximity als zweite Momentum-Metrik (Blend mit 6M-Return
+      innerhalb der momentum-Familie, global gerankt) + `docs/factors.md` nachziehen
+- [ ] D2 feat(quality): Piotroski F-Score via SEC EDGAR XBRL `companyfacts` (UA-Header; ohne
+      `EDGAR_USER_AGENT` ehrlich "unconfigured" wie der 13F-Collector) als Quality-Trend-Metrik
+      im Quality-Score-Blend; yfinance-Fallback NICHT bauen (bekannt löchrig)
+
 ## Needs Nico (loop cannot do these itself)
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
 - Any data source that would require a paid key (do NOT sign up — log here instead).
