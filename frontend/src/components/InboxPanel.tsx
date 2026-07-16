@@ -16,6 +16,13 @@ const OUTCOME: Record<Exclude<Pitch["status"], "open">, { label: string; cls: st
   later: { label: "Später", cls: "pitch-badge--later" },
 };
 
+// v8 verdict badge — same wording as the Telegram pitch so both surfaces agree.
+const VERDICT: Record<NonNullable<Pitch["verdict"]>, { label: string; cls: string }> = {
+  green: { label: "🟢 Einstieg attraktiv", cls: "verdict-badge--green" },
+  yellow: { label: "🟡 Einstieg neutral", cls: "verdict-badge--yellow" },
+  red: { label: "🔴 Einstieg schwach", cls: "verdict-badge--red" },
+};
+
 export function InboxPanel() {
   const [data, setData] = useState<InboxResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -111,12 +118,19 @@ export function InboxPanel() {
                 <div className="pitch-head">
                   <span className="ticker">{p.ticker}</span>
                   <span className="pitch-score tnum">{toPercent(p.composite)}</span>
+                  {p.verdict && (
+                    <span className={`badge pitch-badge ${VERDICT[p.verdict].cls}`}>
+                      {VERDICT[p.verdict].label}
+                    </span>
+                  )}
                   {p.status !== "open" && (
                     <span className={`badge pitch-badge ${OUTCOME[p.status].cls}`}>
                       {OUTCOME[p.status].label}
                     </span>
                   )}
                 </div>
+
+                {p.verdict_why && <p className="pitch-verdict-why">{p.verdict_why}</p>}
 
                 <div className="pitch-meta">
                   <span className="nobr">

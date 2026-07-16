@@ -75,6 +75,38 @@ def _interpretation(entry: dict, ask: Callable[[str, str], str]) -> str:
         return f"{PITCH_LLM_UNAVAILABLE_PREFIX} — {detail}"
 
 
+# v8 at-a-glance verdict: a three-band judgement of ENTRY ATTRACTIVENESS per the model —
+# never a price forecast. Bands align with _score_line's (<40 / 40–70 / >=70); a very weak
+# sub-signal (weakest reading below _WEAK_SIGNAL) downgrades one level so a shiny composite
+# cannot hide a broken input.
+_VERDICT_LEVELS = {
+    "green": ("🟢", "Einstieg attraktiv"),
+    "yellow": ("🟡", "Einstieg neutral"),
+    "red": ("🔴", "Einstieg schwach"),
+}
+_WEAK_SIGNAL = 0.2
+
+
+def compute_verdict(entry: dict) -> dict:
+    """{"level", "emoji", "label", "why"} — deterministic and JSON-ready, so the same
+    verdict renders identically on Telegram, the inbox API, and the dashboard."""
+    score = round(entry["composite"] * 100)
+    level = "red" if score < 40 else "yellow" if score < 70 else "green"
+    readings = entry.get("readings") or []
+    weakest = min(readings, key=lambda r: r["score"]) if readings else None
+    if weakest is not None and weakest["score"] < _WEAK_SIGNAL and level != "red":
+        level = {"green": "yellow", "yellow": "red"}[level]
+        why = f"Score {score}/100, aber gebremst — {weakest['reason']}"
+    elif level == "green":
+        why = f"Starke Signale laut Modell: {_top_factors(entry['breakdown'])}"
+    elif level == "yellow":
+        why = f"Gemischtes Bild laut Modell — stärkste Signale: {_top_factors(entry['breakdown'])}"
+    else:
+        why = f"Schwache Signale laut Modell (Score {score}/100)"
+    emoji, label = _VERDICT_LEVELS[level]
+    return {"level": level, "emoji": emoji, "label": label, "why": why}
+
+
 def _score_line(entry: dict) -> str:
     score = round(entry["composite"] * 100)
     band = "niedrig" if score < 40 else "mittel" if score < 70 else "hoch"
@@ -164,7 +196,9 @@ def _structured_body(
     target_stop: dict | None,
 ) -> str:
     cur = f" {fundamentals.currency}" if fundamentals and fundamentals.currency else ""
+    verdict = compute_verdict(entry)
     blocks = [
+        f"{verdict['emoji']} {verdict['label']} — {verdict['why']}.",
         _score_line(entry),
         _tranche_block(entry, cur),
         _kennzahlen_block(entry, fundamentals),
@@ -216,9 +250,11 @@ def build_pitch_caption(
         price_bits.insert(0, f"KGV {fundamentals.trailing_pe:.0f}")
     if one_year_return is not None:
         price_bits.append(f"1 Jahr {one_year_return * 100:+.0f} %")
+    verdict = compute_verdict(entry)
     lines = [
         f"📈 {entry['ticker']} — {entry['name']}",
-        f"🧮 Score {score}/100 · stark: {_top_factors(entry['breakdown'])}",
+        f"{verdict['emoji']} {verdict['label']} · Score {score}/100 · "
+        f"stark: {_top_factors(entry['breakdown'])}",
         "💰 " + " · ".join(price_bits),
         f"🎯 Zone {entry['entry_zone_low']:.2f}–{entry['entry_zone_high']:.2f}{cur}",
     ]

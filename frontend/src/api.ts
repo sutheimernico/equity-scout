@@ -442,6 +442,9 @@ export interface Pitch {
   status: PitchStatus;
   decided_at: string | null;
   telegram_message_id: number | null;
+  // v8 at-a-glance verdict; null on pitches from before the verdict column existed.
+  verdict: "green" | "yellow" | "red" | null;
+  verdict_why: string | null;
 }
 
 export interface InboxResponse {

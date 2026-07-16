@@ -24,6 +24,7 @@ from equity_scout.evidence.storage import last_alert, record_alert, set_alert_me
 from equity_scout.fundamentals import Fundamentals, fetch_fundamentals
 from equity_scout.inbox_storage import create_pitch, last_pitch_at as _last_pitch_at
 from equity_scout.inbox_storage import set_message_id
+from equity_scout.pitch import compute_verdict
 from equity_scout.telegram_client import TelegramError
 
 DEFAULT_THRESHOLD = 0.45
@@ -107,6 +108,9 @@ def notify_watchlist(
     for entry in candidates:
         fundamentals = enrich(entry["ticker"]) if enrich is not None else None
         text = build(entry, fundamentals)
+        # Persisted at creation time (not recomputed on read): the damping rule needs
+        # the entry's readings, which the inbox row does not keep.
+        verdict = compute_verdict(entry)
         pitch_id = create_pitch(
             db_path,
             ticker=entry["ticker"],
@@ -117,6 +121,8 @@ def notify_watchlist(
             zone_high=entry["entry_zone_high"],
             pitch=text,
             created_at=now,
+            verdict=verdict["level"],
+            verdict_why=verdict["why"],
         )
         if send is not None:
             try:

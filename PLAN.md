@@ -246,7 +246,7 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] A1 feat(telegram): HTML `parse_mode` einführen — `escape_html()`-Helper, alle Sende-/Edit-
       Pfade (Text, Foto-Caption, Caption-Edit) auf HTML umstellen, defensiver Plain-Text-Retry
       bei 400-Fehler; alle dynamischen Inhalte escaped; Tests für Escaping + Fallback
-- [ ] A2 feat(pitch): deterministisches Ampel-Urteil 🟢/🟡/🔴 (`compute_verdict`: Score-Bänder ×
+- [x] A2 feat(pitch): deterministisches Ampel-Urteil 🟢/🟡/🔴 (`compute_verdict`: Score-Bänder ×
       Risikosignale, pure Funktion, getestet) + Ein-Satz-Warum; ehrlich gelabelt als
       "Einstiegs-Attraktivität laut Modell", in Caption + Langpitch + Inbox-API + Frontend
 - [ ] A3 feat(pitch): Layout-Redesign mit Absätzen — Caption: fetter Kopf (Ticker + Urteil),

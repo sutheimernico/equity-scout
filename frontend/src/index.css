@@ -1536,6 +1536,24 @@ code {
   background: var(--bg-inset);
   color: var(--text-muted);
 }
+/* v8 at-a-glance verdict badges — entry attractiveness per the model, not an outcome. */
+.verdict-badge--green {
+  background: color-mix(in srgb, var(--positive) 14%, transparent);
+  color: var(--positive);
+}
+.verdict-badge--yellow {
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  color: var(--warning);
+}
+.verdict-badge--red {
+  background: color-mix(in srgb, var(--negative) 14%, transparent);
+  color: var(--negative);
+}
+.pitch-verdict-why {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
 
 /* --- EquityChart multi-series (Arena race overlay) ----------------------- */
 .eq-series {
