@@ -35,6 +35,9 @@ from equity_scout.notify import (
 )
 from equity_scout.charts import fetch_year_closes, render_year_chart, year_return
 from equity_scout.chat import ask_ollama
+from equity_scout.data.cache import is_fresh as cache_is_fresh
+from equity_scout.fscore import FRESH_DAYS as FSCORE_FRESH_DAYS
+from equity_scout.fscore import load_f_score
 from equity_scout.fx import eur_rate
 from equity_scout.pitch import build_pitch, build_pitch_caption
 from equity_scout.press import fetch_press_lines
@@ -78,6 +81,7 @@ def _telegram_sender(
     evidence_by_ticker: dict[str, list[dict]],
     get_year_closes: Callable[[str], tuple[list, list] | None],
     target_stop_for: Callable[[str], dict | None],
+    f_score_for: Callable[[str], dict | None],
 ) -> Callable[[int, str, dict, object], int]:
     """Send seam: chart-photo pitch with a compact sectioned caption (2026-07-15 redesign
     — Nico: kurz, klar sektioniert, mit 1-Jahres-Chart). Any chart/photo failure falls
@@ -103,6 +107,7 @@ def _telegram_sender(
                 eur_price=entry["price"] * rate if rate is not None else None,
                 press_lines=fetch_press_lines(entry["name"]),
                 target_stop=target_stop_for(entry["ticker"]),
+                f_score=f_score_for(entry["ticker"]),
             )
             png = render_year_chart(entry["ticker"], dates, closes)
             # v8: the caption is Telegram HTML (bold head + verdict, paragraph blocks);
@@ -199,12 +204,23 @@ def main() -> int:
         _, closes = cached
         return compute_target_stop(closes, barrier_config)
 
+    def f_score_for(ticker: str) -> dict | None:
+        """Cached Piotroski score (run_fscore.py fills it in the daily chain). Only shown
+        while its computed_on is inside the refresh window — a dead collector makes the
+        line disappear honestly instead of showing stale balance data forever."""
+        cached = load_f_score(args.db, ticker)
+        if cached is None or not cache_is_fresh(cached["computed_on"], now[:10], FSCORE_FRESH_DAYS):
+            return None
+        return cached
+
     if config is None:
         send = None
         alert_send = None
         print("Telegram not configured — writing inbox pitches only.")
     else:
-        send = _telegram_sender(config, evidence_by_ticker, get_year_closes, target_stop_for)
+        send = _telegram_sender(
+            config, evidence_by_ticker, get_year_closes, target_stop_for, f_score_for
+        )
         alert_send = _alert_sender(config)
 
     # Both pitch variants share ONE interpretive Ollama answer per candidate — the
@@ -223,6 +239,7 @@ def main() -> int:
             entry, fundamentals, ask=cached_ask,
             evidence=evidence_by_ticker.get(entry["ticker"]),
             target_stop=target_stop_for(entry["ticker"]),
+            f_score=f_score_for(entry["ticker"]),
         )
 
     def build_html(entry: dict, fundamentals) -> str:
@@ -232,6 +249,7 @@ def main() -> int:
             entry, fundamentals, ask=cached_ask,
             evidence=evidence_by_ticker.get(entry["ticker"]),
             target_stop=target_stop_for(entry["ticker"]), html=True,
+            f_score=f_score_for(entry["ticker"]),
         )
 
     count = notify_watchlist(

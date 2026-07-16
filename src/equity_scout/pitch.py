@@ -162,6 +162,26 @@ def _analyst_line(entry: dict, fundamentals: Fundamentals | None, cur: str) -> s
     return f"{line}. Fremde Analystenmeinungen, oft falsch — keine Garantie."
 
 
+def _fscore_band(score: int) -> str:
+    return "stark" if score >= 7 else "solide" if score >= 5 else "schwach"
+
+
+def _fscore_line(f_score: dict | None) -> str | None:
+    """Balance-trend annotation from official SEC numbers (fscore.py). Deliberately a
+    standalone label — it does NOT feed the composite (watchlist-only data cannot be
+    ranked against the whole universe honestly). Omitted when absent (non-US name,
+    EDGAR unconfigured, or too few evaluable criteria)."""
+    if f_score is None:
+        return None
+    return (
+        f"Bilanz-Trend (Piotroski F-Score): {f_score['score']}/9 —"
+        f" {_fscore_band(f_score['score'])}"
+        f" ({f_score['evaluable']} von 9 Kriterien bewertbar, Geschäftsjahr"
+        f" {f_score['fiscal_year']}, Quelle: offizielle SEC-Zahlen)."
+        " Ohne Einfluss auf den Score oben."
+    )
+
+
 def _risk_line(entry: dict) -> str | None:
     """Deterministic risk proxy: the weakest sub-signal's reason (ties: first) — computed."""
     readings = entry["readings"]
@@ -196,12 +216,14 @@ def _detail_blocks(
     evidence: list[dict] | None,
     target_stop: dict | None,
     cur: str,
+    f_score: dict | None = None,
 ) -> list[str]:
     """The read-more depth: everything between the verdict/score head and the risk line.
     The HTML variant folds exactly these blocks into one expandable quote."""
     blocks = [
         _tranche_block(entry, cur),
         _kennzahlen_block(entry, fundamentals),
+        _fscore_line(f_score),
         # External evidence annotates the pitch; it has no influence on the composite
         # or the selection above — see evidence/aggregate.py for the delay honesty note.
         evidence_block(evidence) if evidence else None,
@@ -216,13 +238,14 @@ def _structured_body(
     fundamentals: Fundamentals | None,
     evidence: list[dict] | None,
     target_stop: dict | None,
+    f_score: dict | None = None,
 ) -> str:
     cur = f" {fundamentals.currency}" if fundamentals and fundamentals.currency else ""
     verdict = compute_verdict(entry)
     blocks = [
         f"{verdict['emoji']} {verdict['label']} — {verdict['why']}.",
         _score_line(entry),
-        *_detail_blocks(entry, fundamentals, evidence, target_stop, cur),
+        *_detail_blocks(entry, fundamentals, evidence, target_stop, cur, f_score),
         _risk_line(entry),
     ]
     return "\n\n".join(block for block in blocks if block)
@@ -246,6 +269,7 @@ def build_pitch_caption(
     eur_price: float | None = None,
     press_lines: list[str] | None = None,
     target_stop: dict | None = None,
+    f_score: dict | None = None,
 ) -> str:
     """Compact, sectioned caption for the chart-photo pitch. v8 layout: Telegram HTML
     (send with parse_mode="HTML") in four paragraph blocks separated by blank lines —
@@ -290,6 +314,8 @@ def build_pitch_caption(
     if target is not None and entry["price"] > 0:
         upside = (target / entry["price"] - 1.0) * 100
         numbers.append(f"🔭 Analysten-Ø-Ziel {target:.2f}{cur} ({upside:+.0f} %) — fremde Meinung")
+    if f_score is not None:
+        numbers.append(f"📒 Bilanz-Trend {f_score['score']}/9 ({_fscore_band(f_score['score'])})")
     context = [
         f"👥 {escape_html(evidence_line)}"
         for evidence_line in evidence_summary_lines(evidence or [])
@@ -311,6 +337,7 @@ def _build_pitch_html(
     ask: Callable[[str, str], str],
     evidence: list[dict] | None,
     target_stop: dict | None,
+    f_score: dict | None = None,
 ) -> str:
     """v8 Telegram HTML variant: bold head + verdict and the interpretive prose stay
     visible; the full detail depth (tranches, Kennzahlen, evidence, analyst, target)
@@ -319,7 +346,7 @@ def _build_pitch_html(
     Same honesty frame as the plain variant: risk line + disclaimer always visible."""
     cur = f" {fundamentals.currency}" if fundamentals and fundamentals.currency else ""
     verdict = compute_verdict(entry)
-    details = _detail_blocks(entry, fundamentals, evidence, target_stop, cur)
+    details = _detail_blocks(entry, fundamentals, evidence, target_stop, cur, f_score)
     risk = _risk_line(entry)
     head = (
         f"<b>📈 {entry['ticker']} — {escape_html(entry['name'])}</b>\n"
@@ -365,17 +392,19 @@ def build_pitch(
     evidence: list[dict] | None = None,
     target_stop: dict | None = None,
     html: bool = False,
+    f_score: dict | None = None,
 ) -> str:
     """Header + LLM interpretation (or fallback) + deterministic structured sections.
     `target_stop` is A4's deterministic model target/stop (`entry.compute_target_stop`) —
     see `_target_stop_line` for how it stays distinct from the analyst consensus and the
     rule-based entry zone. `html=True` renders the Telegram HTML variant (expandable
-    detail block); the plain default stays the dashboard-inbox rendering."""
+    detail block); the plain default stays the dashboard-inbox rendering. `f_score`
+    (fscore.load_f_score shape) adds the standalone balance-trend line."""
     if html:
-        return _build_pitch_html(entry, fundamentals, ask, evidence, target_stop)
+        return _build_pitch_html(entry, fundamentals, ask, evidence, target_stop, f_score)
     header = f"📈 {entry['ticker']} — {entry['name']}"
     prose = _interpretation(entry, ask)
-    body = _structured_body(entry, fundamentals, evidence, target_stop)
+    body = _structured_body(entry, fundamentals, evidence, target_stop, f_score)
     # Header + structured body + disclaimer form the frame that must survive truncation;
     # the interpretive LLM prose is cut first, so a shortened message stays honest + intact.
     # separators: header\n prose \n\n body \n\n disclaimer = 5 chars.

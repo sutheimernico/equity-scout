@@ -160,3 +160,4 @@
 - 2026-07-16 v8/B2: verified sector rotation flows into forward paper + dashboard via the shared registry; integration tests incl. stale pre-v8 panel staying defensively in bonds
 - 2026-07-16 v8/C2: /api/regime (day-cached, per-leg degradation) + RegimeCard on Today view; breadth = sector-ETF approximation labelled as such; digest regime now uses it too
 - 2026-07-16 v8/D1: 52-week-high proximity (info fiftyTwoWeekHigh, zero extra fetches) as second momentum metric; cache schema tolerant of pre-v8 rows; docs/factors.md updated
+- 2026-07-16 v8/D2: Piotroski F-Score from EDGAR XBRL companyfacts (watchlist-only, 30d cache, honest per-criterion None, min 5 evaluable) as standalone balance-trend line on pitch surfaces; run_fscore.py in daily chain; NOT in the universe quality blend (documented deviation)

@@ -295,9 +295,14 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       innerhalb der momentum-Familie, global gerankt) + `docs/factors.md` nachziehen
       → Quelle: `fiftyTwoWeekHigh` aus dem info-Call (kein zusätzlicher Fetch, History bleibt
       6mo); alte Cache-Rows degradieren aufs 6M-Bein bis zum nächsten Refresh
-- [ ] D2 feat(quality): Piotroski F-Score via SEC EDGAR XBRL `companyfacts` (UA-Header; ohne
+- [x] D2 feat(quality): Piotroski F-Score via SEC EDGAR XBRL `companyfacts` (UA-Header; ohne
       `EDGAR_USER_AGENT` ehrlich "unconfigured" wie der 13F-Collector) als Quality-Trend-Metrik
       im Quality-Score-Blend; yfinance-Fallback NICHT bauen (bekannt löchrig)
+      → ABWEICHUNG: NICHT im Quality-Blend — companyfacts nur für Watchlist-Ticker machbar
+      (Universum-Sweep wäre GB-groß) und eine Metrik, die nur 30 von 6.6k Titeln haben, darf
+      nicht ins Universums-Perzentil. Stattdessen eigenständige, klar gelabelte Bilanz-Trend-
+      Zeile auf Pitch/Caption ("ohne Einfluss auf den Score"), 30-Tage-Cache (`f_scores`),
+      Kriterium einzeln None wenn Daten fehlen, Score nur ab 5 bewertbaren Kriterien
 
 ## Needs Nico (loop cannot do these itself)
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).

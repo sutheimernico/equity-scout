@@ -25,7 +25,7 @@ def _no_fund(ticker: str) -> Fundamentals:
 
 
 def _stub_build_pitch(
-    entry: dict, fund, evidence=None, target_stop=None, ask=None, html=False
+    entry: dict, fund, evidence=None, target_stop=None, ask=None, html=False, f_score=None
 ) -> str:
     """Stand-in for build_pitch matching its real (post-v8) signature — for tests that
     only care that main() reaches a pitch, not its exact text."""
@@ -447,7 +447,7 @@ def test_main_annotates_pitches_with_evidence_and_alerts_off_watchlist(
     )
     monkeypatch.delenv("COPILOT_TG_BOT_TOKEN", raising=False)
     monkeypatch.delenv("COPILOT_TG_CHAT_ID", raising=False)
-    def _stub_build_pitch_with_evidence_count(entry, fund, evidence=None, target_stop=None, ask=None, html=False):
+    def _stub_build_pitch_with_evidence_count(entry, fund, evidence=None, target_stop=None, ask=None, html=False, f_score=None):
         return f"PITCH {entry['ticker']} ev={len(evidence or [])}"
 
     monkeypatch.setattr(run_notify_mod, "build_pitch", _stub_build_pitch_with_evidence_count)
@@ -634,7 +634,7 @@ def test_main_target_stop_stays_none_and_no_fetch_without_entry_tb_champion(
 
     seen: list[dict | None] = []
 
-    def fake_build_pitch(entry, fund=None, ask=None, evidence=None, target_stop=None, html=False):
+    def fake_build_pitch(entry, fund=None, ask=None, evidence=None, target_stop=None, html=False, f_score=None):
         seen.append(target_stop)
         return f"PITCH {entry['ticker']}"
 
@@ -678,13 +678,13 @@ def test_main_computes_target_stop_once_per_ticker_and_reaches_both_builders(
     seen_in_build: list[dict | None] = []
     seen_in_caption: list[dict | None] = []
 
-    def fake_build_pitch(entry, fund=None, ask=None, evidence=None, target_stop=None, html=False):
+    def fake_build_pitch(entry, fund=None, ask=None, evidence=None, target_stop=None, html=False, f_score=None):
         seen_in_build.append(target_stop)
         return f"PITCH {entry['ticker']}"
 
     def fake_build_pitch_caption(
         entry, fundamentals=None, evidence=None, one_year_return=None,
-        eur_price=None, press_lines=None, target_stop=None,
+        eur_price=None, press_lines=None, target_stop=None, f_score=None,
     ):
         seen_in_caption.append(target_stop)
         return "CAPTION"

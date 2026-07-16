@@ -50,6 +50,9 @@ fi
 step radar               "$PY" scripts/run_radar.py
 step earnings            "$PY" scripts/run_earnings.py
 step evidence            "$PY" scripts/run_evidence.py
+# Piotroski F-Scores for the fresh watchlist (EDGAR companyfacts; unconfigured
+# without EDGAR_USER_AGENT). Before notify so today's pitches carry today's scores.
+step fscore              "$PY" scripts/run_fscore.py
 # --min-pitches 5: the daily delivery pitches several names (topped up by composite),
 # not only strict in-zone hits (Nico 2026-07-15).
 step notify              "$PY" scripts/run_notify.py --min-pitches 5
