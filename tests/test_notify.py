@@ -539,6 +539,51 @@ def test_select_candidates_tops_up_to_min_count():
     assert [entry["ticker"] for entry in picked] == ["ZONE", "BEST", "GOOD"]
 
 
+def test_select_candidates_top_up_never_dips_below_threshold():
+    """v8 quality gate: min_count may pull out-of-zone names, but never sub-threshold
+    ones — a short honest batch beats a padded mediocre one (Nico: "kein Müll")."""
+    watchlist = {
+        "created_at": NOW,
+        "entries": [
+            _entry("ZONE"),
+            {**_entry("GOOD"), "in_zone": False, "composite": 0.80},
+            {**_entry("MEH"), "in_zone": False, "composite": 0.30},
+        ],
+    }
+    picked = select_candidates(
+        watchlist, last_pitch_at=lambda t: None,
+        threshold=0.45, cooldown_days=7, now=NOW, min_count=5,
+    )
+    assert [entry["ticker"] for entry in picked] == ["ZONE", "GOOD"]
+
+
+def test_main_sends_honest_empty_note_when_no_candidates(tmp_path, monkeypatch, capsys):
+    """0 qualified candidates + configured Telegram -> ONE honest empty-day note."""
+    db = str(tmp_path / "run.db")
+    _seed_watchlist_db(db)
+    monkeypatch.setenv("COPILOT_TG_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("COPILOT_TG_CHAT_ID", "4242")
+    sent: list[str] = []
+
+    def record_send(token, chat_id, text, keyboard=None, parse_mode=None):
+        sent.append(text)
+        return 1
+
+    monkeypatch.setattr(run_notify_mod, "send_message", record_send)
+    monkeypatch.setattr(run_notify_mod, "build_pitch", _stub_build_pitch)
+    monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
+    monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db, "--threshold", "0.99"])
+
+    assert main() == 0
+    out = capsys.readouterr().out
+    assert "Pitches created: 0." in out
+    assert "Unter der Qualitätsschwelle: 1." in out
+    assert sent == [
+        "📭 Heute keine Kandidaten über der Qualitätsschwelle — "
+        "kein Pitch ist ehrlicher als ein schwacher Pitch."
+    ]
+
+
 def test_select_candidates_min_count_zero_is_unchanged():
     watchlist = {"created_at": NOW,
                  "entries": [{**_entry("OFF"), "in_zone": False, "composite": 0.99}]}

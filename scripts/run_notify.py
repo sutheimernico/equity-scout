@@ -135,7 +135,9 @@ def main() -> int:
     parser.add_argument("--min-pitches", type=int, default=0,
                         help="Top up to N pitches with the highest-composite watchlist "
                              "entries outside cooldown (daily chain uses 5 — Nico wants "
-                             "several names per daily, not only strict in-zone hits).")
+                             "several names per daily, not only strict in-zone hits). "
+                             "v8 quality gate: top-ups never dip below --threshold; a "
+                             "short honest batch beats a padded mediocre one.")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--inbox-only", action="store_true",
                         help="Record pitches/alerts in the inbox but send nothing to Telegram "
@@ -215,7 +217,18 @@ def main() -> int:
         threshold=args.threshold, cooldown_days=args.cooldown_days,
         min_pitches=args.min_pitches, now=now,
     )
-    print(f"Pitches created: {count}.")
+    below_threshold = sum(
+        1 for entry in watchlist.get("entries", []) if entry["composite"] < args.threshold
+    )
+    print(f"Pitches created: {count}. Unter der Qualitätsschwelle: {below_threshold}.")
+    if count == 0 and config is not None:
+        # v8 honesty: an explicit "nothing convincing today" beats padding the daily
+        # delivery with mediocre names (the pre-v8 top-up did exactly that).
+        send_message(
+            config["token"], config.get("intraday_chat_id", config["chat_id"]),
+            "📭 Heute keine Kandidaten über der Qualitätsschwelle — "
+            "kein Pitch ist ehrlicher als ein schwacher Pitch.",
+        )
 
     off_watchlist = attach_track_records(
         events_in_window(

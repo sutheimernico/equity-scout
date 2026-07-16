@@ -255,9 +255,11 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       prüfen; Fallback laut Spec)
       → Entscheidung: expandable-Quote NUR in Textnachrichten (A5-Details), Caption nutzt
       nur `<b>` + Absatz-Blöcke — kein Caption-Support-Risiko; Overflow degradiert zu plain
-- [ ] A4 feat(notify): Qualitäts-Gate statt Auffüllen — `--min-pitches`-Auffülllogik ersetzen
+- [x] A4 feat(notify): Qualitäts-Gate statt Auffüllen — `--min-pitches`-Auffülllogik ersetzen
       durch Score-Schwelle (`--min-score`, Default aus bisheriger Threshold-Praxis); 0 Kandidaten
       ⇒ ehrliche Ein-Zeilen-Meldung statt Mittelmaß; Digest nennt Anzahl unter der Schwelle
+      → umgesetzt via bestehendem `--threshold` als Qualitätsgrenze für Top-ups (kein neues
+      Flag nötig); Leermeldung + Schwellen-Transparenz in run_notify; Digest-Zeile folgt in A6
 - [ ] A5 feat(receiver): 🔎-Details-Button pro Pitch (`detail:<pitch_id>` callback) — Receiver
       antwortet mit der langen erklärenden Pitch-Version als eigene Nachricht (HTML, Absätze)
 - [ ] C1 feat(regime): `regime.py` — 4 Signale (SPY vs. 200d-MA, VIX-Band, Breadth = % Universum

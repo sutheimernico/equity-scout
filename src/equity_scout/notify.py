@@ -53,8 +53,10 @@ def select_candidates(
 ) -> list[dict]:
     """In-zone candidates above threshold and outside cooldown — plus, when `min_count`
     asks for more (the daily digest should pitch SEVERAL names, Nico 2026-07-15), the
-    highest-composite remaining watchlist entries outside cooldown. Topped-up entries
-    are not in-zone/above-threshold; their zone line in the pitch stays honest."""
+    highest-composite remaining watchlist entries outside cooldown. v8 quality gate
+    (Nico 2026-07-16: "kein Müll"): top-ups may be out-of-zone (timing) but NEVER below
+    the composite threshold (quality) — a short honest batch beats a padded mediocre
+    one. Out-of-zone top-ups keep their honest zone line in the pitch."""
     outside_cooldown = [
         entry
         for entry in watchlist.get("entries", [])
@@ -68,7 +70,10 @@ def select_candidates(
         return qualified
     chosen = {entry["ticker"] for entry in qualified}
     extras = sorted(
-        (entry for entry in outside_cooldown if entry["ticker"] not in chosen),
+        (
+            entry for entry in outside_cooldown
+            if entry["ticker"] not in chosen and entry["composite"] >= threshold
+        ),
         key=lambda entry: entry["composite"],
         reverse=True,
     )
