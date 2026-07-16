@@ -153,3 +153,4 @@
 - 2026-07-16 v8/A3: caption + long pitch reworked to Telegram HTML paragraph layout (bold head/verdict, escaped dynamics, expandable detail quote in text variant only, safe overflow degradation)
 - 2026-07-16 v8/A4: top-up quality gate (extras never below --threshold), honest one-line empty-day telegram note, below-threshold transparency in run_notify output
 - 2026-07-16 v8/A5: detail button (detail:<id>) on every pitch keyboard; receiver replies with persisted HTML long pitch (pitch_html column, shared cached ollama call), press never decides
+- 2026-07-16 v8/C1: regime.py market traffic light (trend/vix/breadth/yield-curve, green-count composite, honest unknown below 3 evaluable signals), 9 tests
