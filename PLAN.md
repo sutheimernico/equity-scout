@@ -249,10 +249,12 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] A2 feat(pitch): deterministisches Ampel-Urteil 🟢/🟡/🔴 (`compute_verdict`: Score-Bänder ×
       Risikosignale, pure Funktion, getestet) + Ein-Satz-Warum; ehrlich gelabelt als
       "Einstiegs-Attraktivität laut Modell", in Caption + Langpitch + Inbox-API + Frontend
-- [ ] A3 feat(pitch): Layout-Redesign mit Absätzen — Caption: fetter Kopf (Ticker + Urteil),
+- [x] A3 feat(pitch): Layout-Redesign mit Absätzen — Caption: fetter Kopf (Ticker + Urteil),
       Leerzeilen zwischen Blöcken (Überblick / Fakten / Risiko); Langpitch: `<b>`-Abschnitts-
       überschriften + `<blockquote expandable>` für den Detailteil (Bot-API-Support in Captions
       prüfen; Fallback laut Spec)
+      → Entscheidung: expandable-Quote NUR in Textnachrichten (A5-Details), Caption nutzt
+      nur `<b>` + Absatz-Blöcke — kein Caption-Support-Risiko; Overflow degradiert zu plain
 - [ ] A4 feat(notify): Qualitäts-Gate statt Auffüllen — `--min-pitches`-Auffülllogik ersetzen
       durch Score-Schwelle (`--min-score`, Default aus bisheriger Threshold-Praxis); 0 Kandidaten
       ⇒ ehrliche Ein-Zeilen-Meldung statt Mittelmaß; Digest nennt Anzahl unter der Schwelle

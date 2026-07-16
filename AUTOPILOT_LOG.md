@@ -150,3 +150,4 @@
 - 2026-07-15 A3: triple-barrier entry_tb family, barrier config persisted + horizon single-source fix (e4134c7, 26ba882)
 - 2026-07-16 v8/A1: telegram_client speaks optional HTML parse_mode (escape_html/strip_html, parse-failure plain-text retry on every send/edit path); builders opt in via A3/A6
 - 2026-07-16 v8/A2: at-a-glance verdict (green/yellow/red + why) computed once, persisted on the pitch row, rendered on caption, long pitch, inbox API and dashboard badge
+- 2026-07-16 v8/A3: caption + long pitch reworked to Telegram HTML paragraph layout (bold head/verdict, escaped dynamics, expandable detail quote in text variant only, safe overflow degradation)

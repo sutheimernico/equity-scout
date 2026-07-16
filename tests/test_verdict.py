@@ -48,7 +48,7 @@ def test_verdict_handles_missing_readings():
 
 def test_caption_leads_with_verdict():
     caption = build_pitch_caption(_entry())
-    assert caption.splitlines()[1].startswith("🟢 Einstieg attraktiv")
+    assert caption.splitlines()[1].startswith("🟢 <b>Einstieg attraktiv</b>")
 
 
 def test_long_pitch_carries_verdict_block():

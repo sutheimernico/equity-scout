@@ -26,8 +26,10 @@ def test_caption_has_sections_and_stays_compact():
         eur_price=158.60,
         press_lines=["Analysts split on NVIDIA after earnings — Reuters"],
     )
-    assert caption.splitlines()[0] == "📈 NVDA — NVIDIA Corp."
+    # v8: bold HTML head + paragraph blocks (sent with parse_mode="HTML").
+    assert caption.splitlines()[0] == "<b>📈 NVDA — NVIDIA Corp.</b>"
     assert "Score 81/100" in caption and "Momentum 92" in caption
+    assert "\n\n" in caption  # paragraph blocks, not a wall of lines
     assert "KGV 45" in caption and "1 Jahr +38 %" in caption
     assert "Kurs 172.40 USD (≈ 158.60 €)" in caption
     assert "Zone 165.00–170.00" in caption

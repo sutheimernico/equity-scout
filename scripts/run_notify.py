@@ -104,10 +104,14 @@ def _telegram_sender(
                 target_stop=target_stop_for(entry["ticker"]),
             )
             png = render_year_chart(entry["ticker"], dates, closes)
-            return send_photo(config["token"], chat_id, png, caption, keyboard)
+            # v8: the caption is Telegram HTML (bold head + verdict, paragraph blocks);
+            # telegram_client retries stripped-plain on a parse rejection.
+            return send_photo(config["token"], chat_id, png, caption, keyboard,
+                              parse_mode="HTML")
         except Exception as exc:  # noqa: BLE001 - photo path is best-effort by design
             print(f"Hinweis: Chart-Pitch für {entry['ticker']} nicht möglich ({exc}) — "
                   "sende Text-Pitch.", file=sys.stderr)
+            # `text` is the plain inbox pitch — sent without parse_mode on purpose.
             return send_message(config["token"], chat_id, text, keyboard)
 
     return send

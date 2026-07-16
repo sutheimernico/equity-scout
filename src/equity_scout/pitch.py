@@ -20,6 +20,7 @@ from equity_scout.chat import ChatError, ask_ollama
 from equity_scout.constants import SHORT_DISCLAIMER
 from equity_scout.evidence.aggregate import evidence_block, evidence_summary_lines
 from equity_scout.fundamentals import Fundamentals
+from equity_scout.telegram_client import escape_html, strip_html
 
 # Telegram photo captions cap at 1024 UTF-16 code units; headroom for emoji + edits.
 _CAPTION_LIMIT = 980
@@ -189,6 +190,27 @@ def _target_stop_line(target_stop: dict | None, cur: str) -> str:
     )
 
 
+def _detail_blocks(
+    entry: dict,
+    fundamentals: Fundamentals | None,
+    evidence: list[dict] | None,
+    target_stop: dict | None,
+    cur: str,
+) -> list[str]:
+    """The read-more depth: everything between the verdict/score head and the risk line.
+    The HTML variant folds exactly these blocks into one expandable quote."""
+    blocks = [
+        _tranche_block(entry, cur),
+        _kennzahlen_block(entry, fundamentals),
+        # External evidence annotates the pitch; it has no influence on the composite
+        # or the selection above — see evidence/aggregate.py for the delay honesty note.
+        evidence_block(evidence) if evidence else None,
+        _analyst_line(entry, fundamentals, cur),
+        _target_stop_line(target_stop, cur),
+    ]
+    return [block for block in blocks if block]
+
+
 def _structured_body(
     entry: dict,
     fundamentals: Fundamentals | None,
@@ -200,13 +222,7 @@ def _structured_body(
     blocks = [
         f"{verdict['emoji']} {verdict['label']} — {verdict['why']}.",
         _score_line(entry),
-        _tranche_block(entry, cur),
-        _kennzahlen_block(entry, fundamentals),
-        # External evidence annotates the pitch; it has no influence on the composite
-        # or the selection above — see evidence/aggregate.py for the delay honesty note.
-        evidence_block(evidence) if evidence else None,
-        _analyst_line(entry, fundamentals, cur),
-        _target_stop_line(target_stop, cur),
+        *_detail_blocks(entry, fundamentals, evidence, target_stop, cur),
         _risk_line(entry),
     ]
     return "\n\n".join(block for block in blocks if block)
@@ -231,15 +247,18 @@ def build_pitch_caption(
     press_lines: list[str] | None = None,
     target_stop: dict | None = None,
 ) -> str:
-    """Compact, sectioned caption for the chart-photo pitch (Nico 2026-07-15: the long
-    pitch was unübersichtlich; disclaimer/delay footer removed on his call same day).
-    One fact per line, hard-capped for Telegram's 1024-unit photo-caption limit; the
-    chart itself carries the price history. The long `build_pitch` text stays the
-    dashboard-inbox version. `eur_price` rides along for non-EUR listings; `press_lines`
-    are third-party headlines (see press.py) — quoted, never interpreted. `target_stop`
-    is A4's deterministic model target/stop (`entry.compute_target_stop`); unlike the
-    other optional lines it is omitted (not shown as an absence) when None, matching this
-    caption's existing compact-by-default convention."""
+    """Compact, sectioned caption for the chart-photo pitch. v8 layout: Telegram HTML
+    (send with parse_mode="HTML") in four paragraph blocks separated by blank lines —
+    head (who + at-a-glance verdict, bold), numbers, context (evidence/press), risk —
+    so the caption reads as structured paragraphs instead of a wall of lines (Nico
+    2026-07-16). Only <b> is used: photo captions support inline formatting, while the
+    expandable quote is reserved for the long TEXT pitch. All dynamic content is
+    escaped. Hard-capped for Telegram's 1024-unit photo-caption limit; an over-long
+    caption degrades to stripped plain text before cutting so no tag is ever severed.
+    `eur_price` rides along for non-EUR listings; `press_lines` are third-party
+    headlines (see press.py) — quoted, never interpreted. `target_stop` is A4's
+    deterministic model target/stop (`entry.compute_target_stop`); unlike the other
+    optional lines it is omitted (not shown as an absence) when None."""
     cur = f" {fundamentals.currency}" if fundamentals and fundamentals.currency else ""
     score = round(entry["composite"] * 100)
     price = f"Kurs {entry['price']:.2f}{cur}"
@@ -251,33 +270,92 @@ def build_pitch_caption(
     if one_year_return is not None:
         price_bits.append(f"1 Jahr {one_year_return * 100:+.0f} %")
     verdict = compute_verdict(entry)
-    lines = [
-        f"📈 {entry['ticker']} — {entry['name']}",
-        f"{verdict['emoji']} {verdict['label']} · Score {score}/100 · "
+    head = [
+        f"<b>📈 {entry['ticker']} — {escape_html(entry['name'])}</b>",
+        f"{verdict['emoji']} <b>{verdict['label']}</b> · Score {score}/100 · "
         f"stark: {_top_factors(entry['breakdown'])}",
+    ]
+    numbers = [
         "💰 " + " · ".join(price_bits),
         f"🎯 Zone {entry['entry_zone_low']:.2f}–{entry['entry_zone_high']:.2f}{cur}",
     ]
     if target_stop is not None:
         # Distinct label ("Kursziel" vs "Zone" right after the shared 🎯) keeps the
         # model target from being read as the entry zone above.
-        lines.append(
+        numbers.append(
             f"🎯 Kursziel {target_stop['target']:.2f}{cur} · "
             f"🛑 Stop {target_stop['stop']:.2f}{cur}"
         )
     target = fundamentals.analyst_target if fundamentals else None
     if target is not None and entry["price"] > 0:
         upside = (target / entry["price"] - 1.0) * 100
-        lines.append(f"🔭 Analysten-Ø-Ziel {target:.2f}{cur} ({upside:+.0f} %) — fremde Meinung")
-    for evidence_line in evidence_summary_lines(evidence or []):
-        lines.append(f"👥 {evidence_line}")
-    for press_line in press_lines or []:
-        lines.append(f"🗞️ {press_line}")
+        numbers.append(f"🔭 Analysten-Ø-Ziel {target:.2f}{cur} ({upside:+.0f} %) — fremde Meinung")
+    context = [
+        f"👥 {escape_html(evidence_line)}"
+        for evidence_line in evidence_summary_lines(evidence or [])
+    ]
+    context += [f"🗞️ {escape_html(press_line)}" for press_line in press_lines or []]
     risk = _risk_line(entry)
-    if risk:
-        lines.append(f"⚠️ {risk if len(risk) <= 90 else risk[:89] + '…'}")
-    caption = "\n".join(lines)
-    return caption if len(caption) <= _CAPTION_LIMIT else caption[: _CAPTION_LIMIT - 1] + "…"
+    risk_block = [f"⚠️ {escape_html(risk if len(risk) <= 90 else risk[:89] + '…')}"] if risk else []
+    blocks = ["\n".join(block) for block in (head, numbers, context, risk_block) if block]
+    caption = "\n\n".join(blocks)
+    if len(caption) <= _CAPTION_LIMIT:
+        return caption
+    plain = strip_html(caption)
+    return plain if len(plain) <= _CAPTION_LIMIT else plain[: _CAPTION_LIMIT - 1] + "…"
+
+
+def _build_pitch_html(
+    entry: dict,
+    fundamentals: Fundamentals | None,
+    ask: Callable[[str, str], str],
+    evidence: list[dict] | None,
+    target_stop: dict | None,
+) -> str:
+    """v8 Telegram HTML variant: bold head + verdict and the interpretive prose stay
+    visible; the full detail depth (tranches, Kennzahlen, evidence, analyst, target)
+    folds into ONE <blockquote expandable> — supported in text messages, which is the
+    only place this variant is sent (the photo caption deliberately never uses it).
+    Same honesty frame as the plain variant: risk line + disclaimer always visible."""
+    cur = f" {fundamentals.currency}" if fundamentals and fundamentals.currency else ""
+    verdict = compute_verdict(entry)
+    details = _detail_blocks(entry, fundamentals, evidence, target_stop, cur)
+    risk = _risk_line(entry)
+    head = (
+        f"<b>📈 {entry['ticker']} — {escape_html(entry['name'])}</b>\n"
+        f"{verdict['emoji']} <b>{verdict['label']}</b> — {escape_html(verdict['why'])}."
+    )
+
+    def assemble(detail_raw: str, prose: str) -> str:
+        parts = [
+            head,
+            prose,
+            escape_html(_score_line(entry)),
+            f"<blockquote expandable>{escape_html(detail_raw)}</blockquote>"
+            if detail_raw
+            else None,
+            f"⚠️ {escape_html(risk)}" if risk else None,
+            SHORT_DISCLAIMER,
+        ]
+        return "\n\n".join(part for part in parts if part)
+
+    detail_raw = "\n\n".join(details)
+    prose_budget = _LIMIT - len(assemble(detail_raw, ""))
+    prose = escape_html(_interpretation(entry, ask))
+    if len(prose) > prose_budget:
+        prose = prose[: prose_budget - 1] + "…" if prose_budget > 1 else ""
+    text = assemble(detail_raw, prose)
+    overflow = len(text) - _LIMIT
+    if overflow > 0 and detail_raw:
+        # Cut the RAW detail before escaping (never sever an &amp;-entity), then rebuild.
+        # Removing N raw chars removes at least N escaped chars, so one pass suffices.
+        detail_raw = detail_raw[: max(len(detail_raw) - overflow - 1, 0)] + "…"
+        text = assemble(detail_raw, prose)
+    if len(text) > _LIMIT:  # pathological (oversized name): strip tags, keep disclaimer
+        plain = strip_html(text)
+        room = max(_LIMIT - len(SHORT_DISCLAIMER) - 3, 0)
+        text = f"{plain[:room]}…\n\n{SHORT_DISCLAIMER}"
+    return text
 
 
 def build_pitch(
@@ -286,11 +364,15 @@ def build_pitch(
     ask: Callable[[str, str], str] = _ask_default,
     evidence: list[dict] | None = None,
     target_stop: dict | None = None,
+    html: bool = False,
 ) -> str:
     """Header + LLM interpretation (or fallback) + deterministic structured sections.
     `target_stop` is A4's deterministic model target/stop (`entry.compute_target_stop`) —
     see `_target_stop_line` for how it stays distinct from the analyst consensus and the
-    rule-based entry zone."""
+    rule-based entry zone. `html=True` renders the Telegram HTML variant (expandable
+    detail block); the plain default stays the dashboard-inbox rendering."""
+    if html:
+        return _build_pitch_html(entry, fundamentals, ask, evidence, target_stop)
     header = f"📈 {entry['ticker']} — {entry['name']}"
     prose = _interpretation(entry, ask)
     body = _structured_body(entry, fundamentals, evidence, target_stop)
