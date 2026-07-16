@@ -291,8 +291,10 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       → Breadth = Sektor-ETF-Approximation aus dem lokalen Panel (ehrlich als "Sektoren"
       gelabelt, volle Universums-Historie existiert nicht lokal); Tages-Cache in der API;
       Ampel auf der "Heute"-Seite als Disclosure; Digest-Regime jetzt ebenfalls 4/4-fähig
-- [ ] D1 feat(factors): 52-Week-High-Proximity als zweite Momentum-Metrik (Blend mit 6M-Return
+- [x] D1 feat(factors): 52-Week-High-Proximity als zweite Momentum-Metrik (Blend mit 6M-Return
       innerhalb der momentum-Familie, global gerankt) + `docs/factors.md` nachziehen
+      → Quelle: `fiftyTwoWeekHigh` aus dem info-Call (kein zusätzlicher Fetch, History bleibt
+      6mo); alte Cache-Rows degradieren aufs 6M-Bein bis zum nächsten Refresh
 - [ ] D2 feat(quality): Piotroski F-Score via SEC EDGAR XBRL `companyfacts` (UA-Header; ohne
       `EDGAR_USER_AGENT` ehrlich "unconfigured" wie der 13F-Collector) als Quality-Trend-Metrik
       im Quality-Score-Blend; yfinance-Fallback NICHT bauen (bekannt löchrig)

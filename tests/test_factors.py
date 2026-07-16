@@ -2,12 +2,12 @@ from equity_scout.factors import score_factors
 from equity_scout.models import Instrument, Quote
 
 
-def _q(t, pe, roe, mom, growth, sector="Tech", vol=None):
+def _q(t, pe, roe, mom, growth, sector="Tech", vol=None, high_prox=None):
     inst = Instrument(t, t, "E", "US", "USD", sector)
     return Quote(instrument=inst, trailing_pe=pe, price_to_book=None,
                  return_on_equity=roe, profit_margins=None,
                  revenue_growth=growth, earnings_growth=None, momentum_6m=mom,
-                 volatility_6m=vol)
+                 volatility_6m=vol, high_52w_proximity=high_prox)
 
 
 def test_lower_pe_scores_higher_on_value():
@@ -20,6 +20,26 @@ def test_higher_momentum_scores_higher():
     quotes = [_q("UP", 10.0, 0.1, 0.5, 0.0), _q("DOWN", 10.0, 0.1, -0.2, 0.0)]
     scores = {s.instrument.ticker: s for s in score_factors(quotes)}
     assert scores["UP"].momentum > scores["DOWN"].momentum
+
+
+def test_52w_high_proximity_feeds_the_momentum_family():
+    """v8 D1: with the 6m leg absent, the George/Hwang proximity alone carries the
+    momentum family — NEAR at its 52w high must outrank FAR at 60 % of its high."""
+    quotes = [
+        _q("NEAR", 10.0, 0.1, None, 0.0, high_prox=0.99),
+        _q("FAR", 10.0, 0.1, None, 0.0, high_prox=0.60),
+    ]
+    scores = {s.instrument.ticker: s for s in score_factors(quotes)}
+    assert scores["NEAR"].momentum > scores["FAR"].momentum
+
+
+def test_momentum_degrades_to_6m_leg_without_proximity():
+    """Pre-v8 cache rows have no proximity: the family averages what is present, so the
+    6m return alone still ranks — never a crash, never a fake 0-proximity."""
+    quotes = [_q("UP", 10.0, 0.1, 0.5, 0.0), _q("DOWN", 10.0, 0.1, -0.2, 0.0)]
+    scores = {s.instrument.ticker: s for s in score_factors(quotes)}
+    assert scores["UP"].momentum == 1.0
+    assert scores["DOWN"].momentum == 0.0
 
 
 def test_missing_family_scores_zero():

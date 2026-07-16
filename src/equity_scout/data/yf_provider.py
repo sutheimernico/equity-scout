@@ -22,6 +22,17 @@ def _daily_returns(closes: list[float]) -> list[float]:
     return [(closes[i] - closes[i - 1]) / closes[i - 1] for i in range(1, len(closes))]
 
 
+def _proximity_to_52w_high(last: float | None, high: object) -> float | None:
+    """last close / info's fiftyTwoWeekHigh — free with the info call (the history fetch
+    only covers 6 months, so the high cannot be computed locally). Defensive like
+    factors._clean: .info is untyped JSON, anything non-numeric is an honest None."""
+    if last is None or isinstance(high, bool) or not isinstance(high, (int, float)):
+        return None
+    if not math.isfinite(high) or high <= 0:
+        return None
+    return last / float(high)
+
+
 def quote_from_info_and_history(
     instrument: Instrument, info: dict, closes: list[float]
 ) -> Quote:
@@ -49,6 +60,9 @@ def quote_from_info_and_history(
         momentum_6m=momentum,
         volatility_6m=volatility,
         price=clean[-1] if clean else None,
+        high_52w_proximity=_proximity_to_52w_high(
+            clean[-1] if clean else None, info.get("fiftyTwoWeekHigh")
+        ),
     )
 
 

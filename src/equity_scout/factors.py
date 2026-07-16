@@ -17,7 +17,10 @@ from equity_scout.models import FactorScore, Quote
 _FAMILIES: dict[str, list[tuple[str, bool, bool]]] = {
     "value": [("trailing_pe", False, True), ("price_to_book", False, True)],
     "quality": [("return_on_equity", True, False), ("profit_margins", True, False)],
-    "momentum": [("momentum_6m", True, False)],
+    # v8 D1: 6m return + 52-week-high proximity blend (George/Hwang 2004 — nearness to
+    # the high beats raw momentum internationally). _family_score averages whatever is
+    # present, so pre-v8 cache rows without the proximity degrade to the 6m leg alone.
+    "momentum": [("momentum_6m", True, False), ("high_52w_proximity", True, False)],
     "growth": [("revenue_growth", True, False), ("earnings_growth", True, False)],
     "low_vol": [("volatility_6m", False, False)],  # lower volatility ranks higher
 }

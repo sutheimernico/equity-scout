@@ -12,7 +12,7 @@ has no usable data for an instrument, its score is `0.0`.
 | value     | `trailingPE`, `priceToBook`            | lower is better    | within sector |
 | quality   | `returnOnEquity`, `profitMargins`      | higher is better   | within sector |
 | growth    | `revenueGrowth`, `earningsGrowth`      | higher is better   | within sector |
-| momentum  | 6-month total return (from prices)     | higher is better   | global       |
+| momentum  | 6-month total return (from prices) + proximity to the 52-week high (`fiftyTwoWeekHigh` from info) | higher is better   | global       |
 | low_vol   | stdev of daily returns (from prices)   | lower is better    | global       |
 
 ## Design decisions (and why)

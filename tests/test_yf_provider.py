@@ -28,6 +28,22 @@ def test_quote_from_info_handles_missing():
     assert q.trailing_pe is None
     assert q.momentum_6m is None
     assert q.volatility_6m is None
+    assert q.high_52w_proximity is None
+
+
+def test_quote_computes_52w_high_proximity():
+    inst = Instrument("X", "X", "E", "US", "USD", "Tech")
+    q = quote_from_info_and_history(inst, {"fiftyTwoWeekHigh": 120.0}, [100.0, 108.0])
+    assert q.high_52w_proximity is not None
+    assert abs(q.high_52w_proximity - 0.9) < 1e-9
+
+
+def test_52w_high_proximity_rejects_junk_info_values():
+    """.info is untyped JSON — strings, bools, zero and NaN must all yield an honest None."""
+    inst = Instrument("X", "X", "E", "US", "USD", "Tech")
+    for junk in ("Infinity", True, 0.0, -5.0, float("nan")):
+        q = quote_from_info_and_history(inst, {"fiftyTwoWeekHigh": junk}, [100.0, 108.0])
+        assert q.high_52w_proximity is None, f"junk value {junk!r} must not produce a proximity"
 
 
 def test_volatility_from_varying_prices_is_positive():

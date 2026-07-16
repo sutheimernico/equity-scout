@@ -28,6 +28,10 @@ class Quote:
     momentum_6m: float | None  # 6-month total return, computed from price history
     volatility_6m: float | None = None  # stdev of daily returns over the window (lower = calmer)
     price: float | None = None  # last close, used for paper-trading mark-to-market
+    # last close / 52-week high (info's fiftyTwoWeekHigh). ~1.0 = at the high; George/Hwang
+    # (2004): proximity to the 52w high predicts returns better than raw momentum. May exceed
+    # 1.0 briefly when the info field lags a fresh breakout — ranking is ordinal, that's fine.
+    high_52w_proximity: float | None = None
 
 
 @dataclass(frozen=True)

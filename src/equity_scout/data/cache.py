@@ -15,6 +15,9 @@ from equity_scout.models import Instrument, Quote
 _METRIC_FIELDS = (
     "trailing_pe", "price_to_book", "return_on_equity", "profit_margins",
     "revenue_growth", "earnings_growth", "momentum_6m", "volatility_6m", "price",
+    # v8 D1: absent from pre-v8 cache rows -> Quote's dataclass default (None) applies,
+    # an honest gap until the row refreshes.
+    "high_52w_proximity",
 )
 
 
