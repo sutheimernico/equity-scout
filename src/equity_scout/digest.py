@@ -11,6 +11,7 @@ import sys
 from email.message import EmailMessage
 
 from equity_scout.constants import SHORT_DISCLAIMER
+from equity_scout.telegram_client import escape_html
 
 # Past-tense digest wording deliberately differs from telegram_client.DECISION_LABELS'
 # imperative button labels (a report reads differently from a button) — not drift.
@@ -45,8 +46,12 @@ def build_digest(
     alerts_today: list[dict] | None = None,
     opportunities: list[dict] | None = None,
     earnings_this_week: list[dict] | None = None,
+    regime: dict | None = None,
+    sector_line: str | None = None,
+    below_threshold: int | None = None,
+    html: bool = False,
 ) -> str:
-    """German plain-text digest: all open pitches first, then recent decisions.
+    """German digest: market head first, all open pitches, then recent decisions.
 
     decided_since (UTC ISO string) scopes the decided section to a window — without it
     every decision ever made would reappear daily. Lexicographic >= is chronologically
@@ -57,10 +62,31 @@ def build_digest(
     entries) and earnings_this_week (earnings_storage.earnings_within rows: ticker +
     earnings_date) render the day-summary sections for the Telegram daily chat; all
     three are omitted entirely when None/empty.
-    """
-    lines = [f"Copilot-Digest {date_label}", ""]
+
+    v8: `regime` (regime.build_regime shape) and `sector_line` (sectors.top_sector_line)
+    render the at-a-glance market head — both omitted when None, an honest absence.
+    `below_threshold` reports how many watchlist names sat under the quality gate today
+    (A4 transparency). `html=True` renders Telegram HTML: bold section heads, escaped
+    dynamic content, one <b> pair per line so line-based splitting can never sever a tag;
+    the SMTP/stdout path stays plain."""
+
+    def _head(text: str) -> str:
+        return f"<b>{escape_html(text)}</b>" if html else text
+
+    def _line(text: str) -> str:
+        return escape_html(text) if html else text
+
+    lines = [_head(f"Copilot-Digest {date_label}")]
+    if regime is not None:
+        lines.append(_line(
+            f"{regime['emoji']} Marktlage: {regime['label']}"
+            f" ({regime['green_count']}/{regime['available']} Signale grün)"
+        ))
+    if sector_line is not None:
+        lines.append(_line(f"📊 {sector_line}"))
+    lines.append("")
     if alerts_today:
-        lines.append("📌 Heute aufgefallen:")
+        lines.append(_head("📌 Heute aufgefallen:"))
         for alert in alerts_today:
             # Voice reasons carry whole press headlines — cap them so the digest scans
             # as a list (Nico 2026-07-15: kurz und übersichtlich).
@@ -70,24 +96,24 @@ def build_digest(
             )
             buyers = alert.get("buyer_count") or 0
             suffix = f" ({buyers} Käufer)" if buyers > 1 else ""
-            lines.append(f"  {alert['ticker']}: {reasons}{suffix}")
+            lines.append(_line(f"  {alert['ticker']}: {reasons}{suffix}"))
         lines.append("")
     if opportunities:
-        lines.append("🎯 Chancen im Blick:")
+        lines.append(_head("🎯 Chancen im Blick:"))
         for entry in opportunities:
             marks = ""
             if entry.get("in_zone"):
                 marks += " · in Zone"
             if (entry.get("value_gap") or 0) > 0:
                 marks += " · unterbewertet"
-            lines.append(
+            lines.append(_line(
                 f"  {entry['ticker']} · Score {round(entry['composite'] * 100)}/100{marks}"
-            )
+            ))
         lines.append("")
     if earnings_this_week:
-        lines.append("📅 Earnings diese Woche:")
+        lines.append(_head("📅 Earnings diese Woche:"))
         for e in earnings_this_week:
-            lines.append(f"  {e['ticker']}: {e['earnings_date']}")
+            lines.append(_line(f"  {e['ticker']}: {e['earnings_date']}"))
         lines.append("")
     open_pitches = [p for p in pitches if p["status"] == "open"]
     decided = [
@@ -96,24 +122,29 @@ def build_digest(
         and (decided_since is None or (p["decided_at"] or "") >= decided_since)
     ]
     if not open_pitches:
-        lines.append("Aktuell keine offenen Pitches.")
+        lines.append(_line("Aktuell keine offenen Pitches."))
     else:
         # count style ("Offene Pitches: 1") dodges singular/plural agreement
-        lines.append(f"Offene Pitches: {len(open_pitches)}")
+        lines.append(_head(f"Offene Pitches: {len(open_pitches)}"))
         for p in open_pitches:
-            lines.append(
+            lines.append(_line(
                 f"  📬 offen — {p['ticker']} · Score {round(p['composite'] * 100)}/100"
                 f" · Kurs {p['price']:.2f} · seit {p['created_at'][:10]}"
-            )
+            ))
+    if below_threshold:
+        lines.append(_line(
+            f"  ({below_threshold} Watchlist-Titel unter der Qualitätsschwelle —"
+            " bewusst nicht gepitcht)"
+        ))
     if decided:
         lines.append("")
-        lines.append("Entschieden:")
+        lines.append(_head("Entschieden:"))
         for p in decided:
             icon = _STATUS_ICON.get(p["status"], p["status"])
-            lines.append(f"  {icon} — {p['ticker']} · am {(p['decided_at'] or '')[:10]}")
+            lines.append(_line(f"  {icon} — {p['ticker']} · am {(p['decided_at'] or '')[:10]}"))
     if evidence_stats:
         lines.append("")
-        lines.append("Evidenz-Quellen — gemessene Trefferquote vs SPY (60-Tage-Horizont):")
+        lines.append(_head("Evidenz-Quellen — gemessene Trefferquote vs SPY (60-Tage-Horizont):"))
         for source in sorted(evidence_stats):
             entry = evidence_stats[source]
             if entry["n_resolved"] == 0:
@@ -124,8 +155,8 @@ def build_digest(
                     f" Trefferquote {round(entry['hit_rate'] * 100)} %,"
                     f" Ø relative Rendite {entry['mean_relative_return'] * 100:+.1f} %"
                 )
-            lines.append(f"  {_SOURCE_LABEL.get(source, source)}: {measured}"
-                         f" · offen: {entry['n_open']}")
+            lines.append(_line(f"  {_SOURCE_LABEL.get(source, source)}: {measured}"
+                               f" · offen: {entry['n_open']}"))
     lines += ["", SHORT_DISCLAIMER]
     return "\n".join(lines)
 

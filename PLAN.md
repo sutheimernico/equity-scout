@@ -276,9 +276,11 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       als pure Funktion + `/api/sectors` + Dashboard-Karte "Sektoren"
       → `sectors.py` nutzt dieselbe MarketView-Arithmetik wie die Rotation (Anzeige kann der
       Strategie nie widersprechen); `top_sector_line` liegt bereit für den A6-Digest-Kopf
-- [ ] A6 feat(digest): Digest-Redesign — HTML-Sektionen mit fetten Überschriften + Absätzen;
+- [x] A6 feat(digest): Digest-Redesign — HTML-Sektionen mit fetten Überschriften + Absätzen;
       Kopfzeile = Markt-Ampel (C1) + Top-3-Sektoren (B3), beide degradieren ehrlich wenn Daten
       fehlen; bestehende Sektionen (Alerts/Chancen/Earnings/Pitches/Evidenz) bleiben inhaltlich
+      → Regime im Digest aus Trend/VIX/Zinskurve (Breadth-Wiring folgt mit C2); SMTP/stdout
+      bleiben plain, Telegram bekommt die HTML-Variante; A4-Schwellen-Transparenz-Zeile drin
 - [ ] B2 feat(forward): Sektor-Rotation als Forward-Paper-Konto aufnehmen + im Strategien-
       Dashboard sichtbar (build_reports nimmt Registry-Strategien auto auf — verifizieren)
 - [ ] C2 feat(api): `/api/regime` + Dashboard-Ampel (Strategien- oder Übersichts-Kopf) — gleiche
