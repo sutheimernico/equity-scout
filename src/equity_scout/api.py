@@ -540,11 +540,16 @@ def create_app(
                 resolved_stats_windowed(db_path, window_days=window, now=now)
                 for window in (30, 90)
             ],
-            # Daily learning curve (plan v6 strand C, task C1): one point per calendar day
+            # Daily learning curve (plan v7 strand C, task C1): one point per calendar day
             # (scripts/run_learning_snapshot.py, chained after the nightly retrain), so daily
             # training is visible even on nights the champion does not flip. Empty until the
             # first snapshot has run — never backfilled.
             "daily_curve": load_daily_curve(db_path),
+            # Same structural pipeline caveats as /api/model (plan v7 strand C, task C4) — the
+            # learning-curve view is exactly where "the model gets better day by day" is
+            # suggested, so it must carry the same honesty caveats, not just the generic
+            # disclaimer. Reuses constants.MODEL_CAVEATS, never a separate copy.
+            "caveats": MODEL_CAVEATS,
             "disclaimer": DISCLAIMER,
         })
 

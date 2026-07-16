@@ -622,6 +622,10 @@ export interface ModelHistoryResponse {
   promotions: Promotion[];
   resolved_windows: ResolvedWindow[];
   daily_curve: DailyCurvePoint[];
+  // Same structural pipeline caveats as ModelResponse.caveats — see
+  // equity_scout.constants.MODEL_CAVEATS. Optional so an older cached/served API response
+  // (before this field existed) still parses instead of crashing the panel.
+  caveats?: string[];
   disclaimer: string;
 }
 

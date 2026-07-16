@@ -1,4 +1,4 @@
-"""Daily learning-curve snapshots (plan v6 strand C, task C1).
+"""Daily learning-curve snapshots (plan v7 strand C, task C1).
 
 `champion_history` (model_registry.py) only appends on a champion FLIP — rare, so the dashboard
 looked quiet most nights even while the model trained. This table persists ONE row per calendar

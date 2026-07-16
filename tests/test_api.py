@@ -3,6 +3,7 @@ import equity_scout.entry as entry_mod
 from fastapi.testclient import TestClient
 
 from equity_scout.api import create_app
+from equity_scout.constants import MODEL_CAVEATS
 from equity_scout.models import Instrument, Pick, RunResult
 from equity_scout.storage import init_db, save_run
 
@@ -499,6 +500,9 @@ def test_model_history_reports_families_and_promotions(tmp_path):
     assert payload["promotions"][0]["version"] == version
     assert {w["window_days"] for w in payload["resolved_windows"]} == {30, 90}
     assert payload["daily_curve"] == []  # no snapshot persisted yet -> empty, not a crash
+    # Learning-curve view carries the same honesty caveats as /api/model (rebalance-cadence
+    # mismatch, survivorship bias) — it's exactly the view that suggests "gets better daily".
+    assert payload["caveats"] == MODEL_CAVEATS
     assert "disclaimer" in payload
 
     model_payload = client.get("/api/model").json()

@@ -8,6 +8,7 @@ import {
 } from "../api";
 import { Chip } from "./ui/Chip";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
+import { Disclosure } from "./ui/Disclosure";
 import { Explain } from "./ui/Explain";
 
 const FAMILY_LABELS: Record<string, string> = {
@@ -258,6 +259,14 @@ export function LearningCurvePanel() {
           </p>
         ))}
       </section>
+
+      {data.caveats && data.caveats.length > 0 && (
+        <Disclosure summary="Methodische Einschränkungen (Backtest vs. Live, Trainingsuniversum)">
+          {data.caveats.map((caveat) => (
+            <p key={caveat}>{caveat}</p>
+          ))}
+        </Disclosure>
+      )}
 
       <DisclaimerBar text={data.disclaimer} />
     </>
