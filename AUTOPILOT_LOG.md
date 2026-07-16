@@ -157,3 +157,4 @@
 - 2026-07-16 v8/B1: SectorRotationStrategy (11 SPDR sector ETFs, top-3 by 12m/6m momentum blend, per-slot absolute-momentum hurdle to IEF, young tickers skipped) registered; ETF panel grows to 21 tickers
 - 2026-07-16 v8/B3: sector momentum snapshot (sectors.py, same MarketView math as the rotation) + /api/sectors + Sektoren card on the strategies dashboard; ETF_NAMES/STRATEGY_PITCH extended
 - 2026-07-16 v8/A6: digest head shows market traffic light + top-3 sectors + below-threshold transparency; HTML variant (bold heads, escaped, split-safe) for telegram, plain for SMTP/stdout
+- 2026-07-16 v8/B2: verified sector rotation flows into forward paper + dashboard via the shared registry; integration tests incl. stale pre-v8 panel staying defensively in bonds

@@ -18,13 +18,17 @@ def _geom(ret_12m: float, n: int = 260) -> list[float]:
     return [100.0 * (1 + g) ** i for i in range(n)]
 
 
-def _view(returns_12m: dict[str, float]) -> MarketView:
-    panel = PricePanel(
+def _make_panel(returns_12m: dict[str, float]) -> PricePanel:
+    return PricePanel(
         pd.DataFrame(
             {t: _geom(r) for t, r in returns_12m.items()},
             index=pd.bdate_range("2020-01-01", periods=260),
         )
     )
+
+
+def _view(returns_12m: dict[str, float]) -> MarketView:
+    panel = _make_panel(returns_12m)
     return MarketView(panel, panel.dates[-1] + pd.Timedelta(days=1))
 
 
@@ -81,6 +85,35 @@ def test_defensive_falls_back_to_cash_proxy_without_bonds():
     view = _view(returns)
     weights = weights_dict(SectorRotationStrategy().decide(NEXT, view))
     assert weights == pytest.approx({"BIL": 1.0})
+
+
+def test_sector_rotation_advances_as_forward_account():
+    """B2: the rotation runs as its own forward-paper account straight off the shared
+    registry loop — a fresh advance buys the top sectors and books a valuation."""
+    from equity_scout.forward_paper import ForwardAccount, advance_account
+
+    panel = _make_panel(_sector_returns(XLK=0.30, XLE=0.25, XLF=0.20))
+    strategy = SectorRotationStrategy()
+    advanced, valuation = advance_account(
+        ForwardAccount.fresh(strategy.name), strategy, panel, costs_bps=10.0
+    )
+    assert valuation is not None
+    assert set(advanced.weights) == {"XLK", "XLE", "XLF"}
+    assert advanced.equity > 0
+
+
+def test_sector_rotation_on_pre_v8_panel_stays_defensive_in_forward():
+    """A stale snapshot without the sector tickers (from before the universe extension)
+    must not crash the forward chain — the account sits honestly in bonds until the
+    next --refresh widens the panel."""
+    from equity_scout.forward_paper import ForwardAccount, advance_account
+
+    panel = _make_panel({"SPY": 0.05, "BIL": 0.01, "IEF": 0.0})
+    strategy = SectorRotationStrategy()
+    advanced, _ = advance_account(
+        ForwardAccount.fresh(strategy.name), strategy, panel, costs_bps=10.0
+    )
+    assert set(advanced.weights) == {"IEF"}
 
 
 def test_registered_in_default_strategies_but_not_in_the_blend():

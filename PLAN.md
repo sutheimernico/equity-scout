@@ -281,8 +281,11 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       fehlen; bestehende Sektionen (Alerts/Chancen/Earnings/Pitches/Evidenz) bleiben inhaltlich
       → Regime im Digest aus Trend/VIX/Zinskurve (Breadth-Wiring folgt mit C2); SMTP/stdout
       bleiben plain, Telegram bekommt die HTML-Variante; A4-Schwellen-Transparenz-Zeile drin
-- [ ] B2 feat(forward): Sektor-Rotation als Forward-Paper-Konto aufnehmen + im Strategien-
+- [x] B2 feat(forward): Sektor-Rotation als Forward-Paper-Konto aufnehmen + im Strategien-
       Dashboard sichtbar (build_reports nimmt Registry-Strategien auto auf — verifizieren)
+      → verifiziert: run_forward_paper iteriert default_strategies() ⇒ Konto entsteht beim
+      nächsten Lauf automatisch; alter Panel-Snapshot ohne Sektor-Ticker ⇒ Konto sitzt ehrlich
+      in Bonds bis zum nächsten `--refresh` (Integrationstests)
 - [ ] C2 feat(api): `/api/regime` + Dashboard-Ampel (Strategien- oder Übersichts-Kopf) — gleiche
       Ampel wie im Digest, ein Klick zeigt die 4 Einzelsignale mit Werten
 - [ ] D1 feat(factors): 52-Week-High-Proximity als zweite Momentum-Metrik (Blend mit 6M-Return
