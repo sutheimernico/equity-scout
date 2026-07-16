@@ -286,8 +286,11 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       → verifiziert: run_forward_paper iteriert default_strategies() ⇒ Konto entsteht beim
       nächsten Lauf automatisch; alter Panel-Snapshot ohne Sektor-Ticker ⇒ Konto sitzt ehrlich
       in Bonds bis zum nächsten `--refresh` (Integrationstests)
-- [ ] C2 feat(api): `/api/regime` + Dashboard-Ampel (Strategien- oder Übersichts-Kopf) — gleiche
+- [x] C2 feat(api): `/api/regime` + Dashboard-Ampel (Strategien- oder Übersichts-Kopf) — gleiche
       Ampel wie im Digest, ein Klick zeigt die 4 Einzelsignale mit Werten
+      → Breadth = Sektor-ETF-Approximation aus dem lokalen Panel (ehrlich als "Sektoren"
+      gelabelt, volle Universums-Historie existiert nicht lokal); Tages-Cache in der API;
+      Ampel auf der "Heute"-Seite als Disclosure; Digest-Regime jetzt ebenfalls 4/4-fähig
 - [ ] D1 feat(factors): 52-Week-High-Proximity als zweite Momentum-Metrik (Blend mit 6M-Return
       innerhalb der momentum-Familie, global gerankt) + `docs/factors.md` nachziehen
 - [ ] D2 feat(quality): Piotroski F-Score via SEC EDGAR XBRL `companyfacts` (UA-Header; ohne

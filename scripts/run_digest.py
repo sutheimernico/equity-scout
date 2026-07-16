@@ -25,7 +25,7 @@ from equity_scout.inbox_storage import load_pitches
 from equity_scout.notify import DEFAULT_THRESHOLD
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.regime import build_regime
-from equity_scout.sectors import sector_momentum, top_sector_line
+from equity_scout.sectors import sector_breadth, sector_momentum, top_sector_line
 from equity_scout.telegram_client import (
     TelegramError,
     load_telegram_config,
@@ -52,28 +52,42 @@ def _last(closes: list[float] | None) -> float | None:
     return closes[-1] if closes else None
 
 
-def collect_regime() -> dict | None:
-    """v8 market head: trend (SPY vs. 200d), VIX band, yield curve (^TNX−^IRX).
-    Breadth is not wired yet (needs the universe price cache, C2) and stays an honest
-    None — the traffic light needs 3 evaluable signals, which these three provide.
-    Returns None when even the composite is unknown (fewer than 3 signals had data)."""
+def _load_panel():
+    """The shared ETF panel snapshot, or None (missing/broken — head lines degrade)."""
+    try:
+        if not os.path.exists(DEFAULT_SNAPSHOT):
+            return None
+        return load_snapshot(DEFAULT_SNAPSHOT)
+    except Exception:  # noqa: BLE001 - head line is best-effort by design
+        return None
+
+
+def collect_regime(panel) -> dict | None:
+    """v8 market head: trend (SPY vs. 200d), VIX band, yield curve (^TNX−^IRX), plus
+    the sector-ETF breadth approximation from the local panel (labelled as such).
+    Returns None when the composite is unknown (fewer than 3 signals had data)."""
+    try:
+        breadth = sector_breadth(panel) if panel is not None else None
+    except Exception:  # noqa: BLE001
+        breadth = None
     regime = build_regime(
         spy_closes=_closes("SPY"),
         vix_level=_last(_closes("^VIX")),
-        pct_above_200d=None,
+        pct_above_200d=breadth,
         yield_10y=_last(_closes("^TNX")),
         yield_3m=_last(_closes("^IRX")),
+        breadth_subject="Sektoren",
     )
     return None if regime["level"] == "unknown" else regime
 
 
-def collect_sector_line() -> str | None:
+def collect_sector_line(panel) -> str | None:
     """Top-3 sector head line from the shared ETF panel snapshot; None when the panel
     is missing or predates the sector-ETF extension (honest absence, no fetch here)."""
     try:
-        if not os.path.exists(DEFAULT_SNAPSHOT):
+        if panel is None:
             return None
-        return top_sector_line(sector_momentum(load_snapshot(DEFAULT_SNAPSHOT)))
+        return top_sector_line(sector_momentum(panel))
     except Exception:  # noqa: BLE001 - head line is best-effort by design
         return None
 
@@ -102,8 +116,9 @@ def main() -> int:
     below_threshold = sum(
         1 for entry in watchlist.get("entries", []) if entry["composite"] < DEFAULT_THRESHOLD
     )
-    regime = collect_regime()
-    sector_line = collect_sector_line()
+    panel = _load_panel()
+    regime = collect_regime(panel)
+    sector_line = collect_sector_line(panel)
     evidence_stats = stats_by_source(args.db)
 
     def render(html: bool) -> str:

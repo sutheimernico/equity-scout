@@ -98,3 +98,65 @@ def test_build_regime_assembles_all_four():
     result = build_regime(_uptrend(), 18.0, 65.0, 42.0, 13.0)
     assert result["level"] == "green"
     assert [s["key"] for s in result["signals"]] == ["trend", "vix", "breadth", "curve"]
+
+
+def test_breadth_signal_names_its_subject_honestly():
+    note = build_regime(None, None, 72.0, None, None, breadth_subject="Sektoren")
+    breadth = next(s for s in note["signals"] if s["key"] == "breadth")
+    assert "72 % der Sektoren" in breadth["note"]
+
+
+def test_api_regime_endpoint(tmp_path, monkeypatch):
+    """Wiring: mocked yfinance legs + a real sector panel snapshot -> a green light with
+    the breadth leg labelled as sector breadth. Result is cached per calendar day."""
+    import pandas as pd
+    from fastapi.testclient import TestClient
+
+    import equity_scout.charts as charts_mod
+    from equity_scout.api import create_app
+    from equity_scout.data.etf_panel import save_snapshot
+    from equity_scout.etf_universe import SECTOR_ETF_TICKERS
+    from equity_scout.market import PricePanel
+
+    legs = {"SPY": _uptrend(), "^VIX": [18.0], "^TNX": [42.0], "^IRX": [13.0]}
+    calls: list[str] = []
+
+    def fake_fetch(ticker):
+        calls.append(ticker)
+        values = legs[ticker]
+        return list(range(len(values))), values
+
+    monkeypatch.setattr(charts_mod, "fetch_year_closes", fake_fetch)
+    panel = PricePanel(pd.DataFrame(
+        {t: _uptrend() for t in SECTOR_ETF_TICKERS},
+        index=pd.bdate_range("2020-01-01", periods=250),
+    ))
+    snapshot = str(tmp_path / "panel.csv")
+    save_snapshot(panel, snapshot)
+
+    client = TestClient(create_app(db_path=str(tmp_path / "api.db"), snapshot=snapshot))
+    body = client.get("/api/regime").json()
+    assert body["regime"]["level"] == "green"
+    assert body["regime"]["available"] == 4
+    breadth = next(s for s in body["regime"]["signals"] if s["key"] == "breadth")
+    assert "Sektoren" in breadth["note"]
+    fetches_after_first = len(calls)
+    client.get("/api/regime")  # same day -> served from cache, no second fetch round
+    assert len(calls) == fetches_after_first
+
+
+def test_api_regime_degrades_honestly_offline(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    import equity_scout.charts as charts_mod
+    from equity_scout.api import create_app
+
+    def dead(ticker):
+        raise OSError("offline")
+
+    monkeypatch.setattr(charts_mod, "fetch_year_closes", dead)
+    client = TestClient(create_app(db_path=str(tmp_path / "api.db"),
+                                   snapshot=str(tmp_path / "missing.csv")))
+    body = client.get("/api/regime").json()
+    assert body["regime"]["level"] == "unknown"
+    assert body["regime"]["available"] == 0

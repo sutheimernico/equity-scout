@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from equity_scout.etf_universe import SECTOR_ETF_UNIVERSE
+from equity_scout.etf_universe import SECTOR_ETF_TICKERS, SECTOR_ETF_UNIVERSE
 from equity_scout.market import MarketView
 
 if TYPE_CHECKING:
@@ -41,6 +41,20 @@ def sector_momentum(panel: PricePanel) -> list[dict]:
         })
     rows.sort(key=lambda row: (row["blend"] is None, -(row["blend"] or 0.0)))
     return rows
+
+
+def sector_breadth(panel: PricePanel) -> float | None:
+    """% of the 11 sector ETFs above their own 200d SMA — the honest, zero-cost breadth
+    approximation for the regime light (the full stock universe has no cached history).
+    None when the panel predates the sector extension. Coarse by design (steps of 1/11);
+    callers label it as sector breadth, never as full-market breadth."""
+    from equity_scout.regime import compute_breadth
+
+    universe = {
+        ticker: [float(v) for v in panel.closes[ticker].dropna()]
+        for ticker in (set(SECTOR_ETF_TICKERS) & set(panel.closes.columns))
+    }
+    return compute_breadth(universe)
 
 
 def top_sector_line(rows: list[dict], n: int = 3) -> str | None:

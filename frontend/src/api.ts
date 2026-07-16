@@ -213,6 +213,36 @@ export async function fetchSectors(): Promise<SectorsResponse> {
   return response.json();
 }
 
+// --- Market regime traffic light (src/equity_scout/regime.py, /api/regime) ---
+
+export interface RegimeSignal {
+  key: string;
+  label: string;
+  green: boolean | null; // null = no data for this signal (honest absence)
+  value: number | null;
+  note: string;
+}
+
+export interface Regime {
+  level: "green" | "yellow" | "red" | "unknown";
+  emoji: string;
+  label: string;
+  green_count: number;
+  available: number;
+  signals: RegimeSignal[];
+}
+
+export interface RegimeResponse {
+  regime: Regime;
+  disclaimer?: string;
+}
+
+export async function fetchRegime(): Promise<RegimeResponse> {
+  const response = await fetch("/api/regime");
+  if (!response.ok) throw new Error(`/api/regime returned ${response.status}`);
+  return response.json();
+}
+
 // --- ML meta-model (src/equity_scout/ml + strategy_service.build_ml_report) ---
 
 export interface AttributionBet {

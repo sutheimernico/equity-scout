@@ -158,3 +158,4 @@
 - 2026-07-16 v8/B3: sector momentum snapshot (sectors.py, same MarketView math as the rotation) + /api/sectors + Sektoren card on the strategies dashboard; ETF_NAMES/STRATEGY_PITCH extended
 - 2026-07-16 v8/A6: digest head shows market traffic light + top-3 sectors + below-threshold transparency; HTML variant (bold heads, escaped, split-safe) for telegram, plain for SMTP/stdout
 - 2026-07-16 v8/B2: verified sector rotation flows into forward paper + dashboard via the shared registry; integration tests incl. stale pre-v8 panel staying defensively in bonds
+- 2026-07-16 v8/C2: /api/regime (day-cached, per-leg degradation) + RegimeCard on Today view; breadth = sector-ETF approximation labelled as such; digest regime now uses it too

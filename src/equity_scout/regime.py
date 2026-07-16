@@ -65,8 +65,10 @@ def vix_signal(level: float | None) -> dict:
     return _signal("vix", "Volatilität (VIX)", level <= VIX_RISK_OFF, level, note)
 
 
-def breadth_signal(pct_above_200d: float | None) -> dict:
-    """Green when >= 60 % of the scanned universe trades above its own 200d SMA."""
+def breadth_signal(pct_above_200d: float | None, subject: str = "Titel") -> dict:
+    """Green when >= 60 % of the measured group trades above its own 200d SMA.
+    `subject` names that group honestly (e.g. "Sektoren" when the input is the
+    11-sector-ETF breadth approximation rather than a full-universe scan)."""
     if pct_above_200d is None:
         return _signal("breadth", "Marktbreite (% über 200-Tage-Linie)", None, None,
                        "keine Breadth-Daten")
@@ -74,7 +76,7 @@ def breadth_signal(pct_above_200d: float | None) -> dict:
     band = ("gesund" if healthy else "Korrektur" if pct_above_200d < 40.0 else "gemischt")
     return _signal(
         "breadth", "Marktbreite (% über 200-Tage-Linie)", healthy, pct_above_200d,
-        f"{pct_above_200d:.0f} % der Titel über ihrer 200-Tage-Linie — {band}",
+        f"{pct_above_200d:.0f} % der {subject} über ihrer 200-Tage-Linie — {band}",
     )
 
 
@@ -138,11 +140,12 @@ def build_regime(
     pct_above_200d: float | None,
     yield_10y: float | None,
     yield_3m: float | None,
+    breadth_subject: str = "Titel",
 ) -> dict:
     """The one-call assembly used by API/digest wiring (C2)."""
     return combine([
         trend_signal(spy_closes),
         vix_signal(vix_level),
-        breadth_signal(pct_above_200d),
+        breadth_signal(pct_above_200d, subject=breadth_subject),
         yield_curve_signal(yield_10y, yield_3m),
     ])

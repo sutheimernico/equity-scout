@@ -14,6 +14,7 @@ import {
 } from "../api";
 import { pct } from "../format";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
+import { RegimeCard } from "./RegimeCard";
 import { StatTile } from "./StatTile";
 
 // The system-status start page (plan v6 P6): what needs a decision, how the paper depots
@@ -61,6 +62,8 @@ export function TodayView({ onNavigate }: { onNavigate: (view: string) => void }
           Paper, alles Recherche, keine Anlageberatung.
         </p>
       </header>
+
+      <RegimeCard />
 
       <div className="kpi-row">
         <StatTile

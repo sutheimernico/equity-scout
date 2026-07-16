@@ -138,6 +138,55 @@ def create_app(
             "disclaimer": DISCLAIMER,
         })
 
+    @app.get("/api/regime")
+    def regime() -> JSONResponse:
+        """v8 market traffic light. Trend/VIX/curve come from yfinance (one 1y fetch
+        each, cached per calendar day so the dashboard never hammers the API); breadth
+        is the sector-ETF approximation from the local panel snapshot. Every failed
+        input degrades to an honest missing signal — regime.combine needs 3."""
+        from datetime import date as _date
+
+        from equity_scout.charts import fetch_year_closes
+        from equity_scout.regime import build_regime
+        from equity_scout.sectors import sector_breadth
+
+        today = _date.today().isoformat()
+        cached = reports_cache.get("regime")
+        if isinstance(cached, dict) and cached.get("date") == today:
+            return JSONResponse(cached["payload"])
+
+        def closes(ticker: str) -> list[float] | None:
+            try:
+                fetched = fetch_year_closes(ticker)
+            except Exception:  # noqa: BLE001 - each leg degrades independently
+                return None
+            if fetched is None:
+                return None
+            return [float(v) for v in fetched[1]] or None
+
+        def last(values: list[float] | None) -> float | None:
+            return values[-1] if values else None
+
+        breadth = None
+        if os.path.exists(snapshot):
+            try:
+                breadth = sector_breadth(load_snapshot(snapshot))
+            except Exception:  # noqa: BLE001
+                breadth = None
+        payload = {
+            "regime": build_regime(
+                spy_closes=closes("SPY"),
+                vix_level=last(closes("^VIX")),
+                pct_above_200d=breadth,
+                yield_10y=last(closes("^TNX")),
+                yield_3m=last(closes("^IRX")),
+                breadth_subject="Sektoren",
+            ),
+            "disclaimer": DISCLAIMER,
+        }
+        reports_cache["regime"] = {"date": today, "payload": payload}
+        return JSONResponse(payload)
+
     @app.get("/api/sectors")
     def sectors() -> JSONResponse:
         """v8 sector momentum snapshot — same panel + return arithmetic the rotation
