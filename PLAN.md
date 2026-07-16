@@ -227,8 +227,8 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] A6 feat(pitch): 🎯 Kursziel + 🛑 Stop in Pitch/Inbox/Frontend
 - [x] B3 feat(events): Beat/Miss/Guidance-Klassifikator + events-Tabelle (published_at/seen_at)
 - [x] C2 feat(ml): Promotion-Gate gegen Multiple-Testing härten (8 Kandidaten/Nacht)
-- [ ] B4 feat(events): Event-Reaktions-Lane paper-only mit Latenz-Log + 1h/1d/5d-Auswertung
-- [ ] C4 docs+fix: Rebalance-Kadenz-Mismatch + Survivorship-Kennzeichnung im Modell-Report
+- [x] B4 feat(events): Event-Reaktions-Lane paper-only mit Latenz-Log + 1h/1d/5d-Auswertung
+- [x] C4 docs+fix: Rebalance-Kadenz-Mismatch + Survivorship-Kennzeichnung im Modell-Report
 - [ ] Backlog (B5-Review-Fund, pre-existing): tail-lose Single-Token-Firmennamen in
       voices.resolve_ticker bleiben exponiert — konkrete Instanzen SHEL.L ("Shell"),
       TGT ("Target"), NXT.L ("Next"): generische kapitalisierte Wörter in Headlines lösen
