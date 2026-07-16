@@ -567,6 +567,9 @@ export interface ModelResponse {
   resolved: ResolvedStats;
   resolved_windows: ResolvedWindow[];
   drift: Record<string, DriftEntry> | null;
+  // Structural pipeline caveats (rebalance-cadence mismatch, survivorship bias) — see
+  // equity_scout.constants.MODEL_CAVEATS. Present regardless of `available`.
+  caveats: string[];
   disclaimer: string;
 }
 

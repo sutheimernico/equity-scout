@@ -18,7 +18,10 @@ which regime) and a second overfitting check (**CSCV-PBO**), and an **Assistent*
 about the current numbers via a local **Ollama** model (no data leaves the machine).
 
 **Research assistant — not investment advice, no edge promise.** Every result is after-cost and
-out-of-sample; the honest takeaway is process/risk, not alpha (see `docs/research/`).
+out-of-sample; the honest takeaway is process/risk, not alpha (see `docs/research/`). Two known
+methodology caveats — the backtest rebalances monthly while the forward/live path runs daily, and
+the ML training universe is survivorship-biased (today's watchlist backfilled from 2007) — are
+surfaced live in the dashboard's model report (`/api/model` → `caveats`).
 
 ![Strategies dashboard — six systematics measured honestly against 60/40](docs/img/strategies.png)
 

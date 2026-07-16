@@ -13,7 +13,12 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from equity_scout.buckets import BUCKET_WEIGHTS
-from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_FORWARD_DB_PATH, DISCLAIMER
+from equity_scout.constants import (
+    DEFAULT_DB_PATH,
+    DEFAULT_FORWARD_DB_PATH,
+    DISCLAIMER,
+    MODEL_CAVEATS,
+)
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
 from equity_scout.evidence.event_reactions import aggregate_reactions
 from equity_scout.evidence.ledger import stats_by_source
@@ -499,6 +504,9 @@ def create_app(
                 for window in (30, 90)
             ],
             "drift": drift,
+            # Pipeline caveats (plan v7 strand C, task C4): structural, not per-model — see
+            # constants.MODEL_CAVEATS for what each one documents and where.
+            "caveats": MODEL_CAVEATS,
             "disclaimer": DISCLAIMER,
         })
 

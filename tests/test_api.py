@@ -394,6 +394,11 @@ def test_model_endpoint_empty_and_after_registration(tmp_path):
     assert empty["resolved"]["n_resolved"] == 0
     assert empty["drift"] is None
     assert "disclaimer" in empty
+    # C4: rebalance-cadence + survivorship caveats are structural facts about the pipeline,
+    # not data-dependent — present even with no model trained yet.
+    assert len(empty["caveats"]) == 2
+    assert "monatlich" in empty["caveats"][0] and "täglich" in empty["caveats"][0]
+    assert "Survivorship-Bias" in empty["caveats"][1]
 
     # register + promote a tiny real model
     rng = np.random.default_rng(0)
@@ -425,6 +430,7 @@ def test_model_endpoint_empty_and_after_registration(tmp_path):
     assert len(body["registry"]) == 1
     assert body["resolved"]["n_resolved"] == 2
     assert "disclaimer" in body
+    assert body["caveats"] == empty["caveats"]  # same structural facts regardless of state
 
 
 def test_evidence_endpoint_returns_events_alerts_and_stats(tmp_path):

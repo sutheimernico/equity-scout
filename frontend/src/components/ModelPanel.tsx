@@ -5,6 +5,7 @@ import { num, pct, pctAbs } from "../format";
 import { Badge } from "./ui/Badge";
 import { Bar } from "./ui/Bar";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
+import { Disclosure } from "./ui/Disclosure";
 import { Metric } from "./ui/Metric";
 
 // OOS metric key → German label + formatter. A null metric renders "—", never a fabricated number.
@@ -164,6 +165,14 @@ export function ModelPanel() {
           </div>
         )}
       </section>
+
+      {data.caveats.length > 0 && (
+        <Disclosure summary="Methodische Einschränkungen (Backtest vs. Live, Trainingsuniversum)">
+          {data.caveats.map((caveat) => (
+            <p key={caveat}>{caveat}</p>
+          ))}
+        </Disclosure>
+      )}
 
       <DisclaimerBar text={data.disclaimer} />
     </>
