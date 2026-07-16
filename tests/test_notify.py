@@ -24,6 +24,12 @@ def _no_fund(ticker: str) -> Fundamentals:
     return Fundamentals(None, None, None, None)
 
 
+def _stub_build_pitch(entry: dict, fund, evidence=None, target_stop=None) -> str:
+    """Stand-in for build_pitch matching its real (post-A6) signature — for tests that
+    only care that main() reaches a pitch, not its exact text."""
+    return f"PITCH {entry['ticker']}"
+
+
 def _entry(ticker: str, composite: float = 0.6, in_zone: bool = True) -> dict:
     return {
         "ticker": ticker,
@@ -364,11 +370,7 @@ def test_main_writes_inbox_only_without_telegram_config(tmp_path, monkeypatch, c
     monkeypatch.delenv("COPILOT_TG_CHAT_ID", raising=False)
     # build_pitch's default `ask` seam calls the (possibly unreachable) local Ollama
     # server and enrich hits yfinance; fake both so this CLI test never touches the network.
-    monkeypatch.setattr(
-        run_notify_mod,
-        "build_pitch",
-        lambda entry, fund, evidence=None: f"PITCH {entry['ticker']}",
-    )
+    monkeypatch.setattr(run_notify_mod, "build_pitch", _stub_build_pitch)
     monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
     monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db])
 
@@ -397,11 +399,7 @@ def test_main_dry_run_never_sends_even_with_telegram_config(tmp_path, monkeypatc
         raise AssertionError("send_message must not be called with --dry-run")
 
     monkeypatch.setattr(run_notify_mod, "send_message", fail_loudly)
-    monkeypatch.setattr(
-        run_notify_mod,
-        "build_pitch",
-        lambda entry, fund, evidence=None: f"PITCH {entry['ticker']}",
-    )
+    monkeypatch.setattr(run_notify_mod, "build_pitch", _stub_build_pitch)
     monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
     monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db, "--dry-run"])
 
@@ -447,11 +445,10 @@ def test_main_annotates_pitches_with_evidence_and_alerts_off_watchlist(
     )
     monkeypatch.delenv("COPILOT_TG_BOT_TOKEN", raising=False)
     monkeypatch.delenv("COPILOT_TG_CHAT_ID", raising=False)
-    monkeypatch.setattr(
-        run_notify_mod,
-        "build_pitch",
-        lambda entry, fund, evidence=None: f"PITCH {entry['ticker']} ev={len(evidence or [])}",
-    )
+    def _stub_build_pitch_with_evidence_count(entry, fund, evidence=None, target_stop=None):
+        return f"PITCH {entry['ticker']} ev={len(evidence or [])}"
+
+    monkeypatch.setattr(run_notify_mod, "build_pitch", _stub_build_pitch_with_evidence_count)
     monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
     monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db])
 
@@ -484,9 +481,7 @@ def test_main_logs_upcoming_earnings_for_watchlist_tickers(tmp_path, monkeypatch
     save_earnings_dates(db, "YES", [soon], fetched_on=NOW)
     monkeypatch.delenv("COPILOT_TG_BOT_TOKEN", raising=False)
     monkeypatch.delenv("COPILOT_TG_CHAT_ID", raising=False)
-    monkeypatch.setattr(
-        run_notify_mod, "build_pitch", lambda entry, fund, evidence=None: f"PITCH {entry['ticker']}"
-    )
+    monkeypatch.setattr(run_notify_mod, "build_pitch", _stub_build_pitch)
     monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
     monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db])
 
@@ -504,9 +499,7 @@ def test_main_stays_silent_when_no_watchlist_ticker_has_upcoming_earnings(
     _seed_watchlist_db(db)  # watchlist ticker: YES, no earnings row saved
     monkeypatch.delenv("COPILOT_TG_BOT_TOKEN", raising=False)
     monkeypatch.delenv("COPILOT_TG_CHAT_ID", raising=False)
-    monkeypatch.setattr(
-        run_notify_mod, "build_pitch", lambda entry, fund, evidence=None: f"PITCH {entry['ticker']}"
-    )
+    monkeypatch.setattr(run_notify_mod, "build_pitch", _stub_build_pitch)
     monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
     monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db])
 
@@ -553,3 +546,119 @@ def test_select_candidates_min_count_zero_is_unchanged():
         watchlist, last_pitch_at=lambda t: None,
         threshold=0.45, cooldown_days=7, now=NOW,
     ) == []
+
+
+# --- A6: model target/stop (A4's entry.compute_target_stop) reaches both pitch builders ---
+
+
+def _register_entry_tb_champion(db: str, barrier_config: dict) -> None:
+    """Register + promote a tiny real entry_tb champion carrying `barrier_config` in its
+    metrics (same fixture pattern as tests/test_api.py's `_register_entry_tb_champion`,
+    lines 130-146: `ml.labeling.BarrierConfig.as_dict()` persisted under that key)."""
+    import numpy as np
+    import pandas as pd
+
+    from equity_scout.ml.entry_features import FEATURE_COLUMNS
+    from equity_scout.ml.entry_model import train_entry_model
+    from equity_scout.ml.model_registry import promote_if_better, register_challenger
+
+    rng = np.random.default_rng(0)
+    X = pd.DataFrame(rng.normal(size=(20, len(FEATURE_COLUMNS))), columns=list(FEATURE_COLUMNS))
+    y = pd.Series((X[FEATURE_COLUMNS[0]] > 0.0).astype(int).to_numpy())
+    version = register_challenger(
+        db, train_entry_model(X, y),
+        metrics={"auc": 0.7, "n_oos": 200, "barrier_config": barrier_config}, n_train=20,
+        now="2026-07-05T12:00:00+00:00", family="entry_tb",
+    )
+    assert promote_if_better(db, version) is True
+
+
+def test_main_target_stop_stays_none_and_no_fetch_without_entry_tb_champion(
+    tmp_path, monkeypatch
+):
+    """No entry_tb champion promoted yet -> target_stop must be an honest None reaching
+    build_pitch, and main() must not attempt any price-history fetch for it — there is no
+    barrier_config to compute a target from, so fetching would be pointless network I/O."""
+    db = str(tmp_path / "run.db")
+    _seed_watchlist_db(db)  # ticker YES, no entry_tb champion registered
+
+    def fail_if_called(ticker: str):
+        raise AssertionError("fetch_year_closes must not run without a barrier_config")
+
+    seen: list[dict | None] = []
+
+    def fake_build_pitch(entry, fund=None, ask=None, evidence=None, target_stop=None):
+        seen.append(target_stop)
+        return f"PITCH {entry['ticker']}"
+
+    monkeypatch.delenv("COPILOT_TG_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("COPILOT_TG_CHAT_ID", raising=False)
+    monkeypatch.setattr(run_notify_mod, "fetch_year_closes", fail_if_called)
+    monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
+    monkeypatch.setattr(run_notify_mod, "build_pitch", fake_build_pitch)
+    monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db])
+
+    assert main() == 0
+    assert seen == [None]
+
+
+def test_main_computes_target_stop_once_per_ticker_and_reaches_both_builders(
+    tmp_path, monkeypatch
+):
+    """With an entry_tb champion registered, main() loads its barrier_config once and, per
+    candidate, fetches the 1y closes exactly ONCE — shared by the inbox-text builder
+    (build_pitch) and the Telegram caption builder (build_pitch_caption) — and passes the
+    SAME computed target_stop dict into both."""
+    from datetime import datetime
+
+    from equity_scout.entry import compute_target_stop
+
+    db = str(tmp_path / "run.db")
+    barrier_config = {"k_pt": 2.0, "k_sl": 1.0, "horizon_days": 40, "vol_window": 5}
+    _register_entry_tb_champion(db, barrier_config)
+    _seed_watchlist_db(db)  # ticker YES
+
+    closes = [100.0, 102.0, 101.0, 105.0, 103.0, 108.0]
+    fetch_calls: list[str] = []
+
+    def fake_fetch_year_closes(ticker: str):
+        fetch_calls.append(ticker)
+        dates = [datetime(2026, 1, i + 1) for i in range(len(closes))]
+        return dates, closes
+
+    seen_in_build: list[dict | None] = []
+    seen_in_caption: list[dict | None] = []
+
+    def fake_build_pitch(entry, fund=None, ask=None, evidence=None, target_stop=None):
+        seen_in_build.append(target_stop)
+        return f"PITCH {entry['ticker']}"
+
+    def fake_build_pitch_caption(
+        entry, fundamentals=None, evidence=None, one_year_return=None,
+        eur_price=None, press_lines=None, target_stop=None,
+    ):
+        seen_in_caption.append(target_stop)
+        return "CAPTION"
+
+    def fail_loudly_send_message(*args, **kwargs):
+        raise AssertionError("send_message fallback must not run — the photo path is mocked")
+
+    monkeypatch.setenv("COPILOT_TG_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("COPILOT_TG_CHAT_ID", "4242")
+    monkeypatch.setattr(run_notify_mod, "fetch_year_closes", fake_fetch_year_closes)
+    monkeypatch.setattr(run_notify_mod, "fetch_fundamentals", _no_fund)
+    monkeypatch.setattr(run_notify_mod, "fetch_press_lines", lambda name: [])
+    monkeypatch.setattr(run_notify_mod, "build_pitch", fake_build_pitch)
+    monkeypatch.setattr(run_notify_mod, "build_pitch_caption", fake_build_pitch_caption)
+    monkeypatch.setattr(run_notify_mod, "render_year_chart", lambda ticker, dates, closes: b"PNG")
+    monkeypatch.setattr(run_notify_mod, "send_photo", lambda *a, **k: 555)
+    monkeypatch.setattr(run_notify_mod, "send_message", fail_loudly_send_message)
+    monkeypatch.setattr(sys, "argv", ["run_notify.py", "--db", db])
+
+    assert main() == 0
+
+    assert fetch_calls == ["YES"]  # exactly one fetch for the ticker, reused by both builders
+    expected = compute_target_stop(closes, barrier_config)
+    assert expected is not None
+    assert seen_in_build == [expected]
+    assert seen_in_caption == [expected]

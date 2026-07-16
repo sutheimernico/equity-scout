@@ -347,10 +347,22 @@ export interface EntryPlan {
   reference_note: string;
 }
 
+// entry.compute_target_stop's return shape (A4): a deterministic model target/stop from
+// the entry_tb champion's own vol-scaled barrier config — distinct from both the
+// rule-based EntryPlan levels above and any third-party analyst consensus. null when no
+// champion/barrier config/long-enough history exists yet (honest gap, never a guess).
+export interface TargetStop {
+  target: number;
+  stop: number;
+  sigma: number;
+  horizon_days: number;
+}
+
 export interface EntryResponse {
   available: boolean;
   ticker?: string;
   plan?: EntryPlan;
+  target_stop?: TargetStop | null;
   disclaimer: string;
 }
 

@@ -50,6 +50,18 @@ export function EntryPlanBlock({ ticker }: { ticker: string }) {
         <Bar value={priceFrac} max={1} marker={{ at: priceFrac }} />
       </div>
 
+      {state.target_stop ? (
+        <span className="entry-range-label">
+          <span className="nobr">🎯 Kursziel {state.target_stop.target}</span>
+          <span className="nobr">🛑 Stop {state.target_stop.stop}</span>
+          <span className="nobr">Horizont {state.target_stop.horizon_days} Handelstage</span>
+        </span>
+      ) : (
+        <Explain tone="hint">
+          Kein Modell-Kursziel verfügbar (noch kein trainiertes Modell oder zu kurze Kurshistorie).
+        </Explain>
+      )}
+
       <div className="entry-levels">
         <div className="entry-levels-head">
           <span>Referenz-Level</span>

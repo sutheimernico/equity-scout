@@ -33,6 +33,10 @@ ENTRY = {
 
 FUND = Fundamentals(trailing_pe=18.4, analyst_target=120.0, analyst_count=8, currency="USD")
 
+# entry.compute_target_stop's return shape (A4): a deterministic model-derived target/stop,
+# distinct from both the rule-based 🎯 Zone and the third-party analyst consensus.
+TARGET_STOP = {"target": 105.5, "stop": 82.0, "sigma": 0.021, "horizon_days": 40}
+
 
 def _fixed(text: str = "Was: Beispielfirma. Warum: im Kennzahlen-Kontext günstig."):
     return lambda question, context: text
@@ -169,3 +173,34 @@ def test_build_pitch_inserts_evidence_block_between_kennzahlen_and_analyst():
 def test_build_pitch_without_evidence_has_no_evidence_block():
     pitch = build_pitch(ENTRY, FUND, ask=_fixed())
     assert "Externe Signale:" not in pitch
+
+
+def test_build_pitch_shows_target_stop_when_present():
+    pitch = build_pitch(ENTRY, FUND, ask=_fixed(), target_stop=TARGET_STOP)
+    assert "🎯 Kursziel 105.50 USD" in pitch
+    assert "🛑 Stop 82.00 USD" in pitch
+    assert "40 Handelstage" in pitch
+
+
+def test_build_pitch_target_stop_honest_absence_when_none():
+    """No entry_tb champion / no barrier_config / too-short history -> target_stop is None
+    and the pitch says so honestly, never a guessed number (same idiom as _analyst_line)."""
+    pitch = build_pitch(ENTRY, FUND, ask=_fixed(), target_stop=None)
+    assert "kein Modell-Kursziel verfügbar" in pitch
+    assert "🎯 Kursziel " not in pitch  # no fabricated target number rendered
+
+
+def test_build_pitch_target_stop_defaults_to_none_without_the_argument():
+    """Callers that predate A6 (no target_stop kwarg) must keep working — honest absence,
+    not a crash."""
+    pitch = build_pitch(ENTRY, FUND, ask=_fixed())
+    assert "kein Modell-Kursziel verfügbar" in pitch
+
+
+def test_build_pitch_target_stop_distinct_from_third_party_analyst_target():
+    """Both the third-party analyst consensus AND the model's own target/stop must be
+    visible and clearly separately labelled — never conflated."""
+    pitch = build_pitch(ENTRY, FUND, ask=_fixed(), target_stop=TARGET_STOP)
+    assert "Analystensicht: Ø-Kursziel 120.00 USD" in pitch
+    assert "🎯 Kursziel 105.50 USD" in pitch
+    assert pitch.index("Analystensicht:") < pitch.index("🎯 Kursziel")

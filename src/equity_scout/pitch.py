@@ -138,8 +138,30 @@ def _risk_line(entry: dict) -> str | None:
     return f"Risiko: {weakest['reason']}"
 
 
+def _target_stop_line(target_stop: dict | None, cur: str) -> str:
+    """A4's deterministic model target/stop (`entry.compute_target_stop`, the `entry_tb`
+    champion's OWN vol-scaled barrier config) — NOT the third-party analyst consensus above
+    and NOT the rule-based entry zone in `_kennzahlen_block`'s `zone_note`. The "Kursziel"
+    label keeps it unambiguous even though both this line and the entry zone use 🎯.
+    Honest gap (never a guess) when there is no champion / barrier config / long-enough
+    history, same idiom as `_analyst_line`'s absence branch."""
+    if target_stop is None:
+        return (
+            "🎯 Kursziel: kein Modell-Kursziel verfügbar "
+            "(kein trainiertes Modell oder zu kurze Kurshistorie)."
+        )
+    horizon = target_stop["horizon_days"]
+    return (
+        f"🎯 Kursziel {target_stop['target']:.2f}{cur} · 🛑 Stop {target_stop['stop']:.2f}{cur} "
+        f"— Modellschätzung über {horizon} Handelstage, kein Analystenziel, keine Garantie."
+    )
+
+
 def _structured_body(
-    entry: dict, fundamentals: Fundamentals | None, evidence: list[dict] | None
+    entry: dict,
+    fundamentals: Fundamentals | None,
+    evidence: list[dict] | None,
+    target_stop: dict | None,
 ) -> str:
     cur = f" {fundamentals.currency}" if fundamentals and fundamentals.currency else ""
     blocks = [
@@ -150,6 +172,7 @@ def _structured_body(
         # or the selection above — see evidence/aggregate.py for the delay honesty note.
         evidence_block(evidence) if evidence else None,
         _analyst_line(entry, fundamentals, cur),
+        _target_stop_line(target_stop, cur),
         _risk_line(entry),
     ]
     return "\n\n".join(block for block in blocks if block)
@@ -172,13 +195,17 @@ def build_pitch_caption(
     one_year_return: float | None = None,
     eur_price: float | None = None,
     press_lines: list[str] | None = None,
+    target_stop: dict | None = None,
 ) -> str:
     """Compact, sectioned caption for the chart-photo pitch (Nico 2026-07-15: the long
     pitch was unübersichtlich; disclaimer/delay footer removed on his call same day).
     One fact per line, hard-capped for Telegram's 1024-unit photo-caption limit; the
     chart itself carries the price history. The long `build_pitch` text stays the
     dashboard-inbox version. `eur_price` rides along for non-EUR listings; `press_lines`
-    are third-party headlines (see press.py) — quoted, never interpreted."""
+    are third-party headlines (see press.py) — quoted, never interpreted. `target_stop`
+    is A4's deterministic model target/stop (`entry.compute_target_stop`); unlike the
+    other optional lines it is omitted (not shown as an absence) when None, matching this
+    caption's existing compact-by-default convention."""
     cur = f" {fundamentals.currency}" if fundamentals and fundamentals.currency else ""
     score = round(entry["composite"] * 100)
     price = f"Kurs {entry['price']:.2f}{cur}"
@@ -195,6 +222,13 @@ def build_pitch_caption(
         "💰 " + " · ".join(price_bits),
         f"🎯 Zone {entry['entry_zone_low']:.2f}–{entry['entry_zone_high']:.2f}{cur}",
     ]
+    if target_stop is not None:
+        # Distinct label ("Kursziel" vs "Zone" right after the shared 🎯) keeps the
+        # model target from being read as the entry zone above.
+        lines.append(
+            f"🎯 Kursziel {target_stop['target']:.2f}{cur} · "
+            f"🛑 Stop {target_stop['stop']:.2f}{cur}"
+        )
     target = fundamentals.analyst_target if fundamentals else None
     if target is not None and entry["price"] > 0:
         upside = (target / entry["price"] - 1.0) * 100
@@ -215,11 +249,15 @@ def build_pitch(
     fundamentals: Fundamentals | None = None,
     ask: Callable[[str, str], str] = _ask_default,
     evidence: list[dict] | None = None,
+    target_stop: dict | None = None,
 ) -> str:
-    """Header + LLM interpretation (or fallback) + deterministic structured sections."""
+    """Header + LLM interpretation (or fallback) + deterministic structured sections.
+    `target_stop` is A4's deterministic model target/stop (`entry.compute_target_stop`) —
+    see `_target_stop_line` for how it stays distinct from the analyst consensus and the
+    rule-based entry zone."""
     header = f"📈 {entry['ticker']} — {entry['name']}"
     prose = _interpretation(entry, ask)
-    body = _structured_body(entry, fundamentals, evidence)
+    body = _structured_body(entry, fundamentals, evidence, target_stop)
     # Header + structured body + disclaimer form the frame that must survive truncation;
     # the interpretive LLM prose is cut first, so a shortened message stays honest + intact.
     # separators: header\n prose \n\n body \n\n disclaimer = 5 chars.

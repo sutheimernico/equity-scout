@@ -21,10 +21,12 @@ from datetime import datetime, timezone
 
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.earnings_storage import earnings_within
+from equity_scout.entry import compute_target_stop
 from equity_scout.evidence.aggregate import attach_track_records
 from equity_scout.evidence.person_storage import person_score_index
 from equity_scout.evidence.storage import events_in_window
 from equity_scout.fundamentals import fetch_fundamentals
+from equity_scout.ml.model_registry import entry_champion
 from equity_scout.notify import (
     DEFAULT_COOLDOWN_DAYS,
     DEFAULT_THRESHOLD,
@@ -71,24 +73,35 @@ def _earnings_soon_lines(
 
 
 def _telegram_sender(
-    config: dict, evidence_by_ticker: dict[str, list[dict]]
+    config: dict,
+    evidence_by_ticker: dict[str, list[dict]],
+    get_year_closes: Callable[[str], tuple[list, list] | None],
+    target_stop_for: Callable[[str], dict | None],
 ) -> Callable[[int, str, dict, object], int]:
     """Send seam: chart-photo pitch with a compact sectioned caption (2026-07-15 redesign
     — Nico: kurz, klar sektioniert, mit 1-Jahres-Chart). Any chart/photo failure falls
     back to the classic long text message so a pitch is never lost to matplotlib or a
-    missing price history. The inbox always keeps the long text."""
+    missing price history. The inbox always keeps the long text.
+
+    `get_year_closes`/`target_stop_for` are shared with the inbox-text builder (A6):
+    `main()` fetches each ticker's 1y closes at most once and reuses that same result
+    (and the target/stop computed from it) for both the caption and the long text."""
     chat_id = config.get("intraday_chat_id", config["chat_id"])
 
     def send(pitch_id: int, text: str, entry: dict, fundamentals) -> int:
         keyboard = build_decision_keyboard(pitch_id)
         try:
-            dates, closes = fetch_year_closes(entry["ticker"])
+            cached = get_year_closes(entry["ticker"])
+            if cached is None:
+                raise ValueError(f"no price history for {entry['ticker']}")
+            dates, closes = cached
             rate = eur_rate(fundamentals.currency if fundamentals else None)
             caption = build_pitch_caption(
                 entry, fundamentals, evidence=evidence_by_ticker.get(entry["ticker"]),
                 one_year_return=year_return(closes),
                 eur_price=entry["price"] * rate if rate is not None else None,
                 press_lines=fetch_press_lines(entry["name"]),
+                target_stop=target_stop_for(entry["ticker"]),
             )
             png = render_year_chart(entry["ticker"], dates, closes)
             return send_photo(config["token"], chat_id, png, caption, keyboard)
@@ -151,17 +164,46 @@ def main() -> int:
         score_index,
     )
 
+    # A6: the entry_tb champion's own barrier config (A4) is loaded ONCE per run — it
+    # changes at most once per run, not per ticker. No champion / no persisted
+    # barrier_config -> target_stop_for always returns None, an honest gap, without ever
+    # fetching price history for it (see the early-out below).
+    champ = entry_champion(args.db, family="entry_tb")
+    barrier_config = champ[2].get("barrier_config") if champ is not None else None
+
+    # Per-ticker cache so the chart sender and the inbox-text builder share ONE
+    # fetch_year_closes call each, instead of one each (no double network fetch).
+    closes_cache: dict[str, tuple[list, list] | None] = {}
+
+    def get_year_closes(ticker: str) -> tuple[list, list] | None:
+        if ticker not in closes_cache:
+            try:
+                closes_cache[ticker] = fetch_year_closes(ticker)
+            except Exception:
+                closes_cache[ticker] = None
+        return closes_cache[ticker]
+
+    def target_stop_for(ticker: str) -> dict | None:
+        if barrier_config is None:
+            return None
+        cached = get_year_closes(ticker)
+        if cached is None:
+            return None
+        _, closes = cached
+        return compute_target_stop(closes, barrier_config)
+
     if config is None:
         send = None
         alert_send = None
         print("Telegram not configured — writing inbox pitches only.")
     else:
-        send = _telegram_sender(config, evidence_by_ticker)
+        send = _telegram_sender(config, evidence_by_ticker, get_year_closes, target_stop_for)
         alert_send = _alert_sender(config)
 
     def build(entry: dict, fundamentals) -> str:
         return build_pitch(
-            entry, fundamentals, evidence=evidence_by_ticker.get(entry["ticker"])
+            entry, fundamentals, evidence=evidence_by_ticker.get(entry["ticker"]),
+            target_stop=target_stop_for(entry["ticker"]),
         )
 
     count = notify_watchlist(

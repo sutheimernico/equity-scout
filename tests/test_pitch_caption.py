@@ -53,3 +53,40 @@ def test_caption_omits_missing_data_lines():
 def test_caption_hard_cap():
     caption = build_pitch_caption(_entry(name="X" * 3000), fundamentals=None)
     assert len(caption) <= 980
+
+
+TARGET_STOP = {"target": 190.0, "stop": 150.0, "sigma": 0.02, "horizon_days": 40}
+
+
+def test_caption_shows_target_stop_when_present():
+    caption = build_pitch_caption(
+        _entry(),
+        Fundamentals(trailing_pe=None, analyst_target=None, analyst_count=None, currency="USD"),
+        target_stop=TARGET_STOP,
+    )
+    assert "🎯 Kursziel 190.00 USD" in caption
+    assert "🛑 Stop 150.00 USD" in caption
+
+
+def test_caption_omits_target_stop_line_when_none():
+    """Honest gap: the caption is compact by convention (missing optional data is simply
+    omitted, e.g. KGV/Analysten/⚠️ above) — no target_stop means no line, not a placeholder."""
+    caption = build_pitch_caption(_entry(), fundamentals=None, target_stop=None)
+    assert "🛑" not in caption
+    assert "Kursziel" not in caption
+
+
+def test_caption_target_stop_label_distinct_from_entry_zone_label():
+    """The pre-existing 🎯 Zone line (rule-based entry.compute_entry_plan zone) and the new
+    🎯 Kursziel line (model-derived entry.compute_target_stop) share the emoji but must stay
+    distinguishable by their label — never conflated into one figure."""
+    caption = build_pitch_caption(_entry(), fundamentals=None, target_stop=TARGET_STOP)
+    assert "🎯 Zone 165.00–170.00" in caption
+    assert "🎯 Kursziel 190.00" in caption
+
+
+def test_caption_stays_under_hard_cap_with_target_stop():
+    caption = build_pitch_caption(
+        _entry(name="X" * 900), fundamentals=None, target_stop=TARGET_STOP
+    )
+    assert len(caption) <= 980
