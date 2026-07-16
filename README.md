@@ -2,8 +2,9 @@
 
 Local, free research harness with two parts, switchable from the dashboard top nav:
 
-1. **Strategien** — N systematic strategies as own paper accounts over a 10-ETF basket (DCA, 60/40,
-   Permanent Portfolio, Vol-Targeting, Dual-Momentum/GEM, Defensive Asset Allocation), each backtested
+1. **Strategien** — N systematic strategies as own paper accounts over a 21-ETF basket (DCA, 60/40,
+   Permanent Portfolio, Vol-Targeting, Dual-Momentum/GEM, Defensive Asset Allocation, SPDR sector
+   momentum rotation), each backtested
    over ~19 years **after costs** vs 60/40, plus an **ML meta-model** (triple-barrier meta-labeling,
    purged walk-forward) that learns *whether to follow* the trend signal from the market regime,
    plus a **continuous research loop** that searches model configurations in the background and gets
