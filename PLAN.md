@@ -272,8 +272,10 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       Cash-Fallback (BIL) wie GEM; in `default_strategies()` registrieren; Backtest läuft mit
       → per-Slot-Hurdle (Slot fällt auf IEF), junge Sektoren (XLC/XLRE) werden übersprungen,
       < 6 rankbare Sektoren ⇒ voll defensiv; bewusst NICHT im Ensemble-Blend (C4-Lektion)
-- [ ] B3 feat(sectors): Sektor-Momentum-Snapshot — Ranking aller 11 Sektor-ETFs (1M/3M/6M/12M)
+- [x] B3 feat(sectors): Sektor-Momentum-Snapshot — Ranking aller 11 Sektor-ETFs (1M/3M/6M/12M)
       als pure Funktion + `/api/sectors` + Dashboard-Karte "Sektoren"
+      → `sectors.py` nutzt dieselbe MarketView-Arithmetik wie die Rotation (Anzeige kann der
+      Strategie nie widersprechen); `top_sector_line` liegt bereit für den A6-Digest-Kopf
 - [ ] A6 feat(digest): Digest-Redesign — HTML-Sektionen mit fetten Überschriften + Absätzen;
       Kopfzeile = Markt-Ampel (C1) + Top-3-Sektoren (B3), beide degradieren ehrlich wenn Daten
       fehlen; bestehende Sektionen (Alerts/Chancen/Earnings/Pitches/Evidenz) bleiben inhaltlich

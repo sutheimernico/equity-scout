@@ -69,6 +69,18 @@ export const ETF_NAMES: Record<string, string> = {
   GLD: "Gold",
   DBC: "Rohstoffe",
   VNQ: "Immobilien (REITs)",
+  // SPDR sector funds (v8 sector rotation).
+  XLK: "US-Sektor Technologie",
+  XLF: "US-Sektor Finanzen",
+  XLV: "US-Sektor Gesundheit",
+  XLI: "US-Sektor Industrie",
+  XLE: "US-Sektor Energie",
+  XLU: "US-Sektor Versorger",
+  XLB: "US-Sektor Grundstoffe",
+  XLP: "US-Sektor Basiskonsum",
+  XLY: "US-Sektor Zykl. Konsum",
+  XLRE: "US-Sektor Immobilien",
+  XLC: "US-Sektor Kommunikation",
 };
 
 // Strategy metric labels + one-line explanations (German UI).
@@ -105,6 +117,10 @@ export const STRATEGY_PITCH: Record<string, string> = {
     "Keller & Keunings DAA: ein „Canary“-Frühwarnsystem (Schwellenländer + Anleihen) misst die " +
     "Marktgesundheit und steuert die Cash-Quote; der Rest geht in die 3 stärksten Risk-Assets. " +
     "Regelbasierter Crashschutz.",
+  "Sektor-Rotation (Top 3)":
+    "Klassische Sektorrotation: hält die 3 stärksten der 11 US-Sektoren (12- und 6-Monats-Momentum " +
+    "gemittelt), monatlich neu sortiert. Jeder Gewinner muss zusätzlich T-Bills schlagen, sonst geht " +
+    "sein Anteil in Anleihen. Junge Sektor-ETFs ohne volle Historie werden übersprungen.",
 };
 
 export const ML_FEATURE_LABELS: Record<string, string> = {

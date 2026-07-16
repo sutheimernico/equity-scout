@@ -35,6 +35,7 @@ from equity_scout.lane_storage import (
 from equity_scout.lanes import LANE_AUTOPILOT, LANE_NICO
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
 from equity_scout.radar_storage import load_latest_watchlist
+from equity_scout.sectors import sector_momentum
 from equity_scout.storage import (
     init_db,
     latest_run_id,
@@ -134,6 +135,23 @@ def create_app(
             "available": True,
             "benchmark": BENCHMARK_NAME,
             "strategies": [asdict(r) for r in reports],
+            "disclaimer": DISCLAIMER,
+        })
+
+    @app.get("/api/sectors")
+    def sectors() -> JSONResponse:
+        """v8 sector momentum snapshot — same panel + return arithmetic the rotation
+        strategy trades on. Panels from before the sector-ETF extension simply yield
+        rows with null returns (honest absence) until the next --refresh."""
+        if "sectors" not in reports_cache:
+            if not os.path.exists(snapshot):
+                return JSONResponse({"available": False, "sectors": [],
+                                     "hint": "Run `python scripts/run_backtest.py --refresh`.",
+                                     "disclaimer": DISCLAIMER})
+            reports_cache["sectors"] = sector_momentum(load_snapshot(snapshot))
+        return JSONResponse({
+            "available": True,
+            "sectors": reports_cache["sectors"],
             "disclaimer": DISCLAIMER,
         })
 

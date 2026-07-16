@@ -155,3 +155,4 @@
 - 2026-07-16 v8/A5: detail button (detail:<id>) on every pitch keyboard; receiver replies with persisted HTML long pitch (pitch_html column, shared cached ollama call), press never decides
 - 2026-07-16 v8/C1: regime.py market traffic light (trend/vix/breadth/yield-curve, green-count composite, honest unknown below 3 evaluable signals), 9 tests
 - 2026-07-16 v8/B1: SectorRotationStrategy (11 SPDR sector ETFs, top-3 by 12m/6m momentum blend, per-slot absolute-momentum hurdle to IEF, young tickers skipped) registered; ETF panel grows to 21 tickers
+- 2026-07-16 v8/B3: sector momentum snapshot (sectors.py, same MarketView math as the rotation) + /api/sectors + Sektoren card on the strategies dashboard; ETF_NAMES/STRATEGY_PITCH extended

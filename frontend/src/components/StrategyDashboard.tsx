@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { fetchStrategies, type StrategiesResponse, type StrategyReport } from "../api";
 import { METRIC_LABELS } from "../format";
+import { SectorsCard } from "./SectorsCard";
 import { COMPARE_METRICS, formatMetric, StrategyPanel } from "./StrategyPanel";
 import { Badge } from "./ui/Badge";
 import { Explain } from "./ui/Explain";
@@ -65,9 +66,9 @@ export function StrategyDashboard() {
     <>
       <header className="section-head reveal">
         <p className="eyebrow">Forschung · Strategien</p>
-        <h1>Sechs Systematiken, ehrlich gegen {benchmarkName} gemessen</h1>
+        <h1>Sieben Systematiken, ehrlich gegen {benchmarkName} gemessen</h1>
         <p className="section-sub">
-          Jede Strategie ist ein eigenes Demo-Depot, über ~19 Jahre und 10 ETFs zurückgerechnet — alle
+          Jede Strategie ist ein eigenes Demo-Depot, über ~19 Jahre und 21 ETFs zurückgerechnet — alle
           Ergebnisse <strong>nach Kosten</strong>, gegen <strong>{benchmarkName}</strong> als Vergleich.
           Kein Echtgeld, keine Renditeversprechen. Die vorwärtslaufenden Konten dieser Strategien
           findest du unter <strong>Entscheiden → Depots → Strategie-Forward</strong>.
@@ -98,6 +99,8 @@ export function StrategyDashboard() {
           benchmark={strategies[active].is_benchmark ? null : benchmarkMetrics}
         />
       )}
+
+      <SectorsCard />
     </>
   );
 }

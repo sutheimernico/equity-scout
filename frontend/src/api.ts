@@ -189,6 +189,30 @@ export async function fetchStrategies(): Promise<StrategiesResponse> {
   return response.json();
 }
 
+// --- Sector momentum snapshot (src/equity_scout/sectors.py, /api/sectors) ---
+
+export interface SectorRow {
+  ticker: string;
+  name: string;
+  sector: string;
+  // Fractions (0.12 = +12 %); null = not enough history (young ETF / stale panel).
+  returns: { m1: number | null; m3: number | null; m6: number | null; m12: number | null };
+  blend: number | null;
+}
+
+export interface SectorsResponse {
+  available: boolean;
+  sectors: SectorRow[];
+  hint?: string;
+  disclaimer?: string;
+}
+
+export async function fetchSectors(): Promise<SectorsResponse> {
+  const response = await fetch("/api/sectors");
+  if (!response.ok) throw new Error(`/api/sectors returned ${response.status}`);
+  return response.json();
+}
+
 // --- ML meta-model (src/equity_scout/ml + strategy_service.build_ml_report) ---
 
 export interface AttributionBet {
