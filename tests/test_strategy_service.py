@@ -65,7 +65,9 @@ def test_api_strategies_endpoint(tmp_path):
     body = resp.json()
     assert body["available"] is True
     assert body["benchmark"] == "60/40"
-    assert len(body["strategies"]) == 7  # 6 base strategies + the Multi-Strategie-Mix
+    # 6 base strategies + sector rotation (v8) + the Multi-Strategie-Mix. The test
+    # panel has no sector ETFs, so the rotation sits honestly defensive — but it reports.
+    assert len(body["strategies"]) == 8
     assert "disclaimer" in body
 
 

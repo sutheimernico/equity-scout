@@ -267,9 +267,11 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] C1 feat(regime): `regime.py` — 4 Signale (SPY vs. 200d-MA, VIX-Band, Breadth = % Universum
       > 200d-MA aus Cache, Zinskurve ^TNX−^IRX) → Composite-Ampel 0–4 grün; pure Funktionen,
       Fake-Daten-Tests, ehrliche Degradierung wenn ein Signal keine Daten hat
-- [ ] B1 feat(strategies): `SectorRotationStrategy` — 11 SPDR-Sektor-ETFs (XLK XLF XLV XLI XLE
+- [x] B1 feat(strategies): `SectorRotationStrategy` — 11 SPDR-Sektor-ETFs (XLK XLF XLV XLI XLE
       XLU XLB XLP XLY XLRE XLC), Top-3 nach 12M/6M-Momentum-Blend, monatlich, Absolut-Momentum-
       Cash-Fallback (BIL) wie GEM; in `default_strategies()` registrieren; Backtest läuft mit
+      → per-Slot-Hurdle (Slot fällt auf IEF), junge Sektoren (XLC/XLRE) werden übersprungen,
+      < 6 rankbare Sektoren ⇒ voll defensiv; bewusst NICHT im Ensemble-Blend (C4-Lektion)
 - [ ] B3 feat(sectors): Sektor-Momentum-Snapshot — Ranking aller 11 Sektor-ETFs (1M/3M/6M/12M)
       als pure Funktion + `/api/sectors` + Dashboard-Karte "Sektoren"
 - [ ] A6 feat(digest): Digest-Redesign — HTML-Sektionen mit fetten Überschriften + Absätzen;

@@ -12,6 +12,7 @@ from equity_scout.strategies.dca import DCAStrategy
 from equity_scout.strategies.dual_momentum import DualMomentumStrategy
 from equity_scout.strategies.ensemble import EnsembleStrategy
 from equity_scout.strategies.permanent import PermanentPortfolioStrategy
+from equity_scout.strategies.sector_rotation import SectorRotationStrategy
 from equity_scout.strategies.sixty_forty import SixtyFortyStrategy
 from equity_scout.strategies.vol_target import VolatilityTargetStrategy
 
@@ -22,5 +23,10 @@ def default_strategies() -> list[Strategy]:
     gem = DualMomentumStrategy()
     daa = DefensiveAssetAllocationStrategy()
     # Equal-weight blend of the uncorrelated strategy types: allocation + risk-scaling + momentum + trend.
+    # v8: sector rotation deliberately stays OUT of the blend — changing a running
+    # ensemble's composition would rewrite its forward-paper history (C4 lesson).
     blend = EnsembleStrategy([permanent, vol_target, gem, daa])
-    return [DCAStrategy(), SixtyFortyStrategy(), permanent, vol_target, gem, daa, blend]
+    return [
+        DCAStrategy(), SixtyFortyStrategy(), permanent, vol_target, gem, daa,
+        SectorRotationStrategy(), blend,
+    ]

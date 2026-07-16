@@ -36,8 +36,10 @@ def test_snapshot_roundtrip(tmp_path):
 
 
 def test_etf_universe_shape():
-    assert len(ETF_TICKERS) == 10
+    # 10 core multi-asset ETFs + 11 SPDR sector funds (v8 sector rotation).
+    assert len(ETF_TICKERS) == 21
     assert ETF_BY_TICKER["SPY"].sector == "US Equity"
+    assert ETF_BY_TICKER["XLK"].sector == "US Sector: Technology"
     assert all(inst.currency == "USD" for inst in ETF_UNIVERSE)
 
 

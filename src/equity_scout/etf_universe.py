@@ -27,5 +27,27 @@ ETF_UNIVERSE: list[Instrument] = [
     _etf("VNQ", "Vanguard Real Estate", "REIT"),
 ]
 
+# v8 sector rotation: the 11 SPDR Select Sector ETFs. Younger funds (XLRE 2015,
+# XLC 2018) simply lack history early in a backtest — the rotation strategy skips
+# tickers without a full lookback instead of guessing.
+SECTOR_ETF_UNIVERSE: list[Instrument] = [
+    _etf("XLK", "Technology Select Sector SPDR", "US Sector: Technology"),
+    _etf("XLF", "Financial Select Sector SPDR", "US Sector: Financials"),
+    _etf("XLV", "Health Care Select Sector SPDR", "US Sector: Health Care"),
+    _etf("XLI", "Industrial Select Sector SPDR", "US Sector: Industrials"),
+    _etf("XLE", "Energy Select Sector SPDR", "US Sector: Energy"),
+    _etf("XLU", "Utilities Select Sector SPDR", "US Sector: Utilities"),
+    _etf("XLB", "Materials Select Sector SPDR", "US Sector: Materials"),
+    _etf("XLP", "Consumer Staples Select Sector SPDR", "US Sector: Consumer Staples"),
+    _etf("XLY", "Consumer Discretionary Select Sector SPDR", "US Sector: Consumer Discretionary"),
+    _etf("XLRE", "Real Estate Select Sector SPDR", "US Sector: Real Estate"),
+    _etf("XLC", "Communication Services Select Sector SPDR", "US Sector: Communication"),
+]
+SECTOR_ETF_TICKERS: list[str] = [inst.ticker for inst in SECTOR_ETF_UNIVERSE]
+
+# The panel loaders (backtest/forward/research CLIs) read ETF_TICKERS, so the sector
+# funds ride along in the one shared price panel.
+ETF_UNIVERSE += SECTOR_ETF_UNIVERSE
+
 ETF_BY_TICKER: dict[str, Instrument] = {inst.ticker: inst for inst in ETF_UNIVERSE}
 ETF_TICKERS: list[str] = [inst.ticker for inst in ETF_UNIVERSE]
