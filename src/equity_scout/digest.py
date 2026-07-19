@@ -11,6 +11,7 @@ import sys
 from email.message import EmailMessage
 
 from equity_scout.constants import SHORT_DISCLAIMER
+from equity_scout.pitch import compute_verdict
 from equity_scout.telegram_client import escape_html
 
 # Past-tense digest wording deliberately differs from telegram_client.DECISION_LABELS'
@@ -20,6 +21,9 @@ _STATUS_ICON = {"open": "📬 offen", "buy": "✅ Kaufentscheidung",
 # Human labels for evidence.base SOURCE_* keys; unknown keys fall back to themselves.
 _SOURCE_LABEL = {"congress": "Kongress-Käufe", "thirteen_f": "13F-Fonds",
                  "news_theme": "News-Themen", "insider": "Insider-Käufe (Form 4)"}
+# v9: same three-band traffic light as pitch.compute_verdict, keyed by the persisted
+# pitches.verdict column so the daily digest never contradicts the pitch it summarizes.
+_VERDICT_ICON = {"green": "🟢", "yellow": "🟡", "red": "🔴"}
 
 
 def load_smtp_config(env: dict) -> dict | None:
@@ -68,7 +72,11 @@ def build_digest(
     `below_threshold` reports how many watchlist names sat under the quality gate today
     (A4 transparency). `html=True` renders Telegram HTML: bold section heads, escaped
     dynamic content, one <b> pair per line so line-based splitting can never sever a tag;
-    the SMTP/stdout path stays plain."""
+    the SMTP/stdout path stays plain.
+
+    v9: open-pitch lines carry their persisted pitches.verdict traffic light, and
+    opportunity lines compute one live (compute_verdict never contradicts the pitch it
+    summarizes — that was the whole point of storing it in v8)."""
 
     def _head(text: str) -> str:
         return f"<b>{escape_html(text)}</b>" if html else text
@@ -106,9 +114,15 @@ def build_digest(
                 marks += " · in Zone"
             if (entry.get("value_gap") or 0) > 0:
                 marks += " · unterbewertet"
-            lines.append(_line(
-                f"  {entry['ticker']} · Score {round(entry['composite'] * 100)}/100{marks}"
-            ))
+            base = f"{entry['ticker']} · Score {round(entry['composite'] * 100)}/100{marks}"
+            try:
+                verdict = compute_verdict(entry)
+            except KeyError:
+                # Minimal/pre-v8 watchlist entries can lack "breakdown" — degrade to the
+                # plain line instead of crashing the whole digest over one missing field.
+                lines.append(_line(f"  {base}"))
+                continue
+            lines.append(_line(f"  {verdict['emoji']} {base} — {verdict['label']}"))
         lines.append("")
     if earnings_this_week:
         lines.append(_head("📅 Earnings diese Woche:"))
@@ -127,9 +141,14 @@ def build_digest(
         # count style ("Offene Pitches: 1") dodges singular/plural agreement
         lines.append(_head(f"Offene Pitches: {len(open_pitches)}"))
         for p in open_pitches:
+            # v9: the same verdict already persisted on the pitch at notify time
+            # (pitch.compute_verdict, see inbox_storage) — "📬" is only the honest
+            # fallback for pre-v8 rows that never had a verdict computed/stored.
+            icon = _VERDICT_ICON.get(p.get("verdict"), "📬")
+            why = f" — {p['verdict_why']}" if p.get("verdict_why") else ""
             lines.append(_line(
-                f"  📬 offen — {p['ticker']} · Score {round(p['composite'] * 100)}/100"
-                f" · Kurs {p['price']:.2f} · seit {p['created_at'][:10]}"
+                f"  {icon} {p['ticker']} · Score {round(p['composite'] * 100)}/100"
+                f" · Kurs {p['price']:.2f} · seit {p['created_at'][:10]}{why}"
             ))
     if below_threshold:
         lines.append(_line(

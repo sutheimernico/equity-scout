@@ -121,3 +121,41 @@ def test_build_digest_omits_evidence_section_when_empty():
     assert "Evidenz-Quellen" not in build_digest(
         [], date_label="2026-07-10", evidence_stats={}
     )
+
+
+def test_open_pitch_line_carries_stored_verdict():
+    """v9: the digest is the daily main touchpoint — it must show the SAME verdict
+    already persisted on the pitch (compute_verdict at notify time), not silently
+    drop it behind a generic mailbox icon."""
+    pitches = [{
+        "ticker": "AIRT", "status": "open", "composite": 0.50, "price": 27.15,
+        "created_at": "2026-07-16T19:00:00+00:00", "decided_at": None,
+        "verdict": "red", "verdict_why": "Kurs +23.8 % über dem 200-Tage-Schnitt",
+    }]
+    text = build_digest(pitches, date_label="2026-07-19")
+    assert "🔴 AIRT" in text
+    assert "200-Tage-Schnitt" in text
+    assert "📬 offen — AIRT" not in text
+
+
+def test_open_pitch_without_verdict_falls_back_to_mailbox_icon():
+    """Pre-v8 rows have no verdict columns (see test_verdict.py's migration test) —
+    the digest must degrade honestly instead of crashing or inventing a verdict."""
+    pitches = [{
+        "ticker": "OLD", "status": "open", "composite": 0.50, "price": 10.0,
+        "created_at": "2026-07-01T19:00:00+00:00", "decided_at": None,
+    }]
+    text = build_digest(pitches, date_label="2026-07-19")
+    assert "📬 OLD" in text
+
+
+def test_opportunities_render_live_verdict():
+    """Opportunities (radar watchlist entries) carry the full entry shape (breakdown,
+    readings) needed for compute_verdict — unlike the minimal fixtures in
+    test_digest_sections.py, which stay defensive-fallback cases."""
+    entry = {
+        "ticker": "TST", "composite": 0.75, "in_zone": True, "value_gap": 0.0,
+        "readings": [], "breakdown": {"value": 0.8, "momentum": 0.7},
+    }
+    text = build_digest([], date_label="2026-07-19", opportunities=[entry])
+    assert "🟢 TST" in text
