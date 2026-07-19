@@ -8,6 +8,7 @@ __pycache__/
 *.log
 data/cache/
 data/prices/
+.state/
 .env
 .claude/settings.local.json
 frontend/node_modules/
