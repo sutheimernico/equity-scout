@@ -117,8 +117,12 @@ Windows Task    18:00 Mon-Fri  ──┘         │
 
 Every trigger passes its own name (`cron` / `systemd` / `windows`) as `$1` to
 `run_daily_guarded.sh`, so `copilot.log` always shows which path actually fired
-the chain — and every skip (lock held by whom, weekend, already-ran-today) is
-logged too, so "why didn't it run" never has to be guessed.
+the chain. Lock-held and weekend skips are logged too, so an unusual "why didn't
+it run" is answerable from the log. The already-ran-today skip is deliberately
+quiet (no log line) — it's the everyday expected case for the redundant triggers
+(cron already ran, systemd's 18:05 catches nothing to catch up), not something
+to diagnose; whether the day ran at all is visible from the "guarded: starting"
+line and the `.state/daily_last_run` marker, not from a skip line.
 
 ### Triggers
 
