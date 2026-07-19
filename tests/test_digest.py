@@ -159,3 +159,40 @@ def test_opportunities_render_live_verdict():
     }
     text = build_digest([], date_label="2026-07-19", opportunities=[entry])
     assert "🟢 TST" in text
+
+
+def _open(ticker, created, verdict=None, composite=0.5):
+    return {
+        "ticker": ticker, "status": "open", "composite": composite, "price": 10.0,
+        "created_at": created, "decided_at": None, "verdict": verdict,
+        "verdict_why": None,
+    }
+
+
+def test_open_pitches_dedupe_keeps_newest_per_ticker():
+    """Cooldown re-pitches otherwise pile up as duplicate lines for the same ticker."""
+    pitches = [
+        _open("AAA", "2026-07-10T10:00:00+00:00", "red"),
+        _open("AAA", "2026-07-16T10:00:00+00:00", "green"),
+    ]
+    text = build_digest(pitches, date_label="2026-07-19")
+    assert text.count("AAA") == 1
+    assert "🟢 AAA" in text
+
+
+def test_open_pitches_sorted_green_first_and_capped():
+    pitches = [_open(f"T{i:02d}", f"2026-07-{10 + i:02d}T10:00:00+00:00", "red") for i in range(8)]
+    pitches.append(_open("WIN", "2026-07-05T10:00:00+00:00", "green"))
+    text = build_digest(pitches, date_label="2026-07-19")
+    open_lines = [ln for ln in text.splitlines() if "· seit" in ln]
+    assert len(open_lines) == 6
+    assert "WIN" in open_lines[0]
+    assert "und 3 weitere offene" in text
+
+
+def test_open_pitch_with_verdict_but_no_why_renders_icon_only():
+    pitches = [_open("NOWHY", "2026-07-16T10:00:00+00:00", "yellow")]
+    text = build_digest(pitches, date_label="2026-07-19")
+    assert "🟡 NOWHY" in text
+    line = next(ln for ln in text.splitlines() if "NOWHY" in ln)
+    assert line.endswith("seit 2026-07-16")

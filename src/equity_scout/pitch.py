@@ -85,6 +85,9 @@ _VERDICT_LEVELS = {
     "yellow": ("🟡", "Einstieg neutral"),
     "red": ("🔴", "Einstieg schwach"),
 }
+# Single source so digest.py's open-pitch icons and this module's own verdicts can
+# never drift — digest imports THIS instead of keeping a local emoji copy.
+VERDICT_EMOJI = {level: emoji for level, (emoji, _label) in _VERDICT_LEVELS.items()}
 _WEAK_SIGNAL = 0.2
 
 

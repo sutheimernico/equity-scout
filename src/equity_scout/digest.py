@@ -11,7 +11,7 @@ import sys
 from email.message import EmailMessage
 
 from equity_scout.constants import SHORT_DISCLAIMER
-from equity_scout.pitch import compute_verdict
+from equity_scout.pitch import VERDICT_EMOJI, compute_verdict
 from equity_scout.telegram_client import escape_html
 
 # Past-tense digest wording deliberately differs from telegram_client.DECISION_LABELS'
@@ -21,9 +21,24 @@ _STATUS_ICON = {"open": "📬 offen", "buy": "✅ Kaufentscheidung",
 # Human labels for evidence.base SOURCE_* keys; unknown keys fall back to themselves.
 _SOURCE_LABEL = {"congress": "Kongress-Käufe", "thirteen_f": "13F-Fonds",
                  "news_theme": "News-Themen", "insider": "Insider-Käufe (Form 4)"}
-# v9: same three-band traffic light as pitch.compute_verdict, keyed by the persisted
-# pitches.verdict column so the daily digest never contradicts the pitch it summarizes.
-_VERDICT_ICON = {"green": "🟢", "yellow": "🟡", "red": "🔴"}
+
+# v9: the real inbox accumulates cooldown re-pitches (same ticker up to 3x) and grows
+# past what the beginner persona can scan in one sitting — cap the rendered lines and
+# dedupe per ticker so the section stays a skimmable top-of-list, not a lifetime log.
+OPEN_PITCH_CAP = 6
+_VERDICT_ORDER = {"green": 0, "yellow": 1, "red": 2}
+
+
+def _dedupe_open(open_pitches: list[dict]) -> list[dict]:
+    """Newest row per ticker (cooldown re-pitches accumulate otherwise), green
+    verdicts first, newest first within a band; verdict-less legacy rows sort with
+    yellow. Pure list math — rendering stays a straight loop."""
+    newest: dict[str, dict] = {}
+    for p in sorted(open_pitches, key=lambda p: p["created_at"], reverse=True):
+        newest.setdefault(p["ticker"], p)
+    rows = sorted(newest.values(), key=lambda p: p["created_at"], reverse=True)
+    rows.sort(key=lambda p: _VERDICT_ORDER.get(p.get("verdict"), 1))
+    return rows
 
 
 def load_smtp_config(env: dict) -> dict | None:
@@ -74,9 +89,11 @@ def build_digest(
     dynamic content, one <b> pair per line so line-based splitting can never sever a tag;
     the SMTP/stdout path stays plain.
 
-    v9: open-pitch lines carry their persisted pitches.verdict traffic light, and
-    opportunity lines compute one live (compute_verdict never contradicts the pitch it
-    summarizes — that was the whole point of storing it in v8)."""
+    v9: open-pitch lines carry their persisted pitches.verdict traffic light (that
+    stored value never contradicts the pitch it summarizes — the whole point of
+    storing it in v8) and are deduped/sorted/capped (see `_dedupe_open`); opportunity
+    lines compute one live verdict instead, since watchlist entries never had one
+    persisted."""
 
     def _head(text: str) -> str:
         return f"<b>{escape_html(text)}</b>" if html else text
@@ -129,7 +146,7 @@ def build_digest(
         for e in earnings_this_week:
             lines.append(_line(f"  {e['ticker']}: {e['earnings_date']}"))
         lines.append("")
-    open_pitches = [p for p in pitches if p["status"] == "open"]
+    open_pitches = _dedupe_open([p for p in pitches if p["status"] == "open"])
     decided = [
         p for p in pitches
         if p["status"] != "open"
@@ -138,17 +155,23 @@ def build_digest(
     if not open_pitches:
         lines.append(_line("Aktuell keine offenen Pitches."))
     else:
-        # count style ("Offene Pitches: 1") dodges singular/plural agreement
+        # count style ("Offene Pitches: 1") dodges singular/plural agreement; the count
+        # is per TICKER (post-dedupe), matching what's actually rendered below.
         lines.append(_head(f"Offene Pitches: {len(open_pitches)}"))
-        for p in open_pitches:
+        for p in open_pitches[:OPEN_PITCH_CAP]:
             # v9: the same verdict already persisted on the pitch at notify time
             # (pitch.compute_verdict, see inbox_storage) — "📬" is only the honest
             # fallback for pre-v8 rows that never had a verdict computed/stored.
-            icon = _VERDICT_ICON.get(p.get("verdict"), "📬")
+            icon = VERDICT_EMOJI.get(p.get("verdict"), "📬")
             why = f" — {p['verdict_why']}" if p.get("verdict_why") else ""
             lines.append(_line(
                 f"  {icon} {p['ticker']} · Score {round(p['composite'] * 100)}/100"
                 f" · Kurs {p['price']:.2f} · seit {p['created_at'][:10]}{why}"
+            ))
+        rest = len(open_pitches) - OPEN_PITCH_CAP
+        if rest > 0:
+            lines.append(_line(
+                f"  … und {rest} weitere offene — vollständige Liste im Dashboard."
             ))
     if below_threshold:
         lines.append(_line(
