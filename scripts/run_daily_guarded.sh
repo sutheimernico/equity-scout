@@ -18,7 +18,12 @@ CHAIN="${EQUITY_SCOUT_CHAIN:-$REPO_DIR/scripts/daily_copilot.sh}"
 mkdir -p "$STATE_DIR"
 
 # Weekdays only: a Saturday WSL start must not catch up Friday's missed slot.
+# A persistent systemd catch-up firing on a weekend (e.g. WSL start on Saturday
+# after a missed Friday) still stamps systemd's own timestamp file, permanently
+# consuming that Friday catch-up — that's intended (weekends are never made up),
+# but it must be diagnosable from copilot.log instead of vanishing silently.
 if [ "$(date +%u)" -gt 5 ]; then
+  echo "[$(date -Is)] guarded: weekend trigger (${1:-unspecified}) — skipped by design, missed weekday slots are not made up on weekends" >> "$LOG"
   exit 0
 fi
 

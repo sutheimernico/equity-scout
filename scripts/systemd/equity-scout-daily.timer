@@ -1,5 +1,5 @@
 [Unit]
-Description=equity-scout daily chain 18:05 Mon-Fri, catches up missed slots on boot
+Description=equity-scout daily chain 18:05 Mon-Fri; Persistent catch-up fires once for the most recent missed slot (not per missed day)
 
 [Timer]
 OnCalendar=Mon..Fri 18:05
