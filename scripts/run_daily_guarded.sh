@@ -4,8 +4,9 @@
 # duplicate slot can never run the chain twice on one day. Triggers pass their name
 # as $1 for the log line. EQUITY_SCOUT_CHAIN overrides the chain command (tests).
 # A hung chain process holds the flock indefinitely, so later same-day triggers
-# skip by design — the lock file's mtime is logged on skip so a stuck run is
-# recognizable from copilot.log alone.
+# skip by design — the holder records its acquire time/PID/trigger in the lock
+# file (appended fd, separate truncating write) so a stuck run is identifiable
+# from copilot.log alone.
 set -u
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -21,12 +22,15 @@ if [ "$(date +%u)" -gt 5 ]; then
   exit 0
 fi
 
-exec 9>"$LOCK"
+exec 9>>"$LOCK"
 if ! flock -n 9; then
-  LOCK_MTIME="$(date -Is -r "$LOCK" 2>/dev/null || echo unknown)"
-  echo "[$(date -Is)] guarded: another daily run holds the lock (lock file mtime: $LOCK_MTIME) — skipping (trigger: ${1:-unspecified})" >> "$LOG"
+  echo "[$(date -Is)] guarded: another daily run holds the lock (held by: $(cat "$LOCK" 2>/dev/null || echo unknown)) — skipping (trigger: ${1:-unspecified})" >> "$LOG"
   exit 0
 fi
+
+# Lock acquired: record who holds it (separate truncating write — FD 9 stays the
+# flock handle and is unaffected) so a stuck run is diagnosable, not just detectable.
+printf '%s pid=%s trigger=%s\n' "$(date -Is)" "$$" "${1:-unspecified}" > "$LOCK"
 
 TODAY="$(date +%F)"
 if [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$TODAY" ]; then
