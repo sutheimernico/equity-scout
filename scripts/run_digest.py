@@ -108,13 +108,25 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    now = datetime.now(timezone.utc)
+    date_label = now.date().isoformat()
+
+    # Guard first, before any DB/network work: a skipped second run should cost nothing.
+    smtp_config = load_smtp_config(dict(os.environ))
+    tg_config = load_telegram_config(dict(os.environ))
+    configured = smtp_config is not None or tg_config is not None
+    if should_skip_send(
+        get_state(args.db, key=DIGEST_SENT_KEY),
+        today=date_label, force=args.force, configured=configured,
+    ):
+        print(f"Digest für {date_label} bereits verschickt — übersprungen (--force erzwingt).")
+        return 0
+
+    day_ago = (now - timedelta(hours=24)).isoformat(timespec="seconds")
+
     # limit=1000: don't let load_pitches' default cap (100) silently drop open pitches
     # from a DAILY digest; the decided section is scoped to the last 24h instead.
     pitches = load_pitches(args.db, limit=1000)
-    now = datetime.now(timezone.utc)
-    date_label = now.date().isoformat()
-    day_ago = (now - timedelta(hours=24)).isoformat(timespec="seconds")
-
     alerts_today = [a for a in load_alerts(args.db, limit=50) if a["created_at"] >= day_ago]
     watchlist = load_latest_watchlist(args.db) or {}
     opportunities = sorted(
@@ -131,16 +143,6 @@ def main() -> int:
     regime = collect_regime(panel)
     sector_line = collect_sector_line(panel)
     evidence_stats = stats_by_source(args.db)
-
-    smtp_config = load_smtp_config(dict(os.environ))
-    tg_config = load_telegram_config(dict(os.environ))
-    configured = smtp_config is not None or tg_config is not None
-    if should_skip_send(
-        get_state(args.db, key=DIGEST_SENT_KEY),
-        today=date_label, force=args.force, configured=configured,
-    ):
-        print(f"Digest für {date_label} bereits verschickt — übersprungen (--force erzwingt).")
-        return 0
 
     def render(html: bool) -> str:
         return build_digest(
