@@ -49,7 +49,7 @@ Monday branch of the chain).
 # forward-paper strategies (pre-existing)
 0 23 * * 1-5 cd /home/nicosutheimer/private/equity-scout && .venv/bin/python scripts/run_forward_paper.py --refresh >> /home/nicosutheimer/private/equity-scout/forward.log 2>&1
 # daily copilot chain — 18:00 local, US market is open so radar zones use live prices
-0 18 * * 1-5 /home/nicosutheimer/private/equity-scout/scripts/daily_copilot.sh >> /home/nicosutheimer/private/equity-scout/copilot.log 2>&1
+0 18 * * 1-5 /home/nicosutheimer/private/equity-scout/scripts/run_daily_guarded.sh cron >> /home/nicosutheimer/private/equity-scout/copilot.log 2>&1
 # receiver keepalive — flock guarantees a single instance; no-op without Telegram env
 */5 * * * * flock -n /tmp/equity-scout-receiver.lock /home/nicosutheimer/private/equity-scout/scripts/receiver_keepalive.sh >> /home/nicosutheimer/private/equity-scout/receiver.log 2>&1
 # intraday chain — cron fires blindly every 15 min; the market-window guard inside exits quietly
