@@ -25,7 +25,7 @@ from equity_scout.fundamentals import Fundamentals, fetch_fundamentals
 from equity_scout.inbox_storage import create_pitch, last_pitch_at as _last_pitch_at
 from equity_scout.inbox_storage import set_message_id
 from equity_scout.pitch import compute_verdict
-from equity_scout.telegram_client import TelegramError, send_message
+from equity_scout.telegram_client import TelegramError
 
 DEFAULT_THRESHOLD = 0.45
 DEFAULT_COOLDOWN_DAYS = 7
@@ -149,7 +149,7 @@ def notify_watchlist(
     return len(candidates)
 
 
-def send_empty_day_note(config: dict, *, send=send_message) -> bool:
+def send_empty_day_note(config: dict, *, send: Callable[[str, int, str], int]) -> bool:
     """v8 honesty note, guarded like every other send in this module: a Telegram
     outage on an empty day must not abort the notify run — the off-watchlist
     evidence alerts run AFTER this call in run_notify."""

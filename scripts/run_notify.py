@@ -266,9 +266,8 @@ def main() -> int:
     if count == 0 and config is not None:
         # v8 honesty: an explicit "nothing convincing today" beats padding the daily
         # delivery with mediocre names; guarded so a Telegram outage cannot abort
-        # the evidence alerts below (v9). `send=send_message` (this module's own,
-        # monkeypatchable reference) keeps it swappable for tests, same as the
-        # other send seams in main().
+        # the evidence alerts below (v9). send_message passed explicitly (kept
+        # swappable for tests via the module-global reference).
         send_empty_day_note(config, send=send_message)
 
     off_watchlist = attach_track_records(
