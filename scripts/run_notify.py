@@ -31,6 +31,7 @@ from equity_scout.notify import (
     DEFAULT_COOLDOWN_DAYS,
     DEFAULT_THRESHOLD,
     notify_watchlist,
+    send_empty_day_note,
     send_evidence_alerts,
 )
 from equity_scout.charts import fetch_year_closes, render_year_chart, year_return
@@ -264,12 +265,11 @@ def main() -> int:
     print(f"Pitches created: {count}. Unter der Qualitätsschwelle: {below_threshold}.")
     if count == 0 and config is not None:
         # v8 honesty: an explicit "nothing convincing today" beats padding the daily
-        # delivery with mediocre names (the pre-v8 top-up did exactly that).
-        send_message(
-            config["token"], config.get("intraday_chat_id", config["chat_id"]),
-            "📭 Heute keine Kandidaten über der Qualitätsschwelle — "
-            "kein Pitch ist ehrlicher als ein schwacher Pitch.",
-        )
+        # delivery with mediocre names; guarded so a Telegram outage cannot abort
+        # the evidence alerts below (v9). `send=send_message` (this module's own,
+        # monkeypatchable reference) keeps it swappable for tests, same as the
+        # other send seams in main().
+        send_empty_day_note(config, send=send_message)
 
     off_watchlist = attach_track_records(
         events_in_window(

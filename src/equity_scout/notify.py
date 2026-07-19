@@ -25,13 +25,17 @@ from equity_scout.fundamentals import Fundamentals, fetch_fundamentals
 from equity_scout.inbox_storage import create_pitch, last_pitch_at as _last_pitch_at
 from equity_scout.inbox_storage import set_message_id
 from equity_scout.pitch import compute_verdict
-from equity_scout.telegram_client import TelegramError
+from equity_scout.telegram_client import TelegramError, send_message
 
 DEFAULT_THRESHOLD = 0.45
 DEFAULT_COOLDOWN_DAYS = 7
 # Alerts re-fire slower than pitches: the underlying facts (a quarter's 13F, a filed
 # congress purchase) do not change within days, they only accumulate.
 DEFAULT_ALERT_COOLDOWN_DAYS = 14
+EMPTY_DAY_NOTE = (
+    "📭 Heute keine Kandidaten über der Qualitätsschwelle — "
+    "kein Pitch ist ehrlicher als ein schwacher Pitch."
+)
 
 
 def _inside_cooldown(last_iso: str | None, now_iso: str, cooldown_days: int) -> bool:
@@ -143,6 +147,22 @@ def notify_watchlist(
                     file=sys.stderr,
                 )
     return len(candidates)
+
+
+def send_empty_day_note(config: dict, *, send=send_message) -> bool:
+    """v8 honesty note, guarded like every other send in this module: a Telegram
+    outage on an empty day must not abort the notify run — the off-watchlist
+    evidence alerts run AFTER this call in run_notify."""
+    try:
+        send(
+            config["token"],
+            config.get("intraday_chat_id", config["chat_id"]),
+            EMPTY_DAY_NOTE,
+        )
+        return True
+    except TelegramError as err:
+        print(f"Warnung: Leermeldung nicht zustellbar: {err}", file=sys.stderr)
+        return False
 
 
 def send_evidence_alerts(

@@ -8,7 +8,12 @@ from equity_scout.evidence.base import SOURCE_CONGRESS, EvidenceEvent
 from equity_scout.evidence.storage import load_alerts, record_events
 from equity_scout.fundamentals import Fundamentals
 from equity_scout.inbox_storage import create_pitch, load_pitches
-from equity_scout.notify import notify_watchlist, select_candidates, send_evidence_alerts
+from equity_scout.notify import (
+    notify_watchlist,
+    select_candidates,
+    send_empty_day_note,
+    send_evidence_alerts,
+)
 from equity_scout.pitch import build_pitch
 from equity_scout.radar import Watchlist, WatchlistEntry
 from equity_scout.radar_storage import save_watchlist
@@ -557,6 +562,29 @@ def test_select_candidates_top_up_never_dips_below_threshold():
         threshold=0.45, cooldown_days=7, now=NOW, min_count=5,
     )
     assert [entry["ticker"] for entry in picked] == ["ZONE", "GOOD"]
+
+
+def test_empty_day_note_survives_telegram_error(capsys):
+    def boom(token, chat_id, text):
+        raise TelegramError("509 flood")
+
+    ok = send_empty_day_note({"token": "t", "chat_id": "c"}, send=boom)
+    assert ok is False
+    assert "Leermeldung" in capsys.readouterr().err
+
+
+def test_empty_day_note_prefers_intraday_chat():
+    calls = []
+
+    def fake(token, chat_id, text):
+        calls.append((token, chat_id, text))
+
+    ok = send_empty_day_note(
+        {"token": "t", "chat_id": "c", "intraday_chat_id": "i"}, send=fake
+    )
+    assert ok is True
+    assert calls[0][1] == "i"
+    assert "Qualitätsschwelle" in calls[0][2]
 
 
 def test_main_sends_honest_empty_note_when_no_candidates(tmp_path, monkeypatch, capsys):
