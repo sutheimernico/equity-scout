@@ -170,9 +170,9 @@ def build_digest(
             ))
         rest = len(open_pitches) - OPEN_PITCH_CAP
         if rest > 0:
-            lines.append(_line(
-                f"  … und {rest} weitere offene — vollständige Liste im Dashboard."
-            ))
+            # No inflection ("weitere" stays invariant for 1 and n) so this doesn't need
+            # a singular/plural branch — same dodge as the "Offene Pitches: N" header.
+            lines.append(_line(f"  … {rest} weitere im Dashboard."))
     if below_threshold:
         lines.append(_line(
             f"  ({below_threshold} Watchlist-Titel unter der Qualitätsschwelle —"

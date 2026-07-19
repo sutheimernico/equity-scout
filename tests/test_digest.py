@@ -187,7 +187,7 @@ def test_open_pitches_sorted_green_first_and_capped():
     open_lines = [ln for ln in text.splitlines() if "· seit" in ln]
     assert len(open_lines) == 6
     assert "WIN" in open_lines[0]
-    assert "und 3 weitere offene" in text
+    assert "3 weitere im Dashboard" in text
 
 
 def test_open_pitch_with_verdict_but_no_why_renders_icon_only():
@@ -196,3 +196,30 @@ def test_open_pitch_with_verdict_but_no_why_renders_icon_only():
     assert "🟡 NOWHY" in text
     line = next(ln for ln in text.splitlines() if "NOWHY" in ln)
     assert line.endswith("seit 2026-07-16")
+
+
+def test_open_pitches_exactly_at_cap_has_no_rest_line():
+    pitches = [_open(f"T{i:02d}", f"2026-07-{10 + i:02d}T10:00:00+00:00", "red") for i in range(6)]
+    text = build_digest(pitches, date_label="2026-07-19")
+    open_lines = [ln for ln in text.splitlines() if "· seit" in ln]
+    assert len(open_lines) == 6
+    assert "weitere" not in text
+
+
+def test_open_pitches_one_over_cap_says_1_weitere():
+    pitches = [_open(f"T{i:02d}", f"2026-07-{10 + i:02d}T10:00:00+00:00", "red") for i in range(7)]
+    text = build_digest(pitches, date_label="2026-07-19")
+    assert "1 weitere im Dashboard" in text
+
+
+def test_open_pitches_newest_first_within_verdict_band():
+    """Guards the reverse=True in _dedupe_open's second sort — a stable sort with the
+    wrong direction there would silently flip newest/oldest within a band."""
+    pitches = [
+        _open("OLDER", "2026-07-10T10:00:00+00:00", "red"),
+        _open("NEWER", "2026-07-16T10:00:00+00:00", "red"),
+    ]
+    text = build_digest(pitches, date_label="2026-07-19")
+    open_lines = [ln for ln in text.splitlines() if "· seit" in ln]
+    assert "NEWER" in open_lines[0]
+    assert "OLDER" in open_lines[1]
