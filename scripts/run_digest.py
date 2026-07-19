@@ -26,6 +26,7 @@ from equity_scout.notify import DEFAULT_THRESHOLD
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.regime import build_regime
 from equity_scout.sectors import sector_breadth, sector_momentum, top_sector_line
+from equity_scout.state_storage import get_state, set_state
 from equity_scout.telegram_client import (
     TelegramError,
     load_telegram_config,
@@ -34,6 +35,13 @@ from equity_scout.telegram_client import (
 
 OPPORTUNITY_TOP_N = 3
 EARNINGS_LOOKAHEAD_DAYS = 7  # "diese Woche" — matches the daily digest's own cadence
+DIGEST_SENT_KEY = "digest_sent_on"
+
+
+def should_skip_send(last_sent: str | None, *, today: str, force: bool, configured: bool) -> bool:
+    """True when a configured digest already went out today (v9 idempotency: three
+    schedulers may call the chain; the guard makes a second same-day run a no-op)."""
+    return configured and not force and last_sent == today
 
 
 def _closes(ticker: str) -> list[float] | None:
@@ -95,6 +103,9 @@ def collect_sector_line(panel) -> str | None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default=DEFAULT_DB_PATH)
+    parser.add_argument(
+        "--force", action="store_true", help="send even if a digest already went out today"
+    )
     args = parser.parse_args()
 
     # limit=1000: don't let load_pitches' default cap (100) silently drop open pitches
@@ -121,6 +132,16 @@ def main() -> int:
     sector_line = collect_sector_line(panel)
     evidence_stats = stats_by_source(args.db)
 
+    smtp_config = load_smtp_config(dict(os.environ))
+    tg_config = load_telegram_config(dict(os.environ))
+    configured = smtp_config is not None or tg_config is not None
+    if should_skip_send(
+        get_state(args.db, key=DIGEST_SENT_KEY),
+        today=date_label, force=args.force, configured=configured,
+    ):
+        print(f"Digest für {date_label} bereits verschickt — übersprungen (--force erzwingt).")
+        return 0
+
     def render(html: bool) -> str:
         return build_digest(
             pitches,
@@ -137,21 +158,24 @@ def main() -> int:
         )
 
     text = render(html=False)
-    smtp_config = load_smtp_config(dict(os.environ))
-    tg_config = load_telegram_config(dict(os.environ))
+    delivered = False
     if smtp_config is not None:
         send_digest(smtp_config, f"Copilot-Digest {date_label}", text)
+        delivered = True
     if tg_config is not None:
         try:
             send_long_message(
                 tg_config["token"], tg_config.get("daily_chat_id", tg_config["chat_id"]),
                 render(html=True), parse_mode="HTML",
             )
+            delivered = True
         except TelegramError as err:
             print(f"Warnung: Telegram-Digest-Versand fehlgeschlagen: {err}", file=sys.stderr)
     if smtp_config is None and tg_config is None:
         print(text)
         print("Neither SMTP nor Telegram configured — printing digest.")
+    if delivered:
+        set_state(args.db, key=DIGEST_SENT_KEY, value=date_label)
     return 0
 
 
