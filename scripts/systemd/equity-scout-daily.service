@@ -1,0 +1,6 @@
+[Unit]
+Description=equity-scout daily copilot chain (guarded wrapper)
+
+[Service]
+Type=oneshot
+ExecStart=%h/private/equity-scout/scripts/run_daily_guarded.sh systemd

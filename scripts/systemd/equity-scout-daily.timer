@@ -1,0 +1,9 @@
+[Unit]
+Description=equity-scout daily chain 18:05 Mon-Fri, catches up missed slots on boot
+
+[Timer]
+OnCalendar=Mon..Fri 18:05
+Persistent=true
+
+[Install]
+WantedBy=timers.target
