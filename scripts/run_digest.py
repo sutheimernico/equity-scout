@@ -111,7 +111,8 @@ def main() -> int:
     now = datetime.now(timezone.utc)
     date_label = now.date().isoformat()
 
-    # Guard first, before any DB/network work: a skipped second run should cost nothing.
+    # Guard first, before the expensive digest data collection: a skipped second run
+    # should cost nothing.
     smtp_config = load_smtp_config(dict(os.environ))
     tg_config = load_telegram_config(dict(os.environ))
     configured = smtp_config is not None or tg_config is not None
@@ -160,24 +161,25 @@ def main() -> int:
         )
 
     text = render(html=False)
-    delivered = False
+    # Marker set right after each successful send (not collected into a `delivered` flag
+    # for later): if SMTP goes out and then render(html=True) or the Telegram call raises
+    # something other than TelegramError, a marker set only at the end would be lost and
+    # the next run would double-send the channel that already succeeded.
     if smtp_config is not None:
         send_digest(smtp_config, f"Copilot-Digest {date_label}", text)
-        delivered = True
+        set_state(args.db, key=DIGEST_SENT_KEY, value=date_label)
     if tg_config is not None:
         try:
             send_long_message(
                 tg_config["token"], tg_config.get("daily_chat_id", tg_config["chat_id"]),
                 render(html=True), parse_mode="HTML",
             )
-            delivered = True
+            set_state(args.db, key=DIGEST_SENT_KEY, value=date_label)
         except TelegramError as err:
             print(f"Warnung: Telegram-Digest-Versand fehlgeschlagen: {err}", file=sys.stderr)
-    if smtp_config is None and tg_config is None:
+    if not configured:
         print(text)
         print("Neither SMTP nor Telegram configured — printing digest.")
-    if delivered:
-        set_state(args.db, key=DIGEST_SENT_KEY, value=date_label)
     return 0
 
 
