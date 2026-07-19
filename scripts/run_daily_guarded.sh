@@ -3,6 +3,9 @@
 # Windows Task Scheduler). Weekday guard + per-day marker + flock — a caught-up or
 # duplicate slot can never run the chain twice on one day. Triggers pass their name
 # as $1 for the log line. EQUITY_SCOUT_CHAIN overrides the chain command (tests).
+# A hung chain process holds the flock indefinitely, so later same-day triggers
+# skip by design — the lock file's mtime is logged on skip so a stuck run is
+# recognizable from copilot.log alone.
 set -u
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -20,7 +23,8 @@ fi
 
 exec 9>"$LOCK"
 if ! flock -n 9; then
-  echo "[$(date -Is)] guarded: another daily run holds the lock — skipping (trigger: ${1:-unspecified})" >> "$LOG"
+  LOCK_MTIME="$(date -Is -r "$LOCK" 2>/dev/null || echo unknown)"
+  echo "[$(date -Is)] guarded: another daily run holds the lock (lock file mtime: $LOCK_MTIME) — skipping (trigger: ${1:-unspecified})" >> "$LOG"
   exit 0
 fi
 
@@ -31,4 +35,14 @@ fi
 
 echo "[$(date -Is)] guarded: starting daily chain (trigger: ${1:-unspecified})" >> "$LOG"
 "$CHAIN"
-echo "$TODAY" > "$MARKER"
+rc=$?
+echo "[$(date -Is)] guarded: chain finished (rc=$rc)" >> "$LOG"
+
+# daily_copilot.sh degrades internally per step and always exits 0; a non-zero rc
+# here means the chain itself never got to run (exec error etc.) — the day must
+# not be marked done so the remaining daily triggers can retry.
+if [ "$rc" -eq 0 ]; then
+  echo "$TODAY" > "$MARKER"
+else
+  echo "[$(date -Is)] guarded: chain FAILED (rc=$rc) — day NOT marked, next trigger will retry" >> "$LOG"
+fi
