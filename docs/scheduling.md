@@ -1,6 +1,8 @@
 # Scheduling equity-scout
 
-Five layers of automation, all cron-driven and local/free (always-on since v6):
+Five layers of automation, local/free and always-on since v6. Four are pure cron;
+layer 2's daily chain gained two more non-cron triggers in v9 (see
+**v9: Guaranteed Delivery** below):
 
 1. **`scripts/intraday_copilot.sh`** — every 15 minutes (densest honest cadence:
    yfinance prices are ~15 min delayed, so polling faster adds request load without
@@ -13,7 +15,9 @@ Five layers of automation, all cron-driven and local/free (always-on since v6):
    timeline accumulates in the dashboard inbox only — Nico gets exactly ONE Telegram
    delivery per day (18:00 chain: pitches with decision buttons + digest). Existing
    cooldowns + idempotency keys prevent alert spam. Appends to `intraday.log`.
-2. **`scripts/daily_copilot.sh`** — the full unattended copilot chain at 18:00:
+2. **`scripts/daily_copilot.sh`** — the full unattended copilot chain, guarded to
+   run once per weekday no matter which of three redundant triggers fires it
+   (cron 18:00, systemd 18:05, Windows Task Scheduler 18:00 — v9, see below):
    (Mondays: screener first) → radar → earnings-calendar refresh (`run_earnings.py`,
    Strang B1: yfinance calendar for every watchlist/depot ticker) → ALL evidence
    collectors (incl. 13F + Form 4; EDGAR stays out of the 30-min loop by etiquette) →
@@ -81,10 +85,125 @@ The installer REPLACES outdated managed lines (e.g. the old `*/30` intraday line
 re-running `./scripts/install_crontab.sh` after an update never leaves two schedules
 running in parallel.
 
-**WSL caveat:** cron only fires while the WSL VM is running. If the laptop was off
+**WSL caveat (mitigated by v9, below):** cron only fires while the WSL VM is
+running, so a bare cron line has exactly one shot per day — if the laptop was off
 at 18:00, that day's chain simply did not happen (the receiver comes back within
 5 minutes of the next WSL start). Every consumer is idempotent, so a missed day
-never corrupts state — the next run picks up where things stand.
+never corrupted state, but v6-era "missed" meant "skipped, catch up tomorrow."
+See **v9: Guaranteed Delivery** for the redundant triggers and catch-up layer that
+now cover this for the 18:00 daily chain specifically (the 15-min intraday chain,
+nightly training and nightly prefetch are unaffected — see their own cadence notes
+above).
+
+## v9: Guaranteed Delivery
+
+A single cron line has exactly one shot per day. v9 does not change what the
+daily chain does — it makes sure the chain gets a chance to run every weekday by
+adding two more independent triggers (systemd user timer, Windows Task Scheduler)
+alongside cron, and putting one guard script in front of all three so redundant
+or caught-up triggers can never run the chain twice on the same day.
+
+### Architecture
+
+```
+cron            18:00 Mon-Fri  ──┐
+systemd timer   18:05 Mon-Fri  ──┼──▶ scripts/run_daily_guarded.sh <trigger> ──▶ scripts/daily_copilot.sh
+Windows Task    18:00 Mon-Fri  ──┘         │
+  (StartWhenAvailable,                     ├─ weekday guard: exit if date +%u > 5 (Sat/Sun)
+   starts WSL if needed)                   ├─ flock -n on .state/daily.lock (holder time/pid/trigger recorded)
+                                            ├─ skip if .state/daily_last_run is already stamped today
+                                            └─ run daily_copilot.sh; stamp the marker only if it exits 0
+```
+
+Every trigger passes its own name (`cron` / `systemd` / `windows`) as `$1` to
+`run_daily_guarded.sh`, so `copilot.log` always shows which path actually fired
+the chain — and every skip (lock held by whom, weekend, already-ran-today) is
+logged too, so "why didn't it run" never has to be guessed.
+
+### Triggers
+
+| Trigger | Schedule | Passed as `$1` | Status |
+|---|---|---|---|
+| Cron | `0 18 * * 1-5` (installed via `./scripts/install_crontab.sh`) | `cron` | LIVE |
+| systemd user timer | `OnCalendar=Mon..Fri 18:05`, `Persistent=true` (installed via `./scripts/install_systemd_timer.sh`) | `systemd` | LIVE, enabled |
+| Windows Task Scheduler | `18:00 Mon-Fri`, `StartWhenAvailable` (XML: `scripts/windows/equity-scout-daily.xml`, installer: `./scripts/install_windows_task.sh`) | `windows` | **NOT YET REGISTERED — Needs Nico: run `./scripts/install_windows_task.sh` once** |
+
+- systemd fires 5 minutes after cron by design — cron owns the regular slot,
+  systemd is purely the catch-up layer; the guard's marker is what actually
+  arbitrates, so the offset is a courtesy, not a requirement.
+- systemd's `Persistent=true` catches up **exactly one** missed slot at the next
+  unit start (WSL boot, or the next linger-triggered user-manager start) — it
+  replays only the most recent missed occurrence, not every day the VM was off.
+- The Windows task starts WSL itself
+  (`wsl.exe -d Ubuntu -u nicosutheimer -- .../run_daily_guarded.sh windows`) and
+  runs under Nico's interactive logon token: it fires only while he is logged
+  into Windows (a locked screen is fine; logged-out or powered-off is not).
+
+### Catch-up semantics and trade-offs
+
+A missed 18:00/18:05 slot runs at the next WSL start instead — which can be the
+next morning, not the evening. Because the guard stamps one marker per calendar
+day, that catch-up run consumes the *regular* evening slot for that same day: if
+WSL comes up at 08:00, the chain runs then, and the 18:00 cron trigger later that
+same day finds the marker already set and skips. That day's snapshot is therefore
+a morning read, not an end-of-day one.
+
+This is a deliberate trade-off, not an oversight: v9 optimizes for "guaranteed
+≥ 1 run per weekday" over "always exactly at EOD" — a morning-stale pitch beats
+no pitch at all.
+
+Weekends are never caught up. The weekday guard exits before touching the lock
+or the marker on Sat/Sun, so a Persistent catch-up that happens to fire on a
+Saturday (e.g. WSL started for something unrelated) still consumes systemd's own
+internal stamp file — permanently forgetting Friday's miss from systemd's point
+of view — but `run_daily_guarded.sh` logs it explicitly as `guarded: weekend
+trigger (<trigger>) — skipped by design, missed weekday slots are not made up on
+weekends`, so the loss is diagnosable in `copilot.log` instead of silently
+vanishing.
+
+### App-level idempotency
+
+The guard only prevents the *chain* from running twice a day; individual steps
+keep their own idempotency:
+- **Digest:** sends at most once per day. `run_digest.py` checks
+  `app_state.digest_sent_on` (a tiny key-value table,
+  `src/equity_scout/state_storage.py`) before doing any work, and only sets it
+  after a real delivery succeeded — a failed send never blocks the next attempt.
+  `--force` overrides the guard for a manual resend.
+- **Pitches:** cooldowns and idempotency keys are unchanged by v9 — they already
+  prevented duplicate pitches within a cooldown window regardless of how many
+  times the chain ran.
+
+### Side effects of this installation
+
+- `install_systemd_timer.sh` ran `loginctl enable-linger` for the user, so the
+  user's systemd instance (and this timer) now starts at WSL boot rather than
+  only after the first interactive login. This can keep the WSL VM resident
+  longer than an on-demand session would have.
+- systemd's own `Persistent=` stamp file lives in the user's persistent state
+  directory on the WSL ext4 filesystem — it survives WSL restarts (unlike
+  anything under `/tmp`), which is what makes the catch-up possible across
+  reboots.
+
+### Uninstalling
+
+Each trigger is removed independently:
+- **Cron:** delete the `run_daily_guarded.sh cron` line via `crontab -e` (or edit
+  `install_crontab.sh`'s `CHAIN_LINE` first if you also want future re-installs
+  to stay in sync).
+- **systemd:** `systemctl --user disable --now equity-scout-daily.timer`, then
+  delete `~/.config/systemd/user/equity-scout-daily.service` and `.timer`.
+  Optionally `loginctl disable-linger $USER` to undo the linger side effect above.
+- **Windows:** `schtasks.exe /delete /tn equity-scout-daily /f`.
+
+### Deliberately not built
+
+An external dead-man's switch (e.g. a healthchecks.io-style ping-on-success /
+alert-on-silence) would need a new external service and account — Needs Nico,
+parked in the backlog. The three redundant local triggers plus the catch-up
+layer already cover the observed failure mode (WSL not running at 18:00); an
+external watchdog would only add value if all three local triggers failed at
+once, which has not been observed.
 
 ## Option A — cron for the screener only (historic)
 
