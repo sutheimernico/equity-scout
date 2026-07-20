@@ -132,17 +132,20 @@ def build_decision_keyboard(pitch_id: int) -> dict:
 
 def send_message(
     token: str, chat_id: int, text: str, keyboard: dict | None = None,
-    parse_mode: str | None = None,
+    parse_mode: str | None = None, silent: bool = False,
 ) -> int:
     """Returns the Telegram message_id (stored so the receiver can edit later).
 
     With parse_mode set, a Telegram entity-parse rejection is retried ONCE as
-    stripped plain text — degraded formatting beats a lost message."""
+    stripped plain text — degraded formatting beats a lost message. `silent` sets
+    Telegram's disable_notification (nightly pushes must not wake anyone, v12 W2)."""
     params: dict = {"chat_id": chat_id, "text": text}
     if parse_mode is not None:
         params["parse_mode"] = parse_mode
     if keyboard is not None:
         params["reply_markup"] = keyboard
+    if silent:
+        params["disable_notification"] = True
     try:
         return int(_api(token, "sendMessage", params)["result"]["message_id"])
     except TelegramError as exc:

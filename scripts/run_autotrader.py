@@ -13,6 +13,8 @@ LOOP.md's iron constraints.
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 
 import pandas as pd
 
@@ -37,6 +39,7 @@ from equity_scout.data.etf_panel import load_etf_panel
 from equity_scout.etf_universe import ETF_TICKERS
 from equity_scout.fx import eur_rate
 from equity_scout.state_storage import record_heartbeat
+from equity_scout.telegram_client import TelegramError, load_telegram_config, send_message
 from equity_scout.market import PricePanel
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.strategies.ensemble import EnsembleStrategy
@@ -166,6 +169,50 @@ def advance_autotrader(
     return account, valuation
 
 
+EVENT_TRADE_CAP = 10
+
+
+def build_event_message(valuation: AutoDepotValuation | None) -> str | None:
+    """One bundled nightly push (v12 W2): trades + risk events, or None when the advance
+    was a quiet no-op — no activity, no message."""
+    if valuation is None or (not valuation.trades and not valuation.risk_events):
+        return None
+    lines = [f"🤖 Auto-Depot {valuation.created_at}: {len(valuation.trades)} Trade(s)"]
+    for t in valuation.trades[:EVENT_TRADE_CAP]:
+        side = "KAUF" if t.delta_weight > 0 else "VERKAUF"
+        lines.append(f"• {side} {t.ticker} Δ{t.delta_weight:+.1%} (~{t.notional:,.0f} $)")
+    rest = len(valuation.trades) - EVENT_TRADE_CAP
+    if rest > 0:
+        lines.append(f"… +{rest} weitere")
+    for event in valuation.risk_events:
+        lines.append(f"⚠ {event.detail}")
+    lines.append("(Paper-Depot · nächtlicher Lauf · Details im 18:00-Digest)")
+    return "\n".join(lines)
+
+
+def push_events(valuation: AutoDepotValuation | None, env: dict) -> bool:
+    """Send the bundled event message SILENT (disable_notification — the nightly chain
+    runs ~02:35; the 18:00 digest stays the loud surface). Env-gated: set
+    COPILOT_TG_AUTOTRADER_EVENTS=0 to turn the push off entirely."""
+    if env.get("COPILOT_TG_AUTOTRADER_EVENTS", "1") == "0":
+        return False
+    text = build_event_message(valuation)
+    if text is None:
+        return False
+    config = load_telegram_config(env)
+    if config is None:
+        return False
+    try:
+        send_message(
+            config["token"], config.get("daily_chat_id", config["chat_id"]),
+            text, silent=True,
+        )
+    except TelegramError as err:
+        print(f"Warnung: Auto-Depot-Event-Push fehlgeschlagen: {err}", file=sys.stderr)
+        return False
+    return True
+
+
 def _collect_regime_level(panel: PricePanel) -> str | None:
     """Regime light via the digest's collector; any fetch failure -> None (the gate treats
     unknown as no-op — a broken feed must never move the book)."""
@@ -209,6 +256,7 @@ def main() -> None:
         from datetime import datetime, timezone
 
         record_heartbeat(args.main_db, "nightly", now=datetime.now(timezone.utc).isoformat())
+        push_events(valuation, dict(os.environ))
 
     mode_note = (
         "Anker-Phase: zu wenig Forward-Historie für Performance-Tilt — reines Equal-Weight"

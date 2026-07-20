@@ -133,3 +133,54 @@ def test_ml_sleeve_holdings_reads_post_exit_forward_books(tmp_path) -> None:
 
     holdings = ml_sleeve_holdings(forward_db, ["ML Long Bot", "ML Short Bot", "GEM"])
     assert holdings == {"ML Long Bot": {"AAPL"}}
+
+
+def test_event_message_bundles_trades_and_risk_events() -> None:
+    from equity_scout.autotrader_engine import AutoDepotValuation, TradeRecord
+    from equity_scout.autotrader_protections import RiskEvent
+    from scripts.run_autotrader import build_event_message
+
+    valuation = AutoDepotValuation(
+        created_at="2026-07-21", equity=100_000.0, total_return=0.0,
+        benchmark_equity=100_000.0, benchmark_return=0.0,
+        gross_exposure=0.8, drawdown=0.0,
+        trades=(TradeRecord("2026-07-21", "SPY", 0.05, 5_000.0, 5.0),),
+        risk_events=(RiskEvent("concentration_cap", "clip", "SPY auf 10% gekappt"),),
+    )
+    text = build_event_message(valuation)
+    assert text is not None
+    assert "KAUF SPY" in text and "SPY auf 10% gekappt" in text
+
+    quiet = AutoDepotValuation(
+        created_at="2026-07-21", equity=100_000.0, total_return=0.0,
+        benchmark_equity=100_000.0, benchmark_return=0.0,
+        gross_exposure=0.8, drawdown=0.0,
+    )
+    assert build_event_message(quiet) is None
+
+
+def test_push_events_is_silent_and_env_gated(monkeypatch) -> None:
+    from equity_scout.autotrader_engine import AutoDepotValuation, TradeRecord
+    import scripts.run_autotrader as runner_mod
+
+    valuation = AutoDepotValuation(
+        created_at="2026-07-21", equity=100_000.0, total_return=0.0,
+        benchmark_equity=100_000.0, benchmark_return=0.0,
+        gross_exposure=0.8, drawdown=0.0,
+        trades=(TradeRecord("2026-07-21", "SPY", 0.05, 5_000.0, 5.0),),
+    )
+    calls: list[dict] = []
+
+    def fake_send(token, chat_id, text, keyboard=None, parse_mode=None, silent=False):
+        calls.append({"silent": silent, "text": text})
+        return 1
+
+    monkeypatch.setattr(runner_mod, "send_message", fake_send)
+    env = {"COPILOT_TG_BOT_TOKEN": "t", "COPILOT_TG_CHAT_ID": "1"}
+
+    assert runner_mod.push_events(valuation, env) is True
+    assert calls[0]["silent"] is True  # 02:35 push must never wake anyone
+
+    assert runner_mod.push_events(valuation, {**env, "COPILOT_TG_AUTOTRADER_EVENTS": "0"}) is False
+    assert len(calls) == 1
+    assert runner_mod.push_events(None, env) is False  # quiet advance -> no message
