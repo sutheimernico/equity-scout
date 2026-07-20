@@ -209,3 +209,10 @@ def test_build_pitch_target_stop_distinct_from_third_party_analyst_target():
 def test_tranche_block_carries_position_size_rule():
     pitch = build_pitch(ENTRY, ask=_fixed())
     assert "höchstens 5 %" in pitch
+
+
+def test_top_factors_words_only():
+    from equity_scout.pitch import _top_factors
+
+    out = _top_factors({"value": 0.82, "momentum": 0.7, "quality": 0.1})
+    assert out == "Value, Momentum"

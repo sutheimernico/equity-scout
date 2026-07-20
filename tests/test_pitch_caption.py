@@ -28,7 +28,8 @@ def test_caption_has_sections_and_stays_compact():
     )
     # v8: bold HTML head + paragraph blocks (sent with parse_mode="HTML").
     assert caption.splitlines()[0] == "<b>📈 NVDA — NVIDIA Corp.</b>"
-    assert "Score 81/100" in caption and "Momentum 92" in caption
+    # v9: factor heads are words only — numeric ranks read as prices to a lay reader.
+    assert "Score 81/100" in caption and "stark: Momentum, Growth" in caption
     assert "\n\n" in caption  # paragraph blocks, not a wall of lines
     assert "KGV 45" in caption and "1 Jahr +38 %" in caption
     assert "Kurs 172.40 USD (≈ 158.60 €)" in caption

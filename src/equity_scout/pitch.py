@@ -258,13 +258,15 @@ def _structured_body(
 
 
 def _top_factors(breakdown: dict, n: int = 2) -> str:
+    """Words only (v9): '82'-style percentile ranks read as prices or percents to a
+    lay reader — the numeric ranks stay in the detail breakdown lines."""
     labels = {"value": "Value", "quality": "Quality", "momentum": "Momentum",
               "growth": "Growth", "low_vol": "Low-Vol"}
     ranked = sorted(
         ((labels.get(k, k), v) for k, v in breakdown.items() if k in labels),
         key=lambda kv: kv[1], reverse=True,
     )
-    return ", ".join(f"{label} {value * 100:.0f}" for label, value in ranked[:n])
+    return ", ".join(label for label, _ in ranked[:n])
 
 
 def build_pitch_caption(
@@ -364,6 +366,9 @@ def _build_pitch_html(
             head,
             prose,
             escape_html(_score_line(entry)),
+            # Tap hint glued to the quote (no blank line between): a collapsed
+            # blockquote looks like decoration to a lay reader, not like a button.
+            "👇 Antippen für die ausführliche Erklärung:\n"
             f"<blockquote expandable>{escape_html(detail_raw)}</blockquote>"
             if detail_raw
             else None,

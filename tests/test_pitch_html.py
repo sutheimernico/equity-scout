@@ -81,3 +81,8 @@ def test_plain_pitch_contains_no_html():
     pitch = build_pitch(_entry(), ask=_fake_ask)
     assert "<b>" not in pitch and "<blockquote" not in pitch
     assert "Barnes & Noble" in pitch  # unescaped in the plain dashboard variant
+
+
+def test_long_pitch_html_announces_expandable_details():
+    pitch = build_pitch(_entry(), ask=_fake_ask, html=True)
+    assert "Antippen für die ausführliche Erklärung" in pitch
