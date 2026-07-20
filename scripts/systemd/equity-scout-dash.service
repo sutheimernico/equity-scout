@@ -1,0 +1,20 @@
+# v12 M3: dashboard server as an always-on user service (phone cockpit).
+# Binds 0.0.0.0:8420 behind the DASH_TOKEN gate — run_api.py FAILS CLOSED if the
+# token is missing from .env, so this unit cannot accidentally expose an open app.
+# Installed (and only then enabled) by scripts/install_dash_service.sh.
+[Unit]
+Description=equity-scout dashboard (LAN, token-gated)
+After=network.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=%h/private/equity-scout
+EnvironmentFile=%h/private/equity-scout/.env
+ExecStart=%h/private/equity-scout/.venv/bin/python scripts/run_api.py --host 0.0.0.0 --port 8420
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=default.target
