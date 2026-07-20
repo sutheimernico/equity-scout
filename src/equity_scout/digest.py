@@ -26,6 +26,7 @@ _SOURCE_LABEL = {"congress": "Kongress-Käufe", "thirteen_f": "13F-Fonds",
 # past what the beginner persona can scan in one sitting — cap the rendered lines and
 # dedupe per ticker so the section stays a skimmable top-of-list, not a lifetime log.
 OPEN_PITCH_CAP = 6
+AUTODEPOT_TRADE_CAP = 5  # v10: keep the depot block scannable, rest is in the dashboard
 _VERDICT_ORDER = {"green": 0, "yellow": 1, "red": 2}
 
 
@@ -69,6 +70,7 @@ def build_digest(
     sector_line: str | None = None,
     core_block: str | None = None,
     below_threshold: int | None = None,
+    autodepot: dict | None = None,
     html: bool = False,
 ) -> str:
     """German digest: market head first, all open pitches, then recent decisions.
@@ -95,7 +97,11 @@ def build_digest(
     storing it in v8) and are deduped/sorted/capped (see `_dedupe_open`); opportunity
     lines compute one live verdict instead, since watchlist entries never had one
     persisted. `core_block` (butler savings-plan block or its one-line stand-in)
-    arrives pre-rendered for the same html mode and is appended verbatim."""
+    arrives pre-rendered for the same html mode and is appended verbatim.
+
+    v10: `autodepot` (run_digest.collect_autodepot shape) renders the Auto-Depot block —
+    the meta depot advances NIGHTLY after US close, so the block is stamped with its own
+    as_of date instead of claiming "heute". Omitted entirely when None (no depot yet)."""
 
     def _head(text: str) -> str:
         return f"<b>{escape_html(text)}</b>" if html else text
@@ -115,6 +121,45 @@ def build_digest(
         # Pre-rendered by butler.render_core_block/core_running_line with the same
         # html flag — appending verbatim keeps escaping in exactly one place.
         lines.append(core_block)
+    if autodepot is not None:
+        eur = (
+            f" ({autodepot['equity_eur']:,.0f} EUR)"
+            if autodepot.get("equity_eur") is not None
+            else ""
+        )
+        lines.append(_head(
+            f"🤖 Auto-Depot (Stand {autodepot['as_of']}): {autodepot['equity']:,.0f} USD{eur}"
+        ))
+        lines.append(_line(
+            f"  Gesamt {autodepot['total_return'] * 100:+.1f} %"
+            f" vs SPY {autodepot['benchmark_return'] * 100:+.1f} %"
+            f" · Exposure {autodepot['gross_exposure'] * 100:.0f} %"
+            f" · Drawdown {autodepot['drawdown'] * 100:.1f} %"
+        ))
+        trades = autodepot.get("trades") or []
+        if trades:
+            shown = [
+                f"{'↑' if t['delta_weight'] > 0 else '↓'}{t['ticker']}"
+                for t in trades[:AUTODEPOT_TRADE_CAP]
+            ]
+            rest = len(trades) - AUTODEPOT_TRADE_CAP
+            suffix = f" · +{rest} weitere" if rest > 0 else ""
+            lines.append(_line(f"  Trades: {' '.join(shown)}{suffix}"))
+        else:
+            lines.append(_line("  Keine Trades an diesem Stand."))
+        for detail in autodepot.get("risk_events") or []:
+            lines.append(_line(f"  ⚠ {detail}"))
+        # A persisting breaker stage acts silently in the engine (no daily event spam) —
+        # the digest is where its ongoing grip has to stay visible instead.
+        stage_note = {1: "Drawdown-Breaker aktiv: halbes Exposure", 2: "Drawdown-Breaker aktiv: komplett Cash"}
+        stage = autodepot.get("breaker_stage", 0)
+        if stage in stage_note:
+            lines.append(_line(f"  ⛔ {stage_note[stage]}"))
+        if autodepot.get("mode") == "anchor":
+            lines.append(_line(
+                "  (Anker-Phase: Sleeves gleichgewichtet — noch zu wenig"
+                " Forward-Historie für einen Performance-Tilt)"
+            ))
     lines.append("")
     if alerts_today:
         lines.append(_head("📌 Heute aufgefallen:"))

@@ -14,6 +14,13 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
+from equity_scout.autotrader_storage import (
+    DEFAULT_AUTOTRADER_DB_PATH,
+    load_depot,
+    load_risk_events,
+    load_trades,
+    load_valuations,
+)
 from equity_scout.butler import (
     MONTH_NAMES,
     build_core_plan,
@@ -97,6 +104,37 @@ def collect_regime(panel) -> dict | None:
     return None if regime["level"] == "unknown" else regime
 
 
+def collect_autodepot(db_path: str = DEFAULT_AUTOTRADER_DB_PATH) -> dict | None:
+    """v10 Auto-Depot block: latest valuation + that date's trades and risk events, plus
+    the account's allocation mode and breaker stage. None while no depot exists (honest
+    absence) or on any storage error — the digest never fails over its newest section."""
+    try:
+        account = load_depot(db_path)
+        valuations = load_valuations(db_path)
+        if account is None or not valuations:
+            return None
+        last = valuations[-1]
+        as_of = last["created_at"]
+        return {
+            "as_of": as_of,
+            "equity": last["equity"],
+            "equity_eur": last["equity_eur"],
+            "total_return": last["total_return"],
+            "benchmark_return": last["benchmark_return"],
+            "gross_exposure": last["gross_exposure"],
+            "drawdown": last["drawdown"],
+            "mode": account.sleeve_mode,
+            "breaker_stage": account.breaker.stage,
+            "trades": [t for t in load_trades(db_path, limit=50) if t["created_at"] == as_of],
+            "risk_events": [
+                e["detail"] for e in load_risk_events(db_path, limit=20)
+                if e["created_at"] == as_of
+            ],
+        }
+    except Exception:  # noqa: BLE001 - best-effort section by design
+        return None
+
+
 def collect_sector_line(panel) -> str | None:
     """Top-3 sector head line from the shared ETF panel snapshot; None when the panel
     is missing or predates the sector-ETF extension (honest absence, no fetch here)."""
@@ -152,6 +190,7 @@ def main() -> int:
     regime = collect_regime(panel)
     sector_line = collect_sector_line(panel)
     evidence_stats = stats_by_source(args.db)
+    autodepot = collect_autodepot()
 
     # v9 butler: full savings-plan block once per month, one-liner on the other days.
     # No panel / strategy silent -> no block at all (honest absence), and the month
@@ -182,6 +221,7 @@ def main() -> int:
             sector_line=sector_line,
             core_block=core_block,
             below_threshold=below_threshold,
+            autodepot=autodepot,
             html=html,
         )
 
