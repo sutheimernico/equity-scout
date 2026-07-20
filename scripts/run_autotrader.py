@@ -32,6 +32,7 @@ from equity_scout.autotrader_storage import (
     save_sleeve_weights,
 )
 from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_FORWARD_DB_PATH, DISCLAIMER
+from equity_scout.forward_storage import load_account
 from equity_scout.data.etf_panel import load_etf_panel
 from equity_scout.etf_universe import ETF_TICKERS
 from equity_scout.fx import eur_rate
@@ -59,6 +60,25 @@ def active_sleeves(main_db: str) -> list:
     ]
     sleeves.extend(bot for bot in bots if bot.ready)
     return sleeves
+
+
+ML_SLEEVE_NAMES = (MLLongStrategy.name, MLShortStrategy.name)
+
+
+def ml_sleeve_holdings(forward_db: str, sleeve_names: list[str]) -> dict[str, set[str]]:
+    """Currently-held tickers per ML sleeve from its POST-exit forward book (v12 R5): the
+    forward chain runs BEFORE the autotrader in nightly_train.sh, so its book already
+    reflects tonight's exits. A bot without a forward account yet is left unfiltered —
+    the exit information honestly does not exist. Rule sleeves are never mirrored."""
+    holdings: dict[str, set[str]] = {}
+    for name in sleeve_names:
+        if name not in ML_SLEEVE_NAMES:
+            continue
+        account = load_account(forward_db, name)
+        if account is None:
+            continue
+        holdings[name] = {t for t, w in account.weights.items() if abs(w) > 1e-9}
+    return holdings
 
 
 def combined_panel(*, start: str, refresh: bool, need_stocks: bool, main_db: str) -> PricePanel:
@@ -136,6 +156,7 @@ def advance_autotrader(
         depot_returns=depot_return_series(autotrader_db),
         fx_rate=fx_rate,
         costs_bps=costs_bps,
+        sleeve_holdings=ml_sleeve_holdings(forward_db, [s.name for s in strategies]),
     )
     if persist:
         persist_advance(

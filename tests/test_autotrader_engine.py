@@ -165,3 +165,26 @@ def test_fx_rate_produces_eur_equity_and_absence_stays_none() -> None:
     )
     assert without_fx is not None
     assert without_fx.equity_eur is None and without_fx.fx_rate is None
+
+
+def test_sleeve_holdings_mirror_drops_exited_tickers_without_redistributing() -> None:
+    """R5/P1 (review 2026-07-20): the depot mirrors an ML sleeve's POST-exit forward book —
+    a ticker the sleeve book no longer holds contributes 0; freed weight sits in cash."""
+    panel = _panel(5, {"SPY": [100.0] * 5, "AAPL": [50.0] * 5, "MSFT": [60.0] * 5})
+    sleeve = _Fixed("ml", [TargetWeight("AAPL", 0.5), TargetWeight("MSFT", 0.5)])
+    account, _ = advance_depot(
+        AutoDepotAccount.fresh(), [sleeve], _allocation({"ml": 1.0}), panel,
+        protections=[], sleeve_holdings={"ml": {"AAPL"}},
+    )
+    assert "MSFT" not in account.weights
+    assert account.weights["AAPL"] == pytest.approx(0.5)  # not scaled up to fill the gap
+
+
+def test_sleeve_holdings_only_filters_listed_sleeves() -> None:
+    panel = _panel(5, {"SPY": [100.0] * 5, "AAPL": [50.0] * 5})
+    rule = _Fixed("rule", [TargetWeight("AAPL", 0.8)])
+    account, _ = advance_depot(
+        AutoDepotAccount.fresh(), [rule], _allocation({"rule": 1.0}), panel,
+        protections=[], sleeve_holdings={"ml": set()},
+    )
+    assert account.weights["AAPL"] == pytest.approx(0.8)

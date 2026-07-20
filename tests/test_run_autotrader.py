@@ -114,3 +114,22 @@ def test_depot_return_series_needs_two_valuations(dbs) -> None:
     advance_autotrader(_panel(6), strategies, autotrader_db=autotrader_db, forward_db=forward_db)
     series = depot_return_series(autotrader_db)
     assert series is not None and len(series) == 1
+
+
+def test_ml_sleeve_holdings_reads_post_exit_forward_books(tmp_path) -> None:
+    """R5/P1: only the ML bots' books are mirrored; zero-weight = not held; a bot without
+    a forward account yet stays unfiltered (exit info honestly unavailable)."""
+    from equity_scout.forward_paper import ForwardAccount
+    from equity_scout.forward_storage import init_forward_db, save_account
+    from scripts.run_autotrader import ml_sleeve_holdings
+
+    forward_db = str(tmp_path / "forward.db")
+    init_forward_db(forward_db)
+    save_account(forward_db, ForwardAccount(
+        strategy_name="ML Long Bot", initial_capital=10_000.0, equity=10_000.0,
+        benchmark_ticker="SPY", benchmark_equity=10_000.0, last_as_of="2026-07-18",
+        weights={"AAPL": 0.3, "MSFT": 0.0},
+    ), updated_at="2026-07-18")
+
+    holdings = ml_sleeve_holdings(forward_db, ["ML Long Bot", "ML Short Bot", "GEM"])
+    assert holdings == {"ML Long Bot": {"AAPL"}}

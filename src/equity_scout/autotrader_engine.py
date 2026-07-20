@@ -10,9 +10,14 @@ Execution keeps `forward_paper`'s look-ahead-safe convention deliberately (decis
 strictly < today via MarketView, fills at today's adjusted close, mark-to-market by weight
 drift, costs on turnover, borrow proxy on net short exposure, simulated margin floor) — one
 fill convention across the whole repo, so autotrader and sleeve track records stay comparable.
-Unlike the sleeves there is NO per-position exit rule here: exits already act inside each
-sleeve's own decide cycle, and depot-level protection is the risk layer's job — a second exit
-regime on top would double-count.
+
+Per-position exits (profit target / stop loss / max holding, `exits.py`) act in the sleeves'
+forward_paper BOOKS, not in `decide()` — strategies are stateless (v12 R5, review 2026-07-20).
+The depot therefore mirrors each ML sleeve's POST-exit forward book via `sleeve_holdings`:
+tickers that sleeve's book no longer holds are dropped from its contribution, and the freed
+weight sits in cash (never redistributed — same honesty as the concentration cap). Rule
+sleeves are broad-ETF allocators and pass through unfiltered; depot-level protection remains
+the risk layer's job.
 
 Trades are first-class records (per-ticker weight delta, notional, cost share). They are the
 honest seam a future broker adapter would consume — no speculative interface beyond the data.
@@ -126,6 +131,7 @@ def advance_depot(
     fx_rate: float | None = None,
     costs_bps: float = 10.0,
     borrow_bps_per_day: float = BORROW_BPS_PER_DAY,
+    sleeve_holdings: dict[str, set[str]] | None = None,
 ) -> tuple[AutoDepotAccount, AutoDepotValuation | None]:
     """Advance the depot to the latest panel date. Returns (account, valuation); valuation is
     None when already current for that date (idempotent — safe to re-run in a cron chain).
@@ -186,8 +192,17 @@ def advance_depot(
     drawdown = max(0.0, 1.0 - equity / peak_equity) if peak_equity > 0 else 0.0
 
     # 3. Sleeve decisions from data strictly BEFORE today, aggregated look-through.
+    #    ML sleeves are mirrored against their POST-exit forward book (module docstring).
     view = MarketView(panel, today)
     decisions = {s.name: s.decide(view.as_of, view) for s in strategies}
+    if sleeve_holdings:
+        decisions = {
+            name: (
+                [tw for tw in targets if tw.ticker in sleeve_holdings[name]]
+                if name in sleeve_holdings else targets
+            )
+            for name, targets in decisions.items()
+        }
     raw_targets = aggregate_targets(allocation, decisions)
 
     # 4. Protection chain (may mutate ctx.breaker — the account persists it).
