@@ -1,0 +1,167 @@
+"""Engine: idempotency, look-ahead safety, netting, costs/trades, protections, margin floor."""
+from __future__ import annotations
+
+import pandas as pd
+import pytest
+
+from equity_scout.autotrader_allocator import SleeveAllocation
+from equity_scout.autotrader_engine import (
+    AutoDepotAccount,
+    advance_depot,
+    aggregate_targets,
+)
+from equity_scout.autotrader_protections import ConcentrationCap, DrawdownBreaker
+from equity_scout.market import PricePanel
+from equity_scout.strategies.base import TargetWeight
+
+
+class _Fixed:
+    """Canned strategy: always returns the same targets."""
+
+    def __init__(self, name: str, targets: list[TargetWeight]) -> None:
+        self.name = name
+        self._targets = targets
+
+    def decide(self, as_of, market):  # noqa: ANN001, ANN201 - Strategy protocol
+        return self._targets
+
+
+class _Recorder(_Fixed):
+    """Records what the MarketView let it see."""
+
+    def __init__(self) -> None:
+        super().__init__("recorder", [TargetWeight("SPY", 1.0)])
+        self.seen_latest = None
+
+    def decide(self, as_of, market):  # noqa: ANN001, ANN201
+        self.seen_latest = market.latest_date
+        return super().decide(as_of, market)
+
+
+def _panel(days: int, prices: dict[str, list[float]] | None = None) -> PricePanel:
+    index = pd.bdate_range("2026-06-01", periods=days)
+    data = prices or {}
+    if "SPY" not in data:
+        data["SPY"] = [100.0 + i for i in range(days)]
+    frame = pd.DataFrame({t: p[:days] for t, p in data.items()}, index=index)
+    return PricePanel(frame)
+
+
+def _allocation(weights: dict[str, float], mode: str = "anchor") -> SleeveAllocation:
+    return SleeveAllocation(weights=weights, mode=mode)
+
+
+def test_advance_without_new_date_is_idempotent() -> None:
+    panel = _panel(5)
+    strategy = _Fixed("s", [TargetWeight("SPY", 1.0)])
+    account = AutoDepotAccount.fresh()
+    account, first = advance_depot(account, [strategy], _allocation({"s": 1.0}), panel)
+    assert first is not None
+    account2, second = advance_depot(account, [strategy], _allocation({"s": 1.0}), panel)
+    assert second is None
+    assert account2 == account
+
+
+def test_decide_never_sees_todays_own_close() -> None:
+    panel = _panel(5)
+    recorder = _Recorder()
+    advance_depot(AutoDepotAccount.fresh(), [recorder], _allocation({"recorder": 1.0}), panel)
+    assert recorder.seen_latest == panel.dates[-2]
+
+
+def test_long_and_short_on_the_same_ticker_net_out() -> None:
+    long_sleeve = _Fixed("long", [TargetWeight("AAPL", 1.0)])
+    short_sleeve = _Fixed("short", [TargetWeight("AAPL", 1.0, side="short")])
+    allocation = _allocation({"long": 0.5, "short": 0.5})
+    decisions = {s.name: s.decide(None, None) for s in (long_sleeve, short_sleeve)}
+    assert aggregate_targets(allocation, decisions) == {}
+
+
+def test_look_through_scales_by_sleeve_weight() -> None:
+    a = _Fixed("a", [TargetWeight("SPY", 1.0)])
+    b = _Fixed("b", [TargetWeight("SPY", 0.5), TargetWeight("IEF", 0.5)])
+    allocation = _allocation({"a": 0.6, "b": 0.4})
+    decisions = {s.name: s.decide(None, None) for s in (a, b)}
+    targets = aggregate_targets(allocation, decisions)
+    assert targets["SPY"] == pytest.approx(0.6 + 0.4 * 0.5)
+    assert targets["IEF"] == pytest.approx(0.4 * 0.5)
+
+
+def test_first_rebalance_charges_turnover_cost_and_books_trades() -> None:
+    panel = _panel(5, {"SPY": [100, 101, 102, 103, 104], "IEF": [50, 50, 50, 50, 50]})
+    strategy = _Fixed("s", [TargetWeight("SPY", 0.6), TargetWeight("IEF", 0.4)])
+    account, valuation = advance_depot(
+        AutoDepotAccount.fresh(initial_capital=100_000.0),
+        [strategy], _allocation({"s": 1.0}), panel, protections=[],
+    )
+    assert valuation is not None
+    # turnover 1.0 at 10 bps on 100k = 100 USD
+    assert valuation.equity == pytest.approx(100_000.0 - 100.0)
+    tickers = {t.ticker: t for t in valuation.trades}
+    assert tickers["SPY"].delta_weight == pytest.approx(0.6)
+    assert tickers["SPY"].notional == pytest.approx(60_000.0)
+    assert tickers["SPY"].cost + tickers["IEF"].cost == pytest.approx(100.0)
+    assert valuation.gross_exposure == pytest.approx(1.0)
+    assert account.weights == {"SPY": pytest.approx(0.6), "IEF": pytest.approx(0.4)}
+
+
+def test_protection_chain_shapes_the_final_book() -> None:
+    panel = _panel(5)
+    strategy = _Fixed("s", [TargetWeight("SPY", 1.0)])
+    account, valuation = advance_depot(
+        AutoDepotAccount.fresh(), [strategy], _allocation({"s": 1.0}), panel,
+        protections=[ConcentrationCap(cap=0.10)],
+    )
+    assert valuation is not None
+    assert account.weights == {"SPY": pytest.approx(0.10)}
+    assert [e.protection for e in valuation.risk_events] == ["concentration_cap"]
+
+
+def test_drawdown_breaker_state_persists_into_the_account() -> None:
+    falling = _panel(6, {"SPY": [100, 100, 100, 100, 100, 80]})
+    strategy = _Fixed("s", [TargetWeight("SPY", 1.0)])
+    account = AutoDepotAccount.fresh()
+    first_panel = PricePanel(falling.closes.iloc[:5])
+    account, _ = advance_depot(account, [strategy], _allocation({"s": 1.0}), first_panel,
+                               protections=[])
+    account, valuation = advance_depot(
+        account, [strategy], _allocation({"s": 1.0}), falling,
+        protections=[DrawdownBreaker(soft=0.10, hard=0.30)],
+    )
+    assert valuation is not None
+    assert valuation.drawdown == pytest.approx(0.2, abs=0.01)
+    assert account.breaker.stage == 1
+    assert account.weights["SPY"] == pytest.approx(0.5)
+
+
+def test_short_book_wipe_floors_at_zero_and_stops_trading() -> None:
+    prices = {"SPY": [100] * 6, "TSLA": [100, 100, 100, 100, 100, 250]}
+    strategy = _Fixed("s", [TargetWeight("TSLA", 1.0, side="short")])
+    account = AutoDepotAccount.fresh()
+    first_panel = _panel(5, {t: p[:5] for t, p in prices.items()})
+    account, _ = advance_depot(account, [strategy], _allocation({"s": 1.0}), first_panel,
+                               protections=[])
+    account, valuation = advance_depot(
+        account, [strategy], _allocation({"s": 1.0}), _panel(6, prices), protections=[],
+    )
+    assert valuation is not None
+    assert account.equity == 0.0
+    assert account.weights == {}
+    assert valuation.total_return == -1.0
+    _, after = advance_depot(account, [strategy], _allocation({"s": 1.0}), _panel(6, prices))
+    assert after is None  # dead depot never trades again
+
+
+def test_fx_rate_produces_eur_equity_and_absence_stays_none() -> None:
+    panel = _panel(5)
+    strategy = _Fixed("s", [TargetWeight("SPY", 1.0)])
+    _, with_fx = advance_depot(
+        AutoDepotAccount.fresh(), [strategy], _allocation({"s": 1.0}), panel, fx_rate=0.9,
+    )
+    assert with_fx is not None
+    assert with_fx.equity_eur == pytest.approx(with_fx.equity * 0.9)
+    _, without_fx = advance_depot(
+        AutoDepotAccount.fresh(), [strategy], _allocation({"s": 1.0}), panel,
+    )
+    assert without_fx is not None
+    assert without_fx.equity_eur is None and without_fx.fx_rate is None
