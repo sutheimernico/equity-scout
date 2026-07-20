@@ -180,3 +180,4 @@
 - 2026-07-21 v12 W1: heartbeats (daily/nightly/crypto/watchdog) + run_watchdog alarm w/ 24h cooldown, crontab updated live, 6 tests
 - 2026-07-21 v12 W2: push_events (silent, env-gated COPILOT_TG_AUTOTRADER_EVENTS) after nightly advance, 2 tests
 - 2026-07-21 v12 I1: /api/overview (books, short/mid/long horizons via sleeve weights, total), 2 tests
+- 2026-07-21 v12 I2: lane_promotion_status (30 trades/60 days/net>0/PF>=1.1, named missing criteria), 5 tests
