@@ -199,7 +199,10 @@ The alert text marks the escalation.
 scores first): radar → evidence → notify → score → resolve ×2 → lanes → digest — every
 step degrades independently into `copilot.log`. `scripts/receiver_keepalive.sh` keeps the
 Telegram receiver alive under `flock`. Install both cron lines once with
-`./scripts/install_crontab.sh`; details + WSL caveat in `docs/scheduling.md`.
+`./scripts/install_crontab.sh`. Since v9 all daily triggers (cron, a persistent systemd
+user timer, an optional Windows Task Scheduler task) funnel through
+`scripts/run_daily_guarded.sh` — guaranteed delivery + catch-up semantics in
+`docs/scheduling.md`.
 
 **Dashboard.** The React dashboard leads with the four copilot surfaces — **Arena** (Du vs.
 Autopilot vs. Markt, the default view), **Radar** (watchlist entry zones), **Inbox** (one-tap
