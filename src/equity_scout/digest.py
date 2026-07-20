@@ -159,7 +159,10 @@ def build_digest(
         and (decided_since is None or (p["decided_at"] or "") >= decided_since)
     ]
     if not open_pitches:
-        lines.append(_line("Aktuell keine offenen Pitches."))
+        lines.append(_line(
+            "Aktuell keine offenen Pitches — nichts zu tun ist gerade die richtige"
+            " Aktion. Der Sparplan-Kern läuft unabhängig weiter."
+        ))
     else:
         # count style ("Offene Pitches: 1") dodges singular/plural agreement; the count
         # is per TICKER (post-dedupe), matching what's actually rendered below.

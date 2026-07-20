@@ -9,6 +9,7 @@ from equity_scout.evidence.storage import load_alerts, record_events
 from equity_scout.fundamentals import Fundamentals
 from equity_scout.inbox_storage import create_pitch, load_pitches
 from equity_scout.notify import (
+    EMPTY_DAY_NOTE,
     notify_watchlist,
     select_candidates,
     send_empty_day_note,
@@ -608,10 +609,7 @@ def test_main_sends_honest_empty_note_when_no_candidates(tmp_path, monkeypatch, 
     out = capsys.readouterr().out
     assert "Pitches created: 0." in out
     assert "Unter der Qualitätsschwelle: 1." in out
-    assert sent == [
-        "📭 Heute keine Kandidaten über der Qualitätsschwelle — "
-        "kein Pitch ist ehrlicher als ein schwacher Pitch."
-    ]
+    assert sent == [EMPTY_DAY_NOTE]
 
 
 def test_select_candidates_min_count_zero_is_unchanged():
@@ -741,3 +739,9 @@ def test_main_computes_target_stop_once_per_ticker_and_reaches_both_builders(
     # both fed the SAME target_stop computed from the single fetch.
     assert seen_in_build == [expected, expected]
     assert seen_in_caption == [expected]
+
+
+def test_empty_day_note_carries_follow_up_action():
+    from equity_scout.notify import EMPTY_DAY_NOTE
+
+    assert "Nichts tun" in EMPTY_DAY_NOTE and "Sparplan" in EMPTY_DAY_NOTE

@@ -236,3 +236,8 @@ def test_core_block_renders_verbatim_after_head():
 
 def test_no_core_block_leaves_digest_unchanged():
     assert "💶" not in build_digest([], date_label="2026-07-19")
+
+
+def test_no_open_pitches_line_explains_inaction():
+    text = build_digest([], date_label="2026-07-19")
+    assert "richtige Aktion" in text

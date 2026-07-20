@@ -34,7 +34,9 @@ DEFAULT_COOLDOWN_DAYS = 7
 DEFAULT_ALERT_COOLDOWN_DAYS = 14
 EMPTY_DAY_NOTE = (
     "📭 Heute keine Kandidaten über der Qualitätsschwelle — "
-    "kein Pitch ist ehrlicher als ein schwacher Pitch."
+    "kein Pitch ist ehrlicher als ein schwacher Pitch.\n"
+    "Das ist ok: Nichts tun ist heute die richtige Aktion. "
+    "Dein Sparplan-Kern läuft davon unabhängig weiter (siehe Digest)."
 )
 
 

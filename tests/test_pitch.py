@@ -204,3 +204,8 @@ def test_build_pitch_target_stop_distinct_from_third_party_analyst_target():
     assert "Analystensicht: Ø-Kursziel 120.00 USD" in pitch
     assert "🎯 Kursziel 105.50 USD" in pitch
     assert pitch.index("Analystensicht:") < pitch.index("🎯 Kursziel")
+
+
+def test_tranche_block_carries_position_size_rule():
+    pitch = build_pitch(ENTRY, ask=_fixed())
+    assert "höchstens 5 %" in pitch

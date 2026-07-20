@@ -133,6 +133,9 @@ def _tranche_block(entry: dict, cur: str) -> str | None:
         else:
             lines.append(f"• {tranche['label']}: bei ~{price:.2f}{cur}")
     lines.append("Nicht alles auf einmal — in Schritten kaufen glättet den Einstiegspreis.")
+    lines.append(
+        "Faustregel: höchstens 5 % deines Anlagevermögens in eine einzelne Aktie."
+    )
     return "\n".join(lines)
 
 
