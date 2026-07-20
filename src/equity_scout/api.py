@@ -34,6 +34,14 @@ from equity_scout.autotrader_storage import load_trades as load_autotrader_trade
 from equity_scout.autotrader_storage import load_valuations as load_autotrader_valuations
 from equity_scout.forward_storage import load_all_accounts
 from equity_scout.forward_storage import load_valuations as load_forward_valuations
+from equity_scout.shortterm_book import stats as shortterm_stats
+from equity_scout.shortterm_storage import (
+    DEFAULT_SHORTTERM_DB_PATH,
+    LANES,
+)
+from equity_scout.shortterm_storage import load_book as load_st_book
+from equity_scout.shortterm_storage import load_trades as load_st_trades
+from equity_scout.shortterm_storage import load_valuations as load_st_valuations
 from equity_scout.inbox_storage import decide_pitch, get_pitch, load_pitches
 from equity_scout.lane_storage import (
     load_lane_portfolio,
@@ -116,6 +124,7 @@ def create_app(
     ledger: str = DEFAULT_LEDGER_PATH,
     forward_db: str = DEFAULT_FORWARD_DB_PATH,
     autotrader_db: str = DEFAULT_AUTOTRADER_DB_PATH,
+    shortterm_db: str = DEFAULT_SHORTTERM_DB_PATH,
 ) -> FastAPI:
     # The read API may face a DB written before a schema migration (e.g. the
     # data_quality column); init_db is idempotent and carries the migrations.
@@ -405,6 +414,45 @@ def create_app(
             "sleeve_weights": load_latest_sleeve_weights(autotrader_db),
             "trades": load_autotrader_trades(autotrader_db, limit=50),
             "risk_events": load_autotrader_risk_events(autotrader_db, limit=20),
+            "disclaimer": DISCLAIMER,
+        })
+
+    @app.get("/api/shortterm")
+    def shortterm() -> JSONResponse:
+        # No cache: reflects the arena lanes as their runners write to the DB (v11).
+        lanes_payload = []
+        for lane in LANES:
+            book = load_st_book(shortterm_db, lane)
+            if book is None:
+                continue
+            vals = load_st_valuations(shortterm_db, lane)
+            trades = load_st_trades(shortterm_db, lane, limit=500)
+            peak, max_dd = 0.0, 0.0
+            for v in vals:
+                peak = max(peak, v["equity"])
+                if peak > 0:
+                    max_dd = max(max_dd, 1.0 - v["equity"] / peak)
+            latest = vals[-1] if vals else None
+            lanes_payload.append({
+                "lane": lane,
+                "initial_capital": book.initial_capital,
+                "equity": latest["equity"] if latest else book.cash,
+                "total_return": latest["total_return"] if latest else 0.0,
+                "benchmark_ticker": book.benchmark_ticker,
+                "benchmark_return": latest["benchmark_return"] if latest else None,
+                "max_drawdown": max_dd,
+                "open_positions": [
+                    {"ticker": t, "qty": p.qty, "entry_price": p.entry_price,
+                     "opened_at": p.opened_at}
+                    for t, p in sorted(book.positions.items())
+                ],
+                "equity_curve": [[v["created_at"], v["equity"]] for v in vals],
+                "stats": shortterm_stats(trades),
+                "recent_trades": trades[:20],
+            })
+        return JSONResponse({
+            "available": len(lanes_payload) > 0,
+            "lanes": lanes_payload,
             "disclaimer": DISCLAIMER,
         })
 
