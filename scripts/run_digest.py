@@ -60,6 +60,7 @@ DIGEST_SENT_KEY = "digest_sent_on"
 PENDING_TEXT_KEY = "digest_pending_text"
 PENDING_DATE_KEY = "digest_pending_date"
 PENDING_CORE_MONTH_KEY = "digest_pending_core_month"
+DASH_URL_WEEK_KEY = "dash_url_hint_week"
 CORE_PLAN_MONTH_KEY = "core_plan_month"
 
 
@@ -369,12 +370,21 @@ def main() -> int:
             html=html,
         )
 
+    # v12 M4: once a week, remind the phone where the cockpit lives (env-gated).
+    dash_url = os.environ.get("DASH_URL", "")
+    week = now.strftime("%G-W%V")
+    show_dash_hint = bool(dash_url) and get_state(args.db, key=DASH_URL_WEEK_KEY) != week
+
     def mark_sent() -> None:
         set_state(args.db, key=DIGEST_SENT_KEY, value=date_label)
         if core_plan is not None:
             set_state(args.db, key=CORE_PLAN_MONTH_KEY, value=month_key)
+        if show_dash_hint:
+            set_state(args.db, key=DASH_URL_WEEK_KEY, value=week)
 
     text = render(html=False)
+    if show_dash_hint:
+        text += f"\n📱 Dashboard (Heimnetz): {dash_url}"
     # Marker set right after each successful send (not collected into a `delivered` flag
     # for later): if SMTP goes out and then render(html=True) or the Telegram call raises
     # something other than TelegramError, a marker set only at the end would be lost and
@@ -384,6 +394,10 @@ def main() -> int:
         mark_sent()
     if tg_config is not None:
         html_text = render(html=True)
+        if show_dash_hint:
+            import html as _html
+
+            html_text += f"\n📱 Dashboard (Heimnetz): {_html.escape(dash_url)}"
         try:
             send_long_message(
                 tg_config["token"], tg_config.get("daily_chat_id", tg_config["chat_id"]),

@@ -373,6 +373,10 @@ Harte Grenzen unverändert: paper-only, kein Order-Routing, local & free, DISCLA
 - [ ] P4 Docs-Abschluss (README "Kann das funktionieren?", Outcome-Sektion)
 
 ## Needs Nico (loop cannot do these itself)
+- **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
+  `./scripts/install_dash_service.sh` erneut ausführen (Unit ist gestaged, aktiviert sich nur mit
+  Token), optional `DASH_URL` für den wöchentlichen Digest-Hinweis. Von unterwegs: Tailscale
+  (free tier, dein Account) — bewusst nicht automatisiert.
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
 - Any data source that would require a paid key (do NOT sign up — log here instead).
 - `EDGAR_USER_AGENT="name (email)"` in `.env` so the 13F collector can run (stays politely

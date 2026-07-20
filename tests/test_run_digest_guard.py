@@ -127,3 +127,23 @@ def test_digest_run_records_daily_heartbeat(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["run_digest.py", "--db", db])
     assert main() == 0  # unconfigured stdout run still proves the chain is alive
     assert get_state(db, key="heartbeat_daily") is not None
+
+
+def test_dash_url_footer_appears_once_per_week(tmp_path, monkeypatch):
+    db = str(tmp_path / "inbox.db")
+    _tg_env(monkeypatch)
+    monkeypatch.setenv("DASH_URL", "http://192.168.1.20:8420/?token=x")
+    sent: list[str] = []
+    monkeypatch.setattr(
+        run_digest, "send_long_message",
+        lambda token, chat_id, text, parse_mode=None: sent.append(text) or 1,
+    )
+    monkeypatch.setattr(sys, "argv", ["run_digest.py", "--db", db])
+
+    assert main() == 0
+    assert "📱 Dashboard (Heimnetz)" in sent[0]
+    assert get_state(db, key="dash_url_hint_week") is not None
+
+    monkeypatch.setattr(sys, "argv", ["run_digest.py", "--db", db, "--force"])
+    assert main() == 0  # same week, forced re-send -> no repeated hint
+    assert "📱 Dashboard" not in sent[1]

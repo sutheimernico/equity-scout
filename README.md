@@ -251,6 +251,29 @@ fills charge slippage, per-trade realized P&L / win rate / fees are first-class
 block "⚡ Kurzfrist-Arena". Run a lane manually:
 `uv run python scripts/run_shortterm.py --lane crypto`.
 
+## Handy-Cockpit (LAN + PWA)
+
+The dashboard can run as an always-on, token-gated server on the home LAN and installs
+like an app on the phone (v12 M1–M4):
+
+1. **Token setzen** (einmalig): `echo "DASH_TOKEN=$(openssl rand -hex 16)" >> .env`
+   — ohne Token weigert sich der Server, auf etwas anderem als localhost zu lauschen
+   (fail-closed; das Dashboard hat einen Write-Endpoint und bleibt privat).
+2. **Service aktivieren**: `./scripts/install_dash_service.sh` (systemd user unit
+   `equity-scout-dash.service`, Port **8420**, Restart on-failure).
+3. **Am Handy öffnen** (gleiches WLAN): `http://<laptop-lan-ip>:8420/?token=<DASH_TOKEN>`
+   — der Token wandert einmalig in ein Cookie, danach reicht die nackte URL.
+4. **Als App installieren**: Browser-Menü → "Zum Startbildschirm hinzufügen" — das
+   PWA-Manifest liefert Icon + Standalone-Fenster (kein Service Worker: das Cockpit
+   ist bewusst online-only, die Daten liegen auf dem Server).
+5. Optional `DASH_URL=http://<lan-ip>:8420/?token=…` in `.env`: der 18:00-Digest
+   erinnert dann einmal pro Woche an die Adresse.
+
+**Token-Rotation**: neuen Wert in `.env` setzen, `systemctl --user restart
+equity-scout-dash` — alte Cookies sind sofort ungültig. **Von unterwegs**: Tailscale
+(free tier) wäre der saubere Weg, braucht aber Nicos Account — bewusst nicht
+automatisiert.
+
 ## Automation (cron)
 
 `scripts/daily_copilot.sh` runs the whole chain unattended (Mondays: screener + person
