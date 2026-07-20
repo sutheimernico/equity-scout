@@ -361,7 +361,7 @@ Harte Grenzen unverändert: paper-only, kein Order-Routing, local & free, DISCLA
 - [x] W2 Auto-Depot-Event-Push (Trades/Risk-Events gebündelt, silent, env-gated)
 - [x] I1 /api/overview: Gesamtvermögen + Horizont-Subtotale (short/mid/long)
 - [x] I2 promotion.py: Beweis-Gate (≥30 Trades, ≥60 Tage, Netto-P&L>0, PF≥1.1)
-- [ ] I3 Promotion-Wiring: eligible Lane wird Auto-Depot-Sleeve, Demotion bei Verfall
+- [x] I3 Promotion-Wiring: eligible Lane wird Auto-Depot-Sleeve, Demotion bei Verfall
 - [ ] I4 Integrations-Surfaces (Digest-Prüfstand-Zeile, FE Gesamt-Tab + Promotion-Checkliste)
 - [ ] M1 --host-Flag + Token-Auth-Middleware (DASH_TOKEN, localhost exempt, Fail-closed)
 - [ ] M2 PWA-Shell (manifest + icons + theme-color, kein Service Worker in v1)
