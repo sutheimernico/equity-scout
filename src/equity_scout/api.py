@@ -2,6 +2,7 @@
 plus the decision inbox (GET listing, POST one-tap buy/pass/later decisions)."""
 from __future__ import annotations
 
+import hmac
 import os
 import re
 from dataclasses import asdict
@@ -128,11 +129,43 @@ def create_app(
     forward_db: str = DEFAULT_FORWARD_DB_PATH,
     autotrader_db: str = DEFAULT_AUTOTRADER_DB_PATH,
     shortterm_db: str = DEFAULT_SHORTTERM_DB_PATH,
+    dash_token: str | None = None,
 ) -> FastAPI:
     # The read API may face a DB written before a schema migration (e.g. the
     # data_quality column); init_db is idempotent and carries the migrations.
     init_db(db_path)
     app = FastAPI(title="equity-scout")
+
+    # v12 M1: shared-secret gate for the phone cockpit. With DASH_TOKEN set, every
+    # non-loopback request (static app included — the whole dashboard is private) must
+    # carry the token: `?token=` once (persisted as a cookie), the X-Dash-Token header,
+    # or the cookie. Threat model is the home LAN, not the internet — one secret, no
+    # user system. Without a token the app is loopback-only (run_api.py refuses to
+    # bind wider), so nothing is ever newly exposed without auth.
+    token = os.environ.get("DASH_TOKEN", "") if dash_token is None else dash_token
+
+    @app.middleware("http")
+    async def _token_gate(request, call_next):  # noqa: ANN001, ANN202
+        if not token:
+            return await call_next(request)
+        client_host = request.client.host if request.client else ""
+        if client_host in ("127.0.0.1", "::1"):
+            return await call_next(request)
+        supplied = (
+            request.query_params.get("token")
+            or request.headers.get("x-dash-token")
+            or request.cookies.get("es_dash")
+            or ""
+        )
+        if not hmac.compare_digest(supplied, token):
+            return JSONResponse({"error": "Nicht autorisiert."}, status_code=401)
+        response = await call_next(request)
+        if request.query_params.get("token"):
+            response.set_cookie(
+                "es_dash", token, httponly=True, samesite="lax",
+                max_age=180 * 24 * 3600,
+            )
+        return response
     reports_cache: dict[str, object] = {}  # built once per process (backtests are deterministic)
 
     def get_reports() -> list | None:
