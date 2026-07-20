@@ -363,7 +363,7 @@ Harte Grenzen unverändert: paper-only, kein Order-Routing, local & free, DISCLA
 - [x] I2 promotion.py: Beweis-Gate (≥30 Trades, ≥60 Tage, Netto-P&L>0, PF≥1.1)
 - [x] I3 Promotion-Wiring: eligible Lane wird Auto-Depot-Sleeve, Demotion bei Verfall
 - [x] I4 Integrations-Surfaces (Digest-Prüfstand-Zeile, FE Gesamt-Tab + Promotion-Checkliste)
-- [ ] M1 --host-Flag + Token-Auth-Middleware (DASH_TOKEN, localhost exempt, Fail-closed)
+- [x] M1 --host-Flag + Token-Auth-Middleware (DASH_TOKEN, localhost exempt, Fail-closed)
 - [ ] M2 PWA-Shell (manifest + icons + theme-color, kein Service Worker in v1)
 - [ ] M3 Dashboard-Server als systemd user service (Port 8420, Restart=always)
 - [ ] M4 Handy-Onboarding (Digest-Footer mit DASH_URL wöchentlich, README, Tailscale=Needs Nico)

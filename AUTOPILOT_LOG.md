@@ -183,3 +183,4 @@
 - 2026-07-21 v12 I2: lane_promotion_status (30 trades/60 days/net>0/PF>=1.1, named missing criteria), 5 tests
 - 2026-07-21 v12 I3: resolve_promotions + LaneSleeve (ARENA_<lane> fund-share column), demotion on trailing-60d net<=0, events persisted, 4 tests
 - 2026-07-21 v12 I4: digest pruefstand lines, /api/shortterm promotion payload, FE Gesamt tab + checklist, FE gate green
+- 2026-07-21 v12 M1: DASH_TOKEN middleware (query->cookie/header, loopback exempt), run_api --host fail-closed, 5 tests
