@@ -137,7 +137,7 @@ def test_collector_skips_fresh_and_counts_failures(tmp_path):
         today=TODAY, http_get=fake_http_get,
         cik_map={"GOOD": "0000000001", "BROKEN": "0000000002"},
     )
-    assert summary == {"computed": 1, "fresh": 1, "no_cik": 1, "failed": 1}
+    assert summary == {"computed": 1, "fresh": 1, "no_cik": 1, "failed": 1, "insufficient": 0}
     assert len(calls) == 2  # FRESH untouched, FOREIGN unfetchable
     loaded = load_f_score(db, "GOOD")
     assert loaded is not None and loaded["score"] == 9
@@ -166,3 +166,20 @@ def test_pitch_omits_fscore_when_absent():
     pitch = build_pitch(_pitch_entry(), ask=lambda q, c: "ok", f_score=None)
     assert "Piotroski" not in pitch
     assert "📒" not in build_pitch_caption(_pitch_entry())
+
+
+def test_collector_counts_thin_data_separately_from_failures(tmp_path):
+    """v9: a bank/REIT whose facts cannot fill 5 criteria is not a fetch failure —
+    conflating the two made the summary line lie about EDGAR health."""
+    db = str(tmp_path / "main.db")
+
+    def fake_http_get(url: str) -> str:
+        return json.dumps({"facts": {"us-gaap": {}}})
+
+    summary = collect_f_scores(
+        db, ["THIN"], today=TODAY, http_get=fake_http_get,
+        cik_map={"THIN": "0000000003"},
+    )
+    assert summary["insufficient"] == 1
+    assert summary["failed"] == 0
+    assert summary["computed"] == 0

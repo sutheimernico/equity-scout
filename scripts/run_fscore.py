@@ -59,7 +59,9 @@ def main() -> int:
     )
     print(
         f"F-Scores: {summary['computed']} berechnet, {summary['fresh']} frisch übersprungen,"
-        f" {summary['no_cik']} ohne CIK (nicht-US), {summary['failed']} fehlgeschlagen."
+        f" {summary['no_cik']} ohne CIK (nicht-US),"
+        f" {summary['insufficient']} Datenbasis zu dünn (Banken/REITs),"
+        f" {summary['failed']} fehlgeschlagen."
     )
     return 0
 

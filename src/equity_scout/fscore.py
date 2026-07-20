@@ -213,8 +213,11 @@ def collect_f_scores(
 ) -> dict:
     """Refresh stale/missing scores for `tickers`. Per ticker: fresh cache -> skip;
     no CIK (non-US listing) -> skip, honest absence; fetch/parse failure -> skip and
-    count (one bad name never kills the batch). Returns a summary dict."""
-    computed = skipped_fresh = no_cik = failed = 0
+    count (one bad name never kills the batch); facts too thin for MIN_EVALUABLE
+    criteria (banks/REITs use different taxonomy tags) -> counted as `insufficient`,
+    not as a failure — the summary must not read data shape as EDGAR breakage.
+    Returns a summary dict."""
+    computed = skipped_fresh = no_cik = failed = insufficient = 0
     for ticker in tickers:
         cached = load_f_score(db_path, ticker)
         if cached is not None and is_fresh(cached["computed_on"], today, FRESH_DAYS):
@@ -231,8 +234,9 @@ def collect_f_scores(
             failed += 1
             continue
         if result is None:
-            failed += 1
+            insufficient += 1
             continue
         save_f_score(db_path, ticker, result, today)
         computed += 1
-    return {"computed": computed, "fresh": skipped_fresh, "no_cik": no_cik, "failed": failed}
+    return {"computed": computed, "fresh": skipped_fresh, "no_cik": no_cik,
+            "failed": failed, "insufficient": insufficient}
