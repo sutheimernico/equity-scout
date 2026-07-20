@@ -7,7 +7,7 @@ double-counts a re-run; `record_advance` persists one advance atomically."""
 from __future__ import annotations
 
 import json
-import sqlite3
+from equity_scout import db
 from pathlib import Path
 
 from equity_scout.autotrader_allocator import SleeveAllocation
@@ -18,7 +18,7 @@ DEFAULT_AUTOTRADER_DB_PATH = "autotrader.db"
 
 
 def init_autotrader_db(db_path: str | Path) -> None:
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         con.executescript(
             """
             CREATE TABLE IF NOT EXISTS autotrader_account (
@@ -104,7 +104,7 @@ def _from_json(blob: str) -> AutoDepotAccount:
 
 def save_depot(db_path: str | Path, account: AutoDepotAccount, *, updated_at: str) -> None:
     init_autotrader_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         con.execute(
             "INSERT INTO autotrader_account (id, data, updated_at) VALUES (1, ?, ?) "
             "ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
@@ -114,7 +114,7 @@ def save_depot(db_path: str | Path, account: AutoDepotAccount, *, updated_at: st
 
 def load_depot(db_path: str | Path) -> AutoDepotAccount | None:
     init_autotrader_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         row = con.execute("SELECT data FROM autotrader_account WHERE id = 1").fetchone()
     return _from_json(row[0]) if row else None
 
@@ -123,7 +123,7 @@ def record_advance(db_path: str | Path, valuation: AutoDepotValuation) -> None:
     """Persist one advance: valuation row + its trades + its risk events. Every insert is
     INSERT OR IGNORE on the natural key, so re-running the same panel date is a no-op."""
     init_autotrader_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         con.execute(
             "INSERT OR IGNORE INTO autotrader_valuations "
             "(created_at, equity, total_return, benchmark_equity, benchmark_return,"
@@ -155,7 +155,7 @@ def record_advance(db_path: str | Path, valuation: AutoDepotValuation) -> None:
 
 def load_valuations(db_path: str | Path) -> list[dict]:
     init_autotrader_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         rows = con.execute(
             "SELECT created_at, equity, total_return, benchmark_equity, benchmark_return,"
             " gross_exposure, drawdown, equity_eur, fx_rate"
@@ -170,7 +170,7 @@ def load_valuations(db_path: str | Path) -> list[dict]:
 
 def load_trades(db_path: str | Path, *, limit: int = 50) -> list[dict]:
     init_autotrader_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         rows = con.execute(
             "SELECT created_at, ticker, delta_weight, notional, cost FROM autotrader_trades"
             " ORDER BY created_at DESC, ticker ASC LIMIT ?",
@@ -182,7 +182,7 @@ def load_trades(db_path: str | Path, *, limit: int = 50) -> list[dict]:
 
 def load_risk_events(db_path: str | Path, *, limit: int = 20) -> list[dict]:
     init_autotrader_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         rows = con.execute(
             "SELECT created_at, protection, action, detail FROM autotrader_risk_events"
             " ORDER BY created_at DESC, id DESC LIMIT ?",
@@ -195,7 +195,7 @@ def load_risk_events(db_path: str | Path, *, limit: int = 20) -> list[dict]:
 def save_sleeve_weights(db_path: str | Path, month: str, allocation: SleeveAllocation) -> None:
     """Upsert the month's sleeve allocation (weight + Sharpe estimate + mode per sleeve)."""
     init_autotrader_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         con.executemany(
             "INSERT INTO autotrader_sleeve_weights (month, strategy_name, weight, sharpe, mode)"
             " VALUES (?, ?, ?, ?, ?) ON CONFLICT(month, strategy_name) DO UPDATE SET"
@@ -209,7 +209,7 @@ def save_sleeve_weights(db_path: str | Path, month: str, allocation: SleeveAlloc
 
 def load_latest_sleeve_weights(db_path: str | Path) -> list[dict]:
     init_autotrader_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         row = con.execute("SELECT MAX(month) FROM autotrader_sleeve_weights").fetchone()
         if not row or row[0] is None:
             return []

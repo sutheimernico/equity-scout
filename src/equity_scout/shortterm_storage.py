@@ -6,7 +6,7 @@ double-count, and a tiny per-lane KV for engine markers (last processed bar etc.
 from __future__ import annotations
 
 import json
-import sqlite3
+from equity_scout import db
 from pathlib import Path
 
 from equity_scout.shortterm_book import LaneBook, LanePosition, LaneValuation, TradeFill
@@ -17,7 +17,7 @@ LANES = ("swing", "session", "crypto")
 
 
 def init_shortterm_db(db_path: str | Path) -> None:
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         con.executescript(
             """
             CREATE TABLE IF NOT EXISTS st_books (
@@ -90,7 +90,7 @@ def _from_json(blob: str) -> LaneBook:
 
 def save_book(db_path: str | Path, book: LaneBook, *, updated_at: str) -> None:
     init_shortterm_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         con.execute(
             "INSERT INTO st_books (lane, data, updated_at) VALUES (?, ?, ?) "
             "ON CONFLICT(lane) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
@@ -100,14 +100,14 @@ def save_book(db_path: str | Path, book: LaneBook, *, updated_at: str) -> None:
 
 def load_book(db_path: str | Path, lane: str) -> LaneBook | None:
     init_shortterm_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         row = con.execute("SELECT data FROM st_books WHERE lane = ?", (lane,)).fetchone()
     return _from_json(row[0]) if row else None
 
 
 def append_valuation(db_path: str | Path, snap: LaneValuation) -> None:
     init_shortterm_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         con.execute(
             "INSERT OR IGNORE INTO st_valuations "
             "(lane, created_at, equity, total_return, cash, open_positions, benchmark_return)"
@@ -119,7 +119,7 @@ def append_valuation(db_path: str | Path, snap: LaneValuation) -> None:
 
 def load_valuations(db_path: str | Path, lane: str) -> list[dict]:
     init_shortterm_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         rows = con.execute(
             "SELECT created_at, equity, total_return, cash, open_positions, benchmark_return"
             " FROM st_valuations WHERE lane = ? ORDER BY created_at ASC",
@@ -131,7 +131,7 @@ def load_valuations(db_path: str | Path, lane: str) -> list[dict]:
 
 def append_trades(db_path: str | Path, fills: list[TradeFill]) -> None:
     init_shortterm_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         con.executemany(
             "INSERT OR IGNORE INTO st_trades "
             "(lane, executed_at, ticker, side, qty, price, fees, reason, realized_pnl)"
@@ -146,7 +146,7 @@ def append_trades(db_path: str | Path, fills: list[TradeFill]) -> None:
 
 def load_trades(db_path: str | Path, lane: str, *, limit: int = 200) -> list[dict]:
     init_shortterm_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         rows = con.execute(
             "SELECT executed_at, ticker, side, qty, price, fees, reason, realized_pnl"
             " FROM st_trades WHERE lane = ? ORDER BY executed_at DESC, id DESC LIMIT ?",
@@ -158,7 +158,7 @@ def load_trades(db_path: str | Path, lane: str, *, limit: int = 200) -> list[dic
 
 def get_lane_state(db_path: str | Path, lane: str, key: str) -> str | None:
     init_shortterm_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         row = con.execute(
             "SELECT value FROM st_state WHERE lane = ? AND key = ?", (lane, key)
         ).fetchone()
@@ -167,7 +167,7 @@ def get_lane_state(db_path: str | Path, lane: str, key: str) -> str | None:
 
 def set_lane_state(db_path: str | Path, lane: str, key: str, value: str) -> None:
     init_shortterm_db(db_path)
-    with sqlite3.connect(db_path) as con:
+    with db.connect(db_path) as con:
         con.execute(
             "INSERT INTO st_state (lane, key, value) VALUES (?, ?, ?)"
             " ON CONFLICT(lane, key) DO UPDATE SET value = excluded.value",
