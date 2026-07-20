@@ -24,6 +24,14 @@ from equity_scout.evidence.event_reactions import aggregate_reactions
 from equity_scout.evidence.ledger import stats_by_source
 from equity_scout.evidence.person_storage import load_person_scores
 from equity_scout.evidence.storage import events_in_window, load_alerts
+from equity_scout.autotrader_storage import (
+    DEFAULT_AUTOTRADER_DB_PATH,
+    load_latest_sleeve_weights,
+)
+from equity_scout.autotrader_storage import load_depot as load_autotrader_depot
+from equity_scout.autotrader_storage import load_risk_events as load_autotrader_risk_events
+from equity_scout.autotrader_storage import load_trades as load_autotrader_trades
+from equity_scout.autotrader_storage import load_valuations as load_autotrader_valuations
 from equity_scout.forward_storage import load_all_accounts
 from equity_scout.forward_storage import load_valuations as load_forward_valuations
 from equity_scout.inbox_storage import decide_pitch, get_pitch, load_pitches
@@ -107,6 +115,7 @@ def create_app(
     snapshot: str = DEFAULT_SNAPSHOT,
     ledger: str = DEFAULT_LEDGER_PATH,
     forward_db: str = DEFAULT_FORWARD_DB_PATH,
+    autotrader_db: str = DEFAULT_AUTOTRADER_DB_PATH,
 ) -> FastAPI:
     # The read API may face a DB written before a schema migration (e.g. the
     # data_quality column); init_db is idempotent and carries the migrations.
@@ -364,6 +373,38 @@ def create_app(
         return JSONResponse({
             "available": len(accounts) > 0,
             "accounts": payload,
+            "disclaimer": DISCLAIMER,
+        })
+
+    @app.get("/api/autodepot")
+    def autodepot() -> JSONResponse:
+        # No cache: reflects the auto-depot as the nightly advance writes to the DB (v10).
+        account = load_autotrader_depot(autotrader_db)
+        if account is None:
+            return JSONResponse({"available": False, "disclaimer": DISCLAIMER})
+        vals = load_autotrader_valuations(autotrader_db)
+        latest = vals[-1] if vals else None
+        return JSONResponse({
+            "available": True,
+            "account": {
+                "initial_capital": account.initial_capital,
+                "equity": account.equity,
+                "total_return": account.equity / account.initial_capital - 1.0,
+                "benchmark_ticker": account.benchmark_ticker,
+                "benchmark_return": account.benchmark_equity / account.initial_capital - 1.0,
+                "last_as_of": account.last_as_of,
+                "weights": account.weights,
+                "breaker_stage": account.breaker.stage,
+                "breaker_changed_at": account.breaker.changed_at,
+                "sleeve_mode": account.sleeve_mode,
+            },
+            "latest": latest,  # exposure/drawdown/EUR of the newest valuation row
+            "equity_curve": [
+                [v["created_at"], v["equity"], v["benchmark_equity"]] for v in vals
+            ],
+            "sleeve_weights": load_latest_sleeve_weights(autotrader_db),
+            "trades": load_autotrader_trades(autotrader_db, limit=50),
+            "risk_events": load_autotrader_risk_events(autotrader_db, limit=20),
             "disclaimer": DISCLAIMER,
         })
 
