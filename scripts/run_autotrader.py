@@ -28,8 +28,7 @@ from equity_scout.autotrader_storage import (
     load_depot,
     load_latest_sleeve_weights,
     load_valuations,
-    record_advance,
-    save_depot,
+    persist_advance,
     save_sleeve_weights,
 )
 from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_FORWARD_DB_PATH, DISCLAIMER
@@ -139,9 +138,9 @@ def advance_autotrader(
         costs_bps=costs_bps,
     )
     if persist:
-        save_depot(autotrader_db, account, updated_at=as_of.date().isoformat())
-        if valuation is not None:
-            record_advance(autotrader_db, valuation)
+        persist_advance(
+            autotrader_db, account, valuation, updated_at=as_of.date().isoformat()
+        )
     return account, valuation
 
 

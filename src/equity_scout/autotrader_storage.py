@@ -102,14 +102,66 @@ def _from_json(blob: str) -> AutoDepotAccount:
     )
 
 
+def _upsert_account(con, account: AutoDepotAccount, updated_at: str) -> None:
+    con.execute(
+        "INSERT INTO autotrader_account (id, data, updated_at) VALUES (1, ?, ?) "
+        "ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
+        (_to_json(account), updated_at),
+    )
+
+
+def _insert_advance_rows(con, valuation: AutoDepotValuation) -> None:
+    con.execute(
+        "INSERT OR IGNORE INTO autotrader_valuations "
+        "(created_at, equity, total_return, benchmark_equity, benchmark_return,"
+        " gross_exposure, drawdown, equity_eur, fx_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            valuation.created_at, valuation.equity, valuation.total_return,
+            valuation.benchmark_equity, valuation.benchmark_return,
+            valuation.gross_exposure, valuation.drawdown,
+            valuation.equity_eur, valuation.fx_rate,
+        ),
+    )
+    con.executemany(
+        "INSERT OR IGNORE INTO autotrader_trades "
+        "(created_at, ticker, delta_weight, notional, cost) VALUES (?, ?, ?, ?, ?)",
+        [
+            (t.created_at, t.ticker, t.delta_weight, t.notional, t.cost)
+            for t in valuation.trades
+        ],
+    )
+    con.executemany(
+        "INSERT OR IGNORE INTO autotrader_risk_events "
+        "(created_at, protection, action, detail) VALUES (?, ?, ?, ?)",
+        [
+            (valuation.created_at, e.protection, e.action, e.detail)
+            for e in valuation.risk_events
+        ],
+    )
+
+
 def save_depot(db_path: str | Path, account: AutoDepotAccount, *, updated_at: str) -> None:
     init_autotrader_db(db_path)
     with db.connect(db_path) as con:
-        con.execute(
-            "INSERT INTO autotrader_account (id, data, updated_at) VALUES (1, ?, ?) "
-            "ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
-            (_to_json(account), updated_at),
-        )
+        _upsert_account(con, account, updated_at)
+
+
+def persist_advance(
+    db_path: str | Path,
+    account: AutoDepotAccount,
+    valuation: AutoDepotValuation | None,
+    *,
+    updated_at: str,
+) -> None:
+    """Persist one advance atomically (v12 R3, review 2026-07-20): the timeseries rows and
+    the account blob — whose `last_as_of` is the idempotence guard — commit in ONE
+    transaction. A crash in between can no longer strand a day (guard set, rows lost,
+    retry blocked). The account write deliberately comes last."""
+    init_autotrader_db(db_path)
+    with db.connect(db_path) as con:
+        if valuation is not None:
+            _insert_advance_rows(con, valuation)
+        _upsert_account(con, account, updated_at)
 
 
 def load_depot(db_path: str | Path) -> AutoDepotAccount | None:
@@ -120,37 +172,12 @@ def load_depot(db_path: str | Path) -> AutoDepotAccount | None:
 
 
 def record_advance(db_path: str | Path, valuation: AutoDepotValuation) -> None:
-    """Persist one advance: valuation row + its trades + its risk events. Every insert is
-    INSERT OR IGNORE on the natural key, so re-running the same panel date is a no-op."""
+    """Persist one advance's timeseries rows. Every insert is INSERT OR IGNORE on the
+    natural key, so re-running the same panel date is a no-op. Runner code should prefer
+    `persist_advance` (rows + account in one transaction)."""
     init_autotrader_db(db_path)
     with db.connect(db_path) as con:
-        con.execute(
-            "INSERT OR IGNORE INTO autotrader_valuations "
-            "(created_at, equity, total_return, benchmark_equity, benchmark_return,"
-            " gross_exposure, drawdown, equity_eur, fx_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                valuation.created_at, valuation.equity, valuation.total_return,
-                valuation.benchmark_equity, valuation.benchmark_return,
-                valuation.gross_exposure, valuation.drawdown,
-                valuation.equity_eur, valuation.fx_rate,
-            ),
-        )
-        con.executemany(
-            "INSERT OR IGNORE INTO autotrader_trades "
-            "(created_at, ticker, delta_weight, notional, cost) VALUES (?, ?, ?, ?, ?)",
-            [
-                (t.created_at, t.ticker, t.delta_weight, t.notional, t.cost)
-                for t in valuation.trades
-            ],
-        )
-        con.executemany(
-            "INSERT OR IGNORE INTO autotrader_risk_events "
-            "(created_at, protection, action, detail) VALUES (?, ?, ?, ?)",
-            [
-                (valuation.created_at, e.protection, e.action, e.detail)
-                for e in valuation.risk_events
-            ],
-        )
+        _insert_advance_rows(con, valuation)
 
 
 def load_valuations(db_path: str | Path) -> list[dict]:
