@@ -189,3 +189,16 @@ def test_train_main_default_family_trains_entry_tb_too(tmp_path, monkeypatch):
     assert entry_champion(db, family="entry") is not None
     assert entry_champion(db, family="entry_short") is not None
     assert entry_champion(db, family="entry_tb") is not None
+
+
+def test_train_cli_explains_why_walk_forward_yielded_zero_splits(tmp_path, capsys):
+    """v9 Q5: every nightly preset printed 'Splits=0' without saying why — the honest line
+    names the cause (too few monthly sample dates for one purged split) and the remedy
+    (more panel history, never looser split parameters)."""
+    db = str(tmp_path / "train.db")
+    result = run_train_entry(db, panel=_panel(), tickers=["AAA", "BBB"], now=NOW)
+
+    assert result["metrics"]["n_splits_used"] == 0
+    out = capsys.readouterr().out
+    assert "Sample-Stichtage" in out
+    assert "Walk-Forward" in out

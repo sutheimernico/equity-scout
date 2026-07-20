@@ -21,6 +21,7 @@ import argparse
 from datetime import datetime, timezone
 
 import numpy as np
+import pandas as pd
 from sklearn.isotonic import IsotonicRegression
 
 from equity_scout.constants import DEFAULT_DB_PATH
@@ -146,6 +147,18 @@ def run_train_entry(
         f"Rank-IC {_fmt(metrics['rank_ic'])} "
         f"(n_oos={metrics['n_oos']}, Splits={metrics['n_splits_used']})."
     )
+    if metrics["n_splits_used"] == 0:
+        # v9 Q5: the split unit is unique monthly as_of dates, not rows — a young panel
+        # (MIN_HISTORY warm-up eats the first ~12 months, the label horizon crops the end)
+        # cannot fill purged_walk_forward's min_train + n_splits date minimum. Say so
+        # instead of a bare Splits=0; the split parameters stay strict on purpose.
+        unique_dates = int(pd.to_datetime(meta["as_of"]).nunique())
+        print(
+            f"Hinweis: nur {unique_dates} monatliche Sample-Stichtage im Panel — zu wenig für"
+            " einen einzigen purged Walk-Forward-Split. Kein Fehler: das Modell bleibt"
+            " registriert, wird aber ohne OOS-Beleg nie Champion. Abhilfe ist mehr"
+            " Panel-Historie, nicht lockerere Split-Parameter."
+        )
     print(f"Als Champion übernommen: {'ja' if promoted else 'nein'}.")
     if _no_edge(metrics["auc"]):
         print(
