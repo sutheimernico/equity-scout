@@ -364,7 +364,7 @@ Harte Grenzen unverändert: paper-only, kein Order-Routing, local & free, DISCLA
 - [x] I3 Promotion-Wiring: eligible Lane wird Auto-Depot-Sleeve, Demotion bei Verfall
 - [x] I4 Integrations-Surfaces (Digest-Prüfstand-Zeile, FE Gesamt-Tab + Promotion-Checkliste)
 - [x] M1 --host-Flag + Token-Auth-Middleware (DASH_TOKEN, localhost exempt, Fail-closed)
-- [ ] M2 PWA-Shell (manifest + icons + theme-color, kein Service Worker in v1)
+- [x] M2 PWA-Shell (manifest + icons + theme-color, kein Service Worker in v1)
 - [ ] M3 Dashboard-Server als systemd user service (Port 8420, Restart=always)
 - [ ] M4 Handy-Onboarding (Digest-Footer mit DASH_URL wöchentlich, README, Tailscale=Needs Nico)
 - [ ] P1 proof.py: ehrliche Kennzahlen pro Buch (Sharpe/MaxDD/WinRate/Kostenanteil + Labels)
