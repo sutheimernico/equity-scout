@@ -353,7 +353,7 @@ Harte Grenzen unverändert: paper-only, kein Order-Routing, local & free, DISCLA
 - [x] R5 (P1) Depot-Exits über Sleeve-Bücher (ML-Sleeves spiegeln POST-Exit-Buch, Docstring-Fix)
 - [x] R6 (P1) Digest: bei TelegramError persistieren + beim nächsten Chain-Lauf nachsenden
 - [x] R7 (P1) Digest-Freshness-Guards (⚠️ bei as_of älter als 2 Handelstage)
-- [ ] R8 (P1) Intraday-Bars: tz-Assertion + lauter Fehlerpfad
+- [x] R8 (P1) Intraday-Bars: tz-Assertion + lauter Fehlerpfad
 - [ ] R9 (P2) Allocator: Kalenderlücken-Returns aus dem Sharpe-Fenster filtern
 - [ ] R10 (P2) Marktfenster aus America/New_York berechnen (DST-Übergang)
 - [ ] R11 (P2) Robustheits-Sweep (/api/entry-Guard, Receiver-answerCallbackQuery, Swing-Event-Alter)
