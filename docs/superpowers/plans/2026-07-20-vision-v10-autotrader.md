@@ -57,7 +57,7 @@ first-class rows for a broker seam (nautilus RiskEngine idea), broker facts (Alp
 
 ## Wave D — closure
 
-- [ ] **D1 docs** — README section "Auto-Depot" (honest framing, params, caveats: anchor phase,
+- [x] **D1 docs** — README section "Auto-Depot" (honest framing, params, caveats: anchor phase,
   close-fill convention, no-Kelly-yet, next-open-fill backlog); broker-seam facts paragraph
   (Alpaca/T212/IBKR, "requires Nico + LOOP.md constraint change"); PLAN.md phase entry.
 - [ ] **D2 live smoke + outcome** — run `scripts/run_autotrader.py` for real (network ok, local),
