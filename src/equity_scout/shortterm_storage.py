@@ -88,14 +88,72 @@ def _from_json(blob: str) -> LaneBook:
     )
 
 
+def _upsert_book(con, book: LaneBook, updated_at: str) -> None:
+    con.execute(
+        "INSERT INTO st_books (lane, data, updated_at) VALUES (?, ?, ?) "
+        "ON CONFLICT(lane) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
+        (book.lane, _to_json(book), updated_at),
+    )
+
+
+def _insert_valuation(con, snap: LaneValuation) -> None:
+    con.execute(
+        "INSERT OR IGNORE INTO st_valuations "
+        "(lane, created_at, equity, total_return, cash, open_positions, benchmark_return)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (snap.lane, snap.created_at, snap.equity, snap.total_return, snap.cash,
+         snap.open_positions, snap.benchmark_return),
+    )
+
+
+def _insert_trades(con, fills: list[TradeFill]) -> None:
+    con.executemany(
+        "INSERT OR IGNORE INTO st_trades "
+        "(lane, executed_at, ticker, side, qty, price, fees, reason, realized_pnl)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            (f.lane, f.executed_at, f.ticker, f.side, f.qty, f.price, f.fees, f.reason,
+             f.realized_pnl)
+            for f in fills
+        ],
+    )
+
+
+def _upsert_state(con, lane: str, key: str, value: str) -> None:
+    con.execute(
+        "INSERT INTO st_state (lane, key, value) VALUES (?, ?, ?)"
+        " ON CONFLICT(lane, key) DO UPDATE SET value = excluded.value",
+        (lane, key, value),
+    )
+
+
 def save_book(db_path: str | Path, book: LaneBook, *, updated_at: str) -> None:
     init_shortterm_db(db_path)
     with db.connect(db_path) as con:
-        con.execute(
-            "INSERT INTO st_books (lane, data, updated_at) VALUES (?, ?, ?) "
-            "ON CONFLICT(lane) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
-            (book.lane, _to_json(book), updated_at),
-        )
+        _upsert_book(con, book, updated_at)
+
+
+def persist_lane_step(
+    db_path: str | Path,
+    book: LaneBook,
+    *,
+    updated_at: str,
+    trades: list[TradeFill] | tuple = (),
+    valuation: LaneValuation | None = None,
+    state: list[tuple[str, str]] | tuple = (),
+) -> None:
+    """Persist one lane advance atomically (v12 R4, review 2026-07-20): fills, valuation,
+    engine markers and the book blob commit in ONE transaction — an interrupt mid-persist
+    can no longer strand a fill outside the audit trail or replay it as a fresh signal.
+    The book (the lane's source of truth) deliberately writes last."""
+    init_shortterm_db(db_path)
+    with db.connect(db_path) as con:
+        if valuation is not None:
+            _insert_valuation(con, valuation)
+        _insert_trades(con, list(trades))
+        for key, value in state:
+            _upsert_state(con, book.lane, key, value)
+        _upsert_book(con, book, updated_at)
 
 
 def load_book(db_path: str | Path, lane: str) -> LaneBook | None:
@@ -108,13 +166,7 @@ def load_book(db_path: str | Path, lane: str) -> LaneBook | None:
 def append_valuation(db_path: str | Path, snap: LaneValuation) -> None:
     init_shortterm_db(db_path)
     with db.connect(db_path) as con:
-        con.execute(
-            "INSERT OR IGNORE INTO st_valuations "
-            "(lane, created_at, equity, total_return, cash, open_positions, benchmark_return)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (snap.lane, snap.created_at, snap.equity, snap.total_return, snap.cash,
-             snap.open_positions, snap.benchmark_return),
-        )
+        _insert_valuation(con, snap)
 
 
 def load_valuations(db_path: str | Path, lane: str) -> list[dict]:
@@ -132,16 +184,7 @@ def load_valuations(db_path: str | Path, lane: str) -> list[dict]:
 def append_trades(db_path: str | Path, fills: list[TradeFill]) -> None:
     init_shortterm_db(db_path)
     with db.connect(db_path) as con:
-        con.executemany(
-            "INSERT OR IGNORE INTO st_trades "
-            "(lane, executed_at, ticker, side, qty, price, fees, reason, realized_pnl)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                (f.lane, f.executed_at, f.ticker, f.side, f.qty, f.price, f.fees, f.reason,
-                 f.realized_pnl)
-                for f in fills
-            ],
-        )
+        _insert_trades(con, fills)
 
 
 def load_trades(db_path: str | Path, lane: str, *, limit: int = 200) -> list[dict]:
@@ -168,8 +211,4 @@ def get_lane_state(db_path: str | Path, lane: str, key: str) -> str | None:
 def set_lane_state(db_path: str | Path, lane: str, key: str, value: str) -> None:
     init_shortterm_db(db_path)
     with db.connect(db_path) as con:
-        con.execute(
-            "INSERT INTO st_state (lane, key, value) VALUES (?, ?, ?)"
-            " ON CONFLICT(lane, key) DO UPDATE SET value = excluded.value",
-            (lane, key, value),
-        )
+        _upsert_state(con, lane, key, value)

@@ -32,12 +32,9 @@ from equity_scout.shortterm_book import (
 )
 from equity_scout.shortterm_storage import (
     DEFAULT_SHORTTERM_DB_PATH,
-    append_trades,
-    append_valuation,
     get_lane_state,
     load_book,
-    save_book,
-    set_lane_state,
+    persist_lane_step,
 )
 from equity_scout.st_crypto import ENTRY_FRACTION as CRYPTO_FRACTION
 from equity_scout.st_crypto import decide_pair
@@ -101,11 +98,9 @@ def run_swing(db: str, main_db: str, *, now: datetime) -> None:
 
     book = capture_benchmark(book, prices.get("SPY"))
     snap = valuation(book, prices, prices.get("SPY"), today)
-    save_book(db, book, updated_at=today)
-    append_trades(db, fills)
-    append_valuation(db, snap)
-    if events:
-        set_lane_state(db, "swing", EVENTS_SEEN_KEY, max(e["seen_at"] for e in events))
+    marker_state = [(EVENTS_SEEN_KEY, max(e["seen_at"] for e in events))] if events else []
+    persist_lane_step(db, book, updated_at=today, trades=fills, valuation=snap,
+                      state=marker_state)
     print(f"Swing {today}: Equity {snap.equity:,.2f} ({snap.total_return:+.2%}), "
           f"{len(book.positions)} offen, {len(fills)} Fills")
     _print_fills(fills)
@@ -134,9 +129,8 @@ def _session_overnight_sweep(db: str, book: LaneBook, *, now: datetime) -> None:
         print("Nachlauf: nichts zu flatten.")
         return
     snap = valuation(book, prices, prices.get("SPY"), _hour_stamp(now))
-    save_book(db, book, updated_at=now.isoformat(timespec="seconds"))
-    append_trades(db, fills)
-    append_valuation(db, snap)
+    persist_lane_step(db, book, updated_at=now.isoformat(timespec="seconds"),
+                      trades=fills, valuation=snap)
     print(f"Nachlauf-Sweep: {len(fills)} Position(en) geflattet — Lane ist über Nacht flat.")
     _print_fills(fills)
 
@@ -216,10 +210,9 @@ def run_session(db: str, *, now: datetime) -> None:
 
     book = capture_benchmark(book, prices.get("SPY"))
     snap = valuation(book, prices, prices.get("SPY"), _hour_stamp(now))
-    save_book(db, book, updated_at=now.isoformat(timespec="seconds"))
-    append_trades(db, fills)
-    append_valuation(db, snap)
-    set_lane_state(db, "session", SESSION_STATE_KEY, json.dumps(state))
+    persist_lane_step(db, book, updated_at=now.isoformat(timespec="seconds"),
+                      trades=fills, valuation=snap,
+                      state=[(SESSION_STATE_KEY, json.dumps(state))])
     print(f"Session {session_date}: Equity {snap.equity:,.2f} ({snap.total_return:+.2%}), "
           f"{len(book.positions)} offen, {len(fills)} Fills")
     _print_fills(fills)
@@ -228,6 +221,7 @@ def run_session(db: str, *, now: datetime) -> None:
 def run_crypto(db: str, *, now: datetime, fetch=fetch_ohlc) -> None:
     book = load_book(db, "crypto") or LaneBook.fresh("crypto", benchmark_ticker="BTC")
     fills = []
+    markers: list[tuple[str, str]] = []
     prices: dict[str, float] = {}
     for symbol, pair in CRYPTO_PAIRS.items():
         raw = fetch(pair)
@@ -252,16 +246,15 @@ def run_crypto(db: str, *, now: datetime, fetch=fetch_ohlc) -> None:
             if fill:
                 fills.append(fill)
         if marker:
-            set_lane_state(db, "crypto", f"last_bar_{symbol}", marker)
+            markers.append((f"last_bar_{symbol}", marker))
 
     if not prices:
         print("Kraken nicht erreichbar — Lauf übersprungen (kein Preis, kein Trade).")
         return
     book = capture_benchmark(book, prices.get("BTC"))
     snap = valuation(book, prices, prices.get("BTC"), _hour_stamp(now))
-    save_book(db, book, updated_at=now.isoformat(timespec="seconds"))
-    append_trades(db, fills)
-    append_valuation(db, snap)
+    persist_lane_step(db, book, updated_at=now.isoformat(timespec="seconds"),
+                      trades=fills, valuation=snap, state=markers)
     print(f"Crypto: Equity {snap.equity:,.2f} ({snap.total_return:+.2%}) vs BTC "
           f"{snap.benchmark_return:+.2%} — {len(book.positions)} offen, {len(fills)} Fills"
           if snap.benchmark_return is not None else

@@ -11,6 +11,7 @@ from equity_scout.shortterm_storage import (
     load_book,
     load_trades,
     load_valuations,
+    persist_lane_step,
     save_book,
     set_lane_state,
 )
@@ -59,3 +60,59 @@ def test_lane_state_kv_upserts_per_lane(db) -> None:
     set_lane_state(db, "session", "last_bar", "other")
     assert get_lane_state(db, "crypto", "last_bar") == "2026-07-20T10:30"
     assert get_lane_state(db, "session", "last_bar") == "other"
+
+
+def _fill(lane: str = "swing") -> TradeFill:
+    return TradeFill(lane=lane, executed_at="2026-07-20T14:00", ticker="AAPL", side="buy",
+                     qty=5.0, price=100.0, fees=0.25, reason="event: beat")
+
+
+def test_persist_lane_step_commits_everything_together(db) -> None:
+    book = LaneBook.fresh("swing")
+    snap = LaneValuation(lane="swing", created_at="2026-07-20", equity=10_000.0,
+                         total_return=0.0, cash=9_500.0, open_positions=1,
+                         benchmark_return=None)
+    persist_lane_step(db, book, updated_at="2026-07-20", trades=[_fill()],
+                      valuation=snap, state=[("events_seen_until", "2026-07-20T14:00")])
+    assert load_book(db, "swing") == book
+    assert len(load_trades(db, "swing")) == 1
+    assert len(load_valuations(db, "swing")) == 1
+    assert get_lane_state(db, "swing", "events_seen_until") == "2026-07-20T14:00"
+
+    # idempotent re-run: natural keys ignore duplicates
+    persist_lane_step(db, book, updated_at="2026-07-20", trades=[_fill()], valuation=snap)
+    assert len(load_trades(db, "swing")) == 1
+    assert len(load_valuations(db, "swing")) == 1
+
+
+class _ExplodingFill:
+    """Stands in for a TradeFill; blows up mid-write to simulate an interrupt."""
+
+    lane = "swing"
+    executed_at = "2026-07-20T14:00"
+    ticker = "AAPL"
+    side = "buy"
+    qty = 5.0
+    price = 100.0
+    fees = 0.25
+    reason = "event: beat"
+
+    @property
+    def realized_pnl(self) -> float:
+        raise RuntimeError("boom mid-persist")
+
+
+def test_persist_lane_step_rolls_back_completely_on_mid_write_failure(db) -> None:
+    """R4/P1 (review 2026-07-20): an interrupt mid-persist must not divorce the book from
+    its trade log / markers — a fill either exists everywhere or nowhere."""
+    book = LaneBook.fresh("swing")
+    snap = LaneValuation(lane="swing", created_at="2026-07-20", equity=10_000.0,
+                         total_return=0.0, cash=9_500.0, open_positions=1,
+                         benchmark_return=None)
+    with pytest.raises(RuntimeError):
+        persist_lane_step(db, book, updated_at="2026-07-20", trades=[_ExplodingFill()],
+                          valuation=snap, state=[("events_seen_until", "X")])
+    assert load_book(db, "swing") is None
+    assert load_trades(db, "swing") == []
+    assert load_valuations(db, "swing") == []
+    assert get_lane_state(db, "swing", "events_seen_until") is None
