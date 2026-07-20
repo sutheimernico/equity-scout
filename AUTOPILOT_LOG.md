@@ -168,3 +168,4 @@
 2026-07-20: v11 kurzfrist-arena — 3 lanes (swing/session/crypto) + arena surfaces; session lane live-traded Monday session (7 fills), overnight-sweep gap found+fixed+live-proven; 1042 tests
 - 2026-07-20 v12 R1: session lane force-flats stale positions before decide (P0 review fix), 2 tests
 - 2026-07-20 v12 R2: central db.connect (WAL + busy_timeout 30s) adopted by autotrader+shortterm storage, 2 tests
+- 2026-07-20 v12 R3: persist_advance = one transaction (valuation/trades/events + account blob last), crash-rollback test
