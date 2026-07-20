@@ -169,3 +169,4 @@
 - 2026-07-20 v12 R1: session lane force-flats stale positions before decide (P0 review fix), 2 tests
 - 2026-07-20 v12 R2: central db.connect (WAL + busy_timeout 30s) adopted by autotrader+shortterm storage, 2 tests
 - 2026-07-20 v12 R3: persist_advance = one transaction (valuation/trades/events + account blob last), crash-rollback test
+- 2026-07-20 v12 R4: persist_lane_step = one transaction for all four lane callers, crash-rollback test

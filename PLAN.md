@@ -349,7 +349,7 @@ Harte Grenzen unverändert: paper-only, kein Order-Routing, local & free, DISCLA
 - [x] R1 (P0) Session-Lane: stale Positionen (opened_at != heute) vor decide() zwangsflatten
 - [x] R2 (P1) Zentrale SQLite-Konventionen (db.py: WAL + busy_timeout) für autotrader/shortterm
 - [x] R3 (P1) Atomarer Autotrader-Persist (eine Transaktion, Account-Blob zuletzt)
-- [ ] R4 (P1) Atomarer Shortterm-Persist (eine Transaktion pro Lane-Step)
+- [x] R4 (P1) Atomarer Shortterm-Persist (eine Transaktion pro Lane-Step)
 - [ ] R5 (P1) Depot-Exits über Sleeve-Bücher (ML-Sleeves spiegeln POST-Exit-Buch, Docstring-Fix)
 - [ ] R6 (P1) Digest: bei TelegramError persistieren + beim nächsten Chain-Lauf nachsenden
 - [ ] R7 (P1) Digest-Freshness-Guards (⚠️ bei as_of älter als 2 Handelstage)
