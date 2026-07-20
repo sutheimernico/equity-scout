@@ -346,7 +346,7 @@ Spec/Plan: `docs/superpowers/{specs,plans}/2026-07-20-vision-v12-one-autotrader.
 aufs Handy, Dashboard als Handy-App (Laptop = Server), Beweis-Evidenz "kann das funktionieren?".
 Drei-Spur-Review (Kern/Arena/Notify) 2026-07-20 abgeschlossen; Findings im Plan-Doc verankert.
 Harte Grenzen unverändert: paper-only, kein Order-Routing, local & free, DISCLAIMER überall.
-- [ ] R1 (P0) Session-Lane: stale Positionen (opened_at != heute) vor decide() zwangsflatten
+- [x] R1 (P0) Session-Lane: stale Positionen (opened_at != heute) vor decide() zwangsflatten
 - [ ] R2 (P1) Zentrale SQLite-Konventionen (db.py: WAL + busy_timeout) für autotrader/shortterm
 - [ ] R3 (P1) Atomarer Autotrader-Persist (eine Transaktion, Account-Blob zuletzt)
 - [ ] R4 (P1) Atomarer Shortterm-Persist (eine Transaktion pro Lane-Step)
