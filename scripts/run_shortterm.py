@@ -141,6 +141,29 @@ def _session_overnight_sweep(db: str, book: LaneBook, *, now: datetime) -> None:
     _print_fills(fills)
 
 
+def _flatten_stale_positions(
+    book: LaneBook, all_bars: dict, session_date: str, now: datetime,
+) -> tuple[LaneBook, list]:
+    """Close any position carried over from a previous day BEFORE decide() runs (P0,
+    review 2026-07-20): after an outage the overnight sweep may never have fired, and
+    decide() would otherwise manage the stale position with TODAY's opening range —
+    stop/target become arbitrary. Fill = open of today's first settled bar (the first
+    knowable price of the session); no bars yet -> left for a later run / the sweep."""
+    fills = []
+    for ticker, position in list(book.positions.items()):
+        if position.opened_at[:10] == session_date:
+            continue
+        bars = all_bars.get(ticker)
+        settled = settled_bars(bars, now) if bars is not None else None
+        if settled is None or settled.empty:
+            continue
+        book, fill = sell(book, ticker, float(settled["open"].iloc[0]),
+                          settled.index[0].isoformat(), reason="Altbestand (zwangsflat)")
+        if fill:
+            fills.append(fill)
+    return book, fills
+
+
 def run_session(db: str, *, now: datetime) -> None:
     if not within_market_window(now):
         book = load_book(db, "session")
@@ -151,7 +174,8 @@ def run_session(db: str, *, now: datetime) -> None:
         return
     book = load_book(db, "session") or LaneBook.fresh("session", benchmark_ticker="SPY")
     state = json.loads(get_lane_state(db, "session", SESSION_STATE_KEY) or "{}")
-    all_bars = fetch_bars(list(SESSION_UNIVERSE))
+    # include held tickers: a stale position must be flattenable even if it left the universe
+    all_bars = fetch_bars(sorted({*SESSION_UNIVERSE, *book.positions}))
     if not all_bars:
         print("Keine Intraday-Bars verfügbar — Lauf übersprungen.")
         return
@@ -160,7 +184,7 @@ def run_session(db: str, *, now: datetime) -> None:
     if state.get("date") != session_date:
         state = {"date": session_date, "last_bar": {}, "ranges": {}, "traded": []}
 
-    fills = []
+    book, fills = _flatten_stale_positions(book, all_bars, session_date, now)
     prices: dict[str, float] = {}
     for ticker, bars in all_bars.items():
         settled = settled_bars(bars, now)

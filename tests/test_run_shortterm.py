@@ -110,6 +110,63 @@ def test_session_overnight_sweep_flattens_leftover_positions(db, monkeypatch) ->
     assert trades[0]["side"] == "sell" and "Nachlauf" in trades[0]["reason"]
 
 
+def test_session_lane_force_flats_stale_position_before_deciding(db, monkeypatch) -> None:
+    """R1/P0 (review 2026-07-20): a position carried over from a previous day must be
+    closed at today's first settled open — NEVER managed with today's opening range."""
+    from equity_scout.shortterm_book import LaneBook, LanePosition
+    from equity_scout.shortterm_storage import save_book
+
+    stale = LaneBook(
+        lane="session", initial_capital=10_000.0, cash=8_700.0, benchmark_ticker="SPY",
+        positions={"META": LanePosition(qty=2.0, entry_price=650.0,
+                                        opened_at="2026-07-17T14:00:00-04:00")},
+    )
+    save_book(db, stale, updated_at="2026-07-17T20:00:00+00:00")
+    index = pd.date_range("2026-07-20 09:30", periods=4, freq="15min", tz="America/New_York")
+    # today's range (102/98) would put the stale position's "stop" at 648 — buggy fill
+    bars = pd.DataFrame(
+        [(100, 101, 99, 100), (100, 102, 98, 101), (95, 96, 90, 92), (93, 94, 92, 93.5)],
+        index=index, columns=["open", "high", "low", "close"],
+    )
+    monkeypatch.setattr(runner, "within_market_window", lambda now: True)
+    monkeypatch.setattr(runner, "fetch_bars", lambda tickers: {"META": bars})
+    monkeypatch.setattr(runner, "settled_bars", lambda b, now: b)
+
+    runner.run_session(db, now=NOW)
+    book = load_book(db, "session")
+    assert book is not None and "META" not in book.positions
+    sells = [t for t in load_trades(db, "session") if t["side"] == "sell"]
+    assert len(sells) == 1
+    assert "Altbestand" in sells[0]["reason"]
+    # first settled open (minus 5 bps slippage convention), NOT the range-derived 648
+    assert sells[0]["price"] == pytest.approx(100.0 * (1 - 0.0005))
+
+
+def test_session_lane_keeps_fresh_same_day_position(db, monkeypatch) -> None:
+    from equity_scout.shortterm_book import LaneBook, LanePosition
+    from equity_scout.shortterm_storage import save_book
+
+    fresh = LaneBook(
+        lane="session", initial_capital=10_000.0, cash=9_800.0, benchmark_ticker="SPY",
+        positions={"SPY": LanePosition(qty=2.0, entry_price=100.0,
+                                       opened_at="2026-07-20T09:45:00-04:00")},
+    )
+    save_book(db, fresh, updated_at="2026-07-20T13:45:00+00:00")
+    index = pd.date_range("2026-07-20 09:30", periods=3, freq="15min", tz="America/New_York")
+    bars = pd.DataFrame(  # nothing triggers: no stop, no target, well before the last bar
+        [(100, 101, 99, 100), (100, 101.5, 99.5, 100.5), (100.5, 101, 100, 100.8)],
+        index=index, columns=["open", "high", "low", "close"],
+    )
+    monkeypatch.setattr(runner, "within_market_window", lambda now: True)
+    monkeypatch.setattr(runner, "fetch_bars", lambda tickers: {"SPY": bars})
+    monkeypatch.setattr(runner, "settled_bars", lambda b, now: b)
+
+    runner.run_session(db, now=NOW)
+    book = load_book(db, "session")
+    assert book is not None and "SPY" in book.positions
+    assert load_trades(db, "session") == []
+
+
 def test_session_lane_books_orb_fills_from_faked_bars(db, monkeypatch) -> None:
     monkeypatch.setattr(runner, "within_market_window", lambda now: True)
     index = pd.date_range("2026-07-20 09:30", periods=4, freq="15min", tz="America/New_York")
