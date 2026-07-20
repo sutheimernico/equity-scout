@@ -356,7 +356,7 @@ Harte Grenzen unverändert: paper-only, kein Order-Routing, local & free, DISCLA
 - [x] R8 (P1) Intraday-Bars: tz-Assertion + lauter Fehlerpfad
 - [x] R9 (P2) Allocator: Kalenderlücken-Returns aus dem Sharpe-Fenster filtern
 - [x] R10 (P2) Marktfenster aus America/New_York berechnen (DST-Übergang)
-- [ ] R11 (P2) Robustheits-Sweep (/api/entry-Guard, Receiver-answerCallbackQuery, Swing-Event-Alter)
+- [x] R11 (P2) Robustheits-Sweep (/api/entry-Guard, Receiver-answerCallbackQuery, Swing-Event-Alter)
 - [ ] W1 Chain-Heartbeats + Dead-Man-Watchdog mit Telegram-Alarm (Cooldown 24h)
 - [ ] W2 Auto-Depot-Event-Push (Trades/Risk-Events gebündelt, silent, env-gated)
 - [ ] I1 /api/overview: Gesamtvermögen + Horizont-Subtotale (short/mid/long)
