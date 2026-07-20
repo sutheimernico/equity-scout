@@ -57,3 +57,64 @@ def test_main_sets_marker_on_send_and_skips_second_same_day_call(tmp_path, monke
     # Second call, same day: the guard must skip before the (faked) send is reached.
     assert main() == 0
     assert len(sent) == 1
+
+
+def _tg_env(monkeypatch):
+    for var in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "DIGEST_TO",
+                "COPILOT_TG_CHAT_ID_INTRADAY", "COPILOT_TG_CHAT_ID_DAILY"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("COPILOT_TG_BOT_TOKEN", "test-token")
+    monkeypatch.setenv("COPILOT_TG_CHAT_ID", "123456")
+
+
+def test_telegram_failure_stores_pending_and_next_chain_run_resends(tmp_path, monkeypatch):
+    """R6/P1 (review 2026-07-20): one network blip at 18:05 must not kill the day's
+    digest — it is persisted and resent by the next chain run, exactly once."""
+    from equity_scout.telegram_client import TelegramError
+    from scripts.run_digest import maybe_resend_pending
+
+    db = str(tmp_path / "inbox.db")
+    _tg_env(monkeypatch)
+
+    def broken_send(token, chat_id, text, parse_mode=None):
+        raise TelegramError("network down")
+
+    monkeypatch.setattr(run_digest, "send_long_message", broken_send)
+    monkeypatch.setattr(sys, "argv", ["run_digest.py", "--db", db])
+    today = datetime.now(timezone.utc).date().isoformat()
+
+    assert main() == 0  # guard semantics unchanged: chain must not die
+    assert get_state(db, key="digest_sent_on") is None
+    assert get_state(db, key="digest_pending_date") == today
+    assert get_state(db, key="digest_pending_text")
+
+    sent: list[str] = []
+    monkeypatch.setattr(
+        run_digest, "send_long_message",
+        lambda token, chat_id, text, parse_mode=None: sent.append(text) or 1,
+    )
+    assert maybe_resend_pending(db) is True
+    assert len(sent) == 1
+    assert get_state(db, key="digest_sent_on") == today
+    assert get_state(db, key="digest_pending_date") == ""
+    assert maybe_resend_pending(db) is False  # cleared — never sent twice
+    assert len(sent) == 1
+
+
+def test_stale_pending_from_yesterday_is_dropped_not_sent(tmp_path, monkeypatch):
+    from equity_scout.state_storage import set_state
+    from scripts.run_digest import maybe_resend_pending
+
+    db = str(tmp_path / "inbox.db")
+    _tg_env(monkeypatch)
+    set_state(db, key="digest_pending_date", value="2026-07-19")
+    set_state(db, key="digest_pending_text", value="<b>alt</b>")
+
+    sent: list[str] = []
+    monkeypatch.setattr(
+        run_digest, "send_long_message",
+        lambda token, chat_id, text, parse_mode=None: sent.append(text) or 1,
+    )
+    assert maybe_resend_pending(db) is False
+    assert sent == []
+    assert get_state(db, key="digest_pending_date") == ""

@@ -152,6 +152,11 @@ def main() -> int:
                              "on the phone; the timeline lives in the dashboard).")
     args = parser.parse_args()
 
+    # v12 R6: the */15 chain is the retry loop for a failed 18:00 digest send.
+    from scripts.run_digest import maybe_resend_pending
+
+    maybe_resend_pending(args.db)
+
     watchlist = load_latest_watchlist(args.db)
     if watchlist is None:
         print("No watchlist found — run scripts/run_radar.py first.", file=sys.stderr)

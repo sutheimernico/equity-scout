@@ -54,6 +54,9 @@ from equity_scout.telegram_client import (
 OPPORTUNITY_TOP_N = 3
 EARNINGS_LOOKAHEAD_DAYS = 7  # "diese Woche" — matches the daily digest's own cadence
 DIGEST_SENT_KEY = "digest_sent_on"
+PENDING_TEXT_KEY = "digest_pending_text"
+PENDING_DATE_KEY = "digest_pending_date"
+PENDING_CORE_MONTH_KEY = "digest_pending_core_month"
 CORE_PLAN_MONTH_KEY = "core_plan_month"
 
 
@@ -202,6 +205,54 @@ def collect_sector_line(panel) -> str | None:
         return None
 
 
+def store_pending(
+    db: str, *, date_label: str, html_text: str, core_month: str | None
+) -> None:
+    set_state(db, key=PENDING_DATE_KEY, value=date_label)
+    set_state(db, key=PENDING_TEXT_KEY, value=html_text)
+    set_state(db, key=PENDING_CORE_MONTH_KEY, value=core_month or "")
+
+
+def clear_pending(db: str) -> None:
+    set_state(db, key=PENDING_DATE_KEY, value="")
+    set_state(db, key=PENDING_TEXT_KEY, value="")
+    set_state(db, key=PENDING_CORE_MONTH_KEY, value="")
+
+
+def maybe_resend_pending(db: str, *, now: datetime | None = None) -> bool:
+    """Retry a digest whose Telegram send failed (v12 R6, review 2026-07-20): called first
+    by the digest run AND the */15 notify chain, so one network blip at 18:05 no longer
+    kills the day's digest. Same-day only — a pending from yesterday is a stale snapshot
+    and is dropped, not sent."""
+    now = now or datetime.now(timezone.utc)
+    today = now.date().isoformat()
+    pending_date = get_state(db, key=PENDING_DATE_KEY)
+    if not pending_date:
+        return False
+    text = get_state(db, key=PENDING_TEXT_KEY)
+    if pending_date != today or not text:
+        clear_pending(db)
+        return False
+    tg_config = load_telegram_config(dict(os.environ))
+    if tg_config is None:
+        return False
+    try:
+        send_long_message(
+            tg_config["token"], tg_config.get("daily_chat_id", tg_config["chat_id"]),
+            text, parse_mode="HTML",
+        )
+    except TelegramError as err:
+        print(f"Warnung: Digest-Nachversand fehlgeschlagen: {err}", file=sys.stderr)
+        return False
+    set_state(db, key=DIGEST_SENT_KEY, value=pending_date)
+    core_month = get_state(db, key=PENDING_CORE_MONTH_KEY)
+    if core_month:
+        set_state(db, key=CORE_PLAN_MONTH_KEY, value=core_month)
+    clear_pending(db)
+    print(f"Digest für {pending_date} nachversendet.")
+    return True
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default=DEFAULT_DB_PATH)
@@ -212,6 +263,8 @@ def main() -> int:
 
     now = datetime.now(timezone.utc)
     date_label = now.date().isoformat()
+
+    maybe_resend_pending(args.db, now=now)
 
     # Guard first, before the expensive digest data collection: a skipped second run
     # should cost nothing.
@@ -297,14 +350,23 @@ def main() -> int:
         send_digest(smtp_config, f"Copilot-Digest {date_label}", text)
         mark_sent()
     if tg_config is not None:
+        html_text = render(html=True)
         try:
             send_long_message(
                 tg_config["token"], tg_config.get("daily_chat_id", tg_config["chat_id"]),
-                render(html=True), parse_mode="HTML",
+                html_text, parse_mode="HTML",
             )
             mark_sent()
         except TelegramError as err:
-            print(f"Warnung: Telegram-Digest-Versand fehlgeschlagen: {err}", file=sys.stderr)
+            store_pending(
+                args.db, date_label=date_label, html_text=html_text,
+                core_month=month_key if core_plan is not None else None,
+            )
+            print(
+                f"Warnung: Telegram-Digest-Versand fehlgeschlagen — wird beim nächsten "
+                f"Chain-Lauf nachversendet: {err}",
+                file=sys.stderr,
+            )
     if not configured:
         print(text)
         print("Neither SMTP nor Telegram configured — printing digest.")
