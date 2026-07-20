@@ -63,6 +63,9 @@ uv run python scripts/run_paper.py --db equity_scout.db --bucket balanced --thre
 # Advance the forward paper accounts one step (daily/cron; idempotent) → "Live (Forward)" tab
 uv run python scripts/run_forward_paper.py --refresh
 
+# Advance the Auto-Depot (meta-allocated, risk-managed paper book; idempotent) → "Auto-Depot" tab
+uv run python scripts/run_autotrader.py
+
 # Probability of Backtest Overfitting over the top configs (slow, occasional) → Auto-Research tab
 uv run python scripts/run_pbo.py
 
@@ -192,6 +195,35 @@ liquidity and diversification confound it) — the caveat rides on every surface
 buyer count (across all four sources) grows past the last SENT alert breaks through the
 cooldown — a 2-buyer alert must never silence the 4-buyer cluster that follows a week later.
 The alert text marks the escalation.
+
+## Auto-Depot (vision v10)
+
+ONE automatically traded **paper** depot that combines every strategy lane: the rule-based
+sleeves (DCA, 60/40, Permanent, Vol-Target, GEM, DAA, Sector-Rotation) plus each ML bot with a
+promoted champion. Sleeve weights come from each sleeve's own forward track record — a 50 %
+equal-weight anchor blended with a Sharpe-softmax tilt over a 63-day walk-forward window
+(floor 5 % / cap 40 %, monthly recompute; the shrinkage lesson of the 1/N literature). The
+aggregated per-ticker book then passes a composable risk layer, in order: single-name cap 10 %,
+regime gate (red light → half exposure), 12 % vol target (never levers up), and a tiered
+drawdown breaker (≥ 10 % → half, ≥ 20 % → cash, staged recovery after a cooldown). It advances
+nightly in `nightly_train.sh` right after the sleeves, so fills are real closes. Every trade,
+weight, and risk intervention is persisted (`autotrader.db`) and surfaced: digest block,
+`/api/autodepot`, dashboard tab.
+
+Labelled caveats: fills at adjusted close (same look-ahead-safe convention as forward paper;
+next-open fills would need an OHLC data world — backlog), flat 10 bps turnover cost (covers
+slippage/spread/regulatory fees), borrow proxy on net shorts, EUR value is a daily-spot
+translation (display only, never mixed into strategy return), no Kelly sizing until the depot
+has 50+ realised trades, and while the sleeves share < ~3 months of overlapping forward
+history the allocation stays pure equal weight ("Anker-Phase") and says so.
+
+**Broker seam (facts only, nothing integrated):** the depot's trade rows are exactly what a
+broker adapter would consume. Candidates as of 2026: Alpaca paper API (free, globally
+available, 200 req/min), Trading 212 public API beta (`demo.trading212.com` practice
+endpoints, Invest/ISA), IBKR paper account (same API as live, needs a TWS/Gateway process).
+Wiring ANY of them up is a deliberate human decision that requires changing the project's
+iron constraint in `LOOP.md` ("no real-money trading or order routing — ever") — the
+autonomous loop never does this.
 
 ## Automation (cron)
 

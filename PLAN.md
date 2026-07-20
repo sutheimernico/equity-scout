@@ -304,6 +304,22 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       Zeile auf Pitch/Caption ("ohne Einfluss auf den Score"), 30-Tage-Cache (`f_scores`),
       Kriterium einzeln None wenn Daten fehlen, Score nur ab 5 bewertbaren Kriterien
 
+## Phase: Vision v10 — Autotrader "Auto-Depot" (2026-07-20) — DONE 2026-07-20
+Spec/Plan: `docs/superpowers/{specs,plans}/2026-07-20-vision-v10-autotrader.md`. Ein
+automatisch gehandeltes Paper-Meta-Depot über alle Sleeves: Meta-Allokation (EW-Anker +
+Sharpe-Softmax-Tilt, 63d-Fenster, Floor/Cap, monatlich; Anker-Phase ehrlich gelabelt bei
+< 60 überlappenden Forward-Beobachtungen), Look-Through-Aggregation mit Ticker-Netting,
+komponierbarer Risk-Layer (ConcentrationCap 10 %, RegimeGate rot→½, VolTarget 12 %,
+DrawdownBreaker 10 %/20 % mit Hysterese+Cooldown), Close-Fill-Konvention wie forward_paper,
+Trades/Valuations/Risk-Events als eigene Tabellen (`autotrader.db`), EUR-Spot je Valuation.
+Nightly-Step nach forward_paper (18:00 wäre Intraday-Stand); Digest-Block, `/api/autodepot`,
+Dashboard-Tab "Auto-Depot". Broker-Seam = Trade-Rows + README-Fakten (Alpaca/T212/IBKR),
+bewusst KEIN Adapter-Code — Echtgeld-Routing bleibt per LOOP.md verboten.
+- [ ] Backlog: Next-Open-Fills (braucht OHLC-Panel-Welt; Close-Fill + konservative 10 bps
+      decken den Realismus-Gap bei täglicher Kadenz)
+- [ ] Backlog: (Fractional-)Kelly-Sizing erst ab ~50 realisierten Depot-Trades (vorher
+      Schätz-Rauschen)
+
 ## Needs Nico (loop cannot do these itself)
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
 - Any data source that would require a paid key (do NOT sign up — log here instead).
