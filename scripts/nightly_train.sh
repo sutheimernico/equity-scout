@@ -8,6 +8,11 @@
 # the rolling live hit-rate/Rank-IC are captured freshest — one persisted point per calendar
 # day, visible in the dashboard even on nights the champion does not flip.
 #
+# The Auto-Depot (vision v10) advances LAST, after forward_paper has refreshed the price
+# snapshots and rolled every sleeve to the fresh close: the meta-allocator reads the sleeves'
+# forward valuations, and running here (post-US-close) keeps its fills on real closing prices
+# — an 18:00 Berlin slot would trade an intraday stand. The daily digest only READS its DB.
+#
 # Same contract as daily_copilot.sh: steps degrade independently, .venv python (cron has no
 # uv), .env sourced when present, everything appends to train.log.
 set -u
@@ -41,4 +46,5 @@ step train_entry       "$PY" scripts/run_train_entry.py
 step learning_snapshot "$PY" scripts/run_learning_snapshot.py
 step research_batch    "$PY" scripts/run_research.py --trials 25
 step forward_paper     "$PY" scripts/run_forward_paper.py --refresh
+step autotrader        "$PY" scripts/run_autotrader.py
 echo "[$(date -Is)] ===== nightly_train end =====" >> "$LOG"

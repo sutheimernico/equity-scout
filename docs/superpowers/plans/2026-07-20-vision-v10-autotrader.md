@@ -31,13 +31,16 @@ first-class rows for a broker seam (nautilus RiskEngine idea), broker facts (Alp
 
 ## Wave B — pipeline
 
-- [ ] **B1 runner** — `scripts/run_autotrader.py`: combined panel (ETF snapshot ⋈ ML-bots snapshot
+- [x] **B1 runner** — `scripts/run_autotrader.py`: combined panel (ETF snapshot ⋈ ML-bots snapshot
   ⋈ SPY, column-wise), sleeves = default_strategies() minus Ensemble + ready ML bots, monthly
-  weight recompute via `state_storage` KV (`autotrader_weights_month`), protections chain, advance,
-  persist, EUR spot into valuation, stdout summary. `--dry-run` prints without persisting. Test:
-  end-to-end on synthetic panel with FakeProvider-style stubs (no network).
-- [ ] **B2 cron step** — `daily_copilot.sh`: step `autotrader` after `lanes`, before `digest`
-  (degrade-independently). Doc line in script header. Test: n/a (shell), verify via live smoke D2.
+  weight recompute, protections chain, advance, persist, EUR spot into valuation, stdout summary.
+  `--dry-run` prints without persisting. Test: end-to-end on synthetic panel, no network.
+  _Deviation:_ month gate reads `MAX(month)` from `autotrader_sleeve_weights` instead of a
+  `state_storage` KV — one source of truth less to keep in sync.
+- [x] **B2 cron step** — _Deviation (better slot):_ step `autotrader` appended to
+  `nightly_train.sh` AFTER `forward_paper --refresh`, NOT into the 18:00 `daily_copilot.sh` —
+  at 18:00 Berlin the US market is open, the depot would fill on an intraday stand; nightly it
+  trades the real close right after the sleeves advanced. The daily digest only reads the DB.
 
 ## Wave C — surfaces
 
