@@ -119,8 +119,18 @@ def collect_autodepot(db_path: str = DEFAULT_AUTOTRADER_DB_PATH) -> dict | None:
             return None
         last = valuations[-1]
         as_of = last["created_at"]
+        # day P&L: newest valuation vs the one before it (the depot advances once per
+        # trading day, so "previous row" IS the previous trading day)
+        day_pnl = day_return = None
+        if len(valuations) >= 2:
+            prev = valuations[-2]
+            day_pnl = last["equity"] - prev["equity"]
+            if prev["equity"] > 0:
+                day_return = last["equity"] / prev["equity"] - 1.0
         return {
             "as_of": as_of,
+            "day_pnl": day_pnl,
+            "day_return": day_return,
             "equity": last["equity"],
             "equity_eur": last["equity_eur"],
             "total_return": last["total_return"],
@@ -163,10 +173,15 @@ def collect_shortterm(
                 1 for t in load_st_trades(db_path, lane, limit=100)
                 if t["executed_at"][:10] == today
             )
+            # day P&L baseline: the last valuation BEFORE today (the intraday lanes write
+            # several rows per day); a lane that started today measures from its capital.
+            prior = [v for v in vals if v["created_at"][:10] < today]
+            baseline = prior[-1]["equity"] if prior else book.initial_capital
             lanes.append({
                 "lane": lane,
                 "label": _LANE_LABELS.get(lane, lane),
                 "total_return": latest["total_return"],
+                "day_pnl": latest["equity"] - baseline,
                 "benchmark_ticker": book.benchmark_ticker,
                 "benchmark_return": latest["benchmark_return"],
                 "trades_today": trades_today,

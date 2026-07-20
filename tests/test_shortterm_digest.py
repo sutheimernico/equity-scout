@@ -11,16 +11,28 @@ from scripts.run_digest import collect_shortterm
 
 def test_arena_block_renders_one_line_per_lane() -> None:
     shortterm = [
-        {"lane": "swing", "label": "Event-Swing", "total_return": 0.012,
+        {"lane": "swing", "label": "Event-Swing", "total_return": 0.012, "day_pnl": 55.0,
          "benchmark_ticker": "SPY", "benchmark_return": 0.004, "trades_today": 2},
-        {"lane": "crypto", "label": "Crypto", "total_return": -0.008,
+        {"lane": "crypto", "label": "Crypto", "total_return": -0.008, "day_pnl": -80.0,
          "benchmark_ticker": "BTC", "benchmark_return": None, "trades_today": 0},
     ]
     text = build_digest([], date_label="2026-07-20", shortterm=shortterm)
     assert "⚡ Kurzfrist-Arena:" in text
-    assert "Event-Swing: +1.2 % (SPY +0.4 %) · 2 Trades heute" in text
-    assert "Crypto: -0.8 %" in text
+    assert "Event-Swing: 🟢 heute +55 $ · gesamt +1.2 % (SPY +0.4 %) · 2 Trades heute" in text
+    assert "Crypto: 🔴 heute -80 $ · gesamt -0.8 %" in text
     assert "(BTC" not in text  # benchmark not yet captured -> no fake number
+    assert "🔴 Arena heute gesamt: -25 $" in text
+
+
+def test_autodepot_day_pnl_line_renders_with_traffic_light() -> None:
+    from tests.test_autotrader_digest import _autodepot
+
+    positive = _autodepot(day_pnl=132.2, day_return=0.0013)
+    text = build_digest([], date_label="2026-07-20", autodepot=positive)
+    assert "🟢 Heute: +132 $ (+0.13 %)" in text
+    negative = _autodepot(day_pnl=-40.0, day_return=-0.0004)
+    text2 = build_digest([], date_label="2026-07-20", autodepot=negative)
+    assert "🔴 Heute: -40 $" in text2
 
 
 def test_arena_block_absent_without_lanes() -> None:

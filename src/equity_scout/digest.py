@@ -134,6 +134,14 @@ def build_digest(
         lines.append(_head(
             f"🤖 Auto-Depot (Stand {autodepot['as_of']}): {autodepot['equity']:,.0f} USD{eur}"
         ))
+        if autodepot.get("day_pnl") is not None:
+            day = autodepot["day_pnl"]
+            emoji = "🟢" if day >= 0 else "🔴"
+            pct_note = (
+                f" ({autodepot['day_return'] * 100:+.2f} %)"
+                if autodepot.get("day_return") is not None else ""
+            )
+            lines.append(_line(f"  {emoji} Heute: {day:+,.0f} $" + pct_note))
         lines.append(_line(
             f"  Gesamt {autodepot['total_return'] * 100:+.1f} %"
             f" vs SPY {autodepot['benchmark_return'] * 100:+.1f} %"
@@ -167,6 +175,10 @@ def build_digest(
     if shortterm:
         lines.append(_head("⚡ Kurzfrist-Arena:"))
         for lane in shortterm:
+            day_note = ""
+            if lane.get("day_pnl") is not None:
+                emoji = "🟢" if lane["day_pnl"] >= 0 else "🔴"
+                day_note = f"{emoji} heute {lane['day_pnl']:+,.0f} $ · "
             bench = ""
             if lane.get("benchmark_return") is not None:
                 bench = f" ({lane['benchmark_ticker']} {lane['benchmark_return'] * 100:+.1f} %)"
@@ -174,8 +186,14 @@ def build_digest(
                 f" · {lane['trades_today']} Trades heute" if lane.get("trades_today") else ""
             )
             lines.append(_line(
-                f"  {lane['label']}: {lane['total_return'] * 100:+.1f} %{bench}{trades_note}"
+                f"  {lane['label']}: {day_note}gesamt {lane['total_return'] * 100:+.1f} %"
+                f"{bench}{trades_note}"
             ))
+        day_values = [lane["day_pnl"] for lane in shortterm if lane.get("day_pnl") is not None]
+        if day_values:
+            total_day = sum(day_values)
+            emoji = "🟢" if total_day >= 0 else "🔴"
+            lines.append(_line(f"  {emoji} Arena heute gesamt: {total_day:+,.0f} $"))
     lines.append("")
     if alerts_today:
         lines.append(_head("📌 Heute aufgefallen:"))
