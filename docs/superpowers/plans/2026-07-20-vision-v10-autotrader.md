@@ -60,9 +60,36 @@ first-class rows for a broker seam (nautilus RiskEngine idea), broker facts (Alp
 - [x] **D1 docs** — README section "Auto-Depot" (honest framing, params, caveats: anchor phase,
   close-fill convention, no-Kelly-yet, next-open-fill backlog); broker-seam facts paragraph
   (Alpaca/T212/IBKR, "requires Nico + LOOP.md constraint change"); PLAN.md phase entry.
-- [ ] **D2 live smoke + outcome** — run `scripts/run_autotrader.py` for real (network ok, local),
+- [x] **D2 live smoke + outcome** — run `scripts/run_autotrader.py` for real (network ok, local),
   verify valuation/trades/digest section render, then fill outcome section below. Full gate green.
 
-## Outcome
+## Outcome (2026-07-20)
 
-_(filled after D2)_
+**All 11 tasks DONE in one session** (waves A–D, single-threaded, gate green per commit).
+
+**Live smoke (real run, panel to 2026-07-16):** first advance booked 14 trades building the
+initial book at 75 % gross exposure across 8 sleeves (7 rule-based + ML Long Bot; short bot
+honestly absent — no champion). Allocation correctly in **anchor mode** (equal weight — the
+sleeves' forward histories are too short to tilt on). The **ConcentrationCap fired live**
+(SPY and VEU clipped to 10 %, risk event persisted and rendered). EUR spot conversion live
+(99,925 USD / 87,514 EUR). Second run on the same panel date: idempotent no-op, verified.
+`/api/autodepot` served the real DB (curve 1 point, 14 trades, 8 sleeve rows, 1 risk event).
+Digest block renders in plain + HTML with the depot's own as_of stamp. `autotrader.db` is
+covered by the existing `*.db` gitignore rule.
+
+**Gate:** 997 tests collected (941 → 997), full run green + ruff clean + FE typecheck/build
+green. One full-suite run hit the KNOWN pre-existing flake
+(`test_entry_model::test_calibrated_model_scores_through_the_calibrator`, unseeded numpy,
+documented in PLAN "Needs Nico" since v9) — re-runs green 4/4, not v10-related.
+
+**Deviations from plan** (both recorded inline at B1/B2): month gate via
+`MAX(month)` in `autotrader_sleeve_weights` instead of a state KV; cron step in
+`nightly_train.sh` after `forward_paper --refresh` instead of the 18:00 chain (real close
+fills instead of an intraday stand). Also: `DrawdownBreaker.cooldown_days` counts CALENDAR
+days (14 ≈ 10 trading days) — the protection context has no trading calendar, documented in
+the docstring.
+
+**Open (backlogged in PLAN.md):** next-open fills (needs an OHLC panel world), Kelly sizing
+once ~50 realised trades exist. **Needs Nico:** nothing new beyond the standing items — the
+nightly chain picks the depot up automatically; first tilt allocation ~3 months after the
+sleeves accumulated 60 overlapping forward observations.
