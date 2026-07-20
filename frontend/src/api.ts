@@ -522,6 +522,39 @@ export async function fetchOverview(): Promise<OverviewResponse> {
   return response.json();
 }
 
+// --- Proof report cards (v12 P2) ---
+
+export interface ProofBook {
+  label: string;
+  n_days: number;
+  period: string | null;
+  total_return_pct: number | null;
+  cagr_pct: number | null;
+  sharpe_annualised: number | null;
+  max_drawdown_pct: number | null;
+  realized_win_rate: number | null;
+  cost_share_of_pnl: number | null;
+  vs_benchmark_pct: number | null;
+  verdict_label: string;
+}
+
+export interface ProofResponse {
+  available: boolean;
+  books?: ProofBook[];
+  conviction?: {
+    min_track_days: number;
+    min_sharpe_after_costs: number;
+    max_drawdown_pct: number;
+  };
+  disclaimer: string;
+}
+
+export async function fetchProof(): Promise<ProofResponse> {
+  const response = await fetch("/api/proof");
+  if (!response.ok) throw new Error(`/api/proof returned ${response.status}`);
+  return response.json();
+}
+
 // --- Local chatbot over the dashboard data (src/equity_scout/chat.py via Ollama) ---
 
 export interface ChatReply {

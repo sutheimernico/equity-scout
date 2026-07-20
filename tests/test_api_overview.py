@@ -18,6 +18,7 @@ def _client(tmp_path, autotrader_db: str, shortterm_db: str) -> TestClient:
     return TestClient(create_app(
         db_path=str(tmp_path / "main.db"),
         snapshot=str(tmp_path / "missing.csv"),
+        forward_db=str(tmp_path / "forward.db"),  # never the repo's real forward book
         autotrader_db=autotrader_db,
         shortterm_db=shortterm_db,
     ))
@@ -75,4 +76,26 @@ def test_overview_is_honest_on_empty_dbs(tmp_path) -> None:
     body = _client(
         tmp_path, str(tmp_path / "a.db"), str(tmp_path / "s.db")
     ).get("/api/overview").json()
+    assert body["available"] is False
+
+
+def test_proof_endpoint_renders_report_cards(tmp_path) -> None:
+    autotrader_db = str(tmp_path / "autotrader.db")
+    shortterm_db = str(tmp_path / "shortterm.db")
+    for i, day in enumerate(["2026-07-14", "2026-07-15", "2026-07-16", "2026-07-17"]):
+        record_advance(autotrader_db, _valuation(day, 100_000.0 + 500.0 * i))
+
+    body = _client(tmp_path, autotrader_db, shortterm_db).get("/api/proof").json()
+    assert body["available"] is True
+    depot = body["books"][0]
+    assert depot["label"] == "Auto-Depot"
+    assert "zu kurz" in depot["verdict_label"]  # 3 days of history: honest, no rates
+    assert depot["sharpe_annualised"] is None
+    assert body["conviction"]["min_track_days"] == 180
+
+
+def test_proof_endpoint_is_honest_when_empty(tmp_path) -> None:
+    body = _client(
+        tmp_path, str(tmp_path / "a.db"), str(tmp_path / "s.db")
+    ).get("/api/proof").json()
     assert body["available"] is False

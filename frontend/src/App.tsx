@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 
 import { ChatPanel } from "./components/ChatPanel";
 import { DepotsView } from "./components/DepotsView";
+import { ProofView } from "./components/ProofView";
 import { FunnelView } from "./components/FunnelView";
 import { InboxPanel } from "./components/InboxPanel";
 import { LearningCurvePanel } from "./components/LearningCurvePanel";
@@ -19,6 +20,7 @@ type View =
   | "voices"
   | "inbox"
   | "depots"
+  | "proof"
   | "strategies"
   | "model"
   | "ml"
@@ -45,6 +47,7 @@ const NAV: { key: View; label: string; group: Group }[] = [
   { key: "voices", label: "Stimmen", group: "signale" },
   { key: "inbox", label: "Inbox", group: "entscheiden" },
   { key: "depots", label: "Depots", group: "entscheiden" },
+  { key: "proof", label: "Beweis", group: "entscheiden" },
   { key: "strategies", label: "Strategien", group: "forschung" },
   { key: "model", label: "Entry-Modell", group: "forschung" },
   { key: "ml", label: "Signal-Filter", group: "forschung" },
@@ -133,6 +136,7 @@ export default function App() {
             {view === "voices" && <VoicesPanel />}
             {view === "inbox" && <InboxPanel />}
             {view === "depots" && <DepotsView />}
+            {view === "proof" && <ProofView />}
             {view === "strategies" && <StrategyDashboard />}
             {view === "model" && <ModelPanel />}
             {view === "ml" && <MLSection />}

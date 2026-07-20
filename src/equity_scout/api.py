@@ -22,6 +22,7 @@ from equity_scout.constants import (
     MODEL_CAVEATS,
 )
 from equity_scout.promotion import lane_promotion_status
+from equity_scout.proof import CONVICTION_THRESHOLDS, book_report
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
 from equity_scout.evidence.event_reactions import aggregate_reactions
 from equity_scout.evidence.ledger import stats_by_source
@@ -582,6 +583,59 @@ def create_app(
                 "initial": sum(b["initial"] for b in books),
                 "day_pnl": sum(day_values) if day_values else None,
             },
+            "disclaimer": DISCLAIMER,
+        })
+
+    @app.get("/api/proof")
+    def proof() -> JSONResponse:
+        """v12 P2: honest report card per book — the "kann das funktionieren?"-view."""
+        books: list[dict] = []
+
+        vals = load_autotrader_valuations(autotrader_db)
+        if len(vals) >= 2:
+            trades = load_autotrader_trades(autotrader_db, limit=100_000)
+            books.append(book_report(
+                [(v["created_at"], v["equity"]) for v in vals],
+                label="Auto-Depot",
+                benchmark_curve=[(v["created_at"], v["benchmark_equity"]) for v in vals],
+                costs_paid=sum(t["cost"] for t in trades) if trades else None,
+            ))
+
+        for lane in LANES:
+            book = load_st_book(shortterm_db, lane)
+            lane_vals = load_st_valuations(shortterm_db, lane)
+            if book is None or len(lane_vals) < 2:
+                continue
+            lane_trades = load_st_trades(shortterm_db, lane, limit=100_000)
+            realized = [t["realized_pnl"] for t in lane_trades
+                        if t["realized_pnl"] is not None]
+            bench = [
+                (v["created_at"], book.initial_capital * (1.0 + v["benchmark_return"]))
+                for v in lane_vals if v["benchmark_return"] is not None
+            ]
+            books.append(book_report(
+                [(v["created_at"], v["equity"]) for v in lane_vals],
+                label=f"Arena {LANE_LABELS.get(lane, lane)}"
+                      f" (Benchmark {book.benchmark_ticker})",
+                benchmark_curve=bench or None,
+                realized_pnls=realized or None,
+                costs_paid=sum(t["fees"] for t in lane_trades) if lane_trades else None,
+            ))
+
+        for name in ML_SLEEVE_NAMES:
+            ml_vals = load_forward_valuations(forward_db, name)
+            if len(ml_vals) < 2:
+                continue
+            books.append(book_report(
+                [(v["created_at"], v["equity"]) for v in ml_vals],
+                label=f"{name} (Forward)",
+                benchmark_curve=[(v["created_at"], v["benchmark_equity"]) for v in ml_vals],
+            ))
+
+        return JSONResponse({
+            "available": len(books) > 0,
+            "books": books,
+            "conviction": CONVICTION_THRESHOLDS,
             "disclaimer": DISCLAIMER,
         })
 

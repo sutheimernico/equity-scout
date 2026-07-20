@@ -16,6 +16,14 @@ import pandas as pd
 MIN_DAYS_FOR_RATES = 60  # below this, annualised rates are noise, not evidence
 TRADING_DAYS_PER_YEAR = 252
 
+# What WOULD justify trusting this system with real money (rendered on the proof
+# surfaces so the bar is explicit, not vibes; the decision itself stays Nico's):
+CONVICTION_THRESHOLDS = {
+    "min_track_days": 180,
+    "min_sharpe_after_costs": 1.0,
+    "max_drawdown_pct": 15.0,
+}
+
 
 def _daily_series(curve: list[tuple[str, float]]) -> pd.Series:
     # last value per calendar day; dict comprehension keeps the final write per key
