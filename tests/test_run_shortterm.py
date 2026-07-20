@@ -87,6 +87,29 @@ def test_session_lane_outside_market_window_is_a_no_op(db, monkeypatch) -> None:
     assert load_book(db, "session") is None
 
 
+def test_session_overnight_sweep_flattens_leftover_positions(db, monkeypatch) -> None:
+    from equity_scout.shortterm_book import LaneBook, LanePosition
+    from equity_scout.shortterm_storage import save_book
+
+    stuck = LaneBook(
+        lane="session", initial_capital=10_000.0, cash=8_500.0, benchmark_ticker="SPY",
+        positions={"META": LanePosition(qty=2.0, entry_price=650.0, opened_at="t0")},
+    )
+    save_book(db, stuck, updated_at="t0")
+    index = pd.date_range("2026-07-20 15:45", periods=1, freq="15min", tz="America/New_York")
+    last_bar = pd.DataFrame([(648, 649, 647, 648.5)], index=index,
+                            columns=["open", "high", "low", "close"])
+    monkeypatch.setattr(runner, "within_market_window", lambda now: False)
+    monkeypatch.setattr(runner, "fetch_bars", lambda tickers: {"META": last_bar})
+    monkeypatch.setattr(runner, "settled_bars", lambda b, now: b)
+
+    runner.run_session(db, now=NOW)
+    book = load_book(db, "session")
+    assert book is not None and book.positions == {}
+    trades = load_trades(db, "session")
+    assert trades[0]["side"] == "sell" and "Nachlauf" in trades[0]["reason"]
+
+
 def test_session_lane_books_orb_fills_from_faked_bars(db, monkeypatch) -> None:
     monkeypatch.setattr(runner, "within_market_window", lambda now: True)
     index = pd.date_range("2026-07-20 09:30", periods=4, freq="15min", tz="America/New_York")

@@ -326,6 +326,20 @@ bewusst KEIN Adapter-Code — Echtgeld-Routing bleibt per LOOP.md verboten.
       (Installer ausgeführt), Windows-Task-XML `equity-scout-nightly` bereitgestellt
       (Registrierung → Needs Nico). 3 Wrapper-Tests (pytest/subprocess).
 
+## Phase: Vision v11 — Kurzfrist-Arena (2026-07-20) — DONE 2026-07-20
+Spec/Plan: `docs/superpowers/{specs,plans}/2026-07-20-vision-v11-shortterm-arena.md`. Drei
+Kurzfrist-Paper-Lanes à 10.000 USD im ehrlichen Wettrennen (Nico: "alles umsetzen, tracken,
+schauen was sich rentiert"): `swing` (Event-Swing 1–5 Tage auf classified_events, nightly),
+`session` (ORB-Daytrader auf ~15-min-VERZÖGERTEN Bars mit Settled-Bar-Gate + Fill am
+nächsten settled Open, nie über Nacht, */15 im Marktfenster), `crypto` (Donchian 20/10 auf
+Kraken-ECHTZEIT-Bars, 24/7-Cron, Benchmark BTC buy-and-hold). Gemeinsames Book mit
+realisiertem P&L/Win-Rate/Kosten als First-Class-Werten (`shortterm.db`), long-only v1.
+Surfaces: Dashboard-Tab "Kurzfrist-Arena", /api/shortterm, Digest-Block "⚡". Framing
+unverändert ehrlich: Erwartung nach Kosten negativ — die Arena misst, sie verspricht nichts.
+- [ ] Backlog: Shorts in den Lanes erst mit Borrow/Margin-Realismus
+- [ ] Backlog: Session-Lane auf Alpaca-IEX-Echtzeit (kostenloser Key) umstellbar — würde das
+      Delay-Modell überflüssig machen; Needs Nico (Account)
+
 ## Needs Nico (loop cannot do these itself)
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
 - Any data source that would require a paid key (do NOT sign up — log here instead).

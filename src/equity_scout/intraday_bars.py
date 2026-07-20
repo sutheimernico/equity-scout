@@ -44,7 +44,9 @@ def fetch_bars(tickers: list[str]) -> dict[str, pd.DataFrame]:
     out: dict[str, pd.DataFrame] = {}
     for ticker in tickers:
         try:
-            frame = data[ticker] if len(tickers) > 1 else data
+            # group_by="ticker" yields MultiIndex columns even for a single ticker on
+            # current yfinance — select by ticker whenever that level exists.
+            frame = data[ticker] if isinstance(data.columns, pd.MultiIndex) else data
         except KeyError:
             continue
         frame = frame.dropna(how="any")

@@ -63,6 +63,8 @@ Monday branch of the chain).
 #  forward sleeves AND the Auto-Depot)
 30 2 * * 2-6 flock -n /tmp/equity-scout-nightly.lock /home/nicosutheimer/private/equity-scout/scripts/nightly_train.sh >> /home/nicosutheimer/private/equity-scout/train.log 2>&1
 # nightly universe prefetch — 00:45 Mon-Sat, one universe segment per night (6-night rotation)
+# crypto lane — every 15 min around the clock (Kraken real-time is free and the market
+#   never closes); idempotent per completed bar, flock against overlaps (v11)
 45 0 * * 1-6 flock -n /tmp/equity-scout-prefetch.lock /home/nicosutheimer/private/equity-scout/scripts/nightly_prefetch.sh >> /home/nicosutheimer/private/equity-scout/prefetch.log 2>&1
 ```
 

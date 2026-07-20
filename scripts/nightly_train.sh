@@ -48,4 +48,7 @@ step research_batch    "$PY" scripts/run_research.py --trials 25
 step forward_paper     "$PY" scripts/run_forward_paper.py --refresh
 step autotrader        "$PY" scripts/run_autotrader.py
 step st_swing          "$PY" scripts/run_shortterm.py --lane swing
+# session lane overnight sweep: outside the market window this flattens anything the
+# settled-bar delay let slip past the in-session force-flat (never holds overnight)
+step st_session_sweep  "$PY" scripts/run_shortterm.py --lane session
 echo "[$(date -Is)] ===== nightly_train end =====" >> "$LOG"

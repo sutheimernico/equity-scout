@@ -111,9 +111,43 @@ def run_swing(db: str, main_db: str, *, now: datetime) -> None:
     _print_fills(fills)
 
 
+def _session_overnight_sweep(db: str, book: LaneBook, *, now: datetime) -> None:
+    """Flatten anything still open once the session is over. The last session bar (15:45 ET)
+    is not yet 'settled' when the final intraday run fires, so a position entered late can
+    slip past the in-session force-flat — this sweep (called by the nightly chain) closes it
+    at the last settled close. The lane must NEVER hold overnight."""
+    all_bars = fetch_bars(list(book.positions))
+    fills = []
+    prices: dict[str, float] = {}
+    for ticker in list(book.positions):
+        bars = all_bars.get(ticker)
+        settled = settled_bars(bars, now) if bars is not None else None
+        if settled is None or settled.empty:
+            continue  # no price, no trade — retried on the next sweep
+        price = float(settled["close"].iloc[-1])
+        prices[ticker] = price
+        book, fill = sell(book, ticker, price, settled.index[-1].isoformat(),
+                          reason="Session-Ende (Nachlauf)")
+        if fill:
+            fills.append(fill)
+    if not fills:
+        print("Nachlauf: nichts zu flatten.")
+        return
+    snap = valuation(book, prices, prices.get("SPY"), _hour_stamp(now))
+    save_book(db, book, updated_at=now.isoformat(timespec="seconds"))
+    append_trades(db, fills)
+    append_valuation(db, snap)
+    print(f"Nachlauf-Sweep: {len(fills)} Position(en) geflattet — Lane ist über Nacht flat.")
+    _print_fills(fills)
+
+
 def run_session(db: str, *, now: datetime) -> None:
     if not within_market_window(now):
-        print("Außerhalb des US-Marktfensters — Session-Lane hat nichts zu tun.")
+        book = load_book(db, "session")
+        if book is not None and book.positions:
+            _session_overnight_sweep(db, book, now=now)
+        else:
+            print("Außerhalb des US-Marktfensters — Session-Lane hat nichts zu tun.")
         return
     book = load_book(db, "session") or LaneBook.fresh("session", benchmark_ticker="SPY")
     state = json.loads(get_lane_state(db, "session", SESSION_STATE_KEY) or "{}")

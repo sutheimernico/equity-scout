@@ -225,6 +225,30 @@ Wiring ANY of them up is a deliberate human decision that requires changing the 
 iron constraint in `LOOP.md` ("no real-money trading or order routing — ever") — the
 autonomous loop never does this.
 
+## Kurzfrist-Arena (vision v11)
+
+Three short-term paper lanes, 10,000 USD each, raced against each other — the arena
+MEASURES which (if any) survives its costs; the research-backed expectation for retail
+short-term trading is that none do, and the arena will say so either way:
+
+- **`swing`** — Event-Swing (1–5 days): buys bullish earnings events (beat / guidance_up,
+  from the v7 event engine) at the daily close; +5 % target / −3 % stop / ~5-day max hold.
+  Runs nightly. Benchmark SPY.
+- **`session`** — Intraday-Session (ORB): Opening-Range-Breakout on 15-minute bars that are
+  ~15 min DELAYED (free yfinance) — the settled-bar honesty gate only lets the engine see
+  bars whose end is ≥ 20 min old, and fills happen at the NEXT settled bar's open, so no
+  fill can use a price before it was knowable. Always flat by the close. Runs every 15 min
+  inside the market window. Benchmark SPY.
+- **`crypto`** — Crypto-Daytrader: Donchian 20/10 breakout on Kraken's free, keyless,
+  REAL-TIME 15-minute bars (BTC/ETH/SOL/XRP vs USD), 24/7 cron. Benchmark: BTC
+  buy-and-hold — the honest bar, not cash.
+
+All lanes are long-only (shorting without borrow/margin realism would be fantasy), all
+fills charge slippage, per-trade realized P&L / win rate / fees are first-class
+(`shortterm.db`). Surfaces: dashboard tab "Kurzfrist-Arena", `/api/shortterm`, digest
+block "⚡ Kurzfrist-Arena". Run a lane manually:
+`uv run python scripts/run_shortterm.py --lane crypto`.
+
 ## Automation (cron)
 
 `scripts/daily_copilot.sh` runs the whole chain unattended (Mondays: screener + person
