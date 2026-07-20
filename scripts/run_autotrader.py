@@ -74,7 +74,9 @@ def combined_panel(*, start: str, refresh: bool, need_stocks: bool, main_db: str
     bot_tickers = list(dict.fromkeys([*watch_tickers, *SHORTABLE_TICKERS, "SPY"]))
     stocks = load_etf_panel(bot_tickers, start=start, snapshot=ML_BOTS_SNAPSHOT, refresh=refresh)
     extra = [t for t in stocks.tickers if t not in etf.tickers]
-    return PricePanel(pd.concat([etf.closes, stocks.closes[extra]], axis=1).sort_index())
+    return PricePanel(
+        pd.concat([etf.closes, stocks.closes[extra]], axis=1, sort=False).sort_index()
+    )
 
 
 def resolve_allocation(
