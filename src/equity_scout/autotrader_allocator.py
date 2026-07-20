@@ -61,6 +61,8 @@ def sleeve_return_frame(db_path: str | Path, sleeve_names: list[str]) -> pd.Data
 def returns_before(returns: pd.DataFrame, as_of: pd.Timestamp) -> pd.DataFrame:
     """Walk-forward guard: only rows strictly before `as_of` — a weight recompute must never
     see the day it takes effect (same convention as MarketView)."""
+    if returns.empty:
+        return returns  # no history at all — nothing to guard (index may not be datetimes)
     return returns.loc[returns.index < pd.Timestamp(as_of)]
 
 
