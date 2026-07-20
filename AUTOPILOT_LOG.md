@@ -174,3 +174,4 @@
 - 2026-07-20 v12 R6: pending digest persisted on TelegramError, */15 notify chain resends same-day exactly once, 2 tests
 - 2026-07-20 v12 R7: digest warns on stale autodepot as_of (busdays>2) and stale lanes (crypto calendar>1), 4 tests
 - 2026-07-20 v12 R8: ensure_new_york_tz in fetch_bars (loud IntradayDataError on naive index), 3 tests
+- 2026-07-20 v12 R9: return-frame drops >4-calendar-day gap observations, 1 test
