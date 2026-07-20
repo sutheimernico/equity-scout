@@ -10,22 +10,22 @@ first-class rows for a broker seam (nautilus RiskEngine idea), broker facts (Alp
 
 ## Wave A — pure core (each: module + tests, no I/O)
 
-- [ ] **A1 allocator** — `src/equity_scout/autotrader_allocator.py`: `sleeve_returns` (daily
+- [x] **A1 allocator** — `src/equity_scout/autotrader_allocator.py`: `sleeve_returns` (daily
   returns from forward_valuations equity series, per strategy), `blend_weights(returns, window=63,
   anchor=0.5, floor=0.05, cap=0.40)` → dict + mode ("anchor"|"tilt"); < 60 overlapping obs → pure
   EW with mode "anchor". Tests: EW fallback, softmax tilt ordering, floor/cap renorm, walk-forward
   (no future rows used).
-- [ ] **A2 protections** — `src/equity_scout/autotrader_protections.py`: `ConcentrationCap(0.10)`,
+- [x] **A2 protections** — `src/equity_scout/autotrader_protections.py`: `ConcentrationCap(0.10)`,
   `RegimeGate(red→0.5)`, `VolTarget(0.12, window=20)`, `DrawdownBreaker(soft=0.10, hard=0.20,
   cooldown_days=10, recover=(0.08, 0.15))` — each `apply(weights, ctx) → (weights, event|None)`;
   breaker is stateful via ctx (stage, triggered_at). Tests per protection incl. hysteresis path
   up/down, unknown-regime no-op, vol-target inactive < 21 points.
-- [ ] **A3 engine** — `src/equity_scout/autotrader_engine.py`: `aggregate_targets(sleeve_weights,
+- [x] **A3 engine** — `src/equity_scout/autotrader_engine.py`: `aggregate_targets(sleeve_weights,
   sleeve_decisions)` (look-through, per-ticker netting), `advance(account, targets, panel, as_of)`
   — mark-to-market by weight drift, turnover costs 10 bps, borrow proxy on net short, margin
   floor, produces trade rows (delta_weight, notional, cost). Idempotent per date. Tests mirror
   `test_forward_paper.py` (idempotency, no-lookahead, netting long vs short, cost charge, trades).
-- [ ] **A4 storage** — `src/equity_scout/autotrader_storage.py`: tables per spec §5, own
+- [x] **A4 storage** — `src/equity_scout/autotrader_storage.py`: tables per spec §5, own
   `init_autotrader_db`, save/load account round-trip, insert-or-ignore valuations/trades/events,
   sleeve-weights upsert per month. Tests: round-trips via tmp_path, idempotent double-insert.
 
