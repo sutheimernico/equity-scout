@@ -31,6 +31,7 @@ from equity_scout.autotrader_storage import (
     load_latest_sleeve_weights,
     load_valuations,
     persist_advance,
+    record_events,
     save_sleeve_weights,
 )
 from equity_scout.constants import (
@@ -46,7 +47,14 @@ from equity_scout.fx import eur_rate
 from equity_scout.state_storage import record_heartbeat
 from equity_scout.telegram_client import TelegramError, load_telegram_config, send_message
 from equity_scout.market import PricePanel
+from equity_scout.autotrader_protections import RiskEvent
+from equity_scout.promotion import lane_promotion_status, trailing_net_pnl
 from equity_scout.radar_storage import load_latest_watchlist
+from equity_scout.shortterm_storage import DEFAULT_SHORTTERM_DB_PATH
+from equity_scout.shortterm_storage import LANES as ARENA_LANES
+from equity_scout.shortterm_storage import load_trades as load_lane_trades
+from equity_scout.shortterm_storage import load_valuations as load_lane_valuations
+from equity_scout.strategies.base import TargetWeight
 from equity_scout.strategies.ensemble import EnsembleStrategy
 from equity_scout.strategies.ml_bot import SHORTABLE_TICKERS, MLLongStrategy, MLShortStrategy
 from equity_scout.strategies.registry import default_strategies
@@ -104,8 +112,72 @@ def combined_panel(*, start: str, refresh: bool, need_stocks: bool, main_db: str
     )
 
 
+class LaneSleeve:
+    """A promoted arena lane as a depot sleeve (v12 I3): the depot buys the lane's
+    EQUITY CURVE like a fund share — a synthetic `ARENA_<lane>` panel column built from
+    the lane's own valuations. Positions are never re-simulated (Kraken tickers do not
+    exist in the depot panel), and the lane keeps trading its own book."""
+
+    def __init__(self, lane: str) -> None:
+        self.lane = lane
+        self.name = f"Arena {lane}"
+        self.ticker = f"ARENA_{lane.upper()}"
+
+    def decide(self, as_of, market):  # noqa: ANN001, ANN201 - Strategy protocol
+        return [TargetWeight(self.ticker, 1.0)]
+
+
+def lane_equity_series(shortterm_db: str, lane: str) -> pd.Series | None:
+    """Last equity per calendar day from the lane's valuations (fund-share price)."""
+    vals = load_lane_valuations(shortterm_db, lane)
+    if len(vals) < 2:
+        return None
+    series = pd.Series(
+        {pd.Timestamp(v["created_at"][:10]): float(v["equity"]) for v in vals}
+    ).sort_index()
+    return series if len(series) >= 2 else None
+
+
+def resolve_promotions(
+    account: AutoDepotAccount, shortterm_db: str, *, today: str
+) -> tuple[list[str], list[RiskEvent]]:
+    """Evidence in, capital out (v12 I3): a lane enters on the strict I2 gate and leaves
+    when its trailing-60d realised net P&L stops being positive — a deliberately laxer
+    exit (hysteresis) so borderline lanes do not flap monthly."""
+    promoted = list(account.promoted_lanes)
+    events: list[RiskEvent] = []
+    for lane in ARENA_LANES:
+        vals = load_lane_valuations(shortterm_db, lane)
+        if not vals:
+            continue
+        trades = load_lane_trades(shortterm_db, lane, limit=5000)
+        if lane in promoted:
+            trailing = trailing_net_pnl(trades, today=today)
+            if trailing <= 0:
+                promoted.remove(lane)
+                events.append(RiskEvent(
+                    protection=f"promotion:{lane}", action="demote",
+                    detail=(f"Arena-Lane '{lane}' degradiert: 60-Tage-Netto-P&L "
+                            f"{trailing:+,.2f} $ — zurück auf den Prüfstand"),
+                ))
+        else:
+            status = lane_promotion_status(trades, vals, today=today)
+            if status["eligible"]:
+                promoted.append(lane)
+                pf = status["profit_factor"]
+                pf_str = "∞" if pf is not None and pf == float("inf") else f"{pf:.2f}"
+                events.append(RiskEvent(
+                    protection=f"promotion:{lane}", action="promote",
+                    detail=(f"Arena-Lane '{lane}' befördert: "
+                            f"{status['realized_trades']} realisierte Trades, "
+                            f"Netto {status['net_pnl']:+,.2f} $, Profit-Faktor {pf_str}"),
+                ))
+    return promoted, events
+
+
 def resolve_allocation(
-    autotrader_db: str, forward_db: str, sleeve_names: list[str], as_of: pd.Timestamp
+    autotrader_db: str, forward_db: str, sleeve_names: list[str], as_of: pd.Timestamp,
+    extra_returns: pd.DataFrame | None = None,
 ) -> SleeveAllocation:
     """Reuse this month's stored sleeve weights; recompute when the month rolled over OR the
     active sleeve set changed (e.g. a short bot just got its first champion — stale weights
@@ -123,6 +195,8 @@ def resolve_allocation(
             },
         )
     frame = returns_before(sleeve_return_frame(forward_db, sleeve_names), as_of)
+    if extra_returns is not None and not extra_returns.empty:
+        frame = pd.concat([frame, returns_before(extra_returns, as_of)], axis=1)
     allocation = blend_weights(frame, sleeve_names)
     save_sleeve_weights(autotrader_db, month, allocation)
     return allocation
@@ -145,16 +219,41 @@ def advance_autotrader(
     *,
     autotrader_db: str,
     forward_db: str,
+    shortterm_db: str | None = None,
     regime_level: str | None = None,
     fx_rate: float | None = None,
     costs_bps: float = 10.0,
     persist: bool = True,
 ) -> tuple[AutoDepotAccount, AutoDepotValuation | None]:
-    """One testable advance: allocation -> engine -> (optionally) persistence."""
+    """One testable advance: promotions -> allocation -> engine -> persistence."""
+    from dataclasses import replace as _replace
+
     as_of = panel.dates[-1]
     account = load_depot(autotrader_db) or AutoDepotAccount.fresh()
+    lane_returns: pd.DataFrame | None = None
+    if shortterm_db is not None:
+        today_iso = as_of.date().isoformat()
+        promoted, promo_events = resolve_promotions(account, shortterm_db, today=today_iso)
+        if tuple(promoted) != account.promoted_lanes:
+            account = _replace(account, promoted_lanes=tuple(promoted))
+        lane_cols: dict[str, pd.Series] = {}
+        for lane in promoted:
+            series = lane_equity_series(shortterm_db, lane)
+            if series is None:
+                continue  # not enough curve to price the fund share — skip honestly
+            sleeve = LaneSleeve(lane)
+            strategies = [*strategies, sleeve]
+            panel = PricePanel(
+                panel.closes.join(series.rename(sleeve.ticker), how="left").sort_index()
+            )
+            lane_cols[sleeve.name] = series.pct_change().iloc[1:]
+        if lane_cols:
+            lane_returns = pd.DataFrame(lane_cols)
+        if promo_events and persist:
+            record_events(autotrader_db, today_iso, promo_events)
     allocation = resolve_allocation(
-        autotrader_db, forward_db, [s.name for s in strategies], as_of
+        autotrader_db, forward_db, [s.name for s in strategies], as_of,
+        extra_returns=lane_returns,
     )
     account, valuation = advance_depot(
         account, strategies, allocation, panel,
@@ -231,6 +330,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=DEFAULT_AUTOTRADER_DB_PATH, help="Autotrader DB path.")
     ap.add_argument("--forward-db", default=DEFAULT_FORWARD_DB_PATH, help="Forward paper DB (sleeve history).")
+    ap.add_argument("--shortterm-db", default=DEFAULT_SHORTTERM_DB_PATH,
+                    help="Arena DB (promotion gate reads lane evidence from here).")
     ap.add_argument("--main-db", default=DEFAULT_DB_PATH, help="Main DB (watchlist + model registry).")
     ap.add_argument("--start", default="2007-01-01", help="Panel start date (first fetch only).")
     ap.add_argument("--cost-bps", type=float, default=10.0, help="Round-trip rebalance cost.")
@@ -249,6 +350,7 @@ def main() -> None:
     account, valuation = advance_autotrader(
         panel, strategies,
         autotrader_db=args.db, forward_db=args.forward_db,
+        shortterm_db=args.shortterm_db,
         regime_level=_collect_regime_level(panel),
         fx_rate=eur_rate("USD"),
         costs_bps=args.cost_bps,

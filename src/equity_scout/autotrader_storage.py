@@ -80,6 +80,7 @@ def _to_json(account: AutoDepotAccount) -> str:
         "breaker": {"stage": account.breaker.stage, "changed_at": account.breaker.changed_at},
         "sleeve_weights": account.sleeve_weights,
         "sleeve_mode": account.sleeve_mode,
+        "promoted_lanes": list(account.promoted_lanes),
     })
 
 
@@ -99,6 +100,7 @@ def _from_json(blob: str) -> AutoDepotAccount:
         ),
         sleeve_weights=d.get("sleeve_weights", {}),
         sleeve_mode=d.get("sleeve_mode", "anchor"),
+        promoted_lanes=tuple(d.get("promoted_lanes", [])),
     )
 
 
@@ -178,6 +180,18 @@ def record_advance(db_path: str | Path, valuation: AutoDepotValuation) -> None:
     init_autotrader_db(db_path)
     with db.connect(db_path) as con:
         _insert_advance_rows(con, valuation)
+
+
+def record_events(db_path: str | Path, created_at: str, events) -> None:
+    """Standalone risk-event rows — promotions/demotions happen outside an advance
+    (v12 I3). INSERT OR IGNORE on (created_at, protection) keeps re-runs idempotent."""
+    init_autotrader_db(db_path)
+    with db.connect(db_path) as con:
+        con.executemany(
+            "INSERT OR IGNORE INTO autotrader_risk_events "
+            "(created_at, protection, action, detail) VALUES (?, ?, ?, ?)",
+            [(created_at, e.protection, e.action, e.detail) for e in events],
+        )
 
 
 def load_valuations(db_path: str | Path) -> list[dict]:

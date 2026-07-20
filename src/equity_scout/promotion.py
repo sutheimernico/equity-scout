@@ -9,7 +9,7 @@ render the checklist, they never re-derive it.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 
 @dataclass(frozen=True)
@@ -68,3 +68,14 @@ def lane_promotion_status(
         "eligible": not missing,
         "missing": missing,
     }
+
+
+def trailing_net_pnl(trades: list[dict], *, today: str, days: int = 60) -> float:
+    """Realised net P&L over the trailing window — the DEMOTION criterion (v12 I3).
+    Deliberately laxer than the entry gate (hysteresis): a borderline lane must not
+    flap in and out of the depot every month."""
+    cutoff = (date.fromisoformat(today) - timedelta(days=days)).isoformat()
+    return sum(
+        float(t["realized_pnl"]) for t in trades
+        if t.get("realized_pnl") is not None and (t.get("executed_at") or "")[:10] >= cutoff
+    )

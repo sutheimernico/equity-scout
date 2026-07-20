@@ -75,6 +75,7 @@ class AutoDepotAccount:
     breaker: BreakerState = BreakerState()
     sleeve_weights: dict[str, float] = field(default_factory=dict)
     sleeve_mode: str = "anchor"
+    promoted_lanes: tuple[str, ...] = ()  # arena lanes currently earning depot capital (v12 I3)
 
     @classmethod
     def fresh(

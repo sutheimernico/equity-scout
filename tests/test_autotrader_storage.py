@@ -130,3 +130,12 @@ def test_persist_advance_rolls_back_completely_on_mid_write_failure(db) -> None:
     assert load_depot(db) is None
     assert load_valuations(db) == []
     assert load_trades(db) == []
+
+
+def test_promoted_lanes_survive_the_account_round_trip(db) -> None:
+    account = AutoDepotAccount.fresh()
+    from dataclasses import replace
+
+    account = replace(account, promoted_lanes=("crypto",))
+    save_depot(db, account, updated_at="2026-07-21")
+    assert load_depot(db).promoted_lanes == ("crypto",)

@@ -184,3 +184,84 @@ def test_push_events_is_silent_and_env_gated(monkeypatch) -> None:
     assert runner_mod.push_events(valuation, {**env, "COPILOT_TG_AUTOTRADER_EVENTS": "0"}) is False
     assert len(calls) == 1
     assert runner_mod.push_events(None, env) is False  # quiet advance -> no message
+
+
+def _seed_lane(shortterm_db: str, *, winning: bool) -> None:
+    from equity_scout.shortterm_book import LaneBook, LaneValuation, TradeFill
+    from equity_scout.shortterm_storage import append_trades, append_valuation, save_book
+
+    save_book(shortterm_db, LaneBook.fresh("crypto", benchmark_ticker="BTC"), updated_at="t")
+    pnl_win, pnl_loss = (20.0, -10.0) if winning else (5.0, -40.0)
+    fills = [
+        TradeFill(lane="crypto", executed_at=f"2026-07-0{1 + i % 9}T{10 + i % 10}:0{i % 6}",
+                  ticker=f"C{i}", side="sell", qty=1.0, price=100.0, fees=0.1,
+                  reason="test", realized_pnl=pnl_win if i % 2 == 0 else pnl_loss)
+        for i in range(34)
+    ]
+    append_trades(shortterm_db, fills)
+    append_valuation(shortterm_db, LaneValuation(
+        lane="crypto", created_at="2026-05-01T18:00", equity=10_000.0, total_return=0.0,
+        cash=10_000.0, open_positions=0, benchmark_return=None,
+    ))
+    for i, day in enumerate(["2026-07-06", "2026-07-07", "2026-07-08", "2026-07-09",
+                             "2026-07-10", "2026-07-13"]):
+        append_valuation(shortterm_db, LaneValuation(
+            lane="crypto", created_at=f"{day}T18:00", equity=10_000.0 + 50.0 * i,
+            total_return=0.005 * i, cash=8_000.0, open_positions=1, benchmark_return=None,
+        ))
+
+
+def test_eligible_lane_is_promoted_into_the_depot(dbs, tmp_path) -> None:
+    """I3: evidence in, capital out — the depot buys the lane's equity curve as a fund
+    share; a promotion risk-event row is persisted."""
+    from equity_scout.autotrader_storage import load_risk_events
+
+    autotrader_db, forward_db = dbs
+    shortterm_db = str(tmp_path / "shortterm.db")
+    _seed_lane(shortterm_db, winning=True)
+    strategies = [_Fixed("a", [TargetWeight("SPY", 0.5)])]
+
+    account, valuation = advance_autotrader(
+        _panel(6), strategies, autotrader_db=autotrader_db, forward_db=forward_db,
+        shortterm_db=shortterm_db,
+    )
+    assert account.promoted_lanes == ("crypto",)
+    assert "Arena crypto" in account.sleeve_weights
+    assert any(t["ticker"] == "ARENA_CRYPTO" for t in load_trades(autotrader_db))
+    events = load_risk_events(autotrader_db)
+    assert any(e["action"] == "promote" for e in events)
+
+
+def test_losing_lane_stays_a_measurement_instrument(dbs, tmp_path) -> None:
+    autotrader_db, forward_db = dbs
+    shortterm_db = str(tmp_path / "shortterm.db")
+    _seed_lane(shortterm_db, winning=False)
+    strategies = [_Fixed("a", [TargetWeight("SPY", 0.5)])]
+
+    account, _ = advance_autotrader(
+        _panel(6), strategies, autotrader_db=autotrader_db, forward_db=forward_db,
+        shortterm_db=shortterm_db,
+    )
+    assert account.promoted_lanes == ()
+    assert "Arena crypto" not in account.sleeve_weights
+
+
+def test_promoted_lane_is_demoted_when_trailing_pnl_turns_negative(dbs, tmp_path) -> None:
+    from dataclasses import replace
+
+    from equity_scout.autotrader_engine import AutoDepotAccount
+    from equity_scout.autotrader_storage import load_risk_events, save_depot
+
+    autotrader_db, forward_db = dbs
+    shortterm_db = str(tmp_path / "shortterm.db")
+    _seed_lane(shortterm_db, winning=False)  # trailing 60d net negative
+    save_depot(autotrader_db, replace(AutoDepotAccount.fresh(), promoted_lanes=("crypto",)),
+               updated_at="2026-07-01")
+    strategies = [_Fixed("a", [TargetWeight("SPY", 0.5)])]
+
+    account, _ = advance_autotrader(
+        _panel(6), strategies, autotrader_db=autotrader_db, forward_db=forward_db,
+        shortterm_db=shortterm_db,
+    )
+    assert account.promoted_lanes == ()
+    assert any(e["action"] == "demote" for e in load_risk_events(autotrader_db))

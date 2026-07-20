@@ -71,3 +71,15 @@ def test_config_thresholds_are_respected() -> None:
         _winning_trades(6), _vals("2026-07-01"), cfg, today=TODAY
     )
     assert status["eligible"] is True
+
+
+def test_trailing_net_pnl_only_counts_the_window() -> None:
+    from equity_scout.promotion import trailing_net_pnl
+
+    trades = [
+        {"executed_at": "2026-03-01T10:00", "realized_pnl": 500.0},  # outside 60d
+        {"executed_at": "2026-07-01T10:00", "realized_pnl": -30.0},
+        {"executed_at": "2026-07-10T10:00", "realized_pnl": 10.0},
+        {"executed_at": "2026-07-15T10:00", "realized_pnl": None},  # open buy
+    ]
+    assert trailing_net_pnl(trades, today=TODAY) == pytest.approx(-20.0)
