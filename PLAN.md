@@ -358,7 +358,7 @@ Harte Grenzen unverändert: paper-only, kein Order-Routing, local & free, DISCLA
 - [x] R10 (P2) Marktfenster aus America/New_York berechnen (DST-Übergang)
 - [x] R11 (P2) Robustheits-Sweep (/api/entry-Guard, Receiver-answerCallbackQuery, Swing-Event-Alter)
 - [x] W1 Chain-Heartbeats + Dead-Man-Watchdog mit Telegram-Alarm (Cooldown 24h)
-- [ ] W2 Auto-Depot-Event-Push (Trades/Risk-Events gebündelt, silent, env-gated)
+- [x] W2 Auto-Depot-Event-Push (Trades/Risk-Events gebündelt, silent, env-gated)
 - [ ] I1 /api/overview: Gesamtvermögen + Horizont-Subtotale (short/mid/long)
 - [ ] I2 promotion.py: Beweis-Gate (≥30 Trades, ≥60 Tage, Netto-P&L>0, PF≥1.1)
 - [ ] I3 Promotion-Wiring: eligible Lane wird Auto-Depot-Sleeve, Demotion bei Verfall
