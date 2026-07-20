@@ -36,6 +36,7 @@ from equity_scout.shortterm_storage import (
     load_book,
     persist_lane_step,
 )
+from equity_scout.state_storage import record_heartbeat
 from equity_scout.st_crypto import ENTRY_FRACTION as CRYPTO_FRACTION
 from equity_scout.st_crypto import decide_pair
 from equity_scout.st_session import ENTRY_FRACTION as SESSION_FRACTION
@@ -218,7 +219,7 @@ def run_session(db: str, *, now: datetime) -> None:
     _print_fills(fills)
 
 
-def run_crypto(db: str, *, now: datetime, fetch=fetch_ohlc) -> None:
+def run_crypto(db: str, *, now: datetime, fetch=fetch_ohlc) -> bool:
     book = load_book(db, "crypto") or LaneBook.fresh("crypto", benchmark_ticker="BTC")
     fills = []
     markers: list[tuple[str, str]] = []
@@ -250,7 +251,7 @@ def run_crypto(db: str, *, now: datetime, fetch=fetch_ohlc) -> None:
 
     if not prices:
         print("Kraken nicht erreichbar — Lauf übersprungen (kein Preis, kein Trade).")
-        return
+        return False
     book = capture_benchmark(book, prices.get("BTC"))
     snap = valuation(book, prices, prices.get("BTC"), _hour_stamp(now))
     persist_lane_step(db, book, updated_at=now.isoformat(timespec="seconds"),
@@ -261,6 +262,7 @@ def run_crypto(db: str, *, now: datetime, fetch=fetch_ohlc) -> None:
           f"Crypto: Equity {snap.equity:,.2f} ({snap.total_return:+.2%}), "
           f"{len(book.positions)} offen, {len(fills)} Fills")
     _print_fills(fills)
+    return True
 
 
 def main() -> None:
@@ -276,8 +278,9 @@ def main() -> None:
         run_swing(args.db, args.main_db, now=now)
     elif args.lane == "session":
         run_session(args.db, now=now)
-    else:
-        run_crypto(args.db, now=now)
+    elif run_crypto(args.db, now=now):
+        # heartbeat only on a live advance: a dead feed must LOOK dead (v12 W1)
+        record_heartbeat(args.main_db, "crypto", now=now.isoformat())
     print(f"\n{DISCLAIMER}\n")
 
 

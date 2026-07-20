@@ -36,6 +36,7 @@ from equity_scout.forward_storage import load_account
 from equity_scout.data.etf_panel import load_etf_panel
 from equity_scout.etf_universe import ETF_TICKERS
 from equity_scout.fx import eur_rate
+from equity_scout.state_storage import record_heartbeat
 from equity_scout.market import PricePanel
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.strategies.ensemble import EnsembleStrategy
@@ -204,6 +205,10 @@ def main() -> None:
         costs_bps=args.cost_bps,
         persist=not args.dry_run,
     )
+    if not args.dry_run:
+        from datetime import datetime, timezone
+
+        record_heartbeat(args.main_db, "nightly", now=datetime.now(timezone.utc).isoformat())
 
     mode_note = (
         "Anker-Phase: zu wenig Forward-Historie für Performance-Tilt — reines Equal-Weight"

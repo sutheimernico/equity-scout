@@ -118,3 +118,12 @@ def test_stale_pending_from_yesterday_is_dropped_not_sent(tmp_path, monkeypatch)
     assert maybe_resend_pending(db) is False
     assert sent == []
     assert get_state(db, key="digest_pending_date") == ""
+
+
+def test_digest_run_records_daily_heartbeat(tmp_path, monkeypatch):
+    db = str(tmp_path / "inbox.db")
+    for var in ("SMTP_HOST", "COPILOT_TG_BOT_TOKEN", "COPILOT_TG_CHAT_ID"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(sys, "argv", ["run_digest.py", "--db", db])
+    assert main() == 0  # unconfigured stdout run still proves the chain is alive
+    assert get_state(db, key="heartbeat_daily") is not None

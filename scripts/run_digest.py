@@ -46,7 +46,7 @@ from equity_scout.notify import DEFAULT_THRESHOLD
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.regime import build_regime
 from equity_scout.sectors import sector_breadth, sector_momentum, top_sector_line
-from equity_scout.state_storage import get_state, set_state
+from equity_scout.state_storage import get_state, record_heartbeat, set_state
 from equity_scout.telegram_client import (
     TelegramError,
     load_telegram_config,
@@ -303,6 +303,7 @@ def main() -> int:
         today=date_label, force=args.force, configured=configured,
     ):
         print(f"Digest für {date_label} bereits verschickt — übersprungen (--force erzwingt).")
+        record_heartbeat(args.db, "daily", now=now.isoformat())
         return 0
 
     day_ago = (now - timedelta(hours=24)).isoformat(timespec="seconds")
@@ -397,6 +398,7 @@ def main() -> int:
     if not configured:
         print(text)
         print("Neither SMTP nor Telegram configured — printing digest.")
+    record_heartbeat(args.db, "daily", now=now.isoformat())
     return 0
 
 
