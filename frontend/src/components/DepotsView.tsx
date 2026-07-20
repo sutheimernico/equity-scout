@@ -4,10 +4,11 @@ import { fetchPortfolio, type PortfolioState } from "../api";
 import { ArenaPanel } from "./ArenaPanel";
 import { AutoDepotPanel } from "./AutoDepotPanel";
 import { ForwardPanel } from "./ForwardPanel";
+import { KurzfristArenaPanel } from "./KurzfristArenaPanel";
 import { Portfolio } from "./Portfolio";
 import { TimeContextBadge } from "./ui/TimeContextBadge";
 
-type DepotTab = "arena" | "screener" | "forward" | "bots" | "autodepot";
+type DepotTab = "arena" | "screener" | "forward" | "bots" | "autodepot" | "shortterm";
 
 // Every paper depot in ONE place (plan v6 P6) — before this they lived under three
 // different names in three different views (Arena, "Demo-Depot" im Screener,
@@ -18,6 +19,7 @@ const TABS: { key: DepotTab; label: string }[] = [
   { key: "forward", label: "Strategie-Forward" },
   { key: "bots", label: "ML-Bots" },
   { key: "autodepot", label: "Auto-Depot" },
+  { key: "shortterm", label: "Kurzfrist-Arena" },
 ];
 
 function ScreenerDepot() {
@@ -52,7 +54,7 @@ export function DepotsView() {
         <p className="eyebrow">Entscheiden · Depots</p>
         <h1>Alle Paper-Depots an einem Ort</h1>
         <p className="section-sub">
-          Fünf Demo-Depots, fünf Ansätze — alle mit Spielgeld, keins echt. Das Badge an jedem Tab
+          Sechs Demo-Depots, sechs Ansätze — alle mit Spielgeld, keins echt. Das Badge an jedem Tab
           sagt, ob du einen Backtest oder einen vorwärtslaufenden Track ansiehst.
         </p>
       </header>
@@ -72,7 +74,7 @@ export function DepotsView() {
       <div className="chip-row" style={{ marginBottom: "var(--space-3)" }}>
         {tab === "arena" && <TimeContextBadge kind="paper" />}
         {tab === "screener" && <TimeContextBadge kind="paper" />}
-        {(tab === "forward" || tab === "bots" || tab === "autodepot") && (
+        {(tab === "forward" || tab === "bots" || tab === "autodepot" || tab === "shortterm") && (
           <TimeContextBadge kind="forward" />
         )}
       </div>
@@ -90,6 +92,7 @@ export function DepotsView() {
         />
       )}
       {tab === "autodepot" && <AutoDepotPanel />}
+      {tab === "shortterm" && <KurzfristArenaPanel />}
     </>
   );
 }

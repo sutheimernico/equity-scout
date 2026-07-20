@@ -422,6 +422,60 @@ export async function fetchAutodepot(): Promise<AutodepotResponse> {
   return response.json();
 }
 
+// --- Kurzfrist-Arena: three short-term paper lanes raced against each other (vision v11) ---
+
+export interface ShortTermStats {
+  n_trades: number;
+  n_fills: number;
+  win_rate: number | null;
+  realized_pnl: number;
+  fees_paid: number;
+}
+
+export interface ShortTermPosition {
+  ticker: string;
+  qty: number;
+  entry_price: number;
+  opened_at: string;
+}
+
+export interface ShortTermTrade {
+  executed_at: string;
+  ticker: string;
+  side: string;
+  qty: number;
+  price: number;
+  fees: number;
+  reason: string;
+  realized_pnl: number | null;
+}
+
+export interface ShortTermLane {
+  lane: string; // "swing" | "session" | "crypto"
+  initial_capital: number;
+  equity: number;
+  total_return: number;
+  benchmark_ticker: string;
+  benchmark_return: number | null;
+  max_drawdown: number;
+  open_positions: ShortTermPosition[];
+  equity_curve: [string, number][];
+  stats: ShortTermStats;
+  recent_trades: ShortTermTrade[];
+}
+
+export interface ShortTermResponse {
+  available: boolean;
+  lanes: ShortTermLane[];
+  disclaimer: string;
+}
+
+export async function fetchShortterm(): Promise<ShortTermResponse> {
+  const response = await fetch("/api/shortterm");
+  if (!response.ok) throw new Error(`/api/shortterm returned ${response.status}`);
+  return response.json();
+}
+
 // --- Local chatbot over the dashboard data (src/equity_scout/chat.py via Ollama) ---
 
 export interface ChatReply {
