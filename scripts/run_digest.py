@@ -21,6 +21,10 @@ from equity_scout.autotrader_storage import (
     load_trades,
     load_valuations,
 )
+from equity_scout.shortterm_storage import DEFAULT_SHORTTERM_DB_PATH, LANES
+from equity_scout.shortterm_storage import load_book as load_st_book
+from equity_scout.shortterm_storage import load_trades as load_st_trades
+from equity_scout.shortterm_storage import load_valuations as load_st_valuations
 from equity_scout.butler import (
     MONTH_NAMES,
     build_core_plan,
@@ -135,6 +139,43 @@ def collect_autodepot(db_path: str = DEFAULT_AUTOTRADER_DB_PATH) -> dict | None:
         return None
 
 
+_LANE_LABELS = {
+    "swing": "Event-Swing",
+    "session": "Intraday-Session",
+    "crypto": "Crypto",
+}
+
+
+def collect_shortterm(
+    today: str, db_path: str = DEFAULT_SHORTTERM_DB_PATH
+) -> list[dict] | None:
+    """v11 arena block: one line per started lane (return, benchmark, today's fills).
+    None while no lane has data — honest absence, and errors never break the digest."""
+    try:
+        lanes = []
+        for lane in LANES:
+            book = load_st_book(db_path, lane)
+            vals = load_st_valuations(db_path, lane)
+            if book is None or not vals:
+                continue
+            latest = vals[-1]
+            trades_today = sum(
+                1 for t in load_st_trades(db_path, lane, limit=100)
+                if t["executed_at"][:10] == today
+            )
+            lanes.append({
+                "lane": lane,
+                "label": _LANE_LABELS.get(lane, lane),
+                "total_return": latest["total_return"],
+                "benchmark_ticker": book.benchmark_ticker,
+                "benchmark_return": latest["benchmark_return"],
+                "trades_today": trades_today,
+            })
+        return lanes or None
+    except Exception:  # noqa: BLE001 - best-effort section by design
+        return None
+
+
 def collect_sector_line(panel) -> str | None:
     """Top-3 sector head line from the shared ETF panel snapshot; None when the panel
     is missing or predates the sector-ETF extension (honest absence, no fetch here)."""
@@ -191,6 +232,7 @@ def main() -> int:
     sector_line = collect_sector_line(panel)
     evidence_stats = stats_by_source(args.db)
     autodepot = collect_autodepot()
+    shortterm = collect_shortterm(date_label)
 
     # v9 butler: full savings-plan block once per month, one-liner on the other days.
     # No panel / strategy silent -> no block at all (honest absence), and the month
@@ -222,6 +264,7 @@ def main() -> int:
             core_block=core_block,
             below_threshold=below_threshold,
             autodepot=autodepot,
+            shortterm=shortterm,
             html=html,
         )
 

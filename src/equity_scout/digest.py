@@ -71,6 +71,7 @@ def build_digest(
     core_block: str | None = None,
     below_threshold: int | None = None,
     autodepot: dict | None = None,
+    shortterm: list[dict] | None = None,
     html: bool = False,
 ) -> str:
     """German digest: market head first, all open pitches, then recent decisions.
@@ -101,7 +102,10 @@ def build_digest(
 
     v10: `autodepot` (run_digest.collect_autodepot shape) renders the Auto-Depot block —
     the meta depot advances NIGHTLY after US close, so the block is stamped with its own
-    as_of date instead of claiming "heute". Omitted entirely when None (no depot yet)."""
+    as_of date instead of claiming "heute". Omitted entirely when None (no depot yet).
+
+    v11: `shortterm` (run_digest.collect_shortterm shape, one dict per arena lane) renders
+    the "⚡ Kurzfrist-Arena" one-liner-per-lane block; omitted when None/empty."""
 
     def _head(text: str) -> str:
         return f"<b>{escape_html(text)}</b>" if html else text
@@ -159,6 +163,18 @@ def build_digest(
             lines.append(_line(
                 "  (Anker-Phase: Sleeves gleichgewichtet — noch zu wenig"
                 " Forward-Historie für einen Performance-Tilt)"
+            ))
+    if shortterm:
+        lines.append(_head("⚡ Kurzfrist-Arena:"))
+        for lane in shortterm:
+            bench = ""
+            if lane.get("benchmark_return") is not None:
+                bench = f" ({lane['benchmark_ticker']} {lane['benchmark_return'] * 100:+.1f} %)"
+            trades_note = (
+                f" · {lane['trades_today']} Trades heute" if lane.get("trades_today") else ""
+            )
+            lines.append(_line(
+                f"  {lane['label']}: {lane['total_return'] * 100:+.1f} %{bench}{trades_note}"
             ))
     lines.append("")
     if alerts_today:
