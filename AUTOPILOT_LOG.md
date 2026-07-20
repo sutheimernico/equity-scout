@@ -188,3 +188,4 @@
 - 2026-07-21 v12 M3: equity-scout-dash.service (fail-closed, staged; enable gated on DASH_TOKEN in .env)
 - 2026-07-21 v12 M4: weekly DASH_URL digest footer (state-gated), README Handy-Cockpit section, Needs-Nico entry
 - 2026-07-21 v12 P1: proof.book_report (sharpe/cagr gated on 60d, maxdd, win-rate, cost-share, vs-benchmark, verdict), 4 tests
+- 2026-07-21 v12 P2: /api/proof report cards (autodepot+lanes+ML forward) + FE Beweis view, conviction bar explicit, 2 tests
