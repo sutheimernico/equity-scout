@@ -67,6 +67,7 @@ def build_digest(
     earnings_this_week: list[dict] | None = None,
     regime: dict | None = None,
     sector_line: str | None = None,
+    core_block: str | None = None,
     below_threshold: int | None = None,
     html: bool = False,
 ) -> str:
@@ -93,7 +94,8 @@ def build_digest(
     stored value never contradicts the pitch it summarizes — the whole point of
     storing it in v8) and are deduped/sorted/capped (see `_dedupe_open`); opportunity
     lines compute one live verdict instead, since watchlist entries never had one
-    persisted."""
+    persisted. `core_block` (butler savings-plan block or its one-line stand-in)
+    arrives pre-rendered for the same html mode and is appended verbatim."""
 
     def _head(text: str) -> str:
         return f"<b>{escape_html(text)}</b>" if html else text
@@ -109,6 +111,10 @@ def build_digest(
         ))
     if sector_line is not None:
         lines.append(_line(f"📊 {sector_line}"))
+    if core_block is not None:
+        # Pre-rendered by butler.render_core_block/core_running_line with the same
+        # html flag — appending verbatim keeps escaping in exactly one place.
+        lines.append(core_block)
     lines.append("")
     if alerts_today:
         lines.append(_head("📌 Heute aufgefallen:"))

@@ -14,6 +14,13 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
+from equity_scout.butler import (
+    MONTH_NAMES,
+    build_core_plan,
+    core_running_line,
+    monthly_budget,
+    render_core_block,
+)
 from equity_scout.charts import fetch_year_closes
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
@@ -36,6 +43,7 @@ from equity_scout.telegram_client import (
 OPPORTUNITY_TOP_N = 3
 EARNINGS_LOOKAHEAD_DAYS = 7  # "diese Woche" — matches the daily digest's own cadence
 DIGEST_SENT_KEY = "digest_sent_on"
+CORE_PLAN_MONTH_KEY = "core_plan_month"
 
 
 def should_skip_send(last_sent: str | None, *, today: str, force: bool, configured: bool) -> bool:
@@ -145,7 +153,23 @@ def main() -> int:
     sector_line = collect_sector_line(panel)
     evidence_stats = stats_by_source(args.db)
 
+    # v9 butler: full savings-plan block once per month, one-liner on the other days.
+    # No panel / strategy silent -> no block at all (honest absence), and the month
+    # marker is only set after a successful send so a failed run retries tomorrow.
+    month_key = date_label[:7]
+    core_sent_this_month = get_state(args.db, key=CORE_PLAN_MONTH_KEY) == month_key
+    core_plan = None
+    if not core_sent_this_month:
+        core_plan = build_core_plan(panel, monthly_budget_eur=monthly_budget(dict(os.environ)))
+
     def render(html: bool) -> str:
+        if core_plan is not None:
+            month_label = MONTH_NAMES[int(date_label[5:7]) - 1]
+            core_block = render_core_block(core_plan, month_label=month_label, html=html)
+        elif core_sent_this_month:
+            core_block = core_running_line(html=html)
+        else:
+            core_block = None
         return build_digest(
             pitches,
             date_label=date_label,
@@ -156,9 +180,15 @@ def main() -> int:
             earnings_this_week=earnings_this_week,
             regime=regime,
             sector_line=sector_line,
+            core_block=core_block,
             below_threshold=below_threshold,
             html=html,
         )
+
+    def mark_sent() -> None:
+        set_state(args.db, key=DIGEST_SENT_KEY, value=date_label)
+        if core_plan is not None:
+            set_state(args.db, key=CORE_PLAN_MONTH_KEY, value=month_key)
 
     text = render(html=False)
     # Marker set right after each successful send (not collected into a `delivered` flag
@@ -167,14 +197,14 @@ def main() -> int:
     # the next run would double-send the channel that already succeeded.
     if smtp_config is not None:
         send_digest(smtp_config, f"Copilot-Digest {date_label}", text)
-        set_state(args.db, key=DIGEST_SENT_KEY, value=date_label)
+        mark_sent()
     if tg_config is not None:
         try:
             send_long_message(
                 tg_config["token"], tg_config.get("daily_chat_id", tg_config["chat_id"]),
                 render(html=True), parse_mode="HTML",
             )
-            set_state(args.db, key=DIGEST_SENT_KEY, value=date_label)
+            mark_sent()
         except TelegramError as err:
             print(f"Warnung: Telegram-Digest-Versand fehlgeschlagen: {err}", file=sys.stderr)
     if not configured:

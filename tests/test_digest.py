@@ -223,3 +223,16 @@ def test_open_pitches_newest_first_within_verdict_band():
     open_lines = [ln for ln in text.splitlines() if "· seit" in ln]
     assert "NEWER" in open_lines[0]
     assert "OLDER" in open_lines[1]
+
+
+def test_core_block_renders_verbatim_after_head():
+    """core_block arrives pre-rendered (butler handles html/escaping) — build_digest
+    must append it verbatim, before the section spacer."""
+    text = build_digest([], date_label="2026-07-19", core_block="💶 CORE-BLOCK")
+    head, rest = text.split("\n\n", 1)
+    assert "💶 CORE-BLOCK" in head
+    assert "💶 CORE-BLOCK" not in rest
+
+
+def test_no_core_block_leaves_digest_unchanged():
+    assert "💶" not in build_digest([], date_label="2026-07-19")
