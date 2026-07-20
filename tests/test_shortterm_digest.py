@@ -61,3 +61,37 @@ def test_collect_shortterm_reads_started_lanes_only(tmp_path) -> None:
 
 def test_collect_shortterm_is_none_on_fresh_db(tmp_path) -> None:
     assert collect_shortterm("2026-07-20", str(tmp_path / "empty.db")) is None
+
+
+def test_stale_lane_gets_warning_suffix() -> None:
+    from equity_scout.digest import build_digest
+
+    lane = {
+        "lane": "crypto", "label": "Crypto", "total_return": 0.01, "day_pnl": None,
+        "benchmark_ticker": "BTC", "benchmark_return": 0.02, "trades_today": 0,
+        "stale_days": 3,
+    }
+    text = build_digest([], date_label="2026-07-20", shortterm=[lane])
+    assert "seit 3 Tagen keine Daten" in text
+
+
+def test_collect_shortterm_flags_stale_crypto_lane(tmp_path) -> None:
+    """R7/P1: a dead Kraken feed must not render days-old numbers as current."""
+    db = str(tmp_path / "shortterm.db")
+    save_book(db, LaneBook.fresh("crypto", benchmark_ticker="BTC"), updated_at="t")
+    append_valuation(db, LaneValuation(
+        lane="crypto", created_at="2026-07-17T18:00", equity=10_080.0, total_return=0.008,
+        cash=7_500.0, open_positions=1, benchmark_return=0.015,
+    ))
+    lanes = collect_shortterm("2026-07-20", db)
+    assert lanes is not None and lanes[0]["stale_days"] == 3
+
+    # swing books trade on business days: Fri -> Mon is fresh, not stale
+    save_book(db, LaneBook.fresh("swing"), updated_at="t")
+    append_valuation(db, LaneValuation(
+        lane="swing", created_at="2026-07-17", equity=10_000.0, total_return=0.0,
+        cash=10_000.0, open_positions=0, benchmark_return=None,
+    ))
+    lanes = collect_shortterm("2026-07-20", db)
+    swing = next(entry for entry in lanes if entry["lane"] == "swing")
+    assert "stale_days" not in swing

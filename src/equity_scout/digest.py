@@ -134,6 +134,10 @@ def build_digest(
         lines.append(_head(
             f"🤖 Auto-Depot (Stand {autodepot['as_of']}): {autodepot['equity']:,.0f} USD{eur}"
         ))
+        if autodepot.get("stale_days"):
+            lines.append(_line(
+                f"  ⚠️ Stand veraltet ({autodepot['stale_days']} Handelstage) — Kette prüfen"
+            ))
         if autodepot.get("day_pnl") is not None:
             day = autodepot["day_pnl"]
             emoji = "🟢" if day >= 0 else "🔴"
@@ -185,9 +189,13 @@ def build_digest(
             trades_note = (
                 f" · {lane['trades_today']} Trades heute" if lane.get("trades_today") else ""
             )
+            stale_note = (
+                f" · ⚠ seit {lane['stale_days']} Tagen keine Daten"
+                if lane.get("stale_days") else ""
+            )
             lines.append(_line(
                 f"  {lane['label']}: {day_note}gesamt {lane['total_return'] * 100:+.1f} %"
-                f"{bench}{trades_note}"
+                f"{bench}{trades_note}{stale_note}"
             ))
         day_values = [lane["day_pnl"] for lane in shortterm if lane.get("day_pnl") is not None]
         if day_values:

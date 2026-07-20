@@ -102,3 +102,31 @@ def test_collect_autodepot_reads_the_seeded_db(tmp_path) -> None:
 
 def test_collect_autodepot_without_account_is_none(tmp_path) -> None:
     assert collect_autodepot(str(tmp_path / "empty.db")) is None
+
+
+def test_stale_autodepot_gets_a_warning_line() -> None:
+    """R7/P1 (review 2026-07-20): a silently stopped nightly chain must be visible."""
+    text = build_digest([], date_label="2026-07-18", autodepot=_autodepot(stale_days=4))
+    assert "veraltet" in text and "4 Handelstage" in text
+
+
+def test_fresh_autodepot_has_no_staleness_warning() -> None:
+    text = build_digest([], date_label="2026-07-18", autodepot=_autodepot())
+    assert "veraltet" not in text
+
+
+def test_collect_autodepot_flags_stale_as_of(tmp_path) -> None:
+    db = str(tmp_path / "autotrader.db")
+    save_depot(db, AutoDepotAccount.fresh(), updated_at="2026-07-10")
+    record_advance(db, AutoDepotValuation(
+        created_at="2026-07-10", equity=100_000.0, total_return=0.0,
+        benchmark_equity=100_000.0, benchmark_return=0.0,
+        gross_exposure=0.5, drawdown=0.0,
+    ))
+    collected = collect_autodepot(db, today="2026-07-20")
+    assert collected is not None
+    assert collected["stale_days"] == 6  # business days 07-10 .. 07-17 inclusive
+
+    fresh = collect_autodepot(db, today="2026-07-13")  # Fri -> Mon = 1 business day
+    assert fresh is not None
+    assert "stale_days" not in fresh

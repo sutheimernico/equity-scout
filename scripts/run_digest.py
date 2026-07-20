@@ -12,7 +12,9 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+
+import numpy as np
 
 from equity_scout.autotrader_storage import (
     DEFAULT_AUTOTRADER_DB_PATH,
@@ -111,7 +113,23 @@ def collect_regime(panel) -> dict | None:
     return None if regime["level"] == "unknown" else regime
 
 
-def collect_autodepot(db_path: str = DEFAULT_AUTOTRADER_DB_PATH) -> dict | None:
+def _stale_days(last_date: str, today: str, *, trading_days: bool) -> int | None:
+    """Age of a block's data (v12 R7, review 2026-07-20): business-day gap for stock books
+    (weekend-safe; holidays ignored — conservative), calendar days for 24/7 books.
+    None while fresh — the digest only warns, it never guesses."""
+    try:
+        if trading_days:
+            gap = int(np.busday_count(last_date, today))
+            return gap if gap > 2 else None
+        gap = (date.fromisoformat(today) - date.fromisoformat(last_date)).days
+        return gap if gap > 1 else None
+    except Exception:  # noqa: BLE001 - malformed dates must not break the digest
+        return None
+
+
+def collect_autodepot(
+    db_path: str = DEFAULT_AUTOTRADER_DB_PATH, *, today: str | None = None
+) -> dict | None:
     """v10 Auto-Depot block: latest valuation + that date's trades and risk events, plus
     the account's allocation mode and breaker stage. None while no depot exists (honest
     absence) or on any storage error — the digest never fails over its newest section."""
@@ -122,6 +140,8 @@ def collect_autodepot(db_path: str = DEFAULT_AUTOTRADER_DB_PATH) -> dict | None:
             return None
         last = valuations[-1]
         as_of = last["created_at"]
+        today = today or datetime.now(timezone.utc).date().isoformat()
+        stale = _stale_days(as_of[:10], today, trading_days=True)
         # day P&L: newest valuation vs the one before it (the depot advances once per
         # trading day, so "previous row" IS the previous trading day)
         day_pnl = day_return = None
@@ -130,7 +150,7 @@ def collect_autodepot(db_path: str = DEFAULT_AUTOTRADER_DB_PATH) -> dict | None:
             day_pnl = last["equity"] - prev["equity"]
             if prev["equity"] > 0:
                 day_return = last["equity"] / prev["equity"] - 1.0
-        return {
+        block = {
             "as_of": as_of,
             "day_pnl": day_pnl,
             "day_return": day_return,
@@ -148,6 +168,9 @@ def collect_autodepot(db_path: str = DEFAULT_AUTOTRADER_DB_PATH) -> dict | None:
                 if e["created_at"] == as_of
             ],
         }
+        if stale is not None:
+            block["stale_days"] = stale
+        return block
     except Exception:  # noqa: BLE001 - best-effort section by design
         return None
 
@@ -180,6 +203,9 @@ def collect_shortterm(
             # several rows per day); a lane that started today measures from its capital.
             prior = [v for v in vals if v["created_at"][:10] < today]
             baseline = prior[-1]["equity"] if prior else book.initial_capital
+            stale = _stale_days(
+                latest["created_at"][:10], today, trading_days=lane != "crypto"
+            )
             lanes.append({
                 "lane": lane,
                 "label": _LANE_LABELS.get(lane, lane),
@@ -188,6 +214,7 @@ def collect_shortterm(
                 "benchmark_ticker": book.benchmark_ticker,
                 "benchmark_return": latest["benchmark_return"],
                 "trades_today": trades_today,
+                **({"stale_days": stale} if stale is not None else {}),
             })
         return lanes or None
     except Exception:  # noqa: BLE001 - best-effort section by design
@@ -299,7 +326,7 @@ def main() -> int:
     regime = collect_regime(panel)
     sector_line = collect_sector_line(panel)
     evidence_stats = stats_by_source(args.db)
-    autodepot = collect_autodepot()
+    autodepot = collect_autodepot(today=date_label)
     shortterm = collect_shortterm(date_label)
 
     # v9 butler: full savings-plan block once per month, one-liner on the other days.
