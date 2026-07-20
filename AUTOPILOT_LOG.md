@@ -190,3 +190,4 @@
 - 2026-07-21 v12 P1: proof.book_report (sharpe/cagr gated on 60d, maxdd, win-rate, cost-share, vs-benchmark, verdict), 4 tests
 - 2026-07-21 v12 P2: /api/proof report cards (autodepot+lanes+ML forward) + FE Beweis view, conviction bar explicit, 2 tests
 - 2026-07-21 v12 P3: build_proof_report + first-run-of-month send (butler pattern), collect_proof_books shared with /api/proof, 1 test + fixture isolation
+- 2026-07-21 v12 hotfix: crypto/watchdog cron line lacked cd -> wrote ~/shortterm.db+~/equity_scout.db since v11 install; fixed, reinstalled, stray DBs quarantined to data/stray-home-dbs-2026-07-21/, live-verified in repo DBs
