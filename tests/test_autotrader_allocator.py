@@ -91,3 +91,26 @@ def test_sleeve_return_frame_reads_forward_valuations(tmp_path) -> None:
     assert list(frame.columns) == ["gem"]  # sleeve without >=2 valuations yields no column
     assert len(frame) == 2
     assert frame["gem"].iloc[0] == pytest.approx(0.01)
+
+
+def test_multi_day_gaps_are_dropped_from_the_return_frame(tmp_path) -> None:
+    """R9/P2 (review 2026-07-20): a missed-cron gap must not enter the Sharpe window as
+    one fake 'daily' return; normal weekend gaps stay."""
+    db = tmp_path / "forward.db"
+    init_forward_db(db)
+    days = [
+        ("2026-07-02", 10_000.0),  # Thu
+        ("2026-07-03", 10_050.0),  # Fri (normal 1-day gap)
+        ("2026-07-06", 10_100.0),  # Mon (weekend gap, 3 days - keep)
+        ("2026-07-16", 11_000.0),  # Thu after a 10-day outage - drop this observation
+        ("2026-07-17", 11_050.0),  # Fri (normal again)
+    ]
+    for day, equity in days:
+        append_valuation(db, "gem", ForwardValuation(
+            created_at=day, equity=equity, total_return=equity / 10_000.0 - 1.0,
+            benchmark_equity=10_000.0, benchmark_return=0.0,
+        ))
+    frame = sleeve_return_frame(db, ["gem"])
+    dates = [d.date().isoformat() for d in frame.index]
+    assert "2026-07-16" not in dates  # the 10-day jump is not a daily return
+    assert {"2026-07-03", "2026-07-06", "2026-07-17"} <= set(dates)

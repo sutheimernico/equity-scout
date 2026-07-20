@@ -28,6 +28,7 @@ MIN_OVERLAP_OBS = 60  # below this, tilt estimates are noise — stay on the anc
 ANCHOR = 0.5  # fixed equal-weight share of the blend
 FLOOR = 0.05  # no sleeve is ever zeroed out ...
 CAP = 0.40  # ... and none may dominate
+MAX_RETURN_GAP_DAYS = 4  # Fri->Mon = 3, +1 holiday = 4; anything longer is an outage
 
 
 @dataclass(frozen=True)
@@ -45,7 +46,11 @@ def sleeve_return_frame(db_path: str | Path, sleeve_names: list[str]) -> pd.Data
     """Daily simple returns per sleeve from its forward-valuation equity series.
 
     Sleeves with fewer than two valuations yield no column (no return is computable) — the
-    caller's overlap check handles their absence honestly instead of inventing zeros."""
+    caller's overlap check handles their absence honestly instead of inventing zeros.
+    Observations spanning more than MAX_RETURN_GAP_DAYS calendar days (missed-cron
+    outages) are dropped — a multi-day jump is not a daily return and would distort the
+    sqrt(252)-annualised Sharpe that decides the tilt (v12 R9, review 2026-07-20).
+    Weekend and single-holiday gaps stay."""
     series: dict[str, pd.Series] = {}
     for name in sleeve_names:
         vals = load_valuations(db_path, name)
@@ -54,7 +59,9 @@ def sleeve_return_frame(db_path: str | Path, sleeve_names: list[str]) -> pd.Data
         equity = pd.Series(
             {pd.Timestamp(v["created_at"]): float(v["equity"]) for v in vals}
         ).sort_index()
-        series[name] = equity.pct_change().iloc[1:]
+        returns = equity.pct_change().iloc[1:]
+        gaps = equity.index.to_series().diff().dt.days.iloc[1:]
+        series[name] = returns[gaps <= MAX_RETURN_GAP_DAYS]
     return pd.DataFrame(series)
 
 
