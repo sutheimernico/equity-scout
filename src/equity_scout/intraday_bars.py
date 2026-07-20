@@ -15,6 +15,23 @@ import pandas as pd
 BAR_MINUTES = 15
 SETTLE_MINUTES = 20
 
+
+class IntradayDataError(RuntimeError):
+    """The intraday feed broke the tz contract the delay-honesty gate relies on."""
+
+
+def ensure_new_york_tz(frame: pd.DataFrame) -> pd.DataFrame:
+    """Assert tz-aware bar times and normalise to America/New_York (v12 R8, review
+    2026-07-20). The settle gate and the ORB session logic compare bar times against
+    wall-clock; a naive index (yfinance contract change) would silently shift every
+    decision by hours — failing loudly is the only honest behaviour."""
+    if frame.index.tz is None:
+        raise IntradayDataError(
+            "intraday bars carry a tz-naive index — yfinance contract changed; "
+            "refusing to trade on ambiguous timestamps"
+        )
+    return frame.tz_convert("America/New_York")
+
 SESSION_UNIVERSE = (
     "SPY", "QQQ", "AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "AMD",
     "AVGO", "NFLX",
@@ -52,5 +69,7 @@ def fetch_bars(tickers: list[str]) -> dict[str, pd.DataFrame]:
         frame = frame.dropna(how="any")
         if frame.empty:
             continue
-        out[ticker] = frame.rename(columns=str.lower)[["open", "high", "low", "close"]]
+        out[ticker] = ensure_new_york_tz(
+            frame.rename(columns=str.lower)[["open", "high", "low", "close"]]
+        )
     return out
