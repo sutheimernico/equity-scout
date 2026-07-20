@@ -655,3 +655,16 @@ def test_filters_endpoint_lists_options_with_counts(tmp_path):
     assert {"value": "DE", "count": 1} in body["countries"]
     assert {"value": "Technology", "count": 2} in body["sectors"]
     assert set(body["region_groups"]) == {"europe", "americas", "asia", "oceania"}
+
+
+def test_entry_endpoint_survives_a_network_failure(tmp_path, monkeypatch):
+    """R11/P2 (review 2026-07-20): a yfinance timeout is an honest gap, not a 500."""
+    def boom(t):
+        raise RuntimeError("yfinance timeout")
+
+    monkeypatch.setattr(entry_mod, "fetch_entry_history", boom)
+    client = TestClient(create_app(str(tmp_path / "x.db")))
+    resp = client.get("/api/entry/AAPL")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["available"] is False and body["reason"] == "fetch_failed"

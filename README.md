@@ -233,7 +233,9 @@ short-term trading is that none do, and the arena will say so either way:
 
 - **`swing`** — Event-Swing (1–5 days): buys bullish earnings events (beat / guidance_up,
   from the v7 event engine) at the daily close; +5 % target / −3 % stop / ~5-day max hold.
-  Runs nightly. Benchmark SPY.
+  Runs nightly. Benchmark SPY. Events older than 3 trading days are never bought (after an
+  outage the reaction is long priced in — the lane skips them instead of buying stale news
+  at today's price); the outage day's entries are simply missed, not backfilled.
 - **`session`** — Intraday-Session (ORB): Opening-Range-Breakout on 15-minute bars that are
   ~15 min DELAYED (free yfinance) — the settled-bar honesty gate only lets the engine see
   bars whose end is ≥ 20 min old, and fills happen at the NEXT settled bar's open, so no

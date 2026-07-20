@@ -471,7 +471,14 @@ def create_app(
         cache_key = f"{t}:{date.today().isoformat()}"
         if cache_key in entry_cache:
             return JSONResponse(entry_cache[cache_key])
-        closes, highs, lows = entry_mod.fetch_entry_history(t)
+        try:
+            closes, highs, lows = entry_mod.fetch_entry_history(t)
+        except Exception:  # noqa: BLE001 - network hiccup -> honest gap, never a 500;
+            # deliberately NOT cached so the next request may retry (v12 R11)
+            return JSONResponse({
+                "available": False, "ticker": t, "reason": "fetch_failed",
+                "disclaimer": DISCLAIMER,
+            })
 
         # A4: model-derived target/stop from the entry_tb champion's OWN vol-scaled barrier config
         # (never re-derived from hardcoded defaults). No champion / no persisted barrier_config /

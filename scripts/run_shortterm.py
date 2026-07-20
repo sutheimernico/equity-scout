@@ -66,7 +66,7 @@ def run_swing(db: str, main_db: str, *, now: datetime) -> None:
         # first run: only the last 24h of events — never buy the whole stored history
         marker = (now - timedelta(hours=24)).isoformat(timespec="seconds")
     events = [e for e in load_classified_events(main_db) if (e["seen_at"] or "") > marker]
-    candidates = pick_entries(events, book)
+    candidates = pick_entries(events, book, now=now)
 
     tickers = sorted({*book.positions, *(c["ticker"] for c in candidates), "SPY"})
     start = (now - timedelta(days=40)).date().isoformat()

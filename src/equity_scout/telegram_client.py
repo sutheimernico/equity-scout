@@ -344,9 +344,13 @@ def extract_decision(update: dict, chat_id: int) -> tuple[str, int, str] | None:
 
 def poll_updates(
     fetch: Callable[[int | None], list[dict]], offset: int | None, chat_id: int
-) -> tuple[list[tuple[str, int, str]], int | None]:
-    """One fetch round: returns (decisions, next_offset). Consumes every update."""
+) -> tuple[list[tuple[str, int, str]], int | None, list[str]]:
+    """One fetch round: returns (decisions, next_offset, rejected_callback_ids).
+    Consumes every update. A callback press that yields no decision (foreign presser,
+    malformed data) still surfaces its callback id so the receiver can ack it —
+    otherwise the Telegram button spins forever (v12 R11, review 2026-07-20)."""
     decisions: list[tuple[str, int, str]] = []
+    rejected: list[str] = []
     for update in fetch(offset):
         update_id = update.get("update_id")
         if update_id is None:
@@ -355,4 +359,8 @@ def poll_updates(
         decision = extract_decision(update, chat_id)
         if decision is not None:
             decisions.append(decision)
-    return decisions, offset
+            continue
+        callback_id = str((update.get("callback_query") or {}).get("id", ""))
+        if callback_id:
+            rejected.append(callback_id)
+    return decisions, offset, rejected

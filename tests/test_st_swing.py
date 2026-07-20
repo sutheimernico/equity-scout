@@ -48,3 +48,15 @@ def test_check_exits_holds_positions_without_a_price() -> None:
     book = LaneBook.fresh("swing")
     book, _ = buy(book, "GHOST", 100.0, "2026-07-01", fraction=0.1, reason="x")
     assert check_exits(book, {}, "2026-07-20") == []  # old position, but no price -> untouched
+
+
+def test_pick_entries_skips_events_older_than_three_trading_days() -> None:
+    from datetime import datetime, timezone
+
+    events = [
+        _event("OLDN", "beat", seen_at="2026-07-08T14:00:00+00:00"),
+        _event("NEWN", "beat", seen_at="2026-07-17T14:00:00+00:00"),  # Fri before Mon
+    ]
+    book = LaneBook.fresh("swing")
+    picks = pick_entries(events, book, now=datetime(2026, 7, 20, 18, 0, tzinfo=timezone.utc))
+    assert [p["ticker"] for p in picks] == ["NEWN"]

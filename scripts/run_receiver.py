@@ -68,7 +68,9 @@ def process_round(
     (v8 🔎 button) replies with the stored long pitch — `send_detail(text, parse_mode)`
     gets the HTML variant when the row has one, else the plain inbox text. It is not
     a decision: the pitch stays open and can still be decided afterwards."""
-    decisions, offset = poll_updates(fetch, offset, chat_id)
+    decisions, offset, rejected = poll_updates(fetch, offset, chat_id)
+    for callback_id in rejected:
+        _try_telegram(answer, callback_id, "Nur für den Besitzer.", what="Telegram-Ack")
     for action, pitch_id, callback_id in decisions:
         if action == DETAIL_ACTION:
             pitch = get_pitch(db_path, pitch_id)

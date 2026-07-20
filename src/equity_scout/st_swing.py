@@ -8,7 +8,9 @@ canned events and prices.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
+
+import numpy as np
 
 from equity_scout.shortterm_book import LaneBook
 
@@ -18,16 +20,21 @@ MAX_POSITIONS = 8
 PROFIT_TARGET = 0.05
 STOP_LOSS = 0.03
 MAX_HOLDING_CALENDAR_DAYS = 7  # ≈ 5 trading days
+MAX_EVENT_AGE_BUSDAYS = 3  # v12 R11: after an outage, week-old news is no longer an entry
 
 
 def pick_entries(
     events: list[dict],
     book: LaneBook,
     *,
+    now: datetime | None = None,
     max_positions: int = MAX_POSITIONS,
 ) -> list[dict]:
     """Entry candidates from bullish events: newest first, one per ticker, never a ticker
-    already held, capped to the free position slots. Each result is {ticker, reason}."""
+    already held, capped to the free position slots. Each result is {ticker, reason}.
+    With `now` set, events older than MAX_EVENT_AGE_BUSDAYS trading days are skipped —
+    a multi-day outage must not buy week-old news at today's price (v12 R11); the
+    event reaction is long priced in by then."""
     free_slots = max(0, max_positions - len(book.positions))
     picks: list[dict] = []
     seen: set[str] = set()
@@ -38,6 +45,11 @@ def pick_entries(
             continue
         if event.get("event_type") not in BULLISH_EVENTS:
             continue
+        if now is not None:
+            seen_date = (event.get("seen_at") or "")[:10]
+            today = now.date().isoformat()
+            if not seen_date or int(np.busday_count(seen_date, today)) > MAX_EVENT_AGE_BUSDAYS:
+                continue
         seen.add(ticker)
         picks.append({"ticker": ticker, "reason": f"event: {event['event_type']}"})
         if len(picks) >= free_slots:

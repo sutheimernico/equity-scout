@@ -70,9 +70,10 @@ def test_poll_updates_advances_offset_over_all_updates():
         calls.append(offset)
         return batches.pop(0) if batches else []
 
-    decisions, offset = poll_updates(fake_get_updates, offset=None, chat_id=CHAT_ID)
+    decisions, offset, rejected = poll_updates(fake_get_updates, offset=None, chat_id=CHAT_ID)
     assert decisions == [("buy", 1, "cb10")]
     assert offset == 12  # advanced past BOTH updates, including the non-matching one
+    assert rejected == ["cb11"]  # v12 R11: unusable presses still get acked by the receiver
     assert calls == [None]
 
 
@@ -171,3 +172,13 @@ def test_api_raises_telegram_error_on_url_error(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", unreachable)
     with pytest.raises(TelegramError, match="Name or service not known"):
         send_message("token", CHAT_ID, "hallo")
+
+
+def test_foreign_presser_lands_in_rejected_not_decisions():
+    """R11/P2: a non-owner press must not hang the button — it is rejected AND ackable."""
+    updates = [[_update(20, "buy:3", from_id=999)], []]
+    decisions, _, rejected = poll_updates(
+        lambda offset: updates.pop(0) if updates else [], offset=None, chat_id=CHAT_ID
+    )
+    assert decisions == []
+    assert rejected == ["cb20"]
