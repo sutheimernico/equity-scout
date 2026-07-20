@@ -54,4 +54,7 @@ echo "[$(date -Is)] ===== intraday_copilot start =====" >> "$LOG"
 step radar    "$PY" scripts/run_radar.py
 step evidence "$PY" scripts/run_evidence.py --fast
 step notify   "$PY" scripts/run_notify.py --inbox-only
+# v11 session lane: ORB paper day-trader on delayed 15-min bars (settled-bar honesty
+# gate inside); the market-window guard above already scopes this to trading hours.
+step st_session "$PY" scripts/run_shortterm.py --lane session
 echo "[$(date -Is)] ===== intraday_copilot end =====" >> "$LOG"

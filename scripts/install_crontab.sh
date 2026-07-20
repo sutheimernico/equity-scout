@@ -20,8 +20,11 @@ RECEIVER_LINE="*/5 * * * * flock -n /tmp/equity-scout-receiver.lock ${REPO_DIR}/
 INTRADAY_LINE="*/15 * * * 1-5 flock -n /tmp/equity-scout-intraday.lock ${REPO_DIR}/scripts/intraday_copilot.sh >> ${REPO_DIR}/intraday.log 2>&1"
 NIGHTLY_LINE="30 2 * * 2-6 ${REPO_DIR}/scripts/run_nightly_guarded.sh cron >> ${REPO_DIR}/train.log 2>&1"
 PREFETCH_LINE="45 0 * * 1-6 flock -n /tmp/equity-scout-prefetch.lock ${REPO_DIR}/scripts/nightly_prefetch.sh >> ${REPO_DIR}/prefetch.log 2>&1"
+# v11 crypto lane: Kraken data is real-time and the market never closes — every 15 min
+# around the clock; idempotent per completed bar, so overlaps/catch-ups book nothing twice.
+CRYPTO_LINE="*/15 * * * * flock -n /tmp/equity-scout-crypto.lock ${REPO_DIR}/.venv/bin/python ${REPO_DIR}/scripts/run_shortterm.py --lane crypto >> ${REPO_DIR}/shortterm.log 2>&1"
 
-MANAGED_SCRIPTS="daily_copilot.sh run_daily_guarded.sh receiver_keepalive.sh intraday_copilot.sh nightly_train.sh run_nightly_guarded.sh nightly_prefetch.sh"
+MANAGED_SCRIPTS="daily_copilot.sh run_daily_guarded.sh receiver_keepalive.sh intraday_copilot.sh nightly_train.sh run_nightly_guarded.sh nightly_prefetch.sh run_shortterm.py"
 
 current="$(crontab -l 2>/dev/null || true)"
 before="$current"
@@ -30,7 +33,7 @@ before="$current"
 for script in $MANAGED_SCRIPTS; do
   current="$(printf '%s\n' "$current" | grep -vF "/scripts/${script}" || true)"
 done
-for line in "$CHAIN_LINE" "$RECEIVER_LINE" "$INTRADAY_LINE" "$NIGHTLY_LINE" "$PREFETCH_LINE"; do
+for line in "$CHAIN_LINE" "$RECEIVER_LINE" "$INTRADAY_LINE" "$NIGHTLY_LINE" "$PREFETCH_LINE" "$CRYPTO_LINE"; do
   current="${current}"$'\n'"${line}"
 done
 

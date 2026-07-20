@@ -47,4 +47,5 @@ step learning_snapshot "$PY" scripts/run_learning_snapshot.py
 step research_batch    "$PY" scripts/run_research.py --trials 25
 step forward_paper     "$PY" scripts/run_forward_paper.py --refresh
 step autotrader        "$PY" scripts/run_autotrader.py
+step st_swing          "$PY" scripts/run_shortterm.py --lane swing
 echo "[$(date -Is)] ===== nightly_train end =====" >> "$LOG"
