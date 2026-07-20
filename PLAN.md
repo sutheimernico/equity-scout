@@ -340,6 +340,38 @@ unverändert ehrlich: Erwartung nach Kosten negativ — die Arena misst, sie ver
 - [ ] Backlog: Session-Lane auf Alpaca-IEX-Echtzeit (kostenloser Key) umstellbar — würde das
       Delay-Modell überflüssig machen; Needs Nico (Account)
 
+## Phase: Vision v12 — "One Autotrader" (2026-07-20)
+Spec/Plan: `docs/superpowers/{specs,plans}/2026-07-20-vision-v12-one-autotrader.md`. Nico-Direktive
+2026-07-20: Autotrader komplett reviewen + aufarbeiten, Short/Mid/Long als EIN System, Telegram
+aufs Handy, Dashboard als Handy-App (Laptop = Server), Beweis-Evidenz "kann das funktionieren?".
+Drei-Spur-Review (Kern/Arena/Notify) 2026-07-20 abgeschlossen; Findings im Plan-Doc verankert.
+Harte Grenzen unverändert: paper-only, kein Order-Routing, local & free, DISCLAIMER überall.
+- [ ] R1 (P0) Session-Lane: stale Positionen (opened_at != heute) vor decide() zwangsflatten
+- [ ] R2 (P1) Zentrale SQLite-Konventionen (db.py: WAL + busy_timeout) für autotrader/shortterm
+- [ ] R3 (P1) Atomarer Autotrader-Persist (eine Transaktion, Account-Blob zuletzt)
+- [ ] R4 (P1) Atomarer Shortterm-Persist (eine Transaktion pro Lane-Step)
+- [ ] R5 (P1) Depot-Exits über Sleeve-Bücher (ML-Sleeves spiegeln POST-Exit-Buch, Docstring-Fix)
+- [ ] R6 (P1) Digest: bei TelegramError persistieren + beim nächsten Chain-Lauf nachsenden
+- [ ] R7 (P1) Digest-Freshness-Guards (⚠️ bei as_of älter als 2 Handelstage)
+- [ ] R8 (P1) Intraday-Bars: tz-Assertion + lauter Fehlerpfad
+- [ ] R9 (P2) Allocator: Kalenderlücken-Returns aus dem Sharpe-Fenster filtern
+- [ ] R10 (P2) Marktfenster aus America/New_York berechnen (DST-Übergang)
+- [ ] R11 (P2) Robustheits-Sweep (/api/entry-Guard, Receiver-answerCallbackQuery, Swing-Event-Alter)
+- [ ] W1 Chain-Heartbeats + Dead-Man-Watchdog mit Telegram-Alarm (Cooldown 24h)
+- [ ] W2 Auto-Depot-Event-Push (Trades/Risk-Events gebündelt, silent, env-gated)
+- [ ] I1 /api/overview: Gesamtvermögen + Horizont-Subtotale (short/mid/long)
+- [ ] I2 promotion.py: Beweis-Gate (≥30 Trades, ≥60 Tage, Netto-P&L>0, PF≥1.1)
+- [ ] I3 Promotion-Wiring: eligible Lane wird Auto-Depot-Sleeve, Demotion bei Verfall
+- [ ] I4 Integrations-Surfaces (Digest-Prüfstand-Zeile, FE Gesamt-Tab + Promotion-Checkliste)
+- [ ] M1 --host-Flag + Token-Auth-Middleware (DASH_TOKEN, localhost exempt, Fail-closed)
+- [ ] M2 PWA-Shell (manifest + icons + theme-color, kein Service Worker in v1)
+- [ ] M3 Dashboard-Server als systemd user service (Port 8420, Restart=always)
+- [ ] M4 Handy-Onboarding (Digest-Footer mit DASH_URL wöchentlich, README, Tailscale=Needs Nico)
+- [ ] P1 proof.py: ehrliche Kennzahlen pro Buch (Sharpe/MaxDD/WinRate/Kostenanteil + Labels)
+- [ ] P2 Proof-Surfaces (/api/proof + FE "Beweis"-View mit Überzeugungs-Schwellen)
+- [ ] P3 Monatlicher Telegram-Proof-Report (state-gated, 1. des Monats)
+- [ ] P4 Docs-Abschluss (README "Kann das funktionieren?", Outcome-Sektion)
+
 ## Needs Nico (loop cannot do these itself)
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
 - Any data source that would require a paid key (do NOT sign up — log here instead).
