@@ -1,0 +1,13 @@
+{
+  "name": "Equity Scout",
+  "short_name": "Equity Scout",
+  "description": "Paper-Trading-Cockpit: Auto-Depot, Kurzfrist-Arena, Signale — keine Anlageberatung.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08080f",
+  "theme_color": "#08080f",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
