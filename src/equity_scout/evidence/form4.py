@@ -274,9 +274,14 @@ def collect_form4(
     attempted = 0
     tickers_ok = 0
     discarded_pit = 0
+    non_us = 0
     for ticker in watchlist_tickers:
+        if "." in ticker:  # exchange-suffixed non-US listing — SEC can never map it
+            non_us += 1
+            continue
         cik = cik_map.get(ticker.upper())
         if cik is None:
+            # unmapped now means "US ticker that SHOULD map" — a real CIK gap.
             unmapped.append(ticker)
             continue
         attempted += 1
@@ -332,7 +337,8 @@ def collect_form4(
 
     detail = (
         f"{tickers_ok}/{len(watchlist_tickers)} Ticker geprüft -> {len(events)} Ereignisse; "
-        f"{len(unmapped)} ohne CIK-Mapping; {discarded_pit} PIT-Verstöße verworfen"
+        f"{len(unmapped)} ohne CIK-Mapping; {non_us} nicht-US übersprungen; "
+        f"{discarded_pit} PIT-Verstöße verworfen"
     )
     if ticker_errors:
         detail += f"; Fehler: {'; '.join(ticker_errors)}"

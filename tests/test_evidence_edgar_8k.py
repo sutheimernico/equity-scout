@@ -164,3 +164,18 @@ def test_collect_8k_events_are_idempotent_via_the_ledger(tmp_path):
     assert len(first) == 1
     second = record_events(db, collect().events, now=NOW)
     assert second == []
+
+
+def test_collect_8k_separates_non_us_tickers_from_cik_gaps():
+    """v9: exchange-suffixed listings (9022.T) can never map to a SEC CIK — counting
+    them as "ohne CIK-Mapping" buried genuine gaps under expected noise."""
+    urls = _fake_urls()
+    result = collect_8k(
+        now=NOW,
+        env={"EDGAR_USER_AGENT": "t (t@e.com)"},
+        tickers=["AAPL", "9022.T"],
+        http_get=lambda url: urls[url],
+    )
+    assert result.status == STATUS_OK
+    assert "1 nicht-US übersprungen" in result.detail
+    assert "0 ohne CIK-Mapping" in result.detail

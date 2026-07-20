@@ -137,9 +137,14 @@ def collect_8k(
     ticker_errors: list[str] = []
     attempted = 0
     tickers_ok = 0
+    non_us = 0
     for ticker in tickers:
+        if "." in ticker:  # exchange-suffixed non-US listing — SEC can never map it
+            non_us += 1
+            continue
         cik = cik_map.get(ticker.upper())
         if cik is None:
+            # unmapped now means "US ticker that SHOULD map" — a real CIK gap.
             unmapped.append(ticker)
             continue
         attempted += 1
@@ -173,7 +178,7 @@ def collect_8k(
 
     detail = (
         f"{tickers_ok}/{len(tickers)} Ticker geprüft -> {len(events)} Ereignisse; "
-        f"{len(unmapped)} ohne CIK-Mapping"
+        f"{len(unmapped)} ohne CIK-Mapping; {non_us} nicht-US übersprungen"
     )
     if ticker_errors:
         detail += f"; Fehler: {'; '.join(ticker_errors)}"

@@ -242,3 +242,18 @@ def test_collect_form4_reports_clean_error_for_html_response():
     )
     assert "kein XML" in result.detail
     assert "tag mismatch" not in result.detail
+
+
+def test_collect_form4_separates_non_us_tickers_from_cik_gaps():
+    """v9: exchange-suffixed listings (9022.T) can never map to a SEC CIK — counting
+    them as "ohne CIK-Mapping" buried genuine gaps under expected noise."""
+    urls = _fake_urls()
+    result = collect_form4(
+        now=NOW,
+        env={"EDGAR_USER_AGENT": "t (t@e.com)"},
+        watchlist_tickers=["AAPL", "9022.T"],
+        http_get=lambda url: urls[url],
+    )
+    assert result.status == STATUS_OK
+    assert "1 nicht-US übersprungen" in result.detail
+    assert "0 ohne CIK-Mapping" in result.detail
