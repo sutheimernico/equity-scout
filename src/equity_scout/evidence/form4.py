@@ -58,10 +58,16 @@ _BUY_TRANSACTION_CODE = "P"
 _ACQUIRED_CODE = "A"
 
 
+_REQUEST_PAUSE_S = 0.15  # SEC fair-access guideline is 10 req/s — stay well under it.
+
+
 def _http_get_with_agent(user_agent: str) -> Callable[[str], str]:
     def get(url: str) -> str:
+        import time
+
         import httpx
 
+        time.sleep(_REQUEST_PAUSE_S)
         response = httpx.get(
             url, timeout=30.0, follow_redirects=True, headers={"User-Agent": user_agent}
         )
@@ -280,6 +286,10 @@ def collect_form4(
             )
             for meta in metas:
                 xml_text = http_get(_archive_url(cik, meta["accession"], meta["primary_document"]))
+                if not xml_text.lstrip().startswith("<?xml"):
+                    # A rate-limit/error page is HTML — say so instead of letting the
+                    # XML parser produce a cryptic "tag mismatch" in ticker_errors.
+                    raise ValueError("SEC lieferte kein XML (Rate-Limit-/Fehlerseite?)")
                 insider, role, transactions = parse_form4(xml_text)
                 for tx in transactions:
                     if datetime.fromisoformat(meta["filed_at"]) < datetime.fromisoformat(

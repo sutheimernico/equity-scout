@@ -228,3 +228,17 @@ def test_fetch_ticker_cik_map_zero_pads_cik():
     payload = json.dumps({"0": {"cik_str": 320193, "ticker": "AAPL", "title": "Apple Inc."}})
     cik_map = form4.fetch_ticker_cik_map(lambda url: payload)
     assert cik_map == {"AAPL": "0000320193"}
+
+
+def test_collect_form4_reports_clean_error_for_html_response():
+    """v9: an SEC rate-limit/error page is HTML, not XML — the per-ticker error must say
+    that instead of leaking the XML parser's cryptic "tag mismatch"."""
+    urls = _fake_urls(xml="<html><body>Request Rate Threshold Exceeded</body></html>")
+    result = collect_form4(
+        now=NOW,
+        env={"EDGAR_USER_AGENT": "test (test@example.com)"},
+        watchlist_tickers=["AAPL"],
+        http_get=lambda url: urls[url],
+    )
+    assert "kein XML" in result.detail
+    assert "tag mismatch" not in result.detail
