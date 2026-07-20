@@ -17,6 +17,7 @@ from equity_scout.constants import (
     DEFAULT_DB_PATH,
     DEFAULT_FORWARD_DB_PATH,
     DISCLAIMER,
+    ML_SLEEVE_NAMES,
     MODEL_CAVEATS,
 )
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
@@ -37,6 +38,7 @@ from equity_scout.forward_storage import load_valuations as load_forward_valuati
 from equity_scout.shortterm_book import stats as shortterm_stats
 from equity_scout.shortterm_storage import (
     DEFAULT_SHORTTERM_DB_PATH,
+    LANE_LABELS,
     LANES,
 )
 from equity_scout.shortterm_storage import load_book as load_st_book
@@ -453,6 +455,83 @@ def create_app(
         return JSONResponse({
             "available": len(lanes_payload) > 0,
             "lanes": lanes_payload,
+            "disclaimer": DISCLAIMER,
+        })
+
+    @app.get("/api/overview")
+    def overview() -> JSONResponse:
+        """v12 I1: total wealth across all horizons in one payload — short (arena lanes),
+        mid (ML sleeves) and long (rule sleeves) split of the Auto-Depot by its meta
+        weights (an approximation, labelled as such). Books that do not exist are
+        honestly absent; nothing is invented."""
+        from datetime import date as _date
+
+        today = _date.today().isoformat()
+        books: list[dict] = []
+        ml_share = None
+
+        account = load_autotrader_depot(autotrader_db)
+        vals = load_autotrader_valuations(autotrader_db)
+        if account is not None and vals:
+            last = vals[-1]
+            prev = vals[-2] if len(vals) >= 2 else None
+            books.append({
+                "key": "autodepot", "label": "Auto-Depot", "horizon": "mid_long",
+                "equity": last["equity"], "initial": account.initial_capital,
+                "total_return": last["total_return"],
+                "day_pnl": (last["equity"] - prev["equity"]) if prev else None,
+                "as_of": last["created_at"],
+            })
+            weights_sum = sum(account.sleeve_weights.values())
+            if weights_sum > 0:
+                ml_share = sum(
+                    w for n, w in account.sleeve_weights.items() if n in ML_SLEEVE_NAMES
+                ) / weights_sum
+
+        for lane in LANES:
+            book = load_st_book(shortterm_db, lane)
+            lane_vals = load_st_valuations(shortterm_db, lane)
+            if book is None or not lane_vals:
+                continue
+            latest = lane_vals[-1]
+            prior = [v for v in lane_vals if v["created_at"][:10] < today]
+            baseline = prior[-1]["equity"] if prior else book.initial_capital
+            books.append({
+                "key": f"arena_{lane}", "label": f"Arena {LANE_LABELS.get(lane, lane)}",
+                "horizon": "short",
+                "equity": latest["equity"], "initial": book.initial_capital,
+                "total_return": latest["total_return"],
+                "day_pnl": latest["equity"] - baseline,
+                "as_of": latest["created_at"],
+            })
+
+        if not books:
+            return JSONResponse({"available": False, "disclaimer": DISCLAIMER})
+
+        short_equity = sum(b["equity"] for b in books if b["horizon"] == "short")
+        horizons: dict = {"short": {"equity": short_equity, "label": "Kurzfristig (Arena)"}}
+        depot = next((b for b in books if b["key"] == "autodepot"), None)
+        if depot is not None and ml_share is not None:
+            note = "anteilig nach Sleeve-Gewichten (Näherung)"
+            horizons["mid"] = {
+                "equity": depot["equity"] * ml_share,
+                "label": "Mittelfristig (ML-Bots im Auto-Depot)", "note": note,
+            }
+            horizons["long"] = {
+                "equity": depot["equity"] * (1.0 - ml_share),
+                "label": "Langfristig (Regel-Sleeves im Auto-Depot)", "note": note,
+            }
+
+        day_values = [b["day_pnl"] for b in books if b["day_pnl"] is not None]
+        return JSONResponse({
+            "available": True,
+            "books": books,
+            "horizons": horizons,
+            "total": {
+                "equity": sum(b["equity"] for b in books),
+                "initial": sum(b["initial"] for b in books),
+                "day_pnl": sum(day_values) if day_values else None,
+            },
             "disclaimer": DISCLAIMER,
         })
 

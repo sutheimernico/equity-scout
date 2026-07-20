@@ -23,7 +23,7 @@ from equity_scout.autotrader_storage import (
     load_trades,
     load_valuations,
 )
-from equity_scout.shortterm_storage import DEFAULT_SHORTTERM_DB_PATH, LANES
+from equity_scout.shortterm_storage import DEFAULT_SHORTTERM_DB_PATH, LANE_LABELS, LANES
 from equity_scout.shortterm_storage import load_book as load_st_book
 from equity_scout.shortterm_storage import load_trades as load_st_trades
 from equity_scout.shortterm_storage import load_valuations as load_st_valuations
@@ -175,11 +175,7 @@ def collect_autodepot(
         return None
 
 
-_LANE_LABELS = {
-    "swing": "Event-Swing",
-    "session": "Intraday-Session",
-    "crypto": "Crypto",
-}
+_LANE_LABELS = LANE_LABELS
 
 
 def collect_shortterm(

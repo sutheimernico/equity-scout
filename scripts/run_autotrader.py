@@ -33,7 +33,12 @@ from equity_scout.autotrader_storage import (
     persist_advance,
     save_sleeve_weights,
 )
-from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_FORWARD_DB_PATH, DISCLAIMER
+from equity_scout.constants import (
+    DEFAULT_DB_PATH,
+    DEFAULT_FORWARD_DB_PATH,
+    DISCLAIMER,
+    ML_SLEEVE_NAMES,
+)
 from equity_scout.forward_storage import load_account
 from equity_scout.data.etf_panel import load_etf_panel
 from equity_scout.etf_universe import ETF_TICKERS
@@ -64,9 +69,6 @@ def active_sleeves(main_db: str) -> list:
     ]
     sleeves.extend(bot for bot in bots if bot.ready)
     return sleeves
-
-
-ML_SLEEVE_NAMES = (MLLongStrategy.name, MLShortStrategy.name)
 
 
 def ml_sleeve_holdings(forward_db: str, sleeve_names: list[str]) -> dict[str, set[str]]:
