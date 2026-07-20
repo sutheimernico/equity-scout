@@ -44,13 +44,13 @@ first-class rows for a broker seam (nautilus RiskEngine idea), broker facts (Alp
 
 ## Wave C — surfaces
 
-- [ ] **C1 digest section** — `digest.py::build_digest` new optional param `autodepot` (dict) →
+- [x] **C1 digest section** — `digest.py::build_digest` new optional param `autodepot` (dict) →
   "🤖 Auto-Depot" block (equity €/$, day/total vs SPY, exposure, trades capped 5, risk events,
   weight mode); collector in `run_digest.py` reads autotrader DB. Tests: section renders, absent
   when no account, HTML + plain variants.
-- [ ] **C2 API** — `api.py`: `/api/autodepot` (account, valuations, trades ≤ 50, sleeve weights,
+- [x] **C2 API** — `api.py`: `/api/autodepot` (account, valuations, trades ≤ 50, sleeve weights,
   risk events ≤ 20), shape follows `/api/forward`. Tests: endpoint with seeded tmp DB, empty-state.
-- [ ] **C3 frontend** — `DepotsView.tsx`: 5th tab "Auto-Depot"; new `AutoDepotPanel.tsx` (equity
+- [x] **C3 frontend** — `DepotsView.tsx`: 5th tab "Auto-Depot"; new `AutoDepotPanel.tsx` (equity
   curve vs benchmark, sleeve-weight list with mode badge, trades table, risk-event list, EUR line
   with translation P&L separated); `api.ts` `fetchAutodepot` + types. German UI copy + DISCLAIMER.
   Gate: typecheck + build.
