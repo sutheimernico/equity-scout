@@ -20,6 +20,7 @@ from equity_scout.constants import (
     ML_SLEEVE_NAMES,
     MODEL_CAVEATS,
 )
+from equity_scout.promotion import lane_promotion_status
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
 from equity_scout.evidence.event_reactions import aggregate_reactions
 from equity_scout.evidence.ledger import stats_by_source
@@ -422,6 +423,10 @@ def create_app(
     @app.get("/api/shortterm")
     def shortterm() -> JSONResponse:
         # No cache: reflects the arena lanes as their runners write to the DB (v11).
+        from datetime import date as _date
+
+        depot_account = load_autotrader_depot(autotrader_db)
+        promoted_lanes = set(depot_account.promoted_lanes) if depot_account else set()
         lanes_payload = []
         for lane in LANES:
             book = load_st_book(shortterm_db, lane)
@@ -451,12 +456,24 @@ def create_app(
                 "equity_curve": [[v["created_at"], v["equity"]] for v in vals],
                 "stats": shortterm_stats(trades),
                 "recent_trades": trades[:20],
+                "promoted": lane in promoted_lanes,
+                "promotion": _sanitise_promotion(lane_promotion_status(
+                    load_st_trades(shortterm_db, lane, limit=5000), vals,
+                    today=_date.today().isoformat(),
+                )),
             })
         return JSONResponse({
             "available": len(lanes_payload) > 0,
             "lanes": lanes_payload,
             "disclaimer": DISCLAIMER,
         })
+
+    def _sanitise_promotion(status: dict) -> dict:
+        # float("inf") is not valid JSON — render-side gets None + a flag instead.
+        pf = status.get("profit_factor")
+        if pf is not None and pf == float("inf"):
+            status = {**status, "profit_factor": None, "profit_factor_unbounded": True}
+        return status
 
     @app.get("/api/overview")
     def overview() -> JSONResponse:

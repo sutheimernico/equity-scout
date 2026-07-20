@@ -55,3 +55,24 @@ def test_shortterm_endpoint_reports_lanes_stats_and_drawdown(tmp_path) -> None:
 def test_shortterm_endpoint_without_lanes_is_unavailable(tmp_path) -> None:
     body = _client(tmp_path, str(tmp_path / "empty.db")).get("/api/shortterm").json()
     assert body["available"] is False and body["lanes"] == []
+
+
+def test_lanes_carry_promotion_status(tmp_path) -> None:
+    from equity_scout.shortterm_book import LaneBook, LaneValuation
+    from equity_scout.shortterm_storage import append_valuation, save_book
+
+    shortterm_db = str(tmp_path / "shortterm.db")
+    save_book(shortterm_db, LaneBook.fresh("crypto", benchmark_ticker="BTC"), updated_at="t")
+    append_valuation(shortterm_db, LaneValuation(
+        lane="crypto", created_at="2026-07-20T18:00", equity=10_000.0, total_return=0.0,
+        cash=10_000.0, open_positions=0, benchmark_return=None,
+    ))
+    client = TestClient(create_app(
+        db_path=str(tmp_path / "main.db"), snapshot=str(tmp_path / "missing.csv"),
+        autotrader_db=str(tmp_path / "autotrader.db"), shortterm_db=shortterm_db,
+    ))
+    body = client.get("/api/shortterm").json()
+    lane = body["lanes"][0]
+    assert lane["promoted"] is False
+    assert lane["promotion"]["eligible"] is False
+    assert "missing" in lane["promotion"]

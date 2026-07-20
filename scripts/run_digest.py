@@ -23,6 +23,7 @@ from equity_scout.autotrader_storage import (
     load_trades,
     load_valuations,
 )
+from equity_scout.promotion import lane_promotion_status
 from equity_scout.shortterm_storage import DEFAULT_SHORTTERM_DB_PATH, LANE_LABELS, LANES
 from equity_scout.shortterm_storage import load_book as load_st_book
 from equity_scout.shortterm_storage import load_trades as load_st_trades
@@ -179,7 +180,8 @@ _LANE_LABELS = LANE_LABELS
 
 
 def collect_shortterm(
-    today: str, db_path: str = DEFAULT_SHORTTERM_DB_PATH
+    today: str, db_path: str = DEFAULT_SHORTTERM_DB_PATH,
+    *, promoted: frozenset[str] = frozenset(),
 ) -> list[dict] | None:
     """v11 arena block: one line per started lane (return, benchmark, today's fills).
     None while no lane has data — honest absence, and errors never break the digest."""
@@ -202,6 +204,9 @@ def collect_shortterm(
             stale = _stale_days(
                 latest["created_at"][:10], today, trading_days=lane != "crypto"
             )
+            status = lane_promotion_status(
+                load_st_trades(db_path, lane, limit=5000), vals, today=today
+            )
             lanes.append({
                 "lane": lane,
                 "label": _LANE_LABELS.get(lane, lane),
@@ -210,6 +215,8 @@ def collect_shortterm(
                 "benchmark_ticker": book.benchmark_ticker,
                 "benchmark_return": latest["benchmark_return"],
                 "trades_today": trades_today,
+                "promoted": lane in promoted,
+                "promotion": status,
                 **({"stale_days": stale} if stale is not None else {}),
             })
         return lanes or None
@@ -324,7 +331,9 @@ def main() -> int:
     sector_line = collect_sector_line(panel)
     evidence_stats = stats_by_source(args.db)
     autodepot = collect_autodepot(today=date_label)
-    shortterm = collect_shortterm(date_label)
+    depot_account = load_depot(DEFAULT_AUTOTRADER_DB_PATH)
+    promoted = frozenset(depot_account.promoted_lanes) if depot_account else frozenset()
+    shortterm = collect_shortterm(date_label, promoted=promoted)
 
     # v9 butler: full savings-plan block once per month, one-liner on the other days.
     # No panel / strategy silent -> no block at all (honest absence), and the month

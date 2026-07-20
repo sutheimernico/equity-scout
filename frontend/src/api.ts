@@ -450,6 +450,17 @@ export interface ShortTermTrade {
   realized_pnl: number | null;
 }
 
+// v12 I2/I3: the evidence gate an arena lane must pass before it earns depot capital.
+export interface PromotionStatus {
+  realized_trades: number;
+  days_active: number;
+  net_pnl: number;
+  profit_factor: number | null;
+  profit_factor_unbounded?: boolean; // all wins, no realised loss yet
+  eligible: boolean;
+  missing: string[];
+}
+
 export interface ShortTermLane {
   lane: string; // "swing" | "session" | "crypto"
   initial_capital: number;
@@ -462,6 +473,8 @@ export interface ShortTermLane {
   equity_curve: [string, number][];
   stats: ShortTermStats;
   recent_trades: ShortTermTrade[];
+  promoted: boolean;
+  promotion: PromotionStatus;
 }
 
 export interface ShortTermResponse {
@@ -473,6 +486,39 @@ export interface ShortTermResponse {
 export async function fetchShortterm(): Promise<ShortTermResponse> {
   const response = await fetch("/api/shortterm");
   if (!response.ok) throw new Error(`/api/shortterm returned ${response.status}`);
+  return response.json();
+}
+
+// --- Total wealth across all horizons (v12 I1) ---
+
+export interface OverviewBook {
+  key: string;
+  label: string;
+  horizon: "short" | "mid_long";
+  equity: number;
+  initial: number;
+  total_return: number;
+  day_pnl: number | null;
+  as_of: string;
+}
+
+export interface OverviewHorizon {
+  equity: number;
+  label: string;
+  note?: string;
+}
+
+export interface OverviewResponse {
+  available: boolean;
+  books?: OverviewBook[];
+  horizons?: Record<string, OverviewHorizon>;
+  total?: { equity: number; initial: number; day_pnl: number | null };
+  disclaimer: string;
+}
+
+export async function fetchOverview(): Promise<OverviewResponse> {
+  const response = await fetch("/api/overview");
+  if (!response.ok) throw new Error(`/api/overview returned ${response.status}`);
   return response.json();
 }
 

@@ -197,6 +197,21 @@ def build_digest(
                 f"  {lane['label']}: {day_note}gesamt {lane['total_return'] * 100:+.1f} %"
                 f"{bench}{trades_note}{stale_note}"
             ))
+            promo = lane.get("promotion")
+            if lane.get("promoted"):
+                lines.append(_line("    🎓 im Auto-Depot — verdient Depot-Kapital"))
+            elif promo is not None:
+                pf = promo.get("profit_factor")
+                pf_str = "—" if pf is None else ("∞" if pf == float("inf") else f"{pf:.2f}")
+                if promo.get("eligible"):
+                    lines.append(_line(
+                        "    ✅ Prüfstand bestanden — Aufnahme beim nächsten Nightly-Lauf"
+                    ))
+                else:
+                    lines.append(_line(
+                        f"    Prüfstand: {promo['realized_trades']}/30 Trades"
+                        f" · {promo['days_active']}/60 Tage · PF {pf_str}"
+                    ))
         day_values = [lane["day_pnl"] for lane in shortterm if lane.get("day_pnl") is not None]
         if day_values:
             total_day = sum(day_values)

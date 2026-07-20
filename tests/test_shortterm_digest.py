@@ -95,3 +95,25 @@ def test_collect_shortterm_flags_stale_crypto_lane(tmp_path) -> None:
     lanes = collect_shortterm("2026-07-20", db)
     swing = next(entry for entry in lanes if entry["lane"] == "swing")
     assert "stale_days" not in swing
+
+
+def test_promotion_checklist_renders_per_lane() -> None:
+    from equity_scout.digest import build_digest
+
+    base = {
+        "lane": "crypto", "label": "Crypto", "total_return": 0.01, "day_pnl": None,
+        "benchmark_ticker": "BTC", "benchmark_return": None, "trades_today": 0,
+    }
+    on_trial = {**base, "promoted": False, "promotion": {
+        "realized_trades": 12, "days_active": 41, "net_pnl": 80.0,
+        "profit_factor": 0.87, "eligible": False, "missing": ["x"],
+    }}
+    text = build_digest([], date_label="2026-07-21", shortterm=[on_trial])
+    assert "Prüfstand: 12/30 Trades · 41/60 Tage · PF 0.87" in text
+
+    graduated = {**base, "promoted": True, "promotion": {
+        "realized_trades": 40, "days_active": 90, "net_pnl": 400.0,
+        "profit_factor": 1.5, "eligible": True, "missing": [],
+    }}
+    text = build_digest([], date_label="2026-07-21", shortterm=[graduated])
+    assert "🎓 im Auto-Depot" in text

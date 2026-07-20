@@ -18,6 +18,35 @@ const LANE_NOTE: Record<string, string> = {
   crypto: "Donchian-20-Ausbruch auf Kraken-ECHTZEIT-Bars, 24/7 — Benchmark ist BTC halten, nicht Cash.",
 };
 
+// v12 I4: the evidence checklist — when does this lane earn real depot capital?
+function PromotionLine({ lane }: { lane: ShortTermLane }) {
+  const promo = lane.promotion;
+  if (lane.promoted) {
+    return (
+      <Explain tone="hint">
+        🎓 <b>Im Auto-Depot</b> — diese Lane hat den Prüfstand bestanden und verdient
+        Depot-Kapital. Degradierung, sobald das 60-Tage-Netto-P&L negativ wird.
+      </Explain>
+    );
+  }
+  if (!promo) return null;
+  const pf = promo.profit_factor_unbounded
+    ? "∞"
+    : promo.profit_factor === null
+      ? "—"
+      : promo.profit_factor.toFixed(2);
+  return (
+    <Explain tone="hint">
+      Prüfstand: {promo.realized_trades}/30 Trades · {promo.days_active}/60 Tage · PF {pf}
+      {promo.eligible
+        ? " — ✅ bestanden, Aufnahme beim nächsten Nightly-Lauf"
+        : promo.missing.length > 0
+          ? ` — offen: ${promo.missing.join(", ")}`
+          : ""}
+    </Explain>
+  );
+}
+
 function LaneCard({ lane }: { lane: ShortTermLane }) {
   const lead =
     lane.benchmark_return !== null ? lane.total_return - lane.benchmark_return : null;
@@ -31,6 +60,7 @@ function LaneCard({ lane }: { lane: ShortTermLane }) {
         <Chip>{lane.open_positions.length} offen</Chip>
       </div>
       <Explain tone="hint">{LANE_NOTE[lane.lane]}</Explain>
+      <PromotionLine lane={lane} />
 
       <table className="history">
         <thead>
