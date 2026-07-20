@@ -68,9 +68,8 @@
   trade/skip honestly; session outside market hours books nothing), verify DB/API/digest,
   fill outcome below. Full gate green.
 
-## Outcome
+## Outcome (2026-07-20)
 
-_(filled after F2)_
 **All 15 tasks DONE 2026-07-20 (single session, waves A–F).** Gate: **1042 tests**
 (1000 → 1042) + ruff + FE typecheck/build green.
 
