@@ -185,3 +185,4 @@
 - 2026-07-21 v12 I4: digest pruefstand lines, /api/shortterm promotion payload, FE Gesamt tab + checklist, FE gate green
 - 2026-07-21 v12 M1: DASH_TOKEN middleware (query->cookie/header, loopback exempt), run_api --host fail-closed, 5 tests
 - 2026-07-21 v12 M2: manifest.webmanifest + 192/512 icons + apple-touch/theme-color, build green
+- 2026-07-21 v12 M3: equity-scout-dash.service (fail-closed, staged; enable gated on DASH_TOKEN in .env)
