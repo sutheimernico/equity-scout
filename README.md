@@ -234,7 +234,11 @@ Telegram receiver alive under `flock`. Install both cron lines once with
 `./scripts/install_crontab.sh`. Since v9 all daily triggers (cron, a persistent systemd
 user timer, an optional Windows Task Scheduler task) funnel through
 `scripts/run_daily_guarded.sh` — guaranteed delivery + catch-up semantics in
-`docs/scheduling.md`.
+`docs/scheduling.md`. Since v10.1 the NIGHTLY chain (training + forward sleeves +
+Auto-Depot) has the same three-layer guarantee via `scripts/run_nightly_guarded.sh`:
+cron 02:30, persistent systemd timer 02:35 (catch-up at WSL start), optional Windows
+task 02:40 (`./scripts/install_windows_task.sh`, starts WSL if down) — so the
+Auto-Depot keeps its track record even when the box slept through the night slot.
 
 **Dashboard.** The React dashboard leads with the four copilot surfaces — **Arena** (Du vs.
 Autopilot vs. Markt, the default view), **Radar** (watchlist entry zones), **Inbox** (one-tap

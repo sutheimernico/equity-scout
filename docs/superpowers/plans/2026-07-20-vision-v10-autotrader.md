@@ -93,3 +93,15 @@ the docstring.
 once ~50 realised trades exist. **Needs Nico:** nothing new beyond the standing items — the
 nightly chain picks the depot up automatically; first tilt allocation ~3 months after the
 sleeves accumulated 60 overlapping forward observations.
+
+## v10.1 addendum — Always-on (same session, Nico: "passiv rund um die Uhr")
+
+The v9 guaranteed-delivery architecture applied to the NIGHTLY chain, so the Auto-Depot's
+track record accumulates without anyone thinking about it: `run_nightly_guarded.sh`
+(flock + per-day marker; deliberately NO weekend skip — a Sunday catch-up of a missed
+Saturday slot books Friday's close; the advance is idempotent so redundant runs are free),
+persistent systemd user timer 02:35 Tue–Sat (INSTALLED + active, catch-up at WSL start),
+crontab nightly line switched to the wrapper (installer executed under the project's
+local-autonomy grant), Windows task XML `equity-scout-nightly` 02:40 staged
+(registration = Needs Nico; it is the only layer that can wake the box). 3 wrapper tests
+(subprocess seams: chain/state/log overrides). Gate green (1000 tests), tree clean.

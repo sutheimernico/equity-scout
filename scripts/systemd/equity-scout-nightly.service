@@ -1,0 +1,6 @@
+[Unit]
+Description=equity-scout nightly chain (train + research + forward paper + auto-depot; guarded wrapper)
+
+[Service]
+Type=oneshot
+ExecStart=%h/private/equity-scout/scripts/run_nightly_guarded.sh systemd

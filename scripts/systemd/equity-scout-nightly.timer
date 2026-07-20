@@ -1,0 +1,9 @@
+[Unit]
+Description=equity-scout nightly chain 02:35 Tue-Sat; Persistent catch-up fires once for the most recent missed slot at the next WSL start (Sunday catch-up of a missed Saturday slot is intended — it books Friday's close)
+
+[Timer]
+OnCalendar=Tue..Sat 02:35
+Persistent=true
+
+[Install]
+WantedBy=timers.target

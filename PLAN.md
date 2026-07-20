@@ -319,17 +319,26 @@ bewusst KEIN Adapter-Code — Echtgeld-Routing bleibt per LOOP.md verboten.
       decken den Realismus-Gap bei täglicher Kadenz)
 - [ ] Backlog: (Fractional-)Kelly-Sizing erst ab ~50 realisierten Depot-Trades (vorher
       Schätz-Rauschen)
+- [x] v10.1 Always-on (2026-07-20, same session): `run_nightly_guarded.sh` (flock +
+      Tages-Marker, KEIN Wochenend-Skip — Sonntag-Catch-up eines verpassten Samstag-Slots
+      bucht den Freitags-Close), persistenter systemd-Timer `equity-scout-nightly.timer`
+      02:35 Tue–Sat (installiert + aktiv), Crontab-Nightly-Zeile auf den Wrapper umgestellt
+      (Installer ausgeführt), Windows-Task-XML `equity-scout-nightly` bereitgestellt
+      (Registrierung → Needs Nico). 3 Wrapper-Tests (pytest/subprocess).
 
 ## Needs Nico (loop cannot do these itself)
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
 - Any data source that would require a paid key (do NOT sign up — log here instead).
 - `EDGAR_USER_AGENT="name (email)"` in `.env` so the 13F collector can run (stays politely
   `unconfigured` until then; never faked).
-- **Run `./scripts/install_crontab.sh` once** (updated 2026-07-14): installs the daily copilot
-  chain (18:00 Mon–Fri), receiver keepalive (5-min flock), the NEW 30-min intraday chain and the
-  NEW nightly training chain (02:30 Tue–Sat). The autonomous
-  session was not allowed to modify the crontab itself; the installer is idempotent and
-  preserves the existing forward-paper line.
+- ~~Run `./scripts/install_crontab.sh` once~~ — DONE 2026-07-20 (v10.1 session ran the
+  idempotent installer under the project's local-autonomy grant; nightly line now points at
+  `run_nightly_guarded.sh`, forward-paper line preserved).
+- **Optional: register the Windows nightly task** — `./scripts/install_windows_task.sh` now
+  installs BOTH tasks (daily 18:00 + nightly 02:40, starts WSL if down). Without it the
+  nightly chain still runs via cron/systemd whenever WSL is up, and the persistent systemd
+  timer catches up missed slots at the next WSL start; the Windows task is the only layer
+  that can WAKE the box.
 - Voices-Personenliste bestätigen/erweitern (`evidence/voices.py::PERSONS`, aktuell die 8
   Fonds-Manager hinter den 13F-Fonds) — Veto-Option, Session 2026-07-14.
 - Visueller Abnahme-Pass des IA-Overhauls im Browser (kein Screenshot-Tooling in der Build-Umgebung).

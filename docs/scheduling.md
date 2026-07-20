@@ -59,6 +59,8 @@ Monday branch of the chain).
 # intraday chain — cron fires blindly every 15 min; the market-window guard inside exits quietly
 */15 * * * 1-5 flock -n /tmp/equity-scout-intraday.lock /home/nicosutheimer/private/equity-scout/scripts/intraday_copilot.sh >> /home/nicosutheimer/private/equity-scout/intraday.log 2>&1
 # nightly training — 02:30 Tue-Sat, after the US close and settled EOD data
+# (v10.1: via run_nightly_guarded.sh — flock + per-day marker; trains, advances the
+#  forward sleeves AND the Auto-Depot)
 30 2 * * 2-6 flock -n /tmp/equity-scout-nightly.lock /home/nicosutheimer/private/equity-scout/scripts/nightly_train.sh >> /home/nicosutheimer/private/equity-scout/train.log 2>&1
 # nightly universe prefetch — 00:45 Mon-Sat, one universe segment per night (6-night rotation)
 45 0 * * 1-6 flock -n /tmp/equity-scout-prefetch.lock /home/nicosutheimer/private/equity-scout/scripts/nightly_prefetch.sh >> /home/nicosutheimer/private/equity-scout/prefetch.log 2>&1
@@ -102,6 +104,17 @@ daily chain does — it makes sure the chain gets a chance to run every weekday 
 adding two more independent triggers (systemd user timer, Windows Task Scheduler)
 alongside cron, and putting one guard script in front of all three so redundant
 or caught-up triggers can never run the chain twice on the same day.
+
+**v10.1 applies the same architecture to the NIGHTLY chain** (training + research +
+forward sleeves + Auto-Depot): `scripts/run_nightly_guarded.sh` guards cron 02:30,
+the persistent systemd timer `equity-scout-nightly.timer` (02:35 Tue–Sat,
+`Persistent=true` — a missed slot fires once at the next WSL start) and the
+optional Windows task `equity-scout-nightly` (02:40 Tue–Sat, starts WSL if down;
+register once via `./scripts/install_windows_task.sh`). One deliberate difference
+to the daily guard: **no weekend skip** — the Saturday slot books Friday's close,
+so a Sunday catch-up after a missed Saturday is wanted; the depot advance is
+idempotent per panel date, so redundant runs book nothing. Marker/lock:
+`.state/nightly_last_run`, `.state/nightly.lock`, log: `train.log`.
 
 ### Architecture
 

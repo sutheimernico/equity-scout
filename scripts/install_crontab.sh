@@ -3,8 +3,10 @@
 # Manages (a) the daily copilot chain at 18:00 Mon-Fri, (b) the receiver keepalive
 # every 5 minutes, (c) the 15-min intraday chain (market-window guard lives inside
 # the script; 15 not 10 because yfinance prices are ~15 min delayed anyway),
-# (d) the nightly training chain at 02:30 Tue-Sat (post-US-close) and (e) the
-# nightly universe prefetch at 00:45 Mon-Sat (cache warm-up rotation).
+# (d) the nightly training chain at 02:30 Tue-Sat (post-US-close; v10.1: via the
+# guarded wrapper — flock + per-day marker live inside run_nightly_guarded.sh so
+# cron, systemd catch-up and Windows task arbitrate cleanly) and (e) the nightly
+# universe prefetch at 00:45 Mon-Sat (cache warm-up rotation).
 # Any existing line referencing a managed script is REPLACED by its canonical form
 # (so cadence changes don't leave the old schedule running in parallel); unmanaged
 # entries (e.g. the forward-paper line) are preserved untouched.
@@ -16,10 +18,10 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHAIN_LINE="0 18 * * 1-5 ${REPO_DIR}/scripts/run_daily_guarded.sh cron >> ${REPO_DIR}/copilot.log 2>&1"
 RECEIVER_LINE="*/5 * * * * flock -n /tmp/equity-scout-receiver.lock ${REPO_DIR}/scripts/receiver_keepalive.sh >> ${REPO_DIR}/receiver.log 2>&1"
 INTRADAY_LINE="*/15 * * * 1-5 flock -n /tmp/equity-scout-intraday.lock ${REPO_DIR}/scripts/intraday_copilot.sh >> ${REPO_DIR}/intraday.log 2>&1"
-NIGHTLY_LINE="30 2 * * 2-6 flock -n /tmp/equity-scout-nightly.lock ${REPO_DIR}/scripts/nightly_train.sh >> ${REPO_DIR}/train.log 2>&1"
+NIGHTLY_LINE="30 2 * * 2-6 ${REPO_DIR}/scripts/run_nightly_guarded.sh cron >> ${REPO_DIR}/train.log 2>&1"
 PREFETCH_LINE="45 0 * * 1-6 flock -n /tmp/equity-scout-prefetch.lock ${REPO_DIR}/scripts/nightly_prefetch.sh >> ${REPO_DIR}/prefetch.log 2>&1"
 
-MANAGED_SCRIPTS="daily_copilot.sh run_daily_guarded.sh receiver_keepalive.sh intraday_copilot.sh nightly_train.sh nightly_prefetch.sh"
+MANAGED_SCRIPTS="daily_copilot.sh run_daily_guarded.sh receiver_keepalive.sh intraday_copilot.sh nightly_train.sh run_nightly_guarded.sh nightly_prefetch.sh"
 
 current="$(crontab -l 2>/dev/null || true)"
 before="$current"
