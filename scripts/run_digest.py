@@ -24,6 +24,7 @@ from equity_scout.autotrader_storage import (
     load_valuations,
 )
 from equity_scout.promotion import lane_promotion_status
+from equity_scout.proof import collect_proof_books
 from equity_scout.shortterm_storage import DEFAULT_SHORTTERM_DB_PATH, LANE_LABELS, LANES
 from equity_scout.shortterm_storage import load_book as load_st_book
 from equity_scout.shortterm_storage import load_trades as load_st_trades
@@ -36,9 +37,9 @@ from equity_scout.butler import (
     render_core_block,
 )
 from equity_scout.charts import fetch_year_closes
-from equity_scout.constants import DEFAULT_DB_PATH
+from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_FORWARD_DB_PATH
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
-from equity_scout.digest import build_digest, load_smtp_config, send_digest
+from equity_scout.digest import build_digest, build_proof_report, load_smtp_config, send_digest
 from equity_scout.earnings_storage import earnings_within
 from equity_scout.evidence.ledger import stats_by_source
 from equity_scout.evidence.storage import load_alerts
@@ -61,6 +62,7 @@ PENDING_TEXT_KEY = "digest_pending_text"
 PENDING_DATE_KEY = "digest_pending_date"
 PENDING_CORE_MONTH_KEY = "digest_pending_core_month"
 DASH_URL_WEEK_KEY = "dash_url_hint_week"
+PROOF_REPORT_MONTH_KEY = "proof_report_month"
 CORE_PLAN_MONTH_KEY = "core_plan_month"
 
 
@@ -414,6 +416,24 @@ def main() -> int:
                 f"Chain-Lauf nachversendet: {err}",
                 file=sys.stderr,
             )
+    # v12 P3: first successful chain run of a month also sends the proof report
+    # (butler pattern — the marker is only set after a successful send).
+    if tg_config is not None and get_state(args.db, key=PROOF_REPORT_MONTH_KEY) != month_key:
+        proof_books = collect_proof_books(
+            DEFAULT_AUTOTRADER_DB_PATH, DEFAULT_SHORTTERM_DB_PATH, DEFAULT_FORWARD_DB_PATH
+        )
+        if proof_books:
+            month_label = f"{MONTH_NAMES[int(date_label[5:7]) - 1]} {date_label[:4]}"
+            try:
+                send_long_message(
+                    tg_config["token"],
+                    tg_config.get("daily_chat_id", tg_config["chat_id"]),
+                    build_proof_report(proof_books, month_label=month_label, html=True),
+                    parse_mode="HTML",
+                )
+                set_state(args.db, key=PROOF_REPORT_MONTH_KEY, value=month_key)
+            except TelegramError as err:
+                print(f"Warnung: Proof-Report-Versand fehlgeschlagen: {err}", file=sys.stderr)
     if not configured:
         print(text)
         print("Neither SMTP nor Telegram configured — printing digest.")

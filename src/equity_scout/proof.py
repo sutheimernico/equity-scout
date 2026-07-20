@@ -116,3 +116,60 @@ def book_report(
         "vs_benchmark_pct": vs_benchmark,
         "verdict_label": verdict,
     }
+
+
+def collect_proof_books(
+    autotrader_db: str, shortterm_db: str, forward_db: str
+) -> list[dict]:
+    """I/O companion to `book_report`: one report card per existing book. Shared by
+    /api/proof and the monthly Telegram report so the numbers cannot drift apart."""
+    from equity_scout.autotrader_storage import (
+        load_trades as load_at_trades,
+    )
+    from equity_scout.autotrader_storage import (
+        load_valuations as load_at_valuations,
+    )
+    from equity_scout.constants import ML_SLEEVE_NAMES
+    from equity_scout.forward_storage import load_valuations as load_fw_valuations
+    from equity_scout.shortterm_storage import LANE_LABELS, LANES, load_book
+    from equity_scout.shortterm_storage import load_trades as load_st_trades
+    from equity_scout.shortterm_storage import load_valuations as load_st_valuations
+
+    books: list[dict] = []
+    vals = load_at_valuations(autotrader_db)
+    if len(vals) >= 2:
+        trades = load_at_trades(autotrader_db, limit=100_000)
+        books.append(book_report(
+            [(v["created_at"], v["equity"]) for v in vals],
+            label="Auto-Depot",
+            benchmark_curve=[(v["created_at"], v["benchmark_equity"]) for v in vals],
+            costs_paid=sum(t["cost"] for t in trades) if trades else None,
+        ))
+    for lane in LANES:
+        book = load_book(shortterm_db, lane)
+        lane_vals = load_st_valuations(shortterm_db, lane)
+        if book is None or len(lane_vals) < 2:
+            continue
+        lane_trades = load_st_trades(shortterm_db, lane, limit=100_000)
+        realized = [t["realized_pnl"] for t in lane_trades if t["realized_pnl"] is not None]
+        bench = [
+            (v["created_at"], book.initial_capital * (1.0 + v["benchmark_return"]))
+            for v in lane_vals if v["benchmark_return"] is not None
+        ]
+        books.append(book_report(
+            [(v["created_at"], v["equity"]) for v in lane_vals],
+            label=f"Arena {LANE_LABELS.get(lane, lane)} (Benchmark {book.benchmark_ticker})",
+            benchmark_curve=bench or None,
+            realized_pnls=realized or None,
+            costs_paid=sum(t["fees"] for t in lane_trades) if lane_trades else None,
+        ))
+    for name in ML_SLEEVE_NAMES:
+        ml_vals = load_fw_valuations(forward_db, name)
+        if len(ml_vals) < 2:
+            continue
+        books.append(book_report(
+            [(v["created_at"], v["equity"]) for v in ml_vals],
+            label=f"{name} (Forward)",
+            benchmark_curve=[(v["created_at"], v["benchmark_equity"]) for v in ml_vals],
+        ))
+    return books

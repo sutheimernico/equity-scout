@@ -323,3 +323,34 @@ def send_digest(config: dict, subject: str, body: str, smtp_factory=smtplib.SMTP
     with smtp_factory(config["host"], config["port"]) as smtp:
         smtp.login(config["user"], config["password"])
         smtp.send_message(msg)
+
+
+def build_proof_report(books: list[dict], *, month_label: str, html: bool = False) -> str:
+    """Monthly proof summary (v12 P3): one compact card per book, verdict first.
+    Metrics the track record cannot support yet render as "—" — never invented."""
+    def head(text: str) -> str:
+        return f"<b>{text}</b>" if html else text
+
+    def fmt(value, digits=2, suffix=""):  # noqa: ANN001, ANN202
+        return "—" if value is None else f"{value:,.{digits}f}{suffix}"
+
+    lines = [head(f"🧾 Monats-Beweisbericht — {month_label}")]
+    for book in books:
+        lines.append("")
+        lines.append(head(book["label"]))
+        lines.append(f"  {book['verdict_label']}")
+        lines.append(
+            f"  Gesamt {fmt(book['total_return_pct'], 1, ' %')}"
+            f" · Sharpe {fmt(book['sharpe_annualised'])}"
+            f" · Max-DD {fmt(book['max_drawdown_pct'], 1, ' %')}"
+        )
+        extra = []
+        if book["realized_win_rate"] is not None:
+            extra.append(f"Trefferquote {book['realized_win_rate'] * 100:.0f} %")
+        if book["cost_share_of_pnl"] is not None:
+            extra.append(f"Kostenanteil {book['cost_share_of_pnl'] * 100:.0f} %")
+        if extra:
+            lines.append("  " + " · ".join(extra))
+    lines.append("")
+    lines.append("Gemessen, nicht versprochen — Details im Dashboard-Tab „Beweis\u201c.")
+    return "\n".join(lines)

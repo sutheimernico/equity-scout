@@ -1,9 +1,18 @@
 import sys
 from datetime import datetime, timezone
 
+import pytest
+
 import scripts.run_digest as run_digest
 from equity_scout.state_storage import get_state
 from scripts.run_digest import main, should_skip_send
+
+
+@pytest.fixture(autouse=True)
+def _no_proof_books(monkeypatch):
+    """main() would otherwise read the repo's REAL autotrader/shortterm/forward DBs for
+    the monthly proof report — tests opt in explicitly instead (v12 P3)."""
+    monkeypatch.setattr(run_digest, "collect_proof_books", lambda a, s, f: [])
 
 
 def test_skips_when_already_sent_today_and_configured():
@@ -147,3 +156,37 @@ def test_dash_url_footer_appears_once_per_week(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["run_digest.py", "--db", db, "--force"])
     assert main() == 0  # same week, forced re-send -> no repeated hint
     assert "📱 Dashboard" not in sent[1]
+
+
+def test_first_run_of_the_month_sends_the_proof_report(tmp_path, monkeypatch):
+    """v12 P3: butler pattern — proof report rides the first successful send of a month,
+    marker only set on success, never re-sent within the month."""
+    db = str(tmp_path / "inbox.db")
+    _tg_env(monkeypatch)
+    monkeypatch.setattr(
+        run_digest, "collect_proof_books",
+        lambda a, s2, f: [{
+            "label": "Auto-Depot", "n_days": 90, "period": "2026-04-01 – 2026-06-30",
+            "total_return_pct": 3.2, "cagr_pct": 13.0, "sharpe_annualised": 1.1,
+            "max_drawdown_pct": 4.0, "realized_win_rate": None,
+            "cost_share_of_pnl": None, "vs_benchmark_pct": 1.0,
+            "verdict_label": "schlägt Benchmark nach Kosten um +1.0 %-Punkte über 90 Tage",
+        }],
+    )
+    sent: list[str] = []
+    monkeypatch.setattr(
+        run_digest, "send_long_message",
+        lambda token, chat_id, text, parse_mode=None: sent.append(text) or 1,
+    )
+    monkeypatch.setattr(sys, "argv", ["run_digest.py", "--db", db])
+
+    assert main() == 0
+    assert len(sent) == 2  # digest + proof report
+    assert "Monats-Beweisbericht" in sent[1]
+    assert "Auto-Depot" in sent[1]
+    assert get_state(db, key="proof_report_month") is not None
+
+    monkeypatch.setattr(sys, "argv", ["run_digest.py", "--db", db, "--force"])
+    assert main() == 0  # same month again -> digest only
+    assert len(sent) == 3
+    assert "Monats-Beweisbericht" not in sent[2]
