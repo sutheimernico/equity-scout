@@ -179,3 +179,4 @@
 - 2026-07-20 v12 R11: /api/entry fetch guard, rejected-callback acks, swing 3-busday event cutoff + README, 3 tests
 - 2026-07-21 v12 W1: heartbeats (daily/nightly/crypto/watchdog) + run_watchdog alarm w/ 24h cooldown, crontab updated live, 6 tests
 - 2026-07-21 v12 W2: push_events (silent, env-gated COPILOT_TG_AUTOTRADER_EVENTS) after nightly advance, 2 tests
+- 2026-07-21 v12 I1: /api/overview (books, short/mid/long horizons via sleeve weights, total), 2 tests
