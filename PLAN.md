@@ -367,7 +367,7 @@ Harte Grenzen unverändert: paper-only, kein Order-Routing, local & free, DISCLA
 - [x] M2 PWA-Shell (manifest + icons + theme-color, kein Service Worker in v1)
 - [x] M3 Dashboard-Server als systemd user service (Port 8420, Restart=always)
 - [x] M4 Handy-Onboarding (Digest-Footer mit DASH_URL wöchentlich, README, Tailscale=Needs Nico)
-- [ ] P1 proof.py: ehrliche Kennzahlen pro Buch (Sharpe/MaxDD/WinRate/Kostenanteil + Labels)
+- [x] P1 proof.py: ehrliche Kennzahlen pro Buch (Sharpe/MaxDD/WinRate/Kostenanteil + Labels)
 - [ ] P2 Proof-Surfaces (/api/proof + FE "Beweis"-View mit Überzeugungs-Schwellen)
 - [ ] P3 Monatlicher Telegram-Proof-Report (state-gated, 1. des Monats)
 - [ ] P4 Docs-Abschluss (README "Kann das funktionieren?", Outcome-Sektion)
