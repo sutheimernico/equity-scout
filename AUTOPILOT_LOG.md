@@ -186,3 +186,4 @@
 - 2026-07-21 v12 M1: DASH_TOKEN middleware (query->cookie/header, loopback exempt), run_api --host fail-closed, 5 tests
 - 2026-07-21 v12 M2: manifest.webmanifest + 192/512 icons + apple-touch/theme-color, build green
 - 2026-07-21 v12 M3: equity-scout-dash.service (fail-closed, staged; enable gated on DASH_TOKEN in .env)
+- 2026-07-21 v12 M4: weekly DASH_URL digest footer (state-gated), README Handy-Cockpit section, Needs-Nico entry
