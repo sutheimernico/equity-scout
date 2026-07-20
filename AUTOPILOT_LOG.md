@@ -175,3 +175,4 @@
 - 2026-07-20 v12 R7: digest warns on stale autodepot as_of (busdays>2) and stale lanes (crypto calendar>1), 4 tests
 - 2026-07-20 v12 R8: ensure_new_york_tz in fetch_bars (loud IntradayDataError on naive index), 3 tests
 - 2026-07-20 v12 R9: return-frame drops >4-calendar-day gap observations, 1 test
+- 2026-07-20 v12 R10: market window = NYSE 09:30-16:00 +30min grace in market tz (DST-transition weeks covered), 6 tests
