@@ -355,6 +355,73 @@ export async function fetchForward(): Promise<ForwardResponse> {
   return response.json();
 }
 
+// --- Auto-Depot: meta-allocated risk-managed paper depot (vision v10) ---
+
+export interface AutodepotAccount {
+  initial_capital: number;
+  equity: number;
+  total_return: number;
+  benchmark_ticker: string;
+  benchmark_return: number;
+  last_as_of: string | null;
+  weights: Record<string, number>;
+  breaker_stage: number;
+  breaker_changed_at: string | null;
+  sleeve_mode: string; // "anchor" | "tilt"
+}
+
+export interface AutodepotValuation {
+  created_at: string;
+  equity: number;
+  total_return: number;
+  benchmark_equity: number;
+  benchmark_return: number;
+  gross_exposure: number;
+  drawdown: number;
+  equity_eur: number | null;
+  fx_rate: number | null;
+}
+
+export interface AutodepotSleeveWeight {
+  month: string;
+  strategy_name: string;
+  weight: number;
+  sharpe: number | null;
+  mode: string;
+}
+
+export interface AutodepotTrade {
+  created_at: string;
+  ticker: string;
+  delta_weight: number;
+  notional: number;
+  cost: number;
+}
+
+export interface AutodepotRiskEvent {
+  created_at: string;
+  protection: string;
+  action: string;
+  detail: string;
+}
+
+export interface AutodepotResponse {
+  available: boolean;
+  account?: AutodepotAccount;
+  latest?: AutodepotValuation | null;
+  equity_curve?: [string, number, number][]; // [date, equity, benchmark_equity]
+  sleeve_weights?: AutodepotSleeveWeight[];
+  trades?: AutodepotTrade[];
+  risk_events?: AutodepotRiskEvent[];
+  disclaimer: string;
+}
+
+export async function fetchAutodepot(): Promise<AutodepotResponse> {
+  const response = await fetch("/api/autodepot");
+  if (!response.ok) throw new Error(`/api/autodepot returned ${response.status}`);
+  return response.json();
+}
+
 // --- Local chatbot over the dashboard data (src/equity_scout/chat.py via Ollama) ---
 
 export interface ChatReply {
