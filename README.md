@@ -251,6 +251,23 @@ fills charge slippage, per-trade realized P&L / win rate / fees are first-class
 block "⚡ Kurzfrist-Arena". Run a lane manually:
 `uv run python scripts/run_shortterm.py --lane crypto`.
 
+## Kann das funktionieren? (v12 Beweis-Rahmen)
+
+Die ehrliche Antwort steht im Dashboard-Tab **„Beweis"** (`/api/proof`) und im monatlichen
+Telegram-Beweisbericht — gemessen, nicht versprochen. Was dieses System GARANTIERT:
+Disziplin (regelbasierte, look-ahead-sichere Ausführung), Kostenwahrheit (jeder Trade
+zahlt Slippage/Fees), Risiko-Management (Concentration-Cap, Regime-Gate, Vol-Target,
+Drawdown-Breaker) und Messung (jede Kennzahl fällt aus echten, gespeicherten Paper-Trades).
+Was es NICHT verspricht: Alpha. Kurzfrist-Lanes verdienen Depot-Kapital erst über das
+**Beweis-Gate** (≥ 30 realisierte Trades, ≥ 60 Tage, Netto-P&L > 0, Profit-Faktor ≥ 1.1)
+und fliegen bei negativem 60-Tage-Netto wieder raus.
+
+**Der Weg zu echtem Geld** ist eine Nico-Entscheidung, kein Systemfeature: erst wenn der
+Track Record die im Code hinterlegten Schwellen (`proof.CONVICTION_THRESHOLDS`: ≥ 180 Tage,
+Sharpe nach Kosten > 1, Max-Drawdown < 15 %) über Monate hält, lohnt die Diskussion über
+einen Broker — und selbst dann bleibt Order-Routing per LOOP.md verboten, bis Nico diese
+Grenze bewusst und explizit ändert.
+
 ## Handy-Cockpit (LAN + PWA)
 
 The dashboard can run as an always-on, token-gated server on the home LAN and installs

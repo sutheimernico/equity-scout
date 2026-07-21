@@ -340,7 +340,7 @@ unverändert ehrlich: Erwartung nach Kosten negativ — die Arena misst, sie ver
 - [ ] Backlog: Session-Lane auf Alpaca-IEX-Echtzeit (kostenloser Key) umstellbar — würde das
       Delay-Modell überflüssig machen; Needs Nico (Account)
 
-## Phase: Vision v12 — "One Autotrader" (2026-07-20)
+## Phase: Vision v12 — "One Autotrader" (2026-07-20) — DONE 2026-07-21
 Spec/Plan: `docs/superpowers/{specs,plans}/2026-07-20-vision-v12-one-autotrader.md`. Nico-Direktive
 2026-07-20: Autotrader komplett reviewen + aufarbeiten, Short/Mid/Long als EIN System, Telegram
 aufs Handy, Dashboard als Handy-App (Laptop = Server), Beweis-Evidenz "kann das funktionieren?".
@@ -370,7 +370,7 @@ Harte Grenzen unverändert: paper-only, kein Order-Routing, local & free, DISCLA
 - [x] P1 proof.py: ehrliche Kennzahlen pro Buch (Sharpe/MaxDD/WinRate/Kostenanteil + Labels)
 - [x] P2 Proof-Surfaces (/api/proof + FE "Beweis"-View mit Überzeugungs-Schwellen)
 - [x] P3 Monatlicher Telegram-Proof-Report (state-gated, 1. des Monats)
-- [ ] P4 Docs-Abschluss (README "Kann das funktionieren?", Outcome-Sektion)
+- [x] P4 Docs-Abschluss (README "Kann das funktionieren?", Outcome-Sektion)
 
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
