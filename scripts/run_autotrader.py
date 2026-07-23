@@ -41,7 +41,7 @@ from equity_scout.constants import (
     ML_SLEEVE_NAMES,
 )
 from equity_scout.forward_storage import load_account
-from equity_scout.data.etf_panel import load_etf_panel
+from equity_scout.data.etf_panel import load_etf_panel, load_price_history
 from equity_scout.etf_universe import ETF_TICKERS
 from equity_scout.fx import eur_rate
 from equity_scout.state_storage import record_heartbeat
@@ -105,7 +105,7 @@ def combined_panel(*, start: str, refresh: bool, need_stocks: bool, main_db: str
     watchlist = load_latest_watchlist(main_db) or {}
     watch_tickers = [e["ticker"] for e in watchlist.get("entries", [])]
     bot_tickers = list(dict.fromkeys([*watch_tickers, *SHORTABLE_TICKERS, "SPY"]))
-    stocks = load_etf_panel(bot_tickers, start=start, snapshot=ML_BOTS_SNAPSHOT, refresh=refresh)
+    stocks = load_price_history(bot_tickers, start=start, snapshot=ML_BOTS_SNAPSHOT, refresh=refresh)
     extra = [t for t in stocks.tickers if t not in etf.tickers]
     return PricePanel(
         pd.concat([etf.closes, stocks.closes[extra]], axis=1, sort=False).sort_index()

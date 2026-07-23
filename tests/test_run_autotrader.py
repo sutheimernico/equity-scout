@@ -14,6 +14,7 @@ from equity_scout.autotrader_storage import (
 )
 from equity_scout.market import PricePanel
 from equity_scout.strategies.base import TargetWeight
+import scripts.run_autotrader as runner
 from scripts.run_autotrader import (
     advance_autotrader,
     depot_return_series,
@@ -265,3 +266,43 @@ def test_promoted_lane_is_demoted_when_trailing_pnl_turns_negative(dbs, tmp_path
     )
     assert account.promoted_lanes == ()
     assert any(e["action"] == "demote" for e in load_risk_events(autotrader_db))
+
+
+def test_combined_panel_stock_subpanel_survives_a_young_ticker(monkeypatch) -> None:
+    """R3: the stock subpanel must be gap-tolerant (clean_columns, no common-range trim) —
+    a fresh IPO on the watchlist must not truncate an established ticker's history, the way
+    load_etf_panel's clean_panel trim (dropna(how="any") over ALL bot tickers) used to."""
+    from equity_scout.data.etf_panel import clean_columns, clean_panel
+
+    old_index = pd.bdate_range("2024-01-02", periods=500)  # ~2 years
+    young_index = old_index[-10:]  # joined 10 trading days ago
+    raw_stocks = pd.DataFrame(index=old_index)
+    raw_stocks["OLD"] = 100.0
+    raw_stocks["YOUNG"] = float("nan")
+    raw_stocks.loc[young_index, "YOUNG"] = 50.0
+
+    etf_panel = PricePanel(pd.DataFrame({"SPY": 1.0}, index=old_index))
+
+    def fake_load_etf_panel(tickers, **kwargs):  # noqa: ANN001, ANN201
+        # Only the ETF universe call may still land here; if the stock subpanel is (still,
+        # wrongly) routed through here too, it gets the old destructive common-range trim.
+        if "OLD" in tickers:
+            return clean_panel(raw_stocks)
+        return etf_panel
+
+    monkeypatch.setattr(runner, "load_etf_panel", fake_load_etf_panel)
+    monkeypatch.setattr(runner, "load_price_history", lambda tickers, **kwargs: clean_columns(raw_stocks))
+    monkeypatch.setattr(
+        runner, "load_latest_watchlist",
+        lambda main_db: {"entries": [{"ticker": "OLD"}, {"ticker": "YOUNG"}]},
+    )
+
+    panel = runner.combined_panel(
+        start="2007-01-01", refresh=False, need_stocks=True, main_db="unused.db"
+    )
+
+    assert panel.closes["OLD"].notna().sum() == len(old_index)  # full history kept, not trimmed
+    assert "YOUNG" in panel.tickers
+    young = panel.closes["YOUNG"]
+    assert young.notna().sum() == len(young_index)  # young ticker's own short history present
+    assert young.isna().sum() == len(old_index) - len(young_index)  # gap tolerated, not dropped
