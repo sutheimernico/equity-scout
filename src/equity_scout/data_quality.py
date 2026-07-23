@@ -38,3 +38,21 @@ def build_data_quality_report(
         "missing_fields": missing_fields,
         "gate_filtered": len(gated_out),
     }
+
+
+def fetch_summary_line(report: dict, duration_s: float | None = None) -> str | None:
+    """One human-readable end-of-run line from the report above (v13 Q5): the fetch
+    reliability picture that used to require reading the report dict. None when the run
+    had no counted fetches (fake provider) — printing zeros would suggest a live run.
+    Cache hits and rate-limit counts are deliberately absent: no counter exists for them
+    yet, and this line only renders what was actually measured."""
+    if not report.get("attempted"):
+        return None
+    line = (
+        f"Fetch-Statistik: {report['attempted']} Ticker geholt, "
+        f"{report['info_failed']} Info-Fehler, {report['closes_failed']} Preis-Fehler "
+        f"(Fehlerrate {report['fetch_error_rate']:.1%})"
+    )
+    if duration_s is not None:
+        line += f" — Laufzeit {duration_s / 60.0:.1f} min"
+    return line

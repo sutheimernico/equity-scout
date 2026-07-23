@@ -49,3 +49,21 @@ def test_missing_fields_counts_across_all_seven_metric_fields():
         "trailing_pe": 1, "price_to_book": 1, "return_on_equity": 1, "profit_margins": 1,
         "revenue_growth": 1, "earnings_growth": 1, "momentum_6m": 1,
     }
+
+
+def test_fetch_summary_line_renders_from_report_dict():
+    """v13 Q5: the end-of-run line is a pure render of the report — no live provider."""
+    from equity_scout.data_quality import fetch_summary_line
+
+    report = {
+        "attempted": 6592, "info_failed": 120, "closes_failed": 30,
+        "fetch_error_rate": 150 / 6592,
+    }
+    line = fetch_summary_line(report, duration_s=754.0)
+    assert "6592 Ticker geholt" in line
+    assert "120 Info-Fehler" in line
+    assert "30 Preis-Fehler" in line
+    assert "2.3%" in line
+    assert "12.6 min" in line
+    assert fetch_summary_line(report)  # duration optional
+    assert fetch_summary_line({"attempted": 0}) is None  # fake provider -> no line

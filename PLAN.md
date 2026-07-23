@@ -207,10 +207,14 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       poolen
 - [ ] Beobachten: yfinance-Fehlerquote + Laufzeit des ersten 6.6k-Scout-Laufs (FetchStats im
       Data-Quality-Report); ggf. Universum per Mindest-Preis/-Historie vorfiltern
-- [ ] Bug: Form-4-Collector wirft bei ~21 Watchlist-Tickern XML-Parse-Fehler ("tag mismatch:
+      → Sichtbarkeit geschaffen 2026-07-24 (v13 Q5): run_scout druckt am Laufende eine
+      Fetch-Statistik-Zeile (geholt/Fehler/Fehlerrate/Laufzeit); Beobachten bleibt offen.
+- [x] Bug: Form-4-Collector wirft bei ~21 Watchlist-Tickern XML-Parse-Fehler ("tag mismatch:
       meta/head" = SEC liefert eine HTML-Seite statt XML — vermutlich Filing-Index-URL oder
       fehlender Accept-Header); log-and-continue hat gehalten, 9/30 Ticker sauber geprüft
       (live 2026-07-14 nach EDGAR-Freischaltung)
+      DONE durch `e31436f` (2026-07-20): SEC-Throttle + Nicht-XML-Bodies werden mit sauberem
+      Fehler abgewiesen; in der v13-Triage 2026-07-23 verifiziert.
 
 ## Phase: Vision v7 — Ziel-Exits, Event-Engine, Lern-Loop (2026-07-15)
 > Nico-Direktive: Long-Modell mit explizitem Zielwert/Exit, news-getriebenes Kurzfrist-Trading

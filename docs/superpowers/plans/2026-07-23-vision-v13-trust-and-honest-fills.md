@@ -116,7 +116,9 @@ Corwin-Schultz cost floor on a new OHLC panel world).
   print additions/removals (exit 0 always — informational). Tests (`tests/test_voices.py`):
   the three concrete false-positive headlines stop resolving; genuine multi-word names still
   resolve; scanner flags a synthetic new generic word.
-- [ ] **Q5 (XS) FetchStats visibility + stale plan cleanup** — `scripts/run_scout.py`: log one
+- [x] **Q5 (XS) FetchStats visibility + stale plan cleanup** — (deviation: cache-hit and
+  rate-limited counters do not exist in FetchStats — the line renders only what is measured;
+  the Q1 `--start` wording was already gone, see Q1 note) — `scripts/run_scout.py`: log one
   FetchStats summary line at end of run (fetched/cache-hits/errors/rate-limited + duration) from
   the existing data-quality report objects. Tick the stale Form-4 checkbox in PLAN.md (fixed by
   `e31436f`, verified in triage 2026-07-23) and fix the Q1-related backlog wording. Test: summary

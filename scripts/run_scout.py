@@ -7,6 +7,7 @@ LLM theses off by default (--use-llm to enable).
 from __future__ import annotations
 
 import argparse
+import time
 from datetime import datetime, timezone
 
 from equity_scout.analysis import ClaudeCliAnalysis, FakeAnalysis
@@ -16,6 +17,7 @@ from equity_scout.data.fake_provider import FakeProvider
 from equity_scout.data.news import YFinanceNews
 from equity_scout.data.yf_provider import FetchStats, YFinanceProvider
 from equity_scout.data.universe_storage import load_instrument_meta, upsert_instrument_meta
+from equity_scout.data_quality import fetch_summary_line
 from equity_scout.pipeline import run_pipeline
 from equity_scout.storage import init_db, save_run, save_run_scores
 from equity_scout.universe import apply_meta_overlay, load_universe
@@ -42,6 +44,7 @@ def main() -> None:
     args = ap.parse_args()
 
     now = datetime.now(timezone.utc)
+    run_started = time.monotonic()
     universe = apply_meta_overlay(load_universe(args.universe), load_instrument_meta(args.db))
     fetch_stats = FetchStats() if args.provider == "yfinance" else None
     base = YFinanceProvider(stats=fetch_stats) if args.provider == "yfinance" else FakeProvider()
@@ -72,13 +75,9 @@ def main() -> None:
     save_run_scores(args.db, run_id, full_ranking)
 
     print(f"\nRun {run.created_at} — universe {run.universe_size}, gated out {len(run.gated_out)}")
-    dq = run.data_quality
-    if dq.get("attempted"):
-        print(
-            f"Data quality: {dq['attempted']} fetched, "
-            f"{dq['info_failed']} info-failures, {dq['closes_failed']} price-failures "
-            f"(error rate {dq['fetch_error_rate']:.1%})"
-        )
+    summary = fetch_summary_line(run.data_quality, duration_s=time.monotonic() - run_started)
+    if summary:
+        print(summary)
     for bucket, picks in run.buckets.items():
         print(f"\n[{bucket}]")
         for p in picks:

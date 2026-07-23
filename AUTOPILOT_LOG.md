@@ -204,3 +204,4 @@
 - 2026-07-24 v13 Q2: trials.dsr_hurdle column (idempotent PRAGMA-guarded migration; explicit-column INSERT), run_one_trial persists the pre-trial hurdle, readers tolerate pre-migration ledgers (/api/ml read-only), 2 tests + fixed real-ledger read crash
 - 2026-07-24 v13 Q3: walk_forward_efficiency (OOS/IS on excess-AUC over 0.5, guards -> None) computed per split-fit, persisted in registry metrics (is_auc+wfe), trainer log line + <0.5 heuristic note, 2 tests
 - 2026-07-24 v13 Q4: voices single-token channel gated by _GENERIC_FIRST_WORDS (Shell/Target/Next false positives dead, caps-ticker channel stays open), surgical multi-word preference (single-token word inside the one full-name match), scan_generic_words.py drift scanner + committed snapshot (4836 words), 5 tests
+- 2026-07-24 v13 Q5: fetch_summary_line (pure render of dq report + duration) printed at scout run end, Form-4 PLAN checkbox ticked (e31436f verified), 1 test
