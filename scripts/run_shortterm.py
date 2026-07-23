@@ -42,7 +42,7 @@ from equity_scout.st_crypto import decide_pair
 from equity_scout.st_session import ENTRY_FRACTION as SESSION_FRACTION
 from equity_scout.st_session import decide, opening_range
 from equity_scout.st_swing import ENTRY_FRACTION as SWING_FRACTION
-from equity_scout.st_swing import check_exits, pick_entries
+from equity_scout.st_swing import MAX_POSITIONS, check_exits, pick_entries
 
 SWING_SNAPSHOT = "data/prices/st_swing_panel.csv"
 CRYPTO_SLIPPAGE_BPS = 10.0
@@ -67,9 +67,12 @@ def run_swing(db: str, main_db: str, *, now: datetime) -> None:
         # first run: only the last 24h of events — never buy the whole stored history
         marker = (now - timedelta(hours=24)).isoformat(timespec="seconds")
     events = [e for e in load_classified_events(main_db) if (e["seen_at"] or "") > marker]
-    candidates = pick_entries(events, book, now=now)
+    # pool sized as if every held position could exit today: the price panel must already
+    # cover entries that only become possible once today's exits free their slots (v13 R7)
+    candidate_pool = pick_entries(events, book, now=now,
+                                  max_positions=MAX_POSITIONS + len(book.positions))
 
-    tickers = sorted({*book.positions, *(c["ticker"] for c in candidates), "SPY"})
+    tickers = sorted({*book.positions, *(c["ticker"] for c in candidate_pool), "SPY"})
     start = (now - timedelta(days=40)).date().isoformat()
     panel = load_price_history(tickers, start=start, snapshot=SWING_SNAPSHOT, refresh=True)
     if len(panel.dates) == 0:
@@ -83,12 +86,19 @@ def run_swing(db: str, main_db: str, *, now: datetime) -> None:
     }
 
     fills = []
+    exited_today: set[str] = set()
     for exit_order in check_exits(book, prices, today):
         book, fill = sell(book, exit_order["ticker"], exit_order["price"], today,
                           reason=exit_order["reason"])
         if fill:
             fills.append(fill)
-    for candidate in candidates:
+            exited_today.add(exit_order["ticker"])
+    # re-pick against the post-exit book so capital freed today is investable today (v13
+    # R7). Tickers exited today are dropped from the event pool BEFORE the slot cap —
+    # otherwise a stopped-out name with the freshest event would claim its old slot back
+    # at the same close it just exited on (churn, not a new decision).
+    fresh_events = [e for e in events if (e.get("ticker") or "").upper() not in exited_today]
+    for candidate in pick_entries(fresh_events, book, now=now):
         price = prices.get(candidate["ticker"])
         if not price:
             continue  # event ticker without a quote — honest skip

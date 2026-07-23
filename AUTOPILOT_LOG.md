@@ -199,3 +199,4 @@
 - 2026-07-23 v13 R4: per-ticker stale_days streak + force-close via ExitRules path (exit_reason=stale_no_price, last real price, re-entry lockout), legacy blobs migrate, tests
 - 2026-07-23 v13 R5: cost_share denominator = pre-fee P&L magnitude |net+costs| (was |net|+costs, hid cost-flipped books), 2 tests
 - 2026-07-23 v13 R6: promotion gate loads lane trades with limit=None (load_trades None-capable via SQLite LIMIT -1; was capped 5000), test w/ 250 rows
+- 2026-07-23 v13 R7: swing re-picks entries against the post-exit book (panel pre-loads pool as if all held could exit; same-day re-entry churn-guarded); found+fixed pick_entries off-by-one (full book still yielded 1 pick -> lane crept past MAX_POSITIONS), 3 tests

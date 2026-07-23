@@ -36,6 +36,10 @@ def pick_entries(
     a multi-day outage must not buy week-old news at today's price (v12 R11); the
     event reaction is long priced in by then."""
     free_slots = max(0, max_positions - len(book.positions))
+    if free_slots == 0:
+        # without this a full book still yielded one pick (the cap check below fires only
+        # AFTER an append), letting the lane creep past max_positions run by run (v13 R7)
+        return []
     picks: list[dict] = []
     seen: set[str] = set()
     ordered = sorted(events, key=lambda e: e.get("seen_at") or "", reverse=True)

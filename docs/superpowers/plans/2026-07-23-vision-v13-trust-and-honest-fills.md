@@ -68,7 +68,8 @@ Corwin-Schultz cost floor on a new OHLC panel world).
   drop `limit=5000` for the promotion-gate path (or pass `limit=None` end-to-end through
   `load_lane_trades`) so all-time net_pnl/profit_factor are truly all-time. Tests
   (`tests/test_shortterm_storage.py` or promotion tests): >limit rows in a tmp DB → gate sees all.
-- [ ] **R7 (P2) swing frees slots before entering** — `scripts/run_shortterm.py` (~70/86): run
+- [x] **R7 (P2) swing frees slots before entering** — (+ found & fixed on the way: `pick_entries`
+  off-by-one let a FULL book still yield one pick — the lane could creep past MAX_POSITIONS) — `scripts/run_shortterm.py` (~70/86): run
   `check_exits` BEFORE `pick_entries` (or recompute free slots after exits) so capital freed today
   is investable today. Tests (`tests/test_run_shortterm.py`): book at max positions with one exit
   due today + one fresh signal → exit books first, entry fills the freed slot.

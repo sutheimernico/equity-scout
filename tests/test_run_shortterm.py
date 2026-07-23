@@ -8,11 +8,14 @@ import pytest
 
 import scripts.run_shortterm as runner
 from equity_scout.market import PricePanel
+from equity_scout.shortterm_book import LaneBook, LanePosition
 from equity_scout.shortterm_storage import (
     get_lane_state,
     load_book,
     load_trades,
     load_valuations,
+    save_book,
+    set_lane_state,
 )
 
 NOW = datetime(2026, 7, 20, 18, 0, tzinfo=timezone.utc)
@@ -79,6 +82,42 @@ def test_swing_lane_buys_fresh_bullish_events(db, tmp_path, monkeypatch) -> None
     # second run with no NEW events: nothing bought again
     runner.run_swing(db, str(tmp_path / "main.db"), now=NOW)
     assert len(load_trades(db, "swing")) == 1
+
+
+def test_swing_lane_frees_slots_before_entering(db, tmp_path, monkeypatch) -> None:
+    """v13 R7: an exit due today frees its slot for today's entries — and the exited
+    ticker itself must not re-enter on the same close it just exited on, even when its
+    event is the freshest in the pool (churn guard)."""
+    held = [f"T{i}" for i in range(8)]  # book at MAX_POSITIONS
+    positions = {
+        t: LanePosition(qty=10.0, entry_price=100.0, opened_at="2026-07-18T20:00:00+00:00")
+        for t in held
+    }
+    book = LaneBook(lane="swing", initial_capital=10_000.0, cash=2_000.0,
+                    benchmark_ticker="SPY", positions=positions)
+    save_book(db, book, updated_at="2026-07-18")
+    set_lane_state(db, "swing", "events_seen_until", "2026-07-19T00:00:00+00:00")
+
+    events = [
+        # fresher event for the exiting ticker: without the churn guard it wins the slot
+        {"ticker": "T0", "event_type": "beat", "seen_at": "2026-07-20T15:00:00+00:00"},
+        {"ticker": "NEWT", "event_type": "beat", "seen_at": "2026-07-20T14:00:00+00:00"},
+    ]
+    monkeypatch.setattr(runner, "load_classified_events", lambda main_db: events)
+    index = pd.bdate_range("2026-07-06", periods=11)  # last business day = 2026-07-20
+    columns = {t: 100.0 for t in held} | {"T0": 106.0, "NEWT": 50.0, "SPY": 500.0}
+    panel = PricePanel(pd.DataFrame(columns, index=index))
+    monkeypatch.setattr(runner, "load_price_history", lambda *a, **k: panel)
+
+    runner.run_swing(db, str(tmp_path / "main.db"), now=NOW)
+    book = load_book(db, "swing")
+    assert book is not None
+    assert "T0" not in book.positions  # +6% profit-target exit booked first...
+    assert "NEWT" in book.positions  # ...and today's entry filled the freed slot
+    sides = {(t["side"], t["ticker"]) for t in load_trades(db, "swing")}
+    assert ("sell", "T0") in sides
+    assert ("buy", "NEWT") in sides
+    assert ("buy", "T0") not in sides  # no same-day re-entry churn
 
 
 def test_session_lane_outside_market_window_is_a_no_op(db, monkeypatch) -> None:

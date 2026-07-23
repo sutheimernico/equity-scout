@@ -30,6 +30,15 @@ def test_pick_entries_skips_held_tickers_and_respects_slots() -> None:
     assert [p["ticker"] for p in picks] == ["MSFT", "NVDA"]  # AAPL held, 2 free slots
 
 
+def test_pick_entries_full_book_yields_nothing() -> None:
+    """v13 R7: with zero free slots the old cap check still returned one pick (it fired
+    only after an append), so a full lane crept past max_positions run by run."""
+    book = LaneBook.fresh("swing")
+    for i, ticker in enumerate(("AAPL", "MSFT", "NVDA")):
+        book, _ = buy(book, ticker, 100.0, f"t{i}", fraction=0.1, reason="x")
+    assert pick_entries([_event("AMZN", "beat")], book, max_positions=3) == []
+
+
 def test_check_exits_target_stop_and_max_holding() -> None:
     book = LaneBook.fresh("swing")
     book, _ = buy(book, "WIN", 100.0, "2026-07-18", fraction=0.1, reason="x", slippage_bps=0.0)
