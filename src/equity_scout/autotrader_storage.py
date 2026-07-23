@@ -81,6 +81,7 @@ def _to_json(account: AutoDepotAccount) -> str:
         "sleeve_weights": account.sleeve_weights,
         "sleeve_mode": account.sleeve_mode,
         "promoted_lanes": list(account.promoted_lanes),
+        "last_marks": account.last_marks,
     })
 
 
@@ -101,6 +102,10 @@ def _from_json(blob: str) -> AutoDepotAccount:
         sleeve_weights=d.get("sleeve_weights", {}),
         sleeve_mode=d.get("sleeve_mode", "anchor"),
         promoted_lanes=tuple(d.get("promoted_lanes", [])),
+        # missing key = a blob persisted before v13 R2 — no marks were ever recorded, so it
+        # loads as empty and the next advance falls back to the pre-mark window logic once
+        # per held position (see advance_depot's "mark init for N positions" log).
+        last_marks={t: tuple(v) for t, v in d.get("last_marks", {}).items()},
     )
 
 

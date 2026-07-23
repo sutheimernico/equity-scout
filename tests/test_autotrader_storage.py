@@ -1,12 +1,22 @@
 """Storage: account round-trip, idempotent advance recording, loaders, sleeve upsert."""
 from __future__ import annotations
 
+import json
+import sqlite3
+
+import pandas as pd
 import pytest
 
 from equity_scout.autotrader_allocator import SleeveAllocation
-from equity_scout.autotrader_engine import AutoDepotAccount, AutoDepotValuation, TradeRecord
+from equity_scout.autotrader_engine import (
+    AutoDepotAccount,
+    AutoDepotValuation,
+    TradeRecord,
+    advance_depot,
+)
 from equity_scout.autotrader_protections import BreakerState, RiskEvent
 from equity_scout.autotrader_storage import (
+    init_autotrader_db,
     load_depot,
     load_latest_sleeve_weights,
     load_risk_events,
@@ -17,6 +27,8 @@ from equity_scout.autotrader_storage import (
     save_depot,
     save_sleeve_weights,
 )
+from equity_scout.market import PricePanel
+from equity_scout.strategies.base import TargetWeight
 
 
 @pytest.fixture
@@ -139,3 +151,66 @@ def test_promoted_lanes_survive_the_account_round_trip(db) -> None:
     account = replace(account, promoted_lanes=("crypto",))
     save_depot(db, account, updated_at="2026-07-21")
     assert load_depot(db).promoted_lanes == ("crypto",)
+
+
+def test_marks_survive_the_account_round_trip(db) -> None:
+    account = AutoDepotAccount.fresh()
+    from dataclasses import replace
+
+    account = replace(account, weights={"AAPL": 1.0}, last_marks={"AAPL": ("2026-07-20", 60.0)})
+    save_depot(db, account, updated_at="2026-07-21")
+    assert load_depot(db).last_marks == {"AAPL": ("2026-07-20", 60.0)}
+
+
+class _Fixed:
+    """Canned strategy: always returns the same targets (mirrors test_autotrader_engine.py)."""
+
+    def __init__(self, name: str, targets: list[TargetWeight]) -> None:
+        self.name = name
+        self._targets = targets
+
+    def decide(self, as_of, market):  # noqa: ANN001, ANN201 - Strategy protocol
+        return self._targets
+
+
+def _panel(prices: dict[str, list[float]]) -> PricePanel:
+    n = len(next(iter(prices.values())))
+    idx = pd.bdate_range("2026-06-01", periods=n)
+    return PricePanel(pd.DataFrame(prices, index=idx))
+
+
+def test_legacy_blob_without_last_marks_loads_cleanly_and_then_learns_marks(db) -> None:
+    """A depot blob persisted before v13 R2 has no "last_marks" key at all — must load as {},
+    not KeyError. The first advance after loading it initialises marks like the old window
+    logic; the second advance then uses them (v13 R2 migration)."""
+    init_autotrader_db(db)
+    legacy_blob = json.dumps({
+        "initial_capital": 10_000.0, "equity": 10_000.0, "benchmark_ticker": "SPY",
+        "benchmark_equity": 10_000.0, "peak_equity": 10_000.0, "last_as_of": "2026-06-01",
+        "weights": {"AAPL": 1.0}, "breaker": {"stage": 0, "changed_at": None},
+        "sleeve_weights": {}, "sleeve_mode": "anchor", "promoted_lanes": [],
+        # deliberately no "last_marks" key
+    })
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO autotrader_account (id, data, updated_at) VALUES (1, ?, ?)",
+            (legacy_blob, "2026-06-01"),
+        )
+
+    account = load_depot(db)
+    assert account is not None
+    assert account.last_marks == {}
+
+    panel = _panel({"SPY": [100.0] * 3, "AAPL": [50.0, 60.0, 66.0]})
+    strategy = _Fixed("s", [TargetWeight("AAPL", 1.0)])
+    allocation = SleeveAllocation(weights={"s": 1.0}, mode="anchor")
+
+    account, val2 = advance_depot(
+        account, [strategy], allocation, PricePanel(panel.closes.iloc[:2]), protections=[],
+    )
+    assert val2.equity == pytest.approx(10_000.0 * (60.0 / 50.0))  # old window logic, unchanged
+    assert account.last_marks["AAPL"] == (panel.dates[1].date().isoformat(), 60.0)
+
+    account, val3 = advance_depot(account, [strategy], allocation, panel, protections=[])
+    assert val3.equity == pytest.approx(val2.equity * (66.0 / 60.0))  # now driven by the mark
+    assert account.last_marks["AAPL"] == (panel.dates[2].date().isoformat(), 66.0)

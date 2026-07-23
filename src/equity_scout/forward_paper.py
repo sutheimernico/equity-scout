@@ -104,16 +104,36 @@ def _price_on_or_before(series: pd.Series, date: pd.Timestamp) -> float | None:
     return float(visible.iloc[-1]) if len(visible) else None
 
 
-def _asset_return(closes: pd.DataFrame, ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> float:
-    """Total return of `ticker` from the close on/before `start` to the close on/before `end`."""
+def _asset_return(
+    closes: pd.DataFrame, ticker: str, start: pd.Timestamp, end: pd.Timestamp
+) -> float | None:
+    """Total return of `ticker` from the close on/before `start` to the close on/before `end`, or
+    None when that return would not be honest (v13 R2 review): the ticker has no column at all, or
+    there is no price row strictly newer than `start` on/before `end` — the "end" side would then
+    resolve to the exact same stale reading as `start` (or an even earlier one), and reporting that
+    as "0% return" fabricates a number instead of admitting there is no fresh reading yet. Callers
+    must not silently treat None as 0.0 without a documented reason — see `_drift_return` below."""
     if ticker not in closes.columns:
-        return 0.0
+        return None
     series = closes[ticker].dropna()
+    visible_end = series.loc[:end]
+    if len(visible_end) == 0 or visible_end.index[-1] <= start:
+        return None
+    p1 = float(visible_end.iloc[-1])
     p0 = _price_on_or_before(series, start)
-    p1 = _price_on_or_before(series, end)
-    if p0 is None or p1 is None or p0 <= 0:
-        return 0.0
+    if p0 is None or p0 <= 0:
+        return None
     return p1 / p0 - 1.0
+
+
+def _drift_return(closes: pd.DataFrame, ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> float:
+    """Wraps `_asset_return` for forward_paper's own drift/benchmark arithmetic below: a stale or
+    missing reading is treated as a 0% return — same as `_asset_return` did before it started
+    distinguishing "no fresh price" from "0%" (v13 R2). Real stale-position handling here (marking
+    the position, not the whole window) is the follow-up task v13 R4; until then this module's
+    observable behaviour must not change."""
+    r = _asset_return(closes, ticker, start, end)
+    return 0.0 if r is None else r
 
 
 # Daily short-borrow cost proxy in bps of short gross exposure (~2.5 %/yr). A PROXY by
@@ -166,15 +186,15 @@ def advance_account(
 
     # 1. Drift held weights + benchmark with the realised return since the last advance.
     if last is not None:
-        port_return = sum(w * _asset_return(closes, t, last, today) for t, w in weights.items())
+        port_return = sum(w * _drift_return(closes, t, last, today) for t, w in weights.items())
         equity *= 1.0 + port_return
         growth = 1.0 + port_return
         if growth > 0 and weights:
             weights = {
-                t: w * (1.0 + _asset_return(closes, t, last, today)) / growth
+                t: w * (1.0 + _drift_return(closes, t, last, today)) / growth
                 for t, w in weights.items()
             }
-        benchmark_equity *= 1.0 + _asset_return(closes, account.benchmark_ticker, last, today)
+        benchmark_equity *= 1.0 + _drift_return(closes, account.benchmark_ticker, last, today)
 
         # 1b. Borrow-cost proxy on short gross exposure, per trading day since the last advance.
         short_gross = sum(-w for w in weights.values() if w < 0)

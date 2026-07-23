@@ -180,6 +180,96 @@ def test_sleeve_holdings_mirror_drops_exited_tickers_without_redistributing() ->
     assert account.weights["AAPL"] == pytest.approx(0.5)  # not scaled up to fill the gap
 
 
+def test_stale_series_books_zero_and_next_fresh_row_books_the_full_move() -> None:
+    """Reviewer repro (v13 R2, the actual P0 fix): a lane's fresh price lands one panel date
+    late (feed/chain timing). The window-based valuation used to resolve BOTH ends to the same
+    stale row and silently lose the move forever — every following night booked 0.00. With
+    per-position marks, the advance that still sees no price fresher than its mark books 0 and
+    KEEPS the mark; the very next advance that finally sees the fresh row books the FULL move —
+    nothing lost, just booked one day late."""
+    nan = float("nan")
+    prices = {
+        "SPY": [100.0] * 7,
+        "CRYPTO": [100.0, 100.0, 100.0, 100.0, 100.0, nan, 150.0],  # gap on day 6, +50% on day 7
+    }
+    full = _panel(7, prices)
+    strategy = _Fixed("s", [TargetWeight("CRYPTO", 1.0)])
+    allocation = _allocation({"s": 1.0})
+    account = AutoDepotAccount.fresh()
+
+    for n in range(1, 6):  # days 1-5: establish the position and its mark
+        account, _ = advance_depot(
+            account, [strategy], allocation, PricePanel(full.closes.iloc[:n]), protections=[],
+        )
+    equity_before_gap = account.equity
+    mark_before_gap = account.last_marks["CRYPTO"]
+
+    # day 6: CRYPTO's own feed has not updated (NaN) — no reading fresher than the mark exists.
+    account, val6 = advance_depot(
+        account, [strategy], allocation, PricePanel(full.closes.iloc[:6]), protections=[],
+    )
+    assert val6 is not None
+    assert val6.equity == pytest.approx(equity_before_gap)  # booked zero this step
+    assert account.last_marks["CRYPTO"] == mark_before_gap  # mark held untouched, not re-anchored
+
+    # day 7: the fresh +50% row finally lands — the FULL move must book now.
+    account, val7 = advance_depot(account, [strategy], allocation, full, protections=[])
+    assert val7 is not None
+    assert val7.equity == pytest.approx(equity_before_gap * 1.5)
+    assert account.last_marks["CRYPTO"] == (full.dates[-1].date().isoformat(), 150.0)
+
+
+def test_fresh_price_every_step_drifts_exactly_like_the_old_window_logic() -> None:
+    """No staleness anywhere: the marks-based drift must reproduce the exact same arithmetic as
+    the old [last, today] window resolution, day after day."""
+    panel = _panel(4, {"SPY": [100.0] * 4, "AAPL": [50.0, 52.0, 49.0, 55.0]})
+    strategy = _Fixed("s", [TargetWeight("AAPL", 1.0)])
+    allocation = _allocation({"s": 1.0})
+    account = AutoDepotAccount.fresh(initial_capital=10_000.0)
+
+    account, _ = advance_depot(account, [strategy], allocation, PricePanel(panel.closes.iloc[:1]),
+                                protections=[])
+    after_buildup = account.equity  # one-way turnover cost from cash -> 100% AAPL
+
+    account, val2 = advance_depot(account, [strategy], allocation, PricePanel(panel.closes.iloc[:2]),
+                                   protections=[])
+    assert val2.equity == pytest.approx(after_buildup * (52.0 / 50.0))
+
+    account, val3 = advance_depot(account, [strategy], allocation, PricePanel(panel.closes.iloc[:3]),
+                                   protections=[])
+    assert val3.equity == pytest.approx(after_buildup * (49.0 / 50.0))
+
+    account, val4 = advance_depot(account, [strategy], allocation, panel, protections=[])
+    assert val4.equity == pytest.approx(after_buildup * (55.0 / 50.0))
+    assert account.last_marks["AAPL"] == (panel.dates[-1].date().isoformat(), 55.0)
+
+
+def test_legacy_blob_without_marks_initialises_on_first_advance_then_uses_them() -> None:
+    """Migration (v13 R2): an account that already holds a position but predates `last_marks`
+    (loaded as {}) values its first advance exactly like the old window logic and initialises
+    the mark; the SECOND advance then uses that mark, mark-return arithmetic."""
+    from dataclasses import replace
+
+    panel = _panel(3, {"SPY": [100.0] * 3, "AAPL": [50.0, 60.0, 66.0]})
+    strategy = _Fixed("s", [TargetWeight("AAPL", 1.0)])
+    allocation = _allocation({"s": 1.0})
+
+    legacy = replace(
+        AutoDepotAccount.fresh(initial_capital=10_000.0),
+        equity=10_000.0, weights={"AAPL": 1.0},
+        last_as_of=panel.dates[0].date().isoformat(), last_marks={},
+    )
+
+    account, val2 = advance_depot(legacy, [strategy], allocation,
+                                   PricePanel(panel.closes.iloc[:2]), protections=[])
+    assert val2.equity == pytest.approx(10_000.0 * (60.0 / 50.0))  # same as the old window return
+    assert account.last_marks["AAPL"] == (panel.dates[1].date().isoformat(), 60.0)
+
+    account, val3 = advance_depot(account, [strategy], allocation, panel, protections=[])
+    assert val3.equity == pytest.approx(val2.equity * (66.0 / 60.0))  # now driven by the mark
+    assert account.last_marks["AAPL"] == (panel.dates[2].date().isoformat(), 66.0)
+
+
 def test_sleeve_holdings_only_filters_listed_sleeves() -> None:
     panel = _panel(5, {"SPY": [100.0] * 5, "AAPL": [50.0] * 5})
     rule = _Fixed("rule", [TargetWeight("AAPL", 0.8)])

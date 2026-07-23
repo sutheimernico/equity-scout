@@ -24,6 +24,7 @@ honest seam a future broker adapter would consume — no speculative interface b
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field, replace
 
 import pandas as pd
@@ -44,6 +45,8 @@ from equity_scout.forward_paper import BORROW_BPS_PER_DAY, _asset_return
 from equity_scout.market import MarketView, PricePanel
 from equity_scout.strategies.base import Strategy, normalise_weights, turnover, weights_dict
 
+logger = logging.getLogger(__name__)
+
 TRADE_EPS = 1e-6  # weight deltas below this are float noise, not trades
 
 
@@ -63,7 +66,10 @@ class AutoDepotAccount:
     """The accumulating state of the one auto-traded depot. `weights` are the post-rebalance
     per-ticker targets set on `last_as_of`; `peak_equity` and `breaker` carry the drawdown
     breaker's memory; `sleeve_weights`/`sleeve_mode` remember the meta allocation last applied
-    (display + audit, the allocator recomputes monthly)."""
+    (display + audit, the allocator recomputes monthly). `last_marks` is the per-position
+    valuation mark (v13 R2) each held ticker was last actually priced at — `{ticker: (date_iso,
+    price)}` — so the NEXT advance can tell a fresh price from a stale repeat of the same window
+    resolution (see `advance_depot`'s drift step)."""
 
     initial_capital: float
     equity: float
@@ -76,6 +82,7 @@ class AutoDepotAccount:
     sleeve_weights: dict[str, float] = field(default_factory=dict)
     sleeve_mode: str = "anchor"
     promoted_lanes: tuple[str, ...] = ()  # arena lanes currently earning depot capital (v12 I3)
+    last_marks: dict[str, tuple[str, float]] = field(default_factory=dict)
 
     @classmethod
     def fresh(
@@ -120,6 +127,55 @@ def aggregate_targets(
     return {t: w for t, w in aggregated.items() if abs(w) > TRADE_EPS}
 
 
+def _resolved_price(
+    closes: pd.DataFrame, ticker: str, as_of: pd.Timestamp
+) -> tuple[pd.Timestamp, float] | None:
+    """The latest close on/before `as_of`, WITH its own date — `_asset_return`'s window helper
+    only returns the price, but the per-position marks below (v13 R2) need the date to tell a
+    fresh reading apart from a stale repeat of the same row."""
+    if ticker not in closes.columns:
+        return None
+    series = closes[ticker].dropna()
+    visible = series.loc[:as_of]
+    if len(visible) == 0:
+        return None
+    return visible.index[-1], float(visible.iloc[-1])
+
+
+def _mark_return(
+    closes: pd.DataFrame,
+    ticker: str,
+    last: pd.Timestamp,
+    today: pd.Timestamp,
+    mark: tuple[str, float] | None,
+) -> tuple[float, tuple[str, float] | None]:
+    """One held ticker's return for this advance, valued from its persisted mark rather than a
+    re-resolved [last, today] window (v13 R2, the actual P0 fix): the window's on/before
+    resolution on BOTH ends can land on the same stale row over and over and silently lose a real
+    move for good the moment a fresh price finally lands between two advances (verified reviewer
+    repro: a lane's equity jumped 10300 -> 15000 in one day and the depot booked 0.00 every night
+    after, because both ends kept re-resolving to the pre-jump price).
+
+    No mark yet (legacy account blob, or a ticker that only entered the book on a stale-price
+    advance) falls back to the old window return so migration stays a no-op. A mark WITH no
+    reading strictly newer than its own date carries the position at 0 this step and keeps the
+    OLD mark untouched, so the full move books on the next advance that does see a fresh price —
+    nothing is ever silently lost, it just books one advance later than it would with live data.
+    """
+    if mark is None:
+        r = _asset_return(closes, ticker, last, today)
+        resolved = _resolved_price(closes, ticker, today)
+        new_mark = (resolved[0].date().isoformat(), resolved[1]) if resolved else None
+        return (0.0 if r is None else r), new_mark
+
+    mark_date, mark_price = pd.Timestamp(mark[0]), mark[1]
+    resolved = _resolved_price(closes, ticker, today)
+    if resolved is not None and resolved[0] > mark_date and mark_price > 0:
+        date, price = resolved
+        return price / mark_price - 1.0, (date.date().isoformat(), price)
+    return 0.0, mark  # no fresher reading than the mark yet — hold at 0, keep the mark as-is
+
+
 def advance_depot(
     account: AutoDepotAccount,
     strategies: list[Strategy],
@@ -137,8 +193,9 @@ def advance_depot(
     """Advance the depot to the latest panel date. Returns (account, valuation); valuation is
     None when already current for that date (idempotent — safe to re-run in a cron chain).
 
-    Step order: drift -> margin floor -> drawdown/peak update -> sleeve decisions (strictly
-    pre-today data) -> look-through aggregation -> protection chain -> turnover cost + trades.
+    Step order: drift (per-position marks, v13 R2) -> margin floor -> drawdown/peak update ->
+    sleeve decisions (strictly pre-today data) -> look-through aggregation -> protection chain ->
+    turnover cost + trades -> roll marks forward for the new book.
     """
     if len(panel.dates) == 0:
         return account, None
@@ -153,20 +210,40 @@ def advance_depot(
     equity = account.equity
     benchmark_equity = account.benchmark_equity
     weights = dict(account.weights)
+    marks_after_drift = dict(account.last_marks)  # updated below; falls through unchanged if
+    # `last is None` (fresh account — nothing was held yet to have a mark)
     today_iso = today.date().isoformat()
 
     # 1. Drift held weights + benchmark with the realised return since the last advance
-    #    (same arithmetic as forward_paper.advance_account).
+    #    (same arithmetic as forward_paper.advance_account). Each held ticker's return comes
+    #    from its persisted valuation mark, not a re-resolved [last, today] window (v13 R2 — see
+    #    `_mark_return`'s docstring for the bug this fixes). The benchmark is not a depot
+    #    position and keeps the old window convention.
     if last is not None:
-        port_return = sum(w * _asset_return(closes, t, last, today) for t, w in weights.items())
+        asset_returns: dict[str, float] = {}
+        marks_after_drift = {}
+        uninitialised = 0
+        for t in weights:
+            r, new_mark = _mark_return(closes, t, last, today, account.last_marks.get(t))
+            asset_returns[t] = r
+            if new_mark is not None:
+                marks_after_drift[t] = new_mark
+            if t not in account.last_marks:
+                uninitialised += 1
+        if uninitialised:
+            logger.info("mark init for %d positions", uninitialised)
+
+        port_return = sum(w * asset_returns[t] for t, w in weights.items())
         equity *= 1.0 + port_return
         growth = 1.0 + port_return
         if growth > 0 and weights:
             weights = {
-                t: w * (1.0 + _asset_return(closes, t, last, today)) / growth
+                t: w * (1.0 + asset_returns[t]) / growth
                 for t, w in weights.items()
             }
-        benchmark_equity *= 1.0 + _asset_return(closes, account.benchmark_ticker, last, today)
+        benchmark_equity *= 1.0 + (
+            _asset_return(closes, account.benchmark_ticker, last, today) or 0.0
+        )
 
         short_gross = sum(-w for w in weights.values() if w < 0)
         if short_gross > 0 and borrow_bps_per_day > 0:
@@ -176,7 +253,7 @@ def advance_depot(
     if last is not None and equity <= 0.0:
         wiped = replace(
             account, equity=0.0, benchmark_equity=benchmark_equity,
-            last_as_of=today_iso, weights={},
+            last_as_of=today_iso, weights={}, last_marks={},
         )
         valuation = AutoDepotValuation(
             created_at=today_iso, equity=0.0, total_return=-1.0,
@@ -234,6 +311,21 @@ def advance_depot(
         )
     equity -= total_cost
 
+    # 6. Roll marks forward for the NEW book (v13 R2): anything still held keeps the mark the
+    #    drift step above just resolved for it (fresh price -> updated; stale -> the same old
+    #    mark, unchanged, per `_mark_return`). Anything the rebalance just added for the first
+    #    time gets a fresh mark at the price actually used today — same convention as
+    #    forward_paper's PositionEntry for a newly opened position. Anything no longer held is
+    #    dropped, so a re-entered ticker later starts clean rather than reusing a stale mark.
+    final_marks: dict[str, tuple[str, float]] = {}
+    for t in targets:
+        if t in marks_after_drift:
+            final_marks[t] = marks_after_drift[t]
+        else:
+            resolved = _resolved_price(closes, t, today)
+            if resolved is not None:
+                final_marks[t] = (resolved[0].date().isoformat(), resolved[1])
+
     new_account = replace(
         account,
         equity=equity,
@@ -244,6 +336,7 @@ def advance_depot(
         breaker=ctx.breaker,
         sleeve_weights=dict(allocation.weights),
         sleeve_mode=allocation.mode,
+        last_marks=final_marks,
     )
     valuation = AutoDepotValuation(
         created_at=today_iso,

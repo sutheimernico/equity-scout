@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from equity_scout.exits import ExitRules
-from equity_scout.forward_paper import ForwardAccount, PositionEntry, advance_account
+from equity_scout.forward_paper import ForwardAccount, PositionEntry, _asset_return, advance_account
 from equity_scout.forward_storage import (
     append_exit,
     append_valuation,
@@ -162,6 +162,29 @@ def test_load_from_uninitialised_db_returns_empty(tmp_path) -> None:
     assert load_account(db, "fixed") is None
     assert load_all_accounts(db) == []
     assert load_valuations(db, "fixed") == []
+
+
+# --- _asset_return: None vs 0% contract (v13 R2) -------------------------------------------
+
+
+def test_asset_return_is_none_when_ticker_column_is_missing() -> None:
+    panel = _series_panel({"HELD": [100.0, 105.0]})
+    assert _asset_return(panel.closes, "GHOST", panel.dates[0], panel.dates[-1]) is None
+
+
+def test_asset_return_is_none_when_the_window_has_only_stale_rows() -> None:
+    """A gap (NaN) on `end`'s own date: the on/before resolution for `end` still lands on the
+    exact same row as `start` — no row strictly newer than `start` exists yet."""
+    nan = float("nan")
+    idx = pd.bdate_range("2025-01-01", periods=3)
+    closes = pd.DataFrame({"GAP": [100.0, nan, nan]}, index=idx)
+    assert _asset_return(closes, "GAP", idx[0], idx[2]) is None
+
+
+def test_asset_return_is_correct_when_a_fresh_row_exists() -> None:
+    panel = _series_panel({"HELD": [100.0, 105.0, 120.0]})
+    r = _asset_return(panel.closes, "HELD", panel.dates[0], panel.dates[-1])
+    assert r == pytest.approx(0.20)
 
 
 # --- Trade lifecycle: entry tracking + exits (plan v7, strand A2) --------------------------
