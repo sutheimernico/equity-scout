@@ -11,6 +11,9 @@ always had, so the already-populated `forward_paper.db` in the repo root needs n
 loads (empty entry-tracking map). `forward_exits` is a brand-new table (CREATE TABLE IF NOT
 EXISTS, same idiom as `forward_valuations` and radar_storage's `signal_readings`), so an old DB
 file just gains it empty on the next `init_forward_db` call — nothing to migrate there either.
+`stale_days` (v13 R4, per-ticker no-fresh-price streak) is the same idiom again: one more key in
+the same blob, `.get(..., {})` on the way back in, so a blob written before R4 loads with empty
+counters rather than KeyError.
 """
 from __future__ import annotations
 
@@ -70,6 +73,7 @@ def _to_json(account: ForwardAccount) -> str:
             ticker: {"entry_price": p.entry_price, "opened_at": p.opened_at}
             for ticker, p in account.positions.items()
         },
+        "stale_days": account.stale_days,
     })
 
 
@@ -88,6 +92,7 @@ def _from_json(blob: str) -> ForwardAccount:
         last_as_of=d["last_as_of"],
         weights=d["weights"],
         positions=positions,
+        stale_days=d.get("stale_days", {}),  # .get: absent in pre-R4 blobs
     )
 
 

@@ -18,6 +18,7 @@ manual run is safe to repeat.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field, replace
 
 import pandas as pd
@@ -25,6 +26,8 @@ import pandas as pd
 from equity_scout.exits import ExitRules, exit_reason
 from equity_scout.market import MarketView, PricePanel
 from equity_scout.strategies.base import Strategy, normalise_weights, turnover, weights_dict
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -50,7 +53,8 @@ class ExitEvent:
     opened_at: str  # ISO date the position was entered
     return_pct: float  # return since entry, sign-adjusted for short
     held_days: int
-    reason: str  # German, from equity_scout.exits.exit_reason
+    reason: str  # German (from equity_scout.exits.exit_reason), or "stale_no_price" (v13 R4,
+    # forward_paper's own forced close — not a rules threshold, so not translated like the rest)
 
 
 @dataclass(frozen=True)
@@ -58,7 +62,10 @@ class ForwardAccount:
     """The accumulating state of one strategy run forward. `weights` are the post-rebalance targets
     set on `last_as_of`; they are drifted to the present at the next advance. `positions` tracks the
     entry price/date behind each currently-held ticker in `weights` — it never changes the weight
-    mechanic itself, it only feeds the exit-rule check in `advance_account`."""
+    mechanic itself, it only feeds the exit-rule check in `advance_account`. `stale_days` counts,
+    per held ticker, how many advances in a row it has had no fresh price (v13 R4) — reset to 0 the
+    moment a fresh price is seen again; `advance_account` force-closes a ticker once its streak
+    exceeds the threshold, so a delisting or feed gap cannot freeze a position forever."""
 
     strategy_name: str
     initial_capital: float
@@ -68,6 +75,7 @@ class ForwardAccount:
     last_as_of: str | None  # ISO date of the last advance; None until first advanced
     weights: dict[str, float] = field(default_factory=dict)
     positions: dict[str, PositionEntry] = field(default_factory=dict)
+    stale_days: dict[str, int] = field(default_factory=dict)
 
     @classmethod
     def fresh(
@@ -86,6 +94,7 @@ class ForwardAccount:
             last_as_of=None,
             weights={},
             positions={},
+            stale_days={},
         )
 
 
@@ -129,17 +138,36 @@ def _asset_return(
 def _drift_return(closes: pd.DataFrame, ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> float:
     """Wraps `_asset_return` for forward_paper's own drift/benchmark arithmetic below: a stale or
     missing reading is treated as a 0% return — same as `_asset_return` did before it started
-    distinguishing "no fresh price" from "0%" (v13 R2). Real stale-position handling here (marking
-    the position, not the whole window) is the follow-up task v13 R4; until then this module's
-    observable behaviour must not change."""
+    distinguishing "no fresh price" from "0%" (v13 R2). That 0.0 fallback carries a position
+    unchanged for exactly one advance; it is no longer silent or unbounded, because
+    `advance_account` separately tracks (`ForwardAccount.stale_days`) how many advances in a row
+    each ticker has gone through this fallback and force-closes it once that streak gets too long
+    (v13 R4) — this function's own arithmetic is unaffected either way."""
     r = _asset_return(closes, ticker, start, end)
     return 0.0 if r is None else r
+
+
+def _last_known_price(closes: pd.DataFrame, ticker: str, *, fallback: float) -> float:
+    """The most recent REAL close still on record for `ticker` — used only to price the stale
+    force-close below (v13 R4), never invented. Prefers the last non-NaN row still present in the
+    panel's own history (a feed gap that leaves the column in place with a recent hole); falls
+    back to `fallback` — the position's own entry price — only once the column has vanished from
+    the panel entirely, since that is then the last price we can still vouch for at all."""
+    if ticker in closes.columns:
+        series = closes[ticker].dropna()
+        if len(series):
+            return float(series.iloc[-1])
+    return fallback
 
 
 # Daily short-borrow cost proxy in bps of short gross exposure (~2.5 %/yr). A PROXY by
 # construction: free data has no real borrow rates or availability — every surface showing a
 # short account must label this simplification (plan v6 P3).
 BORROW_BPS_PER_DAY = 1.0
+
+# More than this many advances in a row with no fresh price forces the position closed (v13 R4)
+# instead of letting it freeze in the book forever (delistings, feed gaps).
+MAX_STALE_ADVANCES = 5
 
 
 def advance_account(
@@ -165,7 +193,13 @@ def advance_account(
     days, same thresholds as the arena lanes via `equity_scout.exits`). A ticker that trips a rule
     is closed and LOCKED OUT of re-entry for this same advance, even if the strategy's own
     `decide()` would pick it again right away — the strategies here are stateless and have no
-    notion of "I just sold this", so the lockout has to live here instead."""
+    notion of "I just sold this", so the lockout has to live here instead.
+
+    Stale positions (v13 R4): a ticker with no fresh price this advance is carried at 0% drift
+    (see `_drift_return`) and its `stale_days` streak (persisted on the account) goes up by one,
+    through the very same exit path above — booked, logged, and locked out of re-entry like any
+    other exit — once that streak exceeds `MAX_STALE_ADVANCES`, priced at the last real close we
+    can still vouch for (`_last_known_price`). A fresh price resets the streak to 0."""
     if len(panel.dates) == 0:
         return account, None
     today = panel.dates[-1]
@@ -180,12 +214,21 @@ def advance_account(
     benchmark_equity = account.benchmark_equity
     weights = dict(account.weights)
     entries = dict(account.positions)
+    stale_counts = dict(account.stale_days)
 
     def _price_today(ticker: str) -> float | None:
         return _price_on_or_before(closes[ticker], today) if ticker in closes.columns else None
 
     # 1. Drift held weights + benchmark with the realised return since the last advance.
     if last is not None:
+        # 1a. Bump (or reset) each held ticker's stale streak BEFORE computing the drift below —
+        # `_drift_return` maps a None return to a silent 0%; this is what makes that silence
+        # bounded (v13 R4): a ticker keeps getting carried at 0% either way, but a streak of
+        # `None`s now accumulates toward the force-close in step 1d instead of freezing forever.
+        for ticker in weights:
+            fresh = _asset_return(closes, ticker, last, today) is not None
+            stale_counts[ticker] = 0 if fresh else stale_counts.get(ticker, 0) + 1
+
         port_return = sum(w * _drift_return(closes, t, last, today) for t, w in weights.items())
         equity *= 1.0 + port_return
         growth = 1.0 + port_return
@@ -208,7 +251,7 @@ def advance_account(
     if last is not None and equity <= 0.0:
         wiped = replace(
             account, equity=0.0, benchmark_equity=benchmark_equity,
-            last_as_of=today.date().isoformat(), weights={}, positions={},
+            last_as_of=today.date().isoformat(), weights={}, positions={}, stale_days={},
         )
         valuation = ForwardValuation(
             created_at=today.date().isoformat(),
@@ -223,7 +266,9 @@ def advance_account(
     # A2). The weight's sign (preserved through the drift above, since it only ever multiplies by
     # a non-negative factor) tells us the side: a short's return is the mirror image of a long's,
     # since a short profits when the price falls. A ticker without a current price is held
-    # untouched — same stance as lanes.apply_exits (cannot judge a rule without a price).
+    # untouched — same stance as lanes.apply_exits (cannot judge a rule without a price) — UNLESS
+    # its stale streak (bumped in step 1a above) has gone on too long, in which case v13 R4 force-
+    # closes it right here instead of leaving it frozen with no exit possible.
     today_iso = today.date().isoformat()
     exit_events: list[ExitEvent] = []
     if last is not None:
@@ -232,7 +277,30 @@ def advance_account(
             if w is None:
                 continue
             price = _price_today(ticker)
-            if price is None or price <= 0 or entry.entry_price <= 0:
+            if price is None:
+                if stale_counts.get(ticker, 0) > MAX_STALE_ADVANCES:
+                    exit_price = _last_known_price(closes, ticker, fallback=entry.entry_price)
+                    sign = 1.0 if w >= 0 else -1.0
+                    return_pct = (
+                        sign * (exit_price - entry.entry_price) / entry.entry_price
+                        if entry.entry_price > 0 else 0.0
+                    )
+                    held_days = (today - pd.Timestamp(entry.opened_at)).days
+                    logger.warning(
+                        "forward_paper: %s had no fresh price for %d advances in a row — "
+                        "force-closing at the last known price %.4f (entry was %.4f)",
+                        ticker, stale_counts[ticker], exit_price, entry.entry_price,
+                    )
+                    exit_events.append(
+                        ExitEvent(
+                            created_at=today_iso, ticker=ticker, entry_price=entry.entry_price,
+                            exit_price=exit_price, opened_at=entry.opened_at,
+                            return_pct=return_pct, held_days=held_days, reason="stale_no_price",
+                        )
+                    )
+                    del entries[ticker]
+                continue  # no price at all — the rules below need one, same stance as before
+            if price <= 0 or entry.entry_price <= 0:
                 continue  # no valid price on either side — cannot judge a rule, hold untouched
             sign = 1.0 if w >= 0 else -1.0
             return_pct = sign * (price - entry.entry_price) / entry.entry_price
@@ -274,6 +342,9 @@ def advance_account(
         return PositionEntry(entry_price=price if price is not None else 0.0, opened_at=today_iso)
 
     new_positions = {ticker: _entry_for(ticker) for ticker in targets}
+    # Stale streaks are scoped to what is actually still held (v13 R4) — same pruning as
+    # `new_positions` above: exited/turned-over tickers drop out, so a re-entry later starts clean.
+    new_stale_days = {ticker: stale_counts.get(ticker, 0) for ticker in targets}
 
     new_account = replace(
         account,
@@ -282,6 +353,7 @@ def advance_account(
         last_as_of=today_iso,
         weights=targets,
         positions=new_positions,
+        stale_days=new_stale_days,
     )
     valuation = ForwardValuation(
         created_at=today_iso,

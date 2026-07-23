@@ -364,6 +364,30 @@ def test_load_account_without_positions_field_is_backward_compatible(tmp_path) -
     assert account.weights == {"SPY": 1.0}
 
 
+def test_load_account_without_stale_days_field_is_backward_compatible(tmp_path) -> None:
+    """A blob written before v13 R4 has `positions` but no `stale_days` key — must load with an
+    empty counter map, not KeyError."""
+    db = tmp_path / "old_r4.db"
+    init_forward_db(db)
+    old_blob = json.dumps({
+        "strategy_name": "old", "initial_capital": 10_000.0, "equity": 11_000.0,
+        "benchmark_ticker": "SPY", "benchmark_equity": 10_500.0, "last_as_of": "2026-01-01",
+        "weights": {"SPY": 1.0},
+        "positions": {"SPY": {"entry_price": 400.0, "opened_at": "2025-12-01"}},
+    })
+    with sqlite3.connect(db) as con:
+        con.execute(
+            "INSERT INTO forward_accounts (strategy_name, data, updated_at) VALUES (?, ?, ?)",
+            ("old", old_blob, "2026-01-01"),
+        )
+
+    account = load_account(db, "old")
+
+    assert account is not None
+    assert account.stale_days == {}
+    assert account.positions == {"SPY": PositionEntry(entry_price=400.0, opened_at="2025-12-01")}
+
+
 def test_exit_event_persists_and_is_idempotent_per_day(tmp_path) -> None:
     db = tmp_path / "forward.db"
     init_forward_db(db)
@@ -385,3 +409,79 @@ def test_exit_event_persists_and_is_idempotent_per_day(tmp_path) -> None:
 def test_load_exits_from_uninitialised_db_returns_empty(tmp_path) -> None:
     db = tmp_path / "empty.db"
     assert load_exits(db, "fixed") == []
+
+
+# --- Stale positions: force-close instead of freezing forever (v13 R4) ---------------------
+
+
+def test_stale_position_force_closes_after_six_advances_without_a_price() -> None:
+    """GONE's column vanishes from the panel entirely from the 2nd advance onward (delisting /
+    feed drop). The position must not freeze forever: it force-closes on the 6th advance in a
+    row with no price, at the last price we ever confirmed for it — here that is its own entry
+    price, since GONE never had any other reading."""
+    day0 = pd.bdate_range("2025-01-01", periods=1)
+    opening_panel = PricePanel(pd.DataFrame({"GONE": [100.0]}, index=day0))
+    strat = _Fixed({"GONE": 1.0})
+    account, _ = advance_account(ForwardAccount.fresh("fixed"), strat, opening_panel)
+
+    assert account.positions["GONE"].entry_price == 100.0
+    assert account.stale_days.get("GONE", 0) == 0  # just opened with a real price — not stale yet
+
+    gone_dates = pd.bdate_range("2025-01-01", periods=8)
+    for i, n in enumerate(range(2, 8), start=1):  # 6 advances in a row without "GONE"
+        panel = PricePanel(pd.DataFrame({"FILLER": [1.0] * n}, index=gone_dates[:n]))
+        account, valuation = advance_account(account, strat, panel)
+        assert valuation is not None
+        if i < 6:
+            assert account.stale_days.get("GONE") == i
+            assert valuation.exits == ()
+            assert account.weights == {"GONE": 1.0}  # carried, not forced out yet
+            assert "GONE" in account.positions
+        else:
+            assert len(valuation.exits) == 1
+            exit_event = valuation.exits[0]
+            assert exit_event.ticker == "GONE"
+            assert exit_event.reason == "stale_no_price"
+            assert exit_event.exit_price == 100.0  # last known price = its own entry
+            assert exit_event.entry_price == 100.0
+            assert account.weights == {}  # weight freed to cash
+            assert account.positions == {}
+            assert "GONE" not in account.stale_days  # counter cleared once closed
+
+
+def test_stale_counter_resets_once_a_fresh_price_returns() -> None:
+    """BACK's column disappears for exactly one advance, then comes back — the streak must
+    reset to 0 instead of carrying toward the force-close threshold, so a later, unrelated gap
+    (or none at all) doesn't force it out."""
+    strat = _Fixed({"BACK": 1.0})
+    day0 = pd.bdate_range("2025-01-01", periods=1)
+    account, _ = advance_account(
+        ForwardAccount.fresh("fixed"), strat, PricePanel(pd.DataFrame({"BACK": [100.0]}, index=day0))
+    )
+
+    all_dates = pd.bdate_range("2025-01-01", periods=20)
+
+    # advance 2: BACK's column is gone entirely for this one advance -> counter -> 1
+    account, val2 = advance_account(
+        account, strat, PricePanel(pd.DataFrame({"FILLER": [1.0, 1.0]}, index=all_dates[:2]))
+    )
+    assert account.stale_days.get("BACK") == 1
+    assert val2.exits == ()
+    assert account.weights == {"BACK": 1.0}
+
+    # advance 3: BACK has a fresh price again -> counter resets to 0
+    account, val3 = advance_account(
+        account, strat, PricePanel(pd.DataFrame({"BACK": [100.0, 100.0, 110.0]}, index=all_dates[:3]))
+    )
+    assert account.stale_days.get("BACK", 0) == 0
+    assert val3.exits == ()
+    assert account.weights == {"BACK": 1.0}
+
+    # keep advancing with a fresh (flat) price well past the force-close threshold -> never exits
+    for n in range(4, 9):
+        account, valuation = advance_account(
+            account, strat, PricePanel(pd.DataFrame({"BACK": [100.0] * n}, index=all_dates[:n]))
+        )
+        assert valuation.exits == ()
+        assert account.stale_days.get("BACK", 0) == 0
+        assert "BACK" in account.weights
