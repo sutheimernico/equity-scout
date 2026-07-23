@@ -59,7 +59,7 @@ Corwin-Schultz cost floor on a new OHLC panel world).
   Fresh price resets the counter. Tests (`tests/test_forward_paper.py`): ticker column disappears
   → position carried, counter rises, force-closed on step 6 with the stale reason; price returns
   on step 3 → counter reset, normal valuation.
-- [ ] **R5 (P1) honest cost share** — `src/equity_scout/proof.py:78–81`:
+- [x] **R5 (P1) honest cost share** — `src/equity_scout/proof.py:78–81`:
   `gross = abs(sum(realized_pnls) + costs_paid)` (pre-fee P&L magnitude) instead of
   `abs(sum(...)) + costs_paid`. Tests (`tests/test_proof.py`): net=−100, costs=80 → cost_share
   4.0 (costs turned a profitable book negative); profitable book value unchanged sanity case;

@@ -53,6 +53,29 @@ def test_win_rate_costs_and_benchmark_delta() -> None:
     assert "schlägt Benchmark" in report["verdict_label"]
 
 
+def test_cost_share_uses_pre_fee_magnitude_when_costs_flip_book_negative() -> None:
+    # net -100 with 80 of costs means the pre-fee P&L was -20; costs are 4x that
+    # magnitude — the old |net| + costs denominator hid this as a harmless ~44%.
+    report = book_report(
+        _curve(100),
+        label="Testbuch",
+        realized_pnls=[-100.0],
+        costs_paid=80.0,
+    )
+    assert report["cost_share_of_pnl"] == pytest.approx(4.0)
+
+
+def test_cost_share_zero_gross_stays_none() -> None:
+    # net -80 with 80 of costs: pre-fee P&L is exactly 0 — no denominator, no guess
+    report = book_report(
+        _curve(100),
+        label="Testbuch",
+        realized_pnls=[-80.0],
+        costs_paid=80.0,
+    )
+    assert report["cost_share_of_pnl"] is None
+
+
 def test_flat_curve_has_no_sharpe() -> None:
     report = book_report(_curve(100, daily=0.0), label="Flach")
     assert report["sharpe_annualised"] is None  # zero variance is not evidence

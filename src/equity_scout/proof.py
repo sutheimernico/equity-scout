@@ -77,7 +77,10 @@ def book_report(
 
     cost_share: float | None = None
     if costs_paid is not None and realized_pnls is not None:
-        gross = abs(sum(realized_pnls)) + costs_paid
+        # realized_pnls are net of fees, so pre-fee P&L magnitude = |net + costs|. Adding
+        # costs OUTSIDE the abs() would let a book that is negative only because of costs
+        # report a harmlessly small share; >1.0 means costs turned a gross profit negative.
+        gross = abs(sum(realized_pnls) + costs_paid)
         cost_share = costs_paid / gross if gross > 0 else None
 
     vs_benchmark: float | None = None
