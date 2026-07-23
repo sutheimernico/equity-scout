@@ -200,3 +200,4 @@
 - 2026-07-23 v13 R5: cost_share denominator = pre-fee P&L magnitude |net+costs| (was |net|+costs, hid cost-flipped books), 2 tests
 - 2026-07-23 v13 R6: promotion gate loads lane trades with limit=None (load_trades None-capable via SQLite LIMIT -1; was capped 5000), test w/ 250 rows
 - 2026-07-23 v13 R7: swing re-picks entries against the post-exit book (panel pre-loads pool as if all held could exit; same-day re-entry churn-guarded); found+fixed pick_entries off-by-one (full book still yielded 1 pick -> lane crept past MAX_POSITIONS), 3 tests
+- 2026-07-23 v13 Q1: entry panel min-history pre-filter (drop_short_history: >30% span loss -> excluded+logged; snapshot keeps full columns, trim after filter; benchmark-only panel -> loud RuntimeError), 5 tests; stale --start wording not found anywhere (already gone)

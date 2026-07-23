@@ -202,3 +202,36 @@ def test_train_cli_explains_why_walk_forward_yielded_zero_splits(tmp_path, capsy
     out = capsys.readouterr().out
     assert "Sample-Stichtage" in out
     assert "Walk-Forward" in out
+
+
+def test_filter_short_history_keeps_span_and_logs_exclusion(capsys):
+    """v13 Q1: one young watchlist ticker must not trim the training panel to its own
+    listing date — it is excluded (logged with the rule) and the survivors keep the span."""
+    import numpy as np
+
+    idx = pd.bdate_range("2019-01-01", periods=1000)
+    closes = pd.DataFrame({"SPY": 100.0, "AAA": 50.0}, index=idx)
+    closes["IPO"] = np.nan
+    closes.loc[idx[900]:, "IPO"] = 20.0
+    panel = train_mod._filter_short_history(closes)
+    assert list(panel.closes.columns) == ["SPY", "AAA"]
+    assert panel.dates[0] == idx[0]  # full span kept
+    out = capsys.readouterr().out
+    assert "Ausgeschlossen IPO" in out
+    assert idx[900].date().isoformat() in out  # history start named
+
+
+def test_filter_short_history_all_young_raises_instead_of_empty_panel():
+    """v13 Q1 edge: if the filter leaves nothing but the benchmark, training must abort
+    loudly — a silent stock-less panel would 'train' on nothing."""
+    import numpy as np
+    import pytest
+
+    idx = pd.bdate_range("2019-01-01", periods=1000)
+    closes = pd.DataFrame({"SPY": 100.0}, index=idx)
+    closes["IPO1"] = np.nan
+    closes.loc[idx[900]:, "IPO1"] = 20.0
+    closes["IPO2"] = np.nan
+    closes.loc[idx[950]:, "IPO2"] = 30.0
+    with pytest.raises(RuntimeError, match="ohne Aktien-Ticker"):
+        train_mod._filter_short_history(closes)

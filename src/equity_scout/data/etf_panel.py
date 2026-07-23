@@ -34,6 +34,42 @@ def clean_panel(closes: pd.DataFrame) -> PricePanel:
     return PricePanel(trimmed)
 
 
+def drop_short_history(
+    closes: pd.DataFrame, *, max_span_loss: float = 0.30
+) -> tuple[pd.DataFrame, list[dict]]:
+    """Pure: drop columns whose late start would cost the panel too much history (v13 Q1).
+
+    `clean_panel` trims to the LATEST first-valid date across columns, so one young ticker
+    (a fresh IPO on the watchlist) silently truncates every other ticker's history — the
+    walk-forward trainer then starves on monthly split dates. Explicit rule: a ticker whose
+    first valid price would cut more than `max_span_loss` of the panel's full span (earliest
+    first-valid to last row, calendar days) is excluded. The column with the earliest start
+    always survives (loss 0), so this can never empty a non-empty frame. Returns the
+    surviving columns plus exclusion records for the caller to log — silence is the bug."""
+    closes = closes.dropna(axis=1, how="all")
+    if closes.empty:
+        return closes, []
+    first_valid = {col: closes[col].first_valid_index() for col in closes.columns}
+    panel_start = min(first_valid.values())
+    span_days = (closes.index[-1] - panel_start).days
+    if span_days <= 0:
+        return closes, []
+    excluded: list[dict] = []
+    keep: list[str] = []
+    for col, first in first_valid.items():
+        span_loss = (first - panel_start).days / span_days
+        if span_loss > max_span_loss:
+            excluded.append({
+                "ticker": col,
+                "first_valid": first.date().isoformat(),
+                "panel_start": panel_start.date().isoformat(),
+                "span_loss": span_loss,
+            })
+        else:
+            keep.append(col)
+    return closes[keep], excluded
+
+
 def clean_columns(closes: pd.DataFrame) -> PricePanel:
     """Pure: drop dead (all-NaN) columns, forward-fill stray gaps, keep each column's OWN history.
 

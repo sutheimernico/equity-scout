@@ -76,7 +76,9 @@ Corwin-Schultz cost floor on a new OHLC panel world).
 
 ## Wave Q — ML unblock & quality
 
-- [ ] **Q1 (high) entry-panel minimum-history pre-filter** — `scripts/run_train_entry.py`
+- [x] **Q1 (high) entry-panel minimum-history pre-filter** — (deviation: the "stale PLAN.md
+  backlog wording" with the wrong `--start` diagnosis no longer exists anywhere — verified by
+  repo-wide grep; only this plan + spec mention `--start`, both correctly) — `scripts/run_train_entry.py`
   (`_resolve_tickers`/`_load_panel`): before panel build, drop tickers whose first valid price is
   later than a threshold (e.g. panel would lose >30% of its span; make the rule explicit and
   logged: "excluded SNDK: history starts 2025-02-13, panel starts 2007-01-03"). `clean_panel` then

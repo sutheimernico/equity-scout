@@ -45,6 +45,9 @@ from equity_scout.radar_storage import load_latest_watchlist
 BENCHMARK = "SPY"
 # Distinct from the ETF/backtest snapshot: the stock backfill panel is its own basket.
 ENTRY_SNAPSHOT = "data/prices/entry_panel.csv"
+# v13 Q1: a ticker whose history starts so late that the common-range trim would cost the
+# panel more than this share of its span is excluded from training (and logged).
+MAX_PANEL_SPAN_LOSS = 0.30
 # Fallback universe when neither --tickers nor a stored watchlist supplies one.
 FALLBACK_TICKERS = ("AAPL", "MSFT", "JPM", "XOM", "JNJ", "PG")
 
@@ -231,13 +234,41 @@ def _resolve_tickers(db_path: str, tickers_arg: str | None) -> list[str]:
     return list(FALLBACK_TICKERS)
 
 
+def _filter_short_history(closes: pd.DataFrame) -> PricePanel:
+    """v13 Q1: drop young tickers BEFORE the common-range trim, so one fresh IPO on the
+    watchlist cannot cut the training panel from ~2007 down to its own listing date (the
+    walk-forward trainer then starves on monthly split dates). Each exclusion is logged with
+    the explicit rule; a filter that leaves no stock next to the benchmark is an error, not
+    an empty panel."""
+    from equity_scout.data.etf_panel import clean_panel, drop_short_history
+
+    survivors, excluded = drop_short_history(closes, max_span_loss=MAX_PANEL_SPAN_LOSS)
+    for entry in excluded:
+        print(
+            f"Ausgeschlossen {entry['ticker']}: Historie beginnt {entry['first_valid']}, "
+            f"Panel beginnt {entry['panel_start']} — das Panel verlöre "
+            f"{entry['span_loss']:.0%} seiner Spanne (Grenze {MAX_PANEL_SPAN_LOSS:.0%})."
+        )
+    panel = clean_panel(survivors)
+    if not any(col != BENCHMARK for col in panel.closes.columns):
+        raise RuntimeError(
+            "Entry-Panel nach Mindest-Historie-Filter ohne Aktien-Ticker "
+            f"({len(excluded)} ausgeschlossen) — Training abgebrochen statt auf einem "
+            "leeren Panel zu schweigen."
+        )
+    return panel
+
+
 def _load_panel(tickers: list[str], start: str) -> PricePanel:
     """Network default: fresh daily closes for the stock universe + SPY from `start`. A distinct
     snapshot keeps this panel separate from the ETF/backtest one; refresh=True so a changed ticker
-    set is honoured. Lazy import keeps the network out of import time and tests."""
-    from equity_scout.data.etf_panel import load_etf_panel
+    set is honoured. Lazy import keeps the network out of import time and tests. The snapshot
+    keeps every ticker's full history (column-wise clean); the min-history filter + common-range
+    trim happen after, in `_filter_short_history` (v13 Q1)."""
+    from equity_scout.data.etf_panel import load_price_history
 
-    return load_etf_panel(tickers, start=start, snapshot=ENTRY_SNAPSHOT, refresh=True)
+    raw = load_price_history(tickers, start=start, snapshot=ENTRY_SNAPSHOT, refresh=True)
+    return _filter_short_history(raw.closes)
 
 
 def main() -> int:

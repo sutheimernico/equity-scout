@@ -1,7 +1,12 @@
 import numpy as np
 import pandas as pd
 
-from equity_scout.data.etf_panel import clean_panel, load_snapshot, save_snapshot
+from equity_scout.data.etf_panel import (
+    clean_panel,
+    drop_short_history,
+    load_snapshot,
+    save_snapshot,
+)
 from equity_scout.etf_universe import ETF_BY_TICKER, ETF_TICKERS, ETF_UNIVERSE
 from equity_scout.market import PricePanel
 
@@ -72,3 +77,39 @@ def test_clean_columns_keeps_each_tickers_own_history():
     panel = clean_columns(df)
     assert list(panel.closes.columns) == ["OLD", "YOUNG"]
     assert panel.closes["OLD"].notna().all()  # OLD keeps its full range
+
+
+def test_drop_short_history_excludes_late_starter_with_metadata():
+    """v13 Q1: a ticker starting deep into the span is dropped and reported; the earliest
+    starter always survives, so a non-empty frame can never come back empty."""
+    idx = pd.bdate_range("2020-01-01", periods=1000)
+    df = pd.DataFrame({"OLD": 1.0, "SPY": 2.0}, index=idx)
+    df["YOUNG"] = np.nan
+    df.loc[idx[900]:, "YOUNG"] = 5.0  # starts at 90% of the span
+    survivors, excluded = drop_short_history(df, max_span_loss=0.30)
+    assert list(survivors.columns) == ["OLD", "SPY"]
+    assert len(excluded) == 1
+    record = excluded[0]
+    assert record["ticker"] == "YOUNG"
+    assert record["first_valid"] == idx[900].date().isoformat()
+    assert record["panel_start"] == idx[0].date().isoformat()
+    assert record["span_loss"] > 0.85
+
+
+def test_drop_short_history_keeps_tickers_within_the_loss_budget():
+    idx = pd.bdate_range("2020-01-01", periods=1000)
+    df = pd.DataFrame({"OLD": 1.0}, index=idx)
+    df["OK"] = np.nan
+    df.loc[idx[200]:, "OK"] = 3.0  # ~20% span loss — inside the 30% budget
+    survivors, excluded = drop_short_history(df, max_span_loss=0.30)
+    assert list(survivors.columns) == ["OLD", "OK"]
+    assert excluded == []
+
+
+def test_drop_short_history_empty_and_dead_columns():
+    assert drop_short_history(pd.DataFrame())[0].empty
+    idx = pd.bdate_range("2026-01-01", periods=5)
+    df = pd.DataFrame({"OLD": [1.0] * 5, "DEAD": [np.nan] * 5}, index=idx)
+    survivors, excluded = drop_short_history(df)
+    assert list(survivors.columns) == ["OLD"]  # dead column dropped, not "excluded"
+    assert excluded == []
