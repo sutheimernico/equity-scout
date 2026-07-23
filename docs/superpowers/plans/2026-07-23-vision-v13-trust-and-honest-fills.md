@@ -126,7 +126,8 @@ Corwin-Schultz cost floor on a new OHLC panel world).
 
 ## Wave O — honest execution (depot only; O1 → O2 → O3)
 
-- [ ] **O1 OHLC panel loader** — new `src/equity_scout/data/ohlc_panel.py`:
+- [x] **O1 OHLC panel loader** — (shape decision: `dict[ticker, DataFrame]` with a long-format
+  CSV snapshot — a per-ticker dict does not round-trip a wide CSV without MultiIndex pain) — new `src/equity_scout/data/ohlc_panel.py`:
   `load_ohlc_panel(tickers, start, ...) -> dict[str, DataFrame]` (or MultiIndex frame — pick the
   simplest shape consumers need: per-ticker OHLC columns), same provider/cache seams and
   conventions as the existing close panel (read-through cache, no live calls in tests), young/gappy
