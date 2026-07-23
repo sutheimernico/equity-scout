@@ -383,6 +383,24 @@ Harte Grenzen unverändert: paper-only, kein Order-Routing, local & free, DISCLA
 - [x] P3 Monatlicher Telegram-Proof-Report (state-gated, 1. des Monats)
 - [x] P4 Docs-Abschluss (README "Kann das funktionieren?", Outcome-Sektion)
 
+## Phase: Vision v13 — "Trust & Honest Fills" (2026-07-23) — DONE 2026-07-24
+Spec/Plan: `docs/superpowers/{specs,plans}/2026-07-23-vision-v13-trust-and-honest-fills.md`.
+Nico-Direktive: "alles dranlegen, dass der Autotrader krass wird — Review, alles."
+Drei Wellen, alle abgeschlossen (Outcome-Details im Plan-Doc):
+- **Wave R (Härtung, 7 Tasks):** beide P0s (Arena-P&L-Verlust via persistente Bewertungs-
+  Marks; gap-toleranter Panel-Load — der Trim steckte AUCH in run_forward_papers Snapshot)
+  + P1/P2 (stale-Position-Zwangsexit, ehrlicher Kostenanteil-Nenner, Promotion-Gate liest
+  alle Trades, Swing exits-before-entries + pick_entries-Off-by-one gefunden/gefixt).
+- **Wave Q (ML-Unblock + Qualität, 5 Tasks):** Mindest-Historie-Vorfilter fürs Entry-Panel
+  (entblockt entry_tb-Walk-Forward), dsr_hurdle-Spalte im Research-Ledger (Migration),
+  WFE-Metrik (soft, Excess-AUC-Ratio), voices-Single-Token-Gate + Drift-Scanner
+  (`scripts/scan_generic_words.py` + Snapshot), FetchStats-Laufzeile.
+- **Wave O (ehrliche Ausführung, Depot-only, 3 Tasks):** OHLC-Panel-Welt (`data/ohlc_panel.py`),
+  Next-Open-Fills über persistierte pending_orders (Kosten am Fill, Intraday-Attribution,
+  ehrliche fill-Labels, Legacy-Migration), Corwin-Schultz-Kostenboden max(10 bps, CS/2) als
+  dokumentierte UNTERGRENZE (`costs.py`); Sleeves bleiben bewusst Signal-Layer (Close-Fill,
+  flat 10 bps). README-Konventions- und P0-Absatz, ProofView-Label "Kostenanteil (mind.)".
+
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
   `./scripts/install_dash_service.sh` erneut ausführen (Unit ist gestaged, aktiviert sich nur mit

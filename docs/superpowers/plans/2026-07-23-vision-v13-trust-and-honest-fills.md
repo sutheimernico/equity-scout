@@ -162,10 +162,47 @@ Corwin-Schultz cost floor on a new OHLC panel world).
 
 ## Closure
 
-- [ ] **D1 docs & plan closure** — README: fixed P0s (one honest paragraph in the proof/caveats
+- [x] **D1 docs & plan closure** — README: fixed P0s (one honest paragraph in the proof/caveats
   section), fill+cost convention change with date; PLAN.md: v13 phase section with outcome notes;
   AUTOPILOT_LOG one-liner. Update `docs/superpowers/plans/2026-07-23-vision-v13-trust-and-honest-fills.md`
   outcome section (deviations, open ends).
+
+## Outcome (2026-07-24 — all 15 tasks + closure done)
+
+**Shipped in order R1–R7, Q1–Q5, O1–O3, D1** (one commit per task, gate green each time;
+~1150 tests at closure, up from ~1095). The 2026-07-23 session shipped R1–R4 but left the
+checkboxes/log lines behind — backfilled first thing 2026-07-24.
+
+**Deviations from the written plan (each noted inline at its task):**
+- R3 turned out to live in TWO places: `run_autotrader.combined_panel` AND
+  `run_forward_paper`'s `ml_bots_panel.csv` snapshot (live-confirmed trimmed to 375 rows) —
+  both fixed; the forward snapshot now keeps full history.
+- R7 uncovered a second slot bug while verifying the test actually failed pre-fix:
+  `pick_entries`' cap check ran after the append, so a FULL book still yielded one pick and
+  the lane could creep past MAX_POSITIONS. Fixed + regression-tested.
+- Q1/Q5's "stale PLAN.md `--start` wording" no longer exists anywhere (repo-wide grep) —
+  nothing to correct; noted instead of invented.
+- Q2: `ml/search.py` has no `record_trial` call site; readers (`/api/ml`) now tolerate a
+  pre-migration ledger because a GET must not ALTER the DB (found via a real crash against
+  the repo's live `research_ledger.db`).
+- Q3's WFE uses EXCESS AUC over 0.5 — the plan's literal raw ratio bottoms out at ~0.5 and
+  the "<0.5 = overfit" label could never fire.
+- Q4's drift scan diffs against a committed snapshot FILE (4836 words) — the frozenset alone
+  cannot show drift since the last review. Multi-word preference is surgical (single-token
+  word inside the one full-name match); genuine two-company titles stay None.
+- O2 model decision: drift arithmetic + R2 marks untouched; pending orders only delay when
+  targets take effect. Filled deltas earn the fill day's open→close leg via one isolated
+  attribution term (first-order exact, same linearisation as the drift sum). Protections act
+  on the decision day; the fill executes yesterday's protected decision.
+
+**Open ends / follow-ups:**
+- First LIVE nightly under next-open fills should be eyeballed (trade rows carry
+  fill="open"/"close_fallback" + decided_as_of; lane sleeves are close_fallback by design).
+- The transition night books no rebalance (legacy blob has nothing pending) — expected.
+- Q4's exposed-words snapshot is the review baseline; run `scripts/scan_generic_words.py`
+  after universe refreshes and curate additions into `_GENERIC_FIRST_WORDS`.
+- WFE is logged + persisted but gates nothing (v13 scope); revisit once a few nights of
+  values exist.
 
 ## Backlog seeded by v13 (not tasks — reasons in spec)
 

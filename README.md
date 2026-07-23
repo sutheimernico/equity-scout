@@ -269,6 +269,17 @@ Was es NICHT verspricht: Alpha. Kurzfrist-Lanes verdienen Depot-Kapital erst üb
 **Beweis-Gate** (≥ 30 realisierte Trades, ≥ 60 Tage, Netto-P&L > 0, Profit-Faktor ≥ 1.1)
 und fliegen bei negativem 60-Tage-Netto wieder raus.
 
+**Gefundene und behobene Messfehler (v13, 2026-07-23/24) — Ehrlichkeit heißt auch das
+dokumentieren:** Ein adversariales Review fand zwei P0-Bugs, die Zahlen VOR v13 verfälscht
+haben. (1) Die Nightly-Kette bewertete das Depot vor den Arena-Lanes und die
+Fenster-Auflösung re-ankerte an derselben stalen Zeile — der P&L einer beförderten Lane
+konnte dadurch dauerhaft verloren gehen (jetzt: Lanes zuerst + persistente
+Bewertungs-Marks pro Position, ein verspäteter Kurs bucht den vollen Move nach). (2) Ein
+junger Watchlist-Ticker stutzte still die Historie ALLER Aktien im gemeinsamen Panel
+(jetzt: lückentolerante Loader). Außerdem untertrieb der ausgewiesene Kostenanteil genau
+bei Verlust-Büchern (Nenner-Formel korrigiert). Kennzahlen aus der Zeit davor sind mit
+dieser Unschärfe zu lesen; gemessen wird seitdem korrekt.
+
 **Der Weg zu echtem Geld** ist eine Nico-Entscheidung, kein Systemfeature: erst wenn der
 Track Record die im Code hinterlegten Schwellen (`proof.CONVICTION_THRESHOLDS`: ≥ 180 Tage,
 Sharpe nach Kosten > 1, Max-Drawdown < 15 %) über Monate hält, lohnt die Diskussion über
