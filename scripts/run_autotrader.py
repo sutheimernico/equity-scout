@@ -150,7 +150,8 @@ def resolve_promotions(
         vals = load_lane_valuations(shortterm_db, lane)
         if not vals:
             continue
-        trades = load_lane_trades(shortterm_db, lane, limit=5000)
+        # limit=None: the gate's net_pnl/profit_factor claim to be all-time (v13 R6)
+        trades = load_lane_trades(shortterm_db, lane, limit=None)
         if lane in promoted:
             trailing = trailing_net_pnl(trades, today=today)
             if trailing <= 0:

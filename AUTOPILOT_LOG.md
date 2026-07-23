@@ -198,3 +198,4 @@
 - 2026-07-23 v13 R3: combined_panel stock subpanel gap-tolerant (load_price_history/clean_columns); same trim bug fixed upstream in run_forward_paper's ml_bots_panel snapshot (was live-trimmed to 375 rows), tests both sides
 - 2026-07-23 v13 R4: per-ticker stale_days streak + force-close via ExitRules path (exit_reason=stale_no_price, last real price, re-entry lockout), legacy blobs migrate, tests
 - 2026-07-23 v13 R5: cost_share denominator = pre-fee P&L magnitude |net+costs| (was |net|+costs, hid cost-flipped books), 2 tests
+- 2026-07-23 v13 R6: promotion gate loads lane trades with limit=None (load_trades None-capable via SQLite LIMIT -1; was capped 5000), test w/ 250 rows

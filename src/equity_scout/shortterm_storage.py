@@ -188,13 +188,15 @@ def append_trades(db_path: str | Path, fills: list[TradeFill]) -> None:
         _insert_trades(con, fills)
 
 
-def load_trades(db_path: str | Path, lane: str, *, limit: int = 200) -> list[dict]:
+def load_trades(db_path: str | Path, lane: str, *, limit: int | None = 200) -> list[dict]:
+    """`limit=None` returns ALL trades — required wherever all-time aggregates are
+    computed (promotion gate); any finite cap would silently understate them one day."""
     init_shortterm_db(db_path)
     with db.connect(db_path) as con:
         rows = con.execute(
             "SELECT executed_at, ticker, side, qty, price, fees, reason, realized_pnl"
             " FROM st_trades WHERE lane = ? ORDER BY executed_at DESC, id DESC LIMIT ?",
-            (lane, limit),
+            (lane, -1 if limit is None else limit),  # SQLite: LIMIT -1 = unbounded
         ).fetchall()
     keys = ("executed_at", "ticker", "side", "qty", "price", "fees", "reason", "realized_pnl")
     return [dict(zip(keys, row)) for row in rows]

@@ -67,6 +67,20 @@ def _fill(lane: str = "swing") -> TradeFill:
                      qty=5.0, price=100.0, fees=0.25, reason="event: beat")
 
 
+def test_load_trades_limit_none_returns_all_rows(db) -> None:
+    """v13 R6: the promotion gate's all-time aggregates read with limit=None — every
+    finite cap (the default 200 included) would silently understate them one day."""
+    fills = [
+        TradeFill(lane="swing", executed_at=f"2026-07-20T14:{i // 60:02d}:{i % 60:02d}",
+                  ticker="AAPL", side="buy", qty=1.0, price=100.0, fees=0.1,
+                  reason="event: beat")
+        for i in range(250)
+    ]
+    append_trades(db, fills)
+    assert len(load_trades(db, "swing")) == 200  # default cap unchanged
+    assert len(load_trades(db, "swing", limit=None)) == 250
+
+
 def test_persist_lane_step_commits_everything_together(db) -> None:
     book = LaneBook.fresh("swing")
     snap = LaneValuation(lane="swing", created_at="2026-07-20", equity=10_000.0,

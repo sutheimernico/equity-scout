@@ -64,7 +64,7 @@ Corwin-Schultz cost floor on a new OHLC panel world).
   `abs(sum(...)) + costs_paid`. Tests (`tests/test_proof.py`): net=−100, costs=80 → cost_share
   4.0 (costs turned a profitable book negative); profitable book value unchanged sanity case;
   zero-gross guard stays None/0 as currently designed.
-- [ ] **R6 (P1) promotion gate reads ALL lane trades** — `scripts/run_autotrader.py:153`:
+- [x] **R6 (P1) promotion gate reads ALL lane trades** — `scripts/run_autotrader.py:153`:
   drop `limit=5000` for the promotion-gate path (or pass `limit=None` end-to-end through
   `load_lane_trades`) so all-time net_pnl/profit_factor are truly all-time. Tests
   (`tests/test_shortterm_storage.py` or promotion tests): >limit rows in a tmp DB → gate sees all.
