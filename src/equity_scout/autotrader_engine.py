@@ -38,12 +38,13 @@ from equity_scout.autotrader_protections import (
     apply_protections,
     default_protections,
 )
+from equity_scout.costs import fill_cost_rate_bps
 
 # Shared fill/return arithmetic — module-private by name, but reusing it is the point:
 # the cost and return conventions must not drift between the sleeves and the depot.
 from equity_scout.forward_paper import BORROW_BPS_PER_DAY, _asset_return
 from equity_scout.market import MarketView, PricePanel
-from equity_scout.strategies.base import Strategy, normalise_weights, turnover, weights_dict
+from equity_scout.strategies.base import Strategy, normalise_weights, weights_dict
 
 logger = logging.getLogger(__name__)
 
@@ -337,8 +338,7 @@ def advance_depot(
     if account.pending_orders is not None:
         pending = account.pending_orders
         fill_targets = {t: w for t, w in pending.targets.items() if abs(w) > TRADE_EPS}
-        total_turnover = turnover(weights, fill_targets)
-        total_cost = equity * total_turnover * costs_bps / 10_000.0
+        total_cost = 0.0
         intraday_attribution = 0.0
         for ticker in sorted(set(weights) | set(fill_targets)):
             delta = fill_targets.get(ticker, 0.0) - weights.get(ticker, 0.0)
@@ -354,16 +354,20 @@ def advance_depot(
                 today_close = _resolved_price(closes, ticker, today)
                 if today_close is not None:  # guaranteed by _fill_price's open branch
                     intraday_attribution += delta * (today_close[1] / price - 1.0)
+            # v13 O3: per-ticker liquidity-aware cost, max(flat floor, half CS spread).
+            # LOWER BOUND — see equity_scout.costs; `costs_bps` stays the floor.
+            rate_bps = fill_cost_rate_bps(
+                ohlc.get(ticker) if ohlc else None, flat_bps=costs_bps
+            )
+            cost = abs(delta) * equity * rate_bps / 10_000.0
+            total_cost += cost
             trades.append(
                 TradeRecord(
                     created_at=today_iso,
                     ticker=ticker,
                     delta_weight=delta,
                     notional=abs(delta) * equity,
-                    cost=(
-                        total_cost * abs(delta) / total_turnover
-                        if total_turnover > 0 else 0.0
-                    ),
+                    cost=cost,
                     fill=fill_kind,
                     fill_price=price,
                     decided_as_of=pending.decided_as_of,

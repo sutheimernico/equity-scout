@@ -207,3 +207,4 @@
 - 2026-07-24 v13 Q5: fetch_summary_line (pure render of dq report + duration) printed at scout run end, Form-4 PLAN checkbox ticked (e31436f verified), 1 test
 - 2026-07-24 v13 O1: data/ohlc_panel.py loader (dict per ticker, own history, long-CSV snapshot, injectable downloader seam, absent-key misses), 4 tests
 - 2026-07-24 v13 O2: next-open fills for the depot (pending_orders in blob, fills+costs at next advance's open, intraday attribution term, fill/fill_price/decided_as_of on trade rows + idempotent table migration, ohlc_loader seam fail-safe to close_fallback, /api/autodepot fill_convention + digest label), engine/storage/runner tests reworked + 5 new
+- 2026-07-24 v13 O3: costs.py (Corwin-Schultz 21d-median spread, clip<0, closed-form test anchor), depot fill cost = max(10bps, CS/2) per ticker via OHLC, sleeves stay flat (signal layer), README fill+cost paragraph, ProofView 'Kostenanteil (mind.)' lower-bound label, FE build green, 5 tests

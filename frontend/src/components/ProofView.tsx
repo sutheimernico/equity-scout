@@ -28,7 +28,11 @@ function BookCard({ book }: { book: ProofBook }) {
             <th>Sharpe (p.a.)</th>
             <th>Max. Drawdown</th>
             <th>Trefferquote</th>
-            <th>Kostenanteil</th>
+            {/* v13 O3: depot costs are a Corwin-Schultz LOWER BOUND, never an estimate of
+                the full real-world cost — the label must say so */}
+            <th title="Kostenmodell: max(10 bps, halber Corwin-Schultz-Spread) — Untergrenze">
+              Kostenanteil (mind.)
+            </th>
             <th>vs. Benchmark</th>
           </tr>
         </thead>

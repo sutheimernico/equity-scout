@@ -206,13 +206,20 @@ equal-weight anchor blended with a Sharpe-softmax tilt over a 63-day walk-forwar
 aggregated per-ticker book then passes a composable risk layer, in order: single-name cap 10 %,
 regime gate (red light → half exposure), 12 % vol target (never levers up), and a tiered
 drawdown breaker (≥ 10 % → half, ≥ 20 % → cash, staged recovery after a cooldown). It advances
-nightly in `nightly_train.sh` right after the sleeves, so fills are real closes. Every trade,
-weight, and risk intervention is persisted (`autotrader.db`) and surfaced: digest block,
-`/api/autodepot`, dashboard tab.
+nightly in `nightly_train.sh` right after the sleeves. Every trade, weight, and risk
+intervention is persisted (`autotrader.db`) and surfaced: digest block, `/api/autodepot`,
+dashboard tab.
 
-Labelled caveats: fills at adjusted close (same look-ahead-safe convention as forward paper;
-next-open fills would need an OHLC data world — backlog), flat 10 bps turnover cost (covers
-slippage/spread/regulatory fees), borrow proxy on net shorts, EUR value is a daily-spot
+Fill & cost convention (since v13, 2026-07-24): a rebalance decided on one advance fills at
+the NEXT advance's open (from a dedicated OHLC panel; honest labelled close fallback when no
+open exists — lane fund-share tickers never have one), which closes the old caveat of signal
+and fill sharing the same close. Each fill is charged `max(10 bps, half the Corwin-Schultz
+high-low spread estimate)` on its notional — a liquidity-aware **lower bound** (the estimator
+understates thin names and says nothing about market impact). The forward-paper sleeves
+deliberately stay on same-close fills and the flat 10 bps: they are the signal layer,
+execution realism lives in the depot.
+
+Labelled caveats: borrow proxy on net shorts, EUR value is a daily-spot
 translation (display only, never mixed into strategy return), no Kelly sizing until the depot
 has 50+ realised trades, and while the sleeves share < ~3 months of overlapping forward
 history the allocation stays pure equal weight ("Anker-Phase") and says so.

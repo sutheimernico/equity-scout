@@ -150,7 +150,8 @@ Corwin-Schultz cost floor on a new OHLC panel world).
   ("Fills: next-open since v13"). Tests (`tests/test_autotrader_engine.py`): trades decided on
   day t fill at open(t+1) with costs; missing open → close fallback labelled; idempotent re-run
   same day does not double-fill; legacy blob migrates.
-- [ ] **O3 Corwin-Schultz cost floor** — new `src/equity_scout/costs.py`:
+- [x] **O3 Corwin-Schultz cost floor** — (constant-range algebra collapses to the closed form
+  S = 2(H/L−1)/(1+H/L), used as the hand-computed test anchor; FE gate typecheck+build green) — new `src/equity_scout/costs.py`:
   `cs_spread(high, low) -> float` per Corwin-Schultz (2012) two-day estimator, rolling 21-day
   median per ticker, clip negatives to 0; depot cost per fill =
   `max(10 bps, cs_spread/2) * notional`, labelled everywhere as a LOWER BOUND (underestimates

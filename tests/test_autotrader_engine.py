@@ -151,6 +151,28 @@ def test_pending_orders_fill_at_the_open_with_intraday_attribution() -> None:
     assert account.last_marks["SPY"] == (fill_day.date().isoformat(), 104.0)
 
 
+def test_fill_cost_uses_the_corwin_schultz_floor_for_wide_ranges() -> None:
+    """v13 O3: a thin name's fill pays half its estimated spread instead of the flat
+    10 bps — constant H/L 102/100 estimates a 2*(0.02)/2.02 spread, ~99 bps half."""
+    panel = _panel(5, {"SPY": [100.0] * 5})
+    strategy = _Fixed("s", [TargetWeight("SPY", 1.0)])
+    account, _ = advance_depot(
+        AutoDepotAccount.fresh(initial_capital=100_000.0),
+        [strategy], _allocation({"s": 1.0}), PricePanel(panel.closes.iloc[:4]),
+        protections=[],
+    )
+    idx = pd.bdate_range(end=panel.dates[-1], periods=22)
+    ohlc = {"SPY": pd.DataFrame(
+        {"open": 100.0, "high": 102.0, "low": 100.0, "close": 100.0}, index=idx,
+    )}
+    account, valuation = advance_depot(
+        account, [strategy], _allocation({"s": 1.0}), panel, protections=[], ohlc=ohlc,
+    )
+    half_spread = 2.0 * 0.02 / 2.02 / 2.0
+    assert valuation.trades[0].cost == pytest.approx(100_000.0 * half_spread)
+    assert valuation.trades[0].fill == "open"
+
+
 def test_refilling_the_same_book_trades_nothing() -> None:
     """Pending targets equal to the drifted book must not book trades or costs."""
     panel = _panel(5, {"SPY": [100.0] * 5})
