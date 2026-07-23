@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse
 
 from equity_scout.constants import DEFAULT_DB_PATH, DEFAULT_FORWARD_DB_PATH, DISCLAIMER
-from equity_scout.data.etf_panel import load_etf_panel
+from equity_scout.data.etf_panel import load_etf_panel, load_price_history
 from equity_scout.etf_universe import ETF_TICKERS
 from equity_scout.forward_paper import ForwardAccount, advance_account
 from equity_scout.forward_storage import (
@@ -27,6 +27,7 @@ from equity_scout.forward_storage import (
     load_account,
     save_account,
 )
+from equity_scout.market import PricePanel
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.strategies.ml_bot import SHORTABLE_TICKERS, MLLongStrategy, MLShortStrategy
 from equity_scout.strategies.registry import default_strategies
@@ -34,6 +35,19 @@ from equity_scout.strategies.registry import default_strategies
 # The bots trade a STOCK panel (watchlist + shortable whitelist + SPY) — its own snapshot,
 # separate from the ETF/backtest one.
 ML_BOTS_SNAPSHOT = "data/prices/ml_bots_panel.csv"
+
+
+def stock_panel_for_bots(bot_tickers: list[str], *, start: str, refresh: bool) -> PricePanel:
+    """The ML bots' stock panel — gap-tolerant (clean_columns via load_price_history, same as
+    combined_panel's stock subpanel in run_autotrader.py post-R3): a young watchlist ticker
+    must not truncate an established ticker's history in the SAVED snapshot. This runner runs
+    nightly WITH --refresh and therefore WRITES data/prices/ml_bots_panel.csv; run_autotrader
+    runs right after it WITHOUT --refresh and just reads that file back, so a common-range trim
+    here would silently poison the depot's stock subpanel too (R3's own gap-tolerant loader
+    notwithstanding). Self-heals on the next nightly --refresh run — load_price_history always
+    re-derives + re-saves from a fresh download when refresh=True, no manual cache deletion
+    needed."""
+    return load_price_history(bot_tickers, start=start, snapshot=ML_BOTS_SNAPSHOT, refresh=refresh)
 
 
 def _advance_and_report(strategy, panel, args, as_of) -> None:
@@ -85,9 +99,7 @@ def main() -> None:
     stock_panel = None
     if any(bot.ready for bot in bots):
         bot_tickers = list(dict.fromkeys([*long_universe, *SHORTABLE_TICKERS, "SPY"]))
-        stock_panel = load_etf_panel(
-            bot_tickers, start=args.start, snapshot=ML_BOTS_SNAPSHOT, refresh=args.refresh
-        )
+        stock_panel = stock_panel_for_bots(bot_tickers, start=args.start, refresh=args.refresh)
     for bot in bots:
         if not bot.ready or stock_panel is None:
             print(f"{bot.name:<22} kein promoteter Champion — Bot übersprungen (ehrlich: kein Edge, kein Trade)")
