@@ -443,7 +443,16 @@ def create_app(
                 "breaker_stage": account.breaker.stage,
                 "breaker_changed_at": account.breaker.changed_at,
                 "sleeve_mode": account.sleeve_mode,
+                "pending_orders": (
+                    None if account.pending_orders is None else {
+                        "decided_as_of": account.pending_orders.decided_as_of,
+                        "targets": account.pending_orders.targets,
+                    }
+                ),
             },
+            # v13 O2: rebalances decided on one advance fill at the NEXT advance's open
+            # (honest close fallback when no open exists — see each trade row's "fill")
+            "fill_convention": "next-open (seit v13)",
             "latest": latest,  # exposure/drawdown/EUR of the newest valuation row
             "equity_curve": [
                 [v["created_at"], v["equity"], v["benchmark_equity"]] for v in vals

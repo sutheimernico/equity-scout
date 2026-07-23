@@ -35,7 +35,7 @@ def test_autodepot_block_renders_equity_returns_and_trades() -> None:
     text = build_digest([], date_label="2026-07-18", autodepot=_autodepot())
     assert "🤖 Auto-Depot (Stand 2026-07-17): 101,500 USD (91,350 EUR)" in text
     assert "Gesamt +1.5 % vs SPY +1.1 %" in text
-    assert "Trades: ↑XLK ↓IEF" in text
+    assert "Trades (Fill: next-open): ↑XLK ↓IEF" in text  # v13 O2 convention named
     assert "Anker-Phase" not in text  # tilt mode carries no anchor note
 
 

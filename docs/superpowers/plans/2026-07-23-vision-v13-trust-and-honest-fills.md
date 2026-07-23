@@ -134,7 +134,12 @@ Corwin-Schultz cost floor on a new OHLC panel world).
   tickers tolerated per ticker. Close-only consumers stay untouched. Tests
   (`tests/test_ohlc_panel.py`): fake provider round-trip, cache hit path, missing ticker → absent
   key not crash.
-- [ ] **O2 next-open fills for the Auto-Depot** — `src/equity_scout/autotrader_engine.py` +
+- [x] **O2 next-open fills for the Auto-Depot** — (model decision: drift stays close-to-close
+  via the R2 marks; fills only delay when targets take effect, with costs at fill time and an
+  isolated intraday attribution term `sum(delta * (close/open - 1))` so filled deltas
+  participate from the open — first-order exact, same linearisation as the drift sum. Legacy
+  blobs load pending=None: nothing was pending under same-close fills, so the first advance
+  under new code only decides. Protections keep acting on the decision day) — `src/equity_scout/autotrader_engine.py` +
   `autotrader_storage.py` + `scripts/run_autotrader.py`: an advance no longer fills its own
   rebalance trades at today's close; instead it persists `pending_orders` (ticker, target delta,
   decided_as_of) in the account blob, and the NEXT advance fills them first at that day's OPEN

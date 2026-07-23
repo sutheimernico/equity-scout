@@ -42,6 +42,7 @@ from equity_scout.constants import (
 )
 from equity_scout.forward_storage import load_account
 from equity_scout.data.etf_panel import load_etf_panel, load_price_history
+from equity_scout.data.ohlc_panel import load_ohlc_panel
 from equity_scout.etf_universe import ETF_TICKERS
 from equity_scout.fx import eur_rate
 from equity_scout.state_storage import record_heartbeat
@@ -214,6 +215,26 @@ def depot_return_series(autotrader_db: str) -> pd.Series | None:
     return equity.pct_change().iloc[1:]
 
 
+def load_fill_ohlc(account: AutoDepotAccount, as_of: pd.Timestamp) -> dict:
+    """Live OHLC for exactly the tickers today's fill can touch: the pending targets plus
+    the current book (v13 O2). Short window — the fill needs today's open, O3's spread
+    floor a ~21-day high/low history. Any failure degrades to {} = close-fallback fills
+    with loud per-ticker logs, never a blocked advance."""
+    if account.pending_orders is None:
+        return {}
+    tickers = sorted({*account.pending_orders.targets, *account.weights})
+    if not tickers:
+        return {}
+    try:
+        return load_ohlc_panel(
+            tickers, start=(as_of - pd.Timedelta(days=45)).date().isoformat(), refresh=True
+        )
+    except Exception as err:  # noqa: BLE001 — feed down = honest fallback, not a crash
+        print(f"Warnung: OHLC-Fetch fehlgeschlagen ({err}) — Fills am Close (Fallback).",
+              file=sys.stderr)
+        return {}
+
+
 def advance_autotrader(
     panel: PricePanel,
     strategies: list,
@@ -225,12 +246,17 @@ def advance_autotrader(
     fx_rate: float | None = None,
     costs_bps: float = 10.0,
     persist: bool = True,
+    ohlc_loader=None,
 ) -> tuple[AutoDepotAccount, AutoDepotValuation | None]:
-    """One testable advance: promotions -> allocation -> engine -> persistence."""
+    """One testable advance: promotions -> allocation -> engine -> persistence.
+    `ohlc_loader(account, as_of) -> dict` supplies the open prices for pending-order fills
+    (v13 O2); the default None means no OHLC world — every fill degrades to the labelled
+    close fallback, which keeps tests and offline runs safe. main() passes the live loader."""
     from dataclasses import replace as _replace
 
     as_of = panel.dates[-1]
     account = load_depot(autotrader_db) or AutoDepotAccount.fresh()
+    ohlc = ohlc_loader(account, as_of) if ohlc_loader is not None else None
     lane_returns: pd.DataFrame | None = None
     if shortterm_db is not None:
         today_iso = as_of.date().isoformat()
@@ -263,6 +289,7 @@ def advance_autotrader(
         fx_rate=fx_rate,
         costs_bps=costs_bps,
         sleeve_holdings=ml_sleeve_holdings(forward_db, [s.name for s in strategies]),
+        ohlc=ohlc,
     )
     if persist:
         persist_advance(
@@ -356,6 +383,7 @@ def main() -> None:
         fx_rate=eur_rate("USD"),
         costs_bps=args.cost_bps,
         persist=not args.dry_run,
+        ohlc_loader=load_fill_ohlc,
     )
     if not args.dry_run:
         from datetime import datetime, timezone

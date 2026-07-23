@@ -48,13 +48,17 @@ def dbs(tmp_path):
 def test_advance_persists_account_valuation_trades_and_weights(dbs) -> None:
     autotrader_db, forward_db = dbs
     strategies = [_Fixed("a", [TargetWeight("SPY", 0.5)]), _Fixed("b", [TargetWeight("IEF", 0.5)])]
+    advance_autotrader(  # v13 O2: first advance only decides — the second fills
+        _panel(5), strategies, autotrader_db=autotrader_db, forward_db=forward_db,
+    )
     account, valuation = advance_autotrader(
         _panel(), strategies, autotrader_db=autotrader_db, forward_db=forward_db,
     )
     assert valuation is not None
     assert load_depot(autotrader_db) == account
-    assert len(load_valuations(autotrader_db)) == 1
+    assert len(load_valuations(autotrader_db)) == 2
     assert {t["ticker"] for t in load_trades(autotrader_db)} == {"SPY", "IEF"}
+    assert {t["fill"] for t in load_trades(autotrader_db)} == {"close_fallback"}
     stored = load_latest_sleeve_weights(autotrader_db)
     # empty forward history -> honest anchor mode, equal sleeve weights
     assert {r["strategy_name"]: r["weight"] for r in stored} == {"a": 0.5, "b": 0.5}
@@ -222,6 +226,10 @@ def test_eligible_lane_is_promoted_into_the_depot(dbs, tmp_path) -> None:
     _seed_lane(shortterm_db, winning=True)
     strategies = [_Fixed("a", [TargetWeight("SPY", 0.5)])]
 
+    advance_autotrader(  # v13 O2: decide first, fill on the next advance
+        _panel(5), strategies, autotrader_db=autotrader_db, forward_db=forward_db,
+        shortterm_db=shortterm_db,
+    )
     account, valuation = advance_autotrader(
         _panel(6), strategies, autotrader_db=autotrader_db, forward_db=forward_db,
         shortterm_db=shortterm_db,

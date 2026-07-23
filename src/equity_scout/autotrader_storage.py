@@ -11,7 +11,7 @@ from equity_scout import db
 from pathlib import Path
 
 from equity_scout.autotrader_allocator import SleeveAllocation
-from equity_scout.autotrader_engine import AutoDepotAccount, AutoDepotValuation
+from equity_scout.autotrader_engine import AutoDepotAccount, AutoDepotValuation, PendingOrders
 from equity_scout.autotrader_protections import BreakerState
 
 DEFAULT_AUTOTRADER_DB_PATH = "autotrader.db"
@@ -45,6 +45,9 @@ def init_autotrader_db(db_path: str | Path) -> None:
                 delta_weight REAL NOT NULL,
                 notional REAL NOT NULL,
                 cost REAL NOT NULL,
+                fill TEXT NOT NULL DEFAULT 'close',
+                fill_price REAL,
+                decided_as_of TEXT,
                 UNIQUE (ticker, created_at)
             );
             CREATE TABLE IF NOT EXISTS autotrader_risk_events (
@@ -66,6 +69,19 @@ def init_autotrader_db(db_path: str | Path) -> None:
             );
             """
         )
+        _ensure_fill_columns(con)
+
+
+def _ensure_fill_columns(con) -> None:
+    """Idempotent migration (v13 O2): trade rows from before next-open fills keep their
+    defaults — fill='close' (decided and filled on the same close), no fill price."""
+    columns = {row[1] for row in con.execute("PRAGMA table_info(autotrader_trades)")}
+    if "fill" not in columns:
+        con.execute(
+            "ALTER TABLE autotrader_trades ADD COLUMN fill TEXT NOT NULL DEFAULT 'close'"
+        )
+        con.execute("ALTER TABLE autotrader_trades ADD COLUMN fill_price REAL")
+        con.execute("ALTER TABLE autotrader_trades ADD COLUMN decided_as_of TEXT")
 
 
 def _to_json(account: AutoDepotAccount) -> str:
@@ -82,6 +98,12 @@ def _to_json(account: AutoDepotAccount) -> str:
         "sleeve_mode": account.sleeve_mode,
         "promoted_lanes": list(account.promoted_lanes),
         "last_marks": account.last_marks,
+        "pending_orders": (
+            None if account.pending_orders is None else {
+                "decided_as_of": account.pending_orders.decided_as_of,
+                "targets": account.pending_orders.targets,
+            }
+        ),
     })
 
 
@@ -106,6 +128,16 @@ def _from_json(blob: str) -> AutoDepotAccount:
         # loads as empty and the next advance falls back to the pre-mark window logic once
         # per held position (see advance_depot's "mark init for N positions" log).
         last_marks={t: tuple(v) for t, v in d.get("last_marks", {}).items()},
+        # missing key = a pre-v13-O2 blob: nothing was pending under the old same-close
+        # fill convention — the first advance under the new code only decides, fills start
+        # one advance later.
+        pending_orders=(
+            PendingOrders(
+                decided_as_of=d["pending_orders"]["decided_as_of"],
+                targets=d["pending_orders"]["targets"],
+            )
+            if d.get("pending_orders") else None
+        ),
     )
 
 
@@ -131,9 +163,13 @@ def _insert_advance_rows(con, valuation: AutoDepotValuation) -> None:
     )
     con.executemany(
         "INSERT OR IGNORE INTO autotrader_trades "
-        "(created_at, ticker, delta_weight, notional, cost) VALUES (?, ?, ?, ?, ?)",
+        "(created_at, ticker, delta_weight, notional, cost, fill, fill_price, decided_as_of)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [
-            (t.created_at, t.ticker, t.delta_weight, t.notional, t.cost)
+            (
+                t.created_at, t.ticker, t.delta_weight, t.notional, t.cost,
+                t.fill, t.fill_price, t.decided_as_of,
+            )
             for t in valuation.trades
         ],
     )
@@ -218,11 +254,15 @@ def load_trades(db_path: str | Path, *, limit: int = 50) -> list[dict]:
     init_autotrader_db(db_path)
     with db.connect(db_path) as con:
         rows = con.execute(
-            "SELECT created_at, ticker, delta_weight, notional, cost FROM autotrader_trades"
+            "SELECT created_at, ticker, delta_weight, notional, cost, fill, fill_price,"
+            " decided_as_of FROM autotrader_trades"
             " ORDER BY created_at DESC, ticker ASC LIMIT ?",
             (limit,),
         ).fetchall()
-    keys = ("created_at", "ticker", "delta_weight", "notional", "cost")
+    keys = (
+        "created_at", "ticker", "delta_weight", "notional", "cost", "fill", "fill_price",
+        "decided_as_of",
+    )
     return [dict(zip(keys, row)) for row in rows]
 
 

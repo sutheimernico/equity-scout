@@ -160,7 +160,8 @@ def build_digest(
             ]
             rest = len(trades) - AUTODEPOT_TRADE_CAP
             suffix = f" · +{rest} weitere" if rest > 0 else ""
-            lines.append(_line(f"  Trades: {' '.join(shown)}{suffix}"))
+            # v13 O2: decided one advance earlier, filled at this advance's open
+            lines.append(_line(f"  Trades (Fill: next-open): {' '.join(shown)}{suffix}"))
         else:
             lines.append(_line("  Keine Trades an diesem Stand."))
         for detail in autodepot.get("risk_events") or []:

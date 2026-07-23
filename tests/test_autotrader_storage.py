@@ -214,3 +214,56 @@ def test_legacy_blob_without_last_marks_loads_cleanly_and_then_learns_marks(db) 
     account, val3 = advance_depot(account, [strategy], allocation, panel, protections=[])
     assert val3.equity == pytest.approx(val2.equity * (66.0 / 60.0))  # now driven by the mark
     assert account.last_marks["AAPL"] == (panel.dates[2].date().isoformat(), 66.0)
+
+
+def test_pending_orders_round_trip_and_legacy_blob_loads_none(db) -> None:
+    """v13 O2: pending orders survive the blob round trip; a pre-v13 blob (no key) loads
+    as None — nothing was pending under the old same-close fill convention."""
+    from dataclasses import replace
+
+    from equity_scout.autotrader_engine import PendingOrders
+    from equity_scout import db as db_mod
+
+    account = AutoDepotAccount.fresh()
+    with_pending = replace(
+        account, pending_orders=PendingOrders(
+            decided_as_of="2026-07-23", targets={"SPY": 0.6, "IEF": 0.4},
+        ),
+    )
+    save_depot(db, with_pending, updated_at="2026-07-23")
+    loaded = load_depot(db)
+    assert loaded.pending_orders == with_pending.pending_orders
+
+    # simulate a legacy blob: strip the key the way an old writer would have left it
+    with db_mod.connect(db) as con:
+        row = con.execute("SELECT data FROM autotrader_account WHERE id = 1").fetchone()
+        blob = json.loads(row[0])
+        del blob["pending_orders"]
+        con.execute("UPDATE autotrader_account SET data = ?", (json.dumps(blob),))
+    assert load_depot(db).pending_orders is None
+
+
+def test_trades_table_migrates_and_labels_legacy_rows_close(db) -> None:
+    """v13 O2: a pre-v13 trades table gains the fill columns idempotently; its old rows
+    read back as fill='close' (decided and filled on the same close), no fill price."""
+    legacy = str(db).replace("autotrader.db", "legacy.db")
+    with sqlite3.connect(legacy) as con:
+        con.execute(
+            "CREATE TABLE autotrader_trades ("
+            " id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL,"
+            " ticker TEXT NOT NULL, delta_weight REAL NOT NULL, notional REAL NOT NULL,"
+            " cost REAL NOT NULL, UNIQUE (ticker, created_at))"
+        )
+        con.execute(
+            "INSERT INTO autotrader_trades (created_at, ticker, delta_weight, notional, cost)"
+            " VALUES ('2026-07-20', 'SPY', 0.6, 60000.0, 60.0)"
+        )
+    trades = load_trades(legacy)  # init_autotrader_db migrates on the way in
+    assert trades[0]["fill"] == "close"
+    assert trades[0]["fill_price"] is None
+    assert trades[0]["decided_as_of"] is None
+    # new rows carry the fill metadata
+    record_advance(legacy, _valuation("2026-07-21"))
+    newest = load_trades(legacy)[0]
+    assert newest["created_at"] == "2026-07-21"
+    assert newest["fill"] == "close"  # _valuation()'s TradeRecords use the default label
