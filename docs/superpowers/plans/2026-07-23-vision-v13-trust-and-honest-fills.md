@@ -24,14 +24,14 @@ Corwin-Schultz cost floor on a new OHLC panel world).
 
 ## Wave R — hardening (R1 first; R2 before R4)
 
-- [ ] **R1 (P0) nightly chain order: lanes before depot** — `scripts/nightly_train.sh`: move the
+- [x] **R1 (P0) nightly chain order: lanes before depot** — `scripts/nightly_train.sh`: move the
   `st_swing` (and any other lane steps living in this chain, incl. the overnight session sweep)
   BEFORE the `autotrader` step, so the depot values today's lane equity, not yesterday's. Keep
   heartbeat/flock semantics untouched. Update the inline comment explaining WHY the order is
   load-bearing (depot reads lane equity series). Test: `tests/test_nightly_chain_order.py` —
   parse the script text and assert the lane step lines appear before the autotrader line (simple,
   honest guard against regression; pattern exists in other wrapper tests).
-- [ ] **R2 (P0) per-position valuation marks in the depot** — `src/equity_scout/forward_paper.py`
+- [x] **R2 (P0) per-position valuation marks in the depot** — `src/equity_scout/forward_paper.py`
   `_asset_return` (~107–116): return `None` when the ticker column is missing OR no price row
   strictly newer than `start` exists (distinguish "no fresh price" from "0% return"); keep the
   existing behavior available to callers that treat `None` as carry.
