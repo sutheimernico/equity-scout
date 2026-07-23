@@ -231,14 +231,19 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] C2 feat(ml): Promotion-Gate gegen Multiple-Testing härten (8 Kandidaten/Nacht)
 - [x] B4 feat(events): Event-Reaktions-Lane paper-only mit Latenz-Log + 1h/1d/5d-Auswertung
 - [x] C4 docs+fix: Rebalance-Kadenz-Mismatch + Survivorship-Kennzeichnung im Modell-Report
-- [ ] Backlog (B5-Review-Fund, pre-existing): tail-lose Single-Token-Firmennamen in
+- [x] Backlog (B5-Review-Fund, pre-existing): tail-lose Single-Token-Firmennamen in
       voices.resolve_ticker bleiben exponiert — konkrete Instanzen SHEL.L ("Shell"),
       TGT ("Target"), NXT.L ("Next"): generische kapitalisierte Wörter in Headlines lösen
       auf diese Ticker auf. Fix-Idee: Single-Token-Namenskanal ebenfalls gegen
       _GENERIC_FIRST_WORDS gaten und/oder Mehrwort-Firmennamen im Titel bevorzugen.
-- [ ] Backlog (B5-Review-Fund): _GENERIC_FIRST_WORDS ist ein manueller Snapshot des Universe
+      DONE 2026-07-24 (v13 Q4): beides umgesetzt — Gate im Single-Token-Kanal (Caps-Ticker-
+      Kanal bleibt offen) + chirurgische Mehrwort-Präferenz (nur wenn das Single-Token-Wort
+      im Vollnamen-Match liegt; echte Zwei-Firmen-Headlines bleiben ehrlich None).
+- [x] Backlog (B5-Review-Fund): _GENERIC_FIRST_WORDS ist ein manueller Snapshot des Universe
       (2026-07-15) — bei Universe-Refresh können neue eindeutige generische First-Words entstehen.
       Idee: Scan-Skript unter scripts/ oder Drift-Check im Data-Quality-Report.
+      DONE 2026-07-24 (v13 Q4): `scripts/scan_generic_words.py` difft exponierte Wörter gegen
+      den committeten Snapshot `data/voices_exposed_words.txt` (--update nach Review).
 
 ## Phase: Vision v8 — Klarheit auf einen Blick + Sektorrotation + Markt-Ampel (2026-07-16)
 > Nico-Direktive: Notifications sind unübersichtlich/unverständlich/nicht zielgerichtet — Ziel:

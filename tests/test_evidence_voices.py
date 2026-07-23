@@ -120,7 +120,38 @@ def test_alias_matches_in_title():
 
 def test_resolve_ticker_single_token_name_requires_capitalized_occurrence():
     assert resolve_ticker("Burry cuts price target on everything", UNIVERSE) is None
-    assert resolve_ticker("Burry buys Target shares", UNIVERSE) == "TGT"
+    # v13 Q4: even capitalized, "Target" is a generic English word — the single-token
+    # name channel is gated for TGT (honest miss); the caps TICKER channel stays open.
+    assert resolve_ticker("Burry buys Target shares", UNIVERSE) is None
+    assert resolve_ticker("Burry buys TGT stake", UNIVERSE) == "TGT"
+
+
+def test_resolve_ticker_generic_single_token_names_never_resolve():
+    """v13 Q4 (v7 backlog fix): the three live false positives — generic capitalized
+    headline words resolving to single-token-named tickers SHEL.L / TGT / NXT.L."""
+    universe = [
+        ("SHEL.L", "Shell plc"),
+        ("TGT", "Target Corporation"),
+        ("NXT.L", "Next plc"),
+    ]
+    assert resolve_ticker("Shell shock for oil markets", universe) is None
+    assert resolve_ticker("Target prices raised across Wall Street", universe) is None
+    assert resolve_ticker("Next week will be decisive for markets", universe) is None
+
+
+def test_resolve_ticker_full_name_beats_single_token_riding_inside_it():
+    """v13 Q4: a single-token match whose word sits INSIDE the one full-name match is
+    the same text span, not a second company — but a title genuinely naming a second
+    company stays an honest None."""
+    universe = [
+        ("BAM", "Brookfield Asset Management Ltd."),
+        ("BN", "Brookfield Corporation"),  # normalizes to single-token "BROOKFIELD"
+        ("NVDA", "Nvidia Corp"),
+    ]
+    assert resolve_ticker("Brookfield Asset Management raises new fund", universe) == "BAM"
+    assert resolve_ticker(
+        "Nvidia partners with Brookfield Asset Management", universe
+    ) is None
 
 
 def test_resolve_ticker_symbol_stopwords_never_match():

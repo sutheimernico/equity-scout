@@ -319,11 +319,14 @@ def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
         return any(tok.upper() == word and tok[:1].isupper() for tok in tokens)
 
     matched: set[str] = set()
+    full_name_hits: set[str] = set()  # matched via the full multi-word name substring
+    single_name_hits: set[str] = set()  # matched via a single-token name occurrence
     for ticker, norm_name in norm_names.items():
         name_hit = False
         if norm_name and " " in norm_name:
             if f" {norm_name} " in padded_title:
                 name_hit = True
+                full_name_hits.add(ticker)
             else:  # try the name's unique, distinguishing first word instead
                 first_word = norm_name.split()[0]
                 name_hit = (
@@ -332,11 +335,31 @@ def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
                     and len(first_word_owners.get(first_word, ())) == 1
                     and capitalized_original(first_word)
                 )
-        elif norm_name:  # single-token name: demand a capitalized original occurrence
-            name_hit = capitalized_original(norm_name)
+        elif norm_name:
+            # single-token name: capitalized original occurrence, and never a generic
+            # English word (v13 Q4) — "Shell"/"Target"/"Next" headlines must not resolve
+            # to SHEL.L/TGT/NXT.L; same gate the first-word channel already applies
+            name_hit = (
+                norm_name not in _GENERIC_FIRST_WORDS and capitalized_original(norm_name)
+            )
+            if name_hit:
+                single_name_hits.add(ticker)
         if name_hit or ticker in caps_tokens:
             matched.add(ticker)
-    return matched.pop() if len(matched) == 1 else None
+    if len(matched) == 1:
+        return matched.pop()
+    # v13 Q4: a single-token match riding INSIDE the one full-name match is the same text
+    # span, not a second company — "Target Hospitality wins" must resolve to TH, not go
+    # ambiguous against TGT ("TARGET"). A genuine two-company title still returns None.
+    if len(full_name_hits) == 1:
+        winner = next(iter(full_name_hits))
+        winner_tokens = set(norm_names[winner].split())
+        others = matched - {winner}
+        if others and all(
+            t in single_name_hits and norm_names[t] in winner_tokens for t in others
+        ):
+            return winner
+    return None
 
 
 def classify_mention(

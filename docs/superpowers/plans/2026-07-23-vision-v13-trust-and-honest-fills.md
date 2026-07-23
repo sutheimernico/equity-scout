@@ -104,7 +104,11 @@ Corwin-Schultz cost floor on a new OHLC panel world).
   storage pattern), and show it in the trainer log line. SOFT signal only in v13 — no gate change;
   label "WFE <0.5 = likely overfit (heuristic)". Tests: known IS/OOS pair → expected ratio;
   is_metric=0 → None, no crash.
-- [ ] **Q4 (quick win) voices single-token gate + drift scan** — `src/equity_scout/evidence/
+- [x] **Q4 (quick win) voices single-token gate + drift scan** — (note: the scanner diffs
+  against a committed snapshot FILE of exposed words (`data/voices_exposed_words.txt`, 4836
+  words @ 2026-07-24) — the frozenset alone cannot show drift since the last review; multi-word
+  preference is surgical: a single-token match only loses when its word sits inside the one
+  full-name match) — `src/equity_scout/evidence/
   voices.py::resolve_ticker`: apply the `_GENERIC_FIRST_WORDS` gate in the single-token branch
   (`elif norm_name:`) too, so "Shell"/"Target"/"Next" headlines no longer resolve to
   SHEL.L/TGT/NXT.L; prefer multi-word matches over single-token when both hit. New
