@@ -44,14 +44,14 @@ Corwin-Schultz cost floor on a new OHLC panel world).
   valuation. Tests (`tests/test_autotrader_engine.py`): reviewer repro — lane equity series gets
   its fresh row only AFTER the depot run → that advance carries (0 booked), the NEXT advance books
   the full move (no loss); fresh-price path unchanged; blob without `last_marks` loads cleanly.
-- [ ] **R3 (P0) gap-tolerant combined panel** — `scripts/run_autotrader.py:98–112`
+- [x] **R3 (P0) gap-tolerant combined panel** — `scripts/run_autotrader.py:98–112`
   `combined_panel`: load the stock subpanel via the gap-tolerant path
   (`load_price_history`/`clean_columns`, as used elsewhere in the repo) instead of
   `load_etf_panel`/`clean_panel`, so one young ticker cannot truncate the others; docstring then
   matches reality. Tests (`tests/test_run_autotrader.py`): synthetic panel where one ticker starts
   10 days ago and another has 2 years → the old ticker's history stays full length; NaN gap
   handling still tolerated by consumers (existing behavior asserted).
-- [ ] **R4 (P1) stale positions in forward paper must not freeze silently** —
+- [x] **R4 (P1) stale positions in forward paper must not freeze silently** —
   `src/equity_scout/forward_paper.py` (~169, consumer of `_asset_return`): a held position whose
   return resolves to `None` is carried unchanged BUT counted per-position as
   `stale_days += 1` (persisted in the account state); once `stale_days > 5` trading steps, close

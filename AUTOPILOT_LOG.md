@@ -193,3 +193,7 @@
 - 2026-07-21 v12 hotfix: crypto/watchdog cron line lacked cd -> wrote ~/shortterm.db+~/equity_scout.db since v11 install; fixed, reinstalled, stray DBs quarantined to data/stray-home-dbs-2026-07-21/, live-verified in repo DBs
 - 2026-07-21 v12 P4: README 'Kann das funktionieren?' + plan outcome filled, phase v12 DONE (25/25 tasks)
 - 2026-07-21 v12 LIVE-VERIFIED: systemd catch-up replayed missed daily+nightly at WSL start (21:14), autotrader advanced w/ new code (8 sleeves, no unearned promotion), digest_sent_on=2026-07-21, FIRST monthly proof report delivered (proof_report_month=2026-07), watchdog no false alarm after offline gap (lane step runs first by design)
+- 2026-07-23 v13 R1: nightly chain runs arena lanes before the depot (order is load-bearing: depot reads lane equity), chain-order guard test
+- 2026-07-23 v13 R2: persisted per-position valuation marks in the depot (last_marks blob field, full move books on next fresh price), legacy-blob migration, tests
+- 2026-07-23 v13 R3: combined_panel stock subpanel gap-tolerant (load_price_history/clean_columns); same trim bug fixed upstream in run_forward_paper's ml_bots_panel snapshot (was live-trimmed to 375 rows), tests both sides
+- 2026-07-23 v13 R4: per-ticker stale_days streak + force-close via ExitRules path (exit_reason=stale_no_price, last real price, re-entry lockout), legacy blobs migrate, tests
