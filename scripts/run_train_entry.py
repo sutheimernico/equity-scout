@@ -147,9 +147,16 @@ def run_train_entry(
     print(f"{label} v{version} ({model}) auf {n_train} Zeilen trainiert.")
     print(
         f"Out-of-Sample: AUC {_fmt(metrics['auc'])}, Brier {_fmt(metrics['brier'])}, "
-        f"Rank-IC {_fmt(metrics['rank_ic'])} "
+        f"Rank-IC {_fmt(metrics['rank_ic'])}, WFE {_fmt(metrics.get('wfe'))} "
         f"(n_oos={metrics['n_oos']}, Splits={metrics['n_splits_used']})."
     )
+    wfe = metrics.get("wfe")
+    if wfe is not None and wfe < 0.5:
+        # v13 Q3: SOFT signal only — no gate reads it, the line just says what it suggests
+        print(
+            f"Walk-Forward-Effizienz {_fmt(wfe)} < 0,5: wahrscheinlich überangepasst "
+            "(Heuristik — nur Diagnose, kein Gate)."
+        )
     if metrics["n_splits_used"] == 0:
         # v9 Q5: the split unit is unique monthly as_of dates, not rows — a young panel
         # (MIN_HISTORY warm-up eats the first ~12 months, the label horizon crops the end)

@@ -129,6 +129,18 @@ def _date_grouped_folds(
         yield as_of.isin(train_dates), as_of.isin(test_dates)
 
 
+def walk_forward_efficiency(oos_auc: float | None, is_auc: float | None) -> float | None:
+    """Share of the in-sample edge that survives out-of-sample (v13 Q3), on EXCESS AUC over
+    the 0.5 coin-flip base: (oos - 0.5) / (is - 0.5). A raw AUC ratio could hardly fall
+    below 0.5 (0.5/1.0 is its floor), which would make the overfit label unreachable.
+    None when either side is missing or there is no in-sample edge to preserve
+    (is_auc <= 0.5). SOFT diagnostic only — no gate reads it; WFE < 0.5 = likely
+    overfit (heuristic)."""
+    if oos_auc is None or is_auc is None or is_auc <= 0.5:
+        return None
+    return round((oos_auc - 0.5) / (is_auc - 0.5), 4)
+
+
 def walk_forward_evaluate(
     X: pd.DataFrame,
     y: pd.Series,
@@ -155,6 +167,7 @@ def walk_forward_evaluate(
 
     oos_prob: dict[int, float] = {}
     importances: list[np.ndarray] = []
+    is_aucs: list[float] = []  # per real fit, for the walk-forward efficiency (v13 Q3)
     n_splits_used = 0
     for train_mask, test_mask in _date_grouped_folds(
         as_of, n_splits=n_splits, horizon_days=horizon_days, trading_days=trading_days
@@ -176,6 +189,10 @@ def walk_forward_evaluate(
         probs = estimator.predict_proba(scaler.transform(x_test))[:, 1]
         for pos, prob in zip(x_test.index, probs):
             oos_prob[pos] = float(prob)
+        train_probs = estimator.predict_proba(scaler.transform(x_train))[:, 1]
+        is_auc_split = classification_scores(y_train.to_numpy(), train_probs)["auc"]
+        if is_auc_split is not None:
+            is_aucs.append(is_auc_split)
         try:
             importances.append(_feature_weights(estimator))
         except AttributeError:
@@ -185,6 +202,7 @@ def walk_forward_evaluate(
         empty = {
             "auc": None, "brier": None, "rank_ic": None,
             "n_oos": 0, "n_splits_used": 0, "feature_importance": {},
+            "is_auc": None, "wfe": None,
         }
         if collect_oos:
             empty["oos"] = {"prob": np.array([]), "y": np.array([])}
@@ -202,6 +220,7 @@ def walk_forward_evaluate(
         total = float(np.sum(mean_imp)) or 1.0
         importance = {c: round(float(v / total), 4) for c, v in zip(X.columns, mean_imp)}
 
+    is_auc = round(float(np.mean(is_aucs)), 4) if is_aucs else None
     result = {
         "auc": scores["auc"],
         "brier": scores["brier"],
@@ -209,6 +228,8 @@ def walk_forward_evaluate(
         "n_oos": len(positions),
         "n_splits_used": n_splits_used,
         "feature_importance": importance,
+        "is_auc": is_auc,
+        "wfe": walk_forward_efficiency(scores["auc"], is_auc),
     }
     if collect_oos:
         result["oos"] = {"prob": prob_oos, "y": y_oos}

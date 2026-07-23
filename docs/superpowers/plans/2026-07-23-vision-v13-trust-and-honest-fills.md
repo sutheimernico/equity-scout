@@ -95,7 +95,9 @@ Corwin-Schultz cost floor on a new OHLC panel world).
   call sites (`research_loop.py`, `ml/search.py`) pass the hurdle valid at trial time. Tests
   (`tests/test_ledger.py`): fresh DB round-trips the value; pre-migration DB file opens and
   migrates; old rows read as None.
-- [ ] **Q3 (soft) walk-forward efficiency metric** — where walk-forward results are aggregated
+- [x] **Q3 (soft) walk-forward efficiency metric** — (deviation: ratio computed on EXCESS AUC
+  over 0.5, not raw AUC — a raw ratio bottoms out at ~0.5 and the "<0.5 = overfit" label could
+  never fire; persisted via the registry metrics dict, which is the existing storage pattern) — where walk-forward results are aggregated
   (`ml/` training/report path used by `run_train_entry.py`): compute
   `wfe = oos_metric / is_metric` (guard is_metric ≤ 0 → None) per candidate, persist it alongside
   existing champion/report fields (`champion_history` or the training report — follow the existing

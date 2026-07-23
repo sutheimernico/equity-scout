@@ -10,6 +10,7 @@ from equity_scout.ml.entry_model import (
     EntryModel,
     _date_grouped_folds,
     train_entry_model,
+    walk_forward_efficiency,
     walk_forward_evaluate,
 )
 
@@ -75,11 +76,26 @@ def test_walk_forward_reports_expected_keys():
     X, y, meta = _dataset(n_dates=120, per_date=6, informative=True, seed=4)
     result = walk_forward_evaluate(X, y, meta, model="random_forest")
     assert set(result) == {
-        "auc", "brier", "rank_ic", "n_oos", "n_splits_used", "feature_importance"
+        "auc", "brier", "rank_ic", "n_oos", "n_splits_used", "feature_importance",
+        "is_auc", "wfe",
     }
     assert result["n_oos"] > 0
     assert result["n_splits_used"] >= 1
     assert set(result["feature_importance"]) == set(FEATURE_COLUMNS)
+    # a random forest fits its training set nearly perfectly -> IS edge exists, WFE defined
+    assert result["is_auc"] is not None and result["is_auc"] > 0.5
+    assert result["wfe"] is not None
+
+
+def test_walk_forward_efficiency_ratio_and_guards():
+    """v13 Q3: WFE = share of the IS excess-AUC edge surviving OOS; None instead of a
+    made-up number when a side is missing or there is no IS edge to preserve."""
+    assert walk_forward_efficiency(0.6, 0.7) == 0.5  # 0.1 of 0.2 survives
+    assert walk_forward_efficiency(0.7, 0.7) == 1.0
+    assert walk_forward_efficiency(0.55, 0.5) is None  # no IS edge -> nothing to measure
+    assert walk_forward_efficiency(0.6, 0.0) is None  # degenerate is_metric, no crash
+    assert walk_forward_efficiency(None, 0.9) is None
+    assert walk_forward_efficiency(0.6, None) is None
 
 
 def test_learnable_dataset_has_oos_edge():
