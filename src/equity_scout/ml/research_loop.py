@@ -8,14 +8,24 @@ with every trial*, so luck cannot survive. That distinction is the whole point.
 from __future__ import annotations
 
 from equity_scout.market import PricePanel
-from equity_scout.ml.ledger import advance_index, init_ledger, next_index, record_trial
+from equity_scout.ml.ledger import (
+    advance_index,
+    current_hurdle,
+    init_ledger,
+    next_index,
+    record_trial,
+)
 from equity_scout.ml.search import EvalResult, evaluate_config, sample_config
 
 
 def run_one_trial(panel: PricePanel, db_path: str, trial_index: int, *, now: str) -> EvalResult:
     config = sample_config(trial_index)
+    # hurdle BEFORE this trial lands in the ledger: the bar this config actually competed
+    # against (v13 Q2) — persisted so "was the champion above the hurdle back then" stays
+    # reconstructable after the hurdle has risen.
+    hurdle = current_hurdle(db_path)
     result = evaluate_config(panel, config)
-    record_trial(db_path, result, now=now)  # no-op if untrained / too few bets
+    record_trial(db_path, result, now=now, dsr_hurdle=hurdle)  # no-op if untrained/too few bets
     return result
 
 

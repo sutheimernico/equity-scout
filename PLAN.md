@@ -186,9 +186,11 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       Signal-Filter-Umbenennung; /api/stack, ML-Score in /api/radar)
 - [ ] P7 Backlog: Strategie-Parameter-Suche im Research-Loop (EIGENES Ledger + EIGENE DSR-Hürde,
       Multiple-Testing-Trennung; v5-P4)
-- [ ] Backlog: DSR-Hürde zum Trial-Zeitpunkt im Research-Ledger mitspeichern (Ledger nutzt
+- [x] Backlog: DSR-Hürde zum Trial-Zeitpunkt im Research-Ledger mitspeichern (Ledger nutzt
       positionsbasierte INSERTs -> kleiner Schema-Umbau nötig; ohne das ist die rückwirkende
       "war der Champion damals über der Hürde"-Kurve nicht rekonstruierbar)
+      DONE 2026-07-24 (v13 Q2): `dsr_hurdle`-Spalte + idempotente Migration; record_trial
+      speichert die Hürde, die VOR dem Trial galt; alte Rows lesen ehrlich None.
 - [ ] Backlog: vorzeichenrichtige Ledger-Auflösung für bearish Voice-Calls (bis dahin: Anzeige +
       Alert, aber keine Statistik — dokumentiert in evidence/voices.py)
 

@@ -33,6 +33,9 @@ class TrialRecord:
     max_drawdown: float
     feature_importance: dict[str, float]
     dsr: float = 0.0  # computed against the whole ledger, not stored
+    # The hurdle in force when this trial was recorded (v13 Q2) — the bar it actually had
+    # to clear back then. None on rows written before the column existed; never recomputed.
+    dsr_hurdle: float | None = None
 
 
 def init_ledger(db_path: str = DEFAULT_LEDGER_PATH) -> None:
@@ -56,9 +59,19 @@ def init_ledger(db_path: str = DEFAULT_LEDGER_PATH) -> None:
                 sortino REAL NOT NULL,
                 max_drawdown REAL NOT NULL,
                 feature_importance TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                dsr_hurdle REAL
             )
         """)
+        _ensure_dsr_hurdle_column(conn)
+
+
+def _ensure_dsr_hurdle_column(conn: sqlite3.Connection) -> None:
+    """Idempotent migration (v13 Q2): ledgers created before the column keep their rows,
+    which simply read back dsr_hurdle=None — the value cannot be reconstructed later."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(trials)")}
+    if "dsr_hurdle" not in columns:
+        conn.execute("ALTER TABLE trials ADD COLUMN dsr_hurdle REAL")
 
 
 def _config_json(config: MetaConfig) -> str:
@@ -82,25 +95,33 @@ def _config_from_json(text: str) -> MetaConfig:
     )
 
 
-def record_trial(db_path: str, result: EvalResult, *, now: str) -> None:
-    """Upsert one evaluated config. Untrained / too-few-bets results are skipped (not real trials)."""
+def record_trial(
+    db_path: str, result: EvalResult, *, now: str, dsr_hurdle: float | None = None
+) -> None:
+    """Upsert one evaluated config. Untrained / too-few-bets results are skipped (not real trials).
+    `dsr_hurdle` is the hurdle in force at trial time (v13 Q2) — pass what the loop computed
+    BEFORE inserting this trial; it is stored verbatim, never recomputed."""
     if not result.trained or result.n_bets < MIN_BETS:
         return
     with sqlite3.connect(db_path) as conn:
         conn.execute(
-            """INSERT INTO trials VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """INSERT INTO trials (
+                 config_key, config_json, n_bets, oos_hit_rate, sharpe_periodic, n_obs,
+                 skew, kurtosis, cagr, sharpe, sortino, max_drawdown, feature_importance,
+                 created_at, dsr_hurdle
+               ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(config_key) DO UPDATE SET
                  config_json=excluded.config_json, n_bets=excluded.n_bets,
                  oos_hit_rate=excluded.oos_hit_rate, sharpe_periodic=excluded.sharpe_periodic,
                  n_obs=excluded.n_obs, skew=excluded.skew, kurtosis=excluded.kurtosis,
                  cagr=excluded.cagr, sharpe=excluded.sharpe, sortino=excluded.sortino,
                  max_drawdown=excluded.max_drawdown, feature_importance=excluded.feature_importance,
-                 created_at=excluded.created_at""",
+                 created_at=excluded.created_at, dsr_hurdle=excluded.dsr_hurdle""",
             (
                 result.config.key(), _config_json(result.config), result.n_bets,
                 result.oos_hit_rate, result.sharpe_periodic, result.n_obs, result.skew,
                 result.kurtosis, result.cagr, result.sharpe, result.sortino, result.max_drawdown,
-                json.dumps(result.feature_importance), now,
+                json.dumps(result.feature_importance), now, dsr_hurdle,
             ),
         )
 
@@ -123,6 +144,9 @@ def load_trials(db_path: str) -> list[TrialRecord]:
             kurtosis=r["kurtosis"], cagr=r["cagr"], sharpe=r["sharpe"], sortino=r["sortino"],
             max_drawdown=r["max_drawdown"], feature_importance=json.loads(r["feature_importance"]),
             dsr=round(dsr, 4),
+            # readers must tolerate a pre-v13 ledger: only init_ledger migrates (writers'
+            # entrypoint) — a read-only consumer (/api/ml) must not ALTER the DB in a GET
+            dsr_hurdle=r["dsr_hurdle"] if "dsr_hurdle" in r.keys() else None,
         ))
     return records
 

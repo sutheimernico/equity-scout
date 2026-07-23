@@ -45,6 +45,57 @@ def test_ledger_roundtrip(tmp_path):
     assert 0.0 <= records[0].dsr <= 1.0
 
 
+def test_ledger_round_trips_the_dsr_hurdle(tmp_path):
+    """v13 Q2: the hurdle in force at trial time is stored verbatim and read back."""
+    db = str(tmp_path / "l.db")
+    init_ledger(db)
+    record_trial(db, _eval(["vol", "trend"], "elastic_net", 0.05), now="t1", dsr_hurdle=0.42)
+    record_trial(db, _eval(["breadth", "drawdown"], "random_forest", 0.07), now="t2")
+    by_model = {r.config.model: r for r in load_trials(db)}
+    assert by_model["elastic_net"].dsr_hurdle == 0.42
+    assert by_model["random_forest"].dsr_hurdle is None  # not passed -> honest None
+
+
+def test_ledger_migrates_pre_hurdle_schema(tmp_path):
+    """v13 Q2: a ledger created before the dsr_hurdle column opens, migrates idempotently,
+    and its old rows read back as None (the historical hurdle cannot be reconstructed)."""
+    import json
+    import sqlite3
+
+    db = str(tmp_path / "old.db")
+    with sqlite3.connect(db) as conn:  # the pre-v13 schema, positional insert and all
+        conn.execute("""
+            CREATE TABLE trials (
+                config_key TEXT PRIMARY KEY, config_json TEXT NOT NULL, n_bets INTEGER NOT NULL,
+                oos_hit_rate REAL NOT NULL, sharpe_periodic REAL NOT NULL, n_obs INTEGER NOT NULL,
+                skew REAL NOT NULL, kurtosis REAL NOT NULL, cagr REAL NOT NULL,
+                sharpe REAL NOT NULL, sortino REAL NOT NULL, max_drawdown REAL NOT NULL,
+                feature_importance TEXT NOT NULL, created_at TEXT NOT NULL
+            )
+        """)
+        config_json = json.dumps({
+            "features": ["vol", "trend"], "model": "elastic_net",
+            "primary_lookback_months": 12, "horizon_days": 20, "barrier": 1.0,
+        })
+        conn.execute(
+            "INSERT INTO trials VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ("k1", config_json, 50, 0.6, 0.05, 2000, 0.0, 3.0, 0.08, 0.8, 1.0, -0.2, "{}", "t0"),
+        )
+    # read-only consumers (/api/ml -> champion -> load_trials) hit the file BEFORE any
+    # writer migrates it — reading must not crash and must not require a write
+    pre_migration = load_trials(db)
+    assert len(pre_migration) == 1 and pre_migration[0].dsr_hurdle is None
+    init_ledger(db)  # migrates
+    init_ledger(db)  # idempotent
+    old_rows = load_trials(db)
+    assert len(old_rows) == 1 and old_rows[0].dsr_hurdle is None
+    record_trial(db, _eval(["breadth", "drawdown"], "random_forest", 0.07),
+                 now="t1", dsr_hurdle=0.1)
+    by_model = {r.config.model: r for r in load_trials(db)}
+    assert by_model["random_forest"].dsr_hurdle == 0.1
+    assert by_model["elastic_net"].dsr_hurdle is None
+
+
 def test_ledger_is_idempotent_per_config(tmp_path):
     db = str(tmp_path / "l.db")
     init_ledger(db)

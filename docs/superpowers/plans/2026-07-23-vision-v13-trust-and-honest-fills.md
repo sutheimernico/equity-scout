@@ -87,7 +87,9 @@ Corwin-Schultz cost floor on a new OHLC panel world).
   Tests (`tests/test_run_train_entry.py` or `test_etf_panel.py`): synthetic set with one young
   ticker → panel keeps the long span, young ticker excluded and logged; all-young edge case →
   loud error, no silent empty panel.
-- [ ] **Q2 (high) ledger records the DSR hurdle per trial** — `src/equity_scout/ml/ledger.py`:
+- [x] **Q2 (high) ledger records the DSR hurdle per trial** — (note: `ml/search.py` has no
+  `record_trial` call site — the loop in `research_loop.py` is the only writer; readers like
+  `/api/ml` now tolerate a pre-migration ledger instead of requiring a write in a GET) — `src/equity_scout/ml/ledger.py`:
   idempotent migration `ALTER TABLE trials ADD COLUMN dsr_hurdle REAL` (guarded by PRAGMA
   table_info check, existing 4519 rows keep NULL), `record_trial(...)` gains the parameter, all
   call sites (`research_loop.py`, `ml/search.py`) pass the hurdle valid at trial time. Tests
