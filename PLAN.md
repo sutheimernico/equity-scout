@@ -326,8 +326,10 @@ Trades/Valuations/Risk-Events als eigene Tabellen (`autotrader.db`), EUR-Spot je
 Nightly-Step nach forward_paper (18:00 wäre Intraday-Stand); Digest-Block, `/api/autodepot`,
 Dashboard-Tab "Auto-Depot". Broker-Seam = Trade-Rows + README-Fakten (Alpaca/T212/IBKR),
 bewusst KEIN Adapter-Code — Echtgeld-Routing bleibt per LOOP.md verboten.
-- [ ] Backlog: Next-Open-Fills (braucht OHLC-Panel-Welt; Close-Fill + konservative 10 bps
+- [x] Backlog: Next-Open-Fills (braucht OHLC-Panel-Welt; Close-Fill + konservative 10 bps
       decken den Realismus-Gap bei täglicher Kadenz)
+      DONE 2026-07-24 (v13 Wave O): OHLC-Panel-Welt + pending_orders-Fills am nächsten Open
+      + Corwin-Schultz-Kostenboden — siehe Phase Vision v13.
 - [ ] Backlog: (Fractional-)Kelly-Sizing erst ab ~50 realisierten Depot-Trades (vorher
       Schätz-Rauschen)
 - [x] v10.1 Always-on (2026-07-20, same session): `run_nightly_guarded.sh` (flock +
@@ -400,6 +402,18 @@ Drei Wellen, alle abgeschlossen (Outcome-Details im Plan-Doc):
   ehrliche fill-Labels, Legacy-Migration), Corwin-Schultz-Kostenboden max(10 bps, CS/2) als
   dokumentierte UNTERGRENZE (`costs.py`); Sleeves bleiben bewusst Signal-Layer (Close-Fill,
   flat 10 bps). README-Konventions- und P0-Absatz, ProofView-Label "Kostenanteil (mind.)".
+- [x] Verify: erste Live-Nightly unter Next-Open beäugt (2026-07-24). Befund: Übergangsnacht
+      korrekt (Legacy-Blob ohne Pending → kein Fill, neue Pending erzeugt), ABER die
+      02:34-Nightly lief gegen eine Tokio-gestempelte 24.07.-Panelzeile (laufende Session,
+      US-Spalten = ffill-Kopien) → Depot + ML Long Bot standen auf `last_as_of=2026-07-24`;
+      der Samstag-Lauf hätte den echten Freitags-Close idempotent ÜBERSPRUNGEN und die
+      Pending-Orders wären nur je am Close-Fallback gefüllt worden (Next-Open faktisch tot).
+      Fix: `last_completed_us_session` + `trim_to_completed_sessions` in BEIDEN Loader-Pfaden
+      (deckt auch manuelle Tages-Läufe ab, die Intraday-Kurse als Close buchen — Vorfall
+      2026-07-23 15:57); Einmal-State-Reparatur `scripts/fix_future_asof_2026_07_24.py`
+      (Backup in `data/backup-2026-07-24-pre-asof-fix/`). Bekannter, akzeptierter Rest:
+      der 15:57-Lauf hat Intraday-als-Close gebucht — einmalige Bewertungsunschärfe im
+      Depot-Track-Record, nicht rekonstruierbar. Dry-Run-Smoke grün (Trim + Idempotenz).
 
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
