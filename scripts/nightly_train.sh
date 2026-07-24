@@ -49,6 +49,8 @@ echo "[$(date -Is)] ===== nightly_train start =====" >> "$LOG"
 step train_entry       "$PY" scripts/run_train_entry.py
 step learning_snapshot "$PY" scripts/run_learning_snapshot.py
 step research_batch    "$PY" scripts/run_research.py --trials 25
+# v14: strategy-parameter search — own ledger pool, cheap backtests, wraps when exhausted
+step strategy_research "$PY" scripts/run_strategy_research.py --trials 25
 step forward_paper     "$PY" scripts/run_forward_paper.py --refresh
 step st_swing          "$PY" scripts/run_shortterm.py --lane swing
 # session lane overnight sweep: outside the market window this flattens anything the
