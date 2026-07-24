@@ -173,6 +173,31 @@ def test_fill_cost_uses_the_corwin_schultz_floor_for_wide_ranges() -> None:
     assert valuation.trades[0].fill == "open"
 
 
+def test_fill_cost_ignores_a_running_sessions_ohlc_row() -> None:
+    """A live OHLC fetch can carry a row for a session still trading elsewhere (Tokyo at
+    02:35 Berlin); its intraday range must not enter the spread median for today's fill."""
+    panel = _panel(5, {"SPY": [100.0] * 5})
+    strategy = _Fixed("s", [TargetWeight("SPY", 1.0)])
+    account, _ = advance_depot(
+        AutoDepotAccount.fresh(initial_capital=100_000.0),
+        [strategy], _allocation({"s": 1.0}), PricePanel(panel.closes.iloc[:4]),
+        protections=[],
+    )
+    idx = pd.bdate_range(end=panel.dates[-1], periods=22).append(
+        pd.bdate_range(start=panel.dates[-1] + pd.Timedelta(days=1), periods=1)
+    )
+    frame = pd.DataFrame({"open": 100.0, "high": 100.0, "low": 100.0, "close": 100.0},
+                         index=idx)
+    frame.iloc[-1] = [100.0, 200.0, 100.0, 100.0]  # the running session's wild range
+    account, valuation = advance_depot(
+        account, [strategy], _allocation({"s": 1.0}), panel, protections=[],
+        ohlc={"SPY": frame},
+    )
+    # zero-range history -> no CS estimate -> the flat 10 bps floor, future row ignored
+    assert valuation.trades[0].cost == pytest.approx(100.0)
+    assert valuation.trades[0].fill == "open"
+
+
 def test_refilling_the_same_book_trades_nothing() -> None:
     """Pending targets equal to the drifted book must not book trades or costs."""
     panel = _panel(5, {"SPY": [100.0] * 5})

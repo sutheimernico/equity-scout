@@ -355,9 +355,12 @@ def advance_depot(
                 if today_close is not None:  # guaranteed by _fill_price's open branch
                     intraday_attribution += delta * (today_close[1] / price - 1.0)
             # v13 O3: per-ticker liquidity-aware cost, max(flat floor, half CS spread).
-            # LOWER BOUND — see equity_scout.costs; `costs_bps` stays the floor.
+            # LOWER BOUND — see equity_scout.costs; `costs_bps` stays the floor. The
+            # frame is cut at `today`: a live OHLC fetch can carry a still-running
+            # session's row (Tokyo at 02:35), which is not a completed day's range.
+            frame = ohlc.get(ticker) if ohlc else None
             rate_bps = fill_cost_rate_bps(
-                ohlc.get(ticker) if ohlc else None, flat_bps=costs_bps
+                frame.loc[:today] if frame is not None else None, flat_bps=costs_bps
             )
             cost = abs(delta) * equity * rate_bps / 10_000.0
             total_cost += cost
