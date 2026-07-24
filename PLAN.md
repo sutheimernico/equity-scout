@@ -184,8 +184,13 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 - [x] P6 IA-Overhaul (sichtbare Nav-Gruppen, Heute-Startseite, Depots vereinheitlicht mit
       TimeContextBadge, Stimmen-/Lernkurven-Views, Signal-Stack pro Ticker, Entry-Modell/
       Signal-Filter-Umbenennung; /api/stack, ML-Score in /api/radar)
-- [ ] P7 Backlog: Strategie-Parameter-Suche im Research-Loop (EIGENES Ledger + EIGENE DSR-Hürde,
+- [x] P7 Backlog: Strategie-Parameter-Suche im Research-Loop (EIGENES Ledger + EIGENE DSR-Hürde,
       Multiple-Testing-Trennung; v5-P4)
+      DONE 2026-07-24 (Vision v14): eigene Tabellen `strategy_trials`/`strategy_loop_state`
+      in research_ledger.db, endliches 43er-Grid über die Regel-Strategie-Knobs,
+      Whole-History-After-Cost-Backtests mit eigener DSR-Hürde, /api/research-Block +
+      Dashboard-Karte, Nightly-Step. Champions = Evidenz, nie Auto-Übernahme — siehe
+      Phase Vision v14 unten.
 - [x] Backlog: DSR-Hürde zum Trial-Zeitpunkt im Research-Ledger mitspeichern (Ledger nutzt
       positionsbasierte INSERTs -> kleiner Schema-Umbau nötig; ohne das ist die rückwirkende
       "war der Champion damals über der Hürde"-Kurve nicht rekonstruierbar)
@@ -414,6 +419,25 @@ Drei Wellen, alle abgeschlossen (Outcome-Details im Plan-Doc):
       (Backup in `data/backup-2026-07-24-pre-asof-fix/`). Bekannter, akzeptierter Rest:
       der 15:57-Lauf hat Intraday-als-Close gebucht — einmalige Bewertungsunschärfe im
       Depot-Track-Record, nicht rekonstruierbar. Dry-Run-Smoke grün (Trim + Idempotenz).
+
+## Phase: Vision v14 — Strategie-Parameter-Suche (2026-07-24) — DONE 2026-07-24
+Spec/Plan: `docs/superpowers/{specs,plans}/2026-07-24-vision-v14-strategy-param-search.md`.
+P7/v5-P4 umgesetzt: zweite Suchdimension im Research-Loop über die Knobs der Regel-Strategien
+(Vol-Target 4×4, GEM 4, DAA 3, Sektor-Rotation 4×4, 60/40 4 = 43 Configs; bewusst ohne
+Leverage/Permanent/DCA — Begründung im Modul-Docstring). EIGENE Buchführung: Tabellen
+`strategy_trials` + `strategy_loop_state` in research_ledger.db mit EIGENER
+expected-max-Sharpe-Hürde — ML-Suche und Strategie-Suche teilen sich nie ein
+Multiple-Testing-Budget (Trennungs-Test). Trial = Whole-History-After-Cost-Backtest
+(`engine.run_backtest`, ME, 10 bps) → PSR-Statistiken; Cursor wrappt modulo Raumgröße
+(ausgeschöpftes Grid re-evaluiert per Upsert gegen die wachsende Historie — Zählung bleibt
+unique, Metriken bleiben frisch). Surfaces: `/api/research`-Block `strategy_search`
+(Champion/Leaderboard/Beste-pro-Strategie), Dashboard-Karte in der Forschung-View mit
+In-Sample-Label, Nightly-Step `strategy_research --trials 25`, CLI
+`run_strategy_research.py`. Ehrlichkeitsgrenze: Champions sind Evidenz, NIE Auto-Übernahme —
+geänderte Parameter wären eine neue Strategie-Identität und würden Forward-Track-Records
+verfälschen (v15-Kandidat: Übernahme als neue Sleeve-Identität mit frischem Track).
+Live-Smoke 2026-07-24: 5 Trials gegen das echte Panel (Hürde 0.000→0.005), Dash-Service
+neu gestartet, `/api/research` liefert den Block live.
 
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),

@@ -46,6 +46,12 @@ uv run python scripts/run_backtest.py --refresh   # prints metrics + cost sweep 
 # Continuous ML research loop in the background (resumable; the Auto-Research dashboard tab is live)
 nohup uv run python scripts/run_research.py > research.log 2>&1 &
 
+# Strategy-parameter search (v14): finite grid over the rule strategies' knobs, whole-history
+# after-cost backtests, OWN trial ledger + OWN DSR hurdle (never mixed with the ML pool above).
+# In-sample evidence only — champions are never auto-promoted into the live sleeves, because
+# changed parameters are a new strategy identity with a fresh forward track record.
+uv run python scripts/run_strategy_research.py --trials 43   # nightly chain runs 25/night
+
 # Offline deterministic run (fake provider)
 uv run python scripts/run_scout.py --provider fake --db equity_scout.db
 
