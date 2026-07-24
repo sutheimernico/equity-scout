@@ -9,6 +9,8 @@ from collections import Counter
 from equity_scout.metrics import expected_max_sharpe
 from equity_scout.ml.ledger import TrialRecord, load_trials
 from equity_scout.ml.pbo import load_pbo
+from equity_scout.ml.strategy_ledger import StrategyTrialRecord, load_strategy_trials
+from equity_scout.ml.strategy_search import all_configs, build_strategy
 
 
 def _record_to_dict(record: TrialRecord) -> dict:
@@ -31,11 +33,14 @@ def _record_to_dict(record: TrialRecord) -> dict:
 
 
 def research_summary(db_path: str, *, top_n: int = 8) -> dict:
+    strategy_block = strategy_search_summary(db_path)
     if not os.path.exists(db_path):
-        return {"available": False, "n_trials": 0, "champion": None, "leaderboard": []}
+        return {"available": False, "n_trials": 0, "champion": None, "leaderboard": [],
+                "strategy_search": strategy_block}
     records = load_trials(db_path)
     if not records:
-        return {"available": True, "n_trials": 0, "champion": None, "leaderboard": []}
+        return {"available": True, "n_trials": 0, "champion": None, "leaderboard": [],
+                "strategy_search": strategy_block}
 
     ranked = sorted(records, key=lambda r: (r.dsr, r.sharpe), reverse=True)
     top = ranked[:top_n]
@@ -53,4 +58,47 @@ def research_summary(db_path: str, *, top_n: int = 8) -> dict:
     pbo = load_pbo(db_path)  # second overfitting diagnostic, computed on demand via scripts/run_pbo.py
     if pbo is not None:
         summary["pbo"] = pbo
+    summary["strategy_search"] = strategy_block
     return summary
+
+
+def _strategy_record_to_dict(record: StrategyTrialRecord) -> dict:
+    return {
+        "strategy": record.config.strategy,
+        "name": build_strategy(record.config).name,
+        "params": record.config.params_dict(),
+        "dsr": record.dsr,
+        "dsr_hurdle": record.dsr_hurdle,
+        "sharpe": round(record.sharpe, 3),
+        "sortino": round(record.sortino, 3),
+        "cagr": round(record.cagr, 4),
+        "max_drawdown": round(record.max_drawdown, 4),
+        "annual_turnover": round(record.annual_turnover, 2),
+    }
+
+
+def strategy_search_summary(db_path: str, *, top_n: int = 5) -> dict:
+    """The v14 strategy-parameter pool: OWN trial count and OWN hurdle (never mixed with
+    the ML pool above). In-sample whole-history backtests, DSR-deflated — evidence for
+    Nico, never auto-promoted into the live sleeves."""
+    space_size = len(all_configs())
+    if not os.path.exists(db_path):
+        return {"available": False, "n_trials": 0, "space_size": space_size,
+                "champion": None, "leaderboard": [], "best_per_strategy": []}
+    records = load_strategy_trials(db_path)
+    if not records:
+        return {"available": True, "n_trials": 0, "space_size": space_size,
+                "champion": None, "leaderboard": [], "best_per_strategy": []}
+    ranked = sorted(records, key=lambda r: (r.dsr, r.sharpe), reverse=True)
+    best_per: dict[str, StrategyTrialRecord] = {}
+    for record in ranked:
+        best_per.setdefault(record.config.strategy, record)
+    return {
+        "available": True,
+        "n_trials": len(records),
+        "space_size": space_size,
+        "hurdle": round(expected_max_sharpe([r.sharpe_periodic for r in records]), 4),
+        "champion": _strategy_record_to_dict(ranked[0]),
+        "leaderboard": [_strategy_record_to_dict(r) for r in ranked[:top_n]],
+        "best_per_strategy": [_strategy_record_to_dict(r) for r in best_per.values()],
+    }

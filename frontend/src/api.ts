@@ -311,6 +311,31 @@ export interface PboResult {
   computed_at: string;
 }
 
+// v14 strategy-parameter search: own trial pool with its own DSR hurdle,
+// in-sample whole-history backtests — evidence only, never auto-promoted.
+export interface StrategyTrial {
+  strategy: string;
+  name: string;
+  params: Record<string, number | number[]>;
+  dsr: number;
+  dsr_hurdle: number | null;
+  sharpe: number;
+  sortino: number;
+  cagr: number;
+  max_drawdown: number;
+  annual_turnover: number;
+}
+
+export interface StrategySearchBlock {
+  available: boolean;
+  n_trials: number;
+  space_size: number;
+  hurdle?: number;
+  champion: StrategyTrial | null;
+  leaderboard: StrategyTrial[];
+  best_per_strategy: StrategyTrial[];
+}
+
 export interface ResearchResponse {
   available: boolean;
   n_trials: number;
@@ -320,6 +345,7 @@ export interface ResearchResponse {
   model_frequency?: Record<string, number>;
   feature_frequency?: Record<string, number>;
   pbo?: PboResult;
+  strategy_search?: StrategySearchBlock;
   disclaimer: string;
 }
 

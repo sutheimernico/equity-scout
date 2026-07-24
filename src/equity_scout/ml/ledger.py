@@ -130,7 +130,12 @@ def load_trials(db_path: str) -> list[TrialRecord]:
     """All trials, each with its DSR recomputed against the current trial set (hurdle rises with N)."""
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT * FROM trials").fetchall()
+        try:
+            rows = conn.execute("SELECT * FROM trials").fetchall()
+        except sqlite3.OperationalError:
+            # since v14 the strategy loop may create the ledger file first — a DB without
+            # the ML tables is a valid state for read-only consumers (/api/research)
+            return []
     if not rows:
         return []
     hurdle = expected_max_sharpe([r["sharpe_periodic"] for r in rows])
@@ -153,13 +158,21 @@ def load_trials(db_path: str) -> list[TrialRecord]:
 
 def trial_count(db_path: str) -> int:
     with sqlite3.connect(db_path) as conn:
-        return int(conn.execute("SELECT COUNT(*) FROM trials").fetchone()[0])
+        try:
+            return int(conn.execute("SELECT COUNT(*) FROM trials").fetchone()[0])
+        except sqlite3.OperationalError:
+            return 0
 
 
 def current_hurdle(db_path: str) -> float:
     """The DSR deflation Sharpe given how many configs have been tried — the overfitting budget."""
     with sqlite3.connect(db_path) as conn:
-        sharpes = [row[0] for row in conn.execute("SELECT sharpe_periodic FROM trials").fetchall()]
+        try:
+            sharpes = [
+                row[0] for row in conn.execute("SELECT sharpe_periodic FROM trials").fetchall()
+            ]
+        except sqlite3.OperationalError:
+            return 0.0
     return round(expected_max_sharpe(sharpes), 4)
 
 

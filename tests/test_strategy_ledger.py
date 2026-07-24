@@ -107,6 +107,30 @@ def test_readers_tolerate_a_pre_v14_ledger(tmp_path):
     assert strategy_champion(db) is None
 
 
+def test_strategy_search_summary_reports_the_own_pool(tmp_path):
+    from equity_scout.ml.research_view import research_summary, strategy_search_summary
+    from equity_scout.ml.strategy_search import all_configs
+
+    db = str(tmp_path / "l.db")
+    assert strategy_search_summary(db)["available"] is False  # no DB yet, honest
+
+    init_strategy_ledger(db)
+    record_strategy_trial(
+        db, _result("sector_rotation", (("lookback_months", (12, 6)), ("top_n", 3)), 0.05),
+        now="t1",
+    )
+    record_strategy_trial(db, _result("gem", (("lookback_months", 6),), 0.03), now="t2")
+    block = strategy_search_summary(db)
+    assert block["n_trials"] == 2
+    assert block["space_size"] == len(all_configs())
+    assert block["champion"]["strategy"] == "sector_rotation"
+    assert block["champion"]["name"] == "Sektor-Rotation (Top 3)"
+    assert block["champion"]["params"]["lookback_months"] == (12, 6)
+    assert {b["strategy"] for b in block["best_per_strategy"]} == {"sector_rotation", "gem"}
+    # embedded in the /api/research payload even while the ML ledger is empty
+    assert research_summary(db)["strategy_search"]["n_trials"] == 2
+
+
 def _panel(days: int = 300) -> PricePanel:
     idx = pd.bdate_range("2024-01-01", periods=days)
     rng = np.random.default_rng(11)

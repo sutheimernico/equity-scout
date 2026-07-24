@@ -4,6 +4,7 @@ import { fetchResearch, type ResearchResponse } from "../api";
 import { ML_FEATURE_LABELS, MODEL_LABELS, num, pctAbs } from "../format";
 import { ChampionCard } from "./ChampionCard";
 import { Leaderboard } from "./Leaderboard";
+import { StrategySearchPanel } from "./StrategySearchPanel";
 import { Bar } from "./ui/Bar";
 import { Chip } from "./ui/Chip";
 import { Explain } from "./ui/Explain";
@@ -118,6 +119,8 @@ export function ResearchPanel() {
           <Leaderboard rows={data.leaderboard} />
         </>
       )}
+
+      {data.strategy_search?.available && <StrategySearchPanel block={data.strategy_search} />}
     </>
   );
 }
