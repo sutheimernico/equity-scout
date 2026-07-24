@@ -10,7 +10,7 @@ cheaper and simpler than a holiday-calendar dependency.
 """
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 MARKET_TZ = "America/New_York"
@@ -26,3 +26,22 @@ def within_market_window(now: datetime) -> bool:
     if local.weekday() >= 5:  # Saturday/Sunday
         return False
     return SESSION_START <= local.time() <= WINDOW_END
+
+
+def last_completed_us_session(now: datetime) -> date:
+    """The date of the last NYSE session already past close (+settle grace) as of `now`.
+
+    The honest upper bound for a daily panel's clock: a price row dated after this is an
+    intraday reading of a still-running session somewhere on the globe (Tokyo trades at
+    02:35 Berlin; a daytime manual run catches the US itself mid-session), not an
+    end-of-day close. US market holidays are NOT modelled — the cutoff is an upper bound,
+    and a holiday simply has no panel row to keep (same trade-off as the window guard)."""
+    if now.tzinfo is None:
+        raise ValueError("last_completed_us_session needs a tz-aware datetime")
+    local = now.astimezone(ZoneInfo(MARKET_TZ))
+    candidate = local.date()
+    if local.weekday() >= 5 or local.time() <= WINDOW_END:
+        candidate -= timedelta(days=1)
+    while candidate.weekday() >= 5:
+        candidate -= timedelta(days=1)
+    return candidate

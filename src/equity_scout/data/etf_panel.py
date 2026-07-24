@@ -9,12 +9,33 @@ allocation strategies — see `market.py`).
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 
 import pandas as pd
 
 from equity_scout.market import PricePanel
+from equity_scout.market_hours import last_completed_us_session
 
 DEFAULT_SNAPSHOT = "data/prices/etf_panel.csv"
+
+
+def trim_to_completed_sessions(
+    closes: pd.DataFrame, *, now: datetime | None = None
+) -> pd.DataFrame:
+    """Drop rows dated after the last completed NYSE session (clock injectable via `now`).
+
+    yfinance stamps a row for a session that is still RUNNING at fetch time: the nightly
+    chain at 02:35 Berlin catches Tokyo mid-session (a same-date row with 09:35-JST
+    prices), a daytime manual run catches the US itself. Downstream that row is poison —
+    ffill fabricates same-day closes for every other column, advance runners stamp
+    `last_as_of` into a day whose US session never happened and then idempotently skip
+    the REAL close, and next-open fills look for an open that does not exist yet
+    (live incident 2026-07-24). The panel world's clock ticks on completed US sessions;
+    later rows are not data yet — the next refresh re-fetches them as real closes."""
+    if closes.empty:
+        return closes
+    cutoff = pd.Timestamp(last_completed_us_session(now or datetime.now(timezone.utc)))
+    return closes.loc[:cutoff]
 
 
 def clean_panel(closes: pd.DataFrame) -> PricePanel:
@@ -121,11 +142,16 @@ def load_etf_panel(
     start: str = "2007-01-01",
     snapshot: str = DEFAULT_SNAPSHOT,
     refresh: bool = False,
+    now: datetime | None = None,
 ) -> PricePanel:
-    """Load from the CSV snapshot if present, else fetch from yfinance and snapshot it."""
+    """Load from the CSV snapshot if present, else fetch from yfinance and snapshot it.
+    Both paths trim rows beyond the last completed US session — the snapshot-read path
+    too, so a snapshot written by an older version (or mid-session) stays harmless."""
     if not refresh and os.path.exists(snapshot):
-        return load_snapshot(snapshot)
-    panel = clean_panel(_download_closes(tickers, start))
+        return PricePanel(trim_to_completed_sessions(load_snapshot(snapshot).closes, now=now))
+    panel = PricePanel(
+        trim_to_completed_sessions(clean_panel(_download_closes(tickers, start)).closes, now=now)
+    )
     save_snapshot(panel, snapshot)
     return panel
 
@@ -136,12 +162,17 @@ def load_price_history(
     start: str,
     snapshot: str,
     refresh: bool = True,
+    now: datetime | None = None,
 ) -> PricePanel:
     """Column-wise variant of load_etf_panel (clean_columns instead of clean_panel) for
     per-pair measurements over heterogeneous tickers. Missing symbols simply yield no
-    column — callers count those honestly as unresolvable."""
+    column — callers count those honestly as unresolvable. Trims like load_etf_panel:
+    heterogeneous tickers are exactly where a running Tokyo session stamps a future-dated
+    row that ffill then spreads across every US column."""
     if not refresh and os.path.exists(snapshot):
-        return load_snapshot(snapshot)
-    panel = clean_columns(_download_closes(tickers, start))
+        return PricePanel(trim_to_completed_sessions(load_snapshot(snapshot).closes, now=now))
+    panel = PricePanel(
+        trim_to_completed_sessions(clean_columns(_download_closes(tickers, start)).closes, now=now)
+    )
     save_snapshot(panel, snapshot)
     return panel
