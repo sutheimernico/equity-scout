@@ -2071,3 +2071,109 @@ code {
     padding: var(--space-3);
   }
 }
+
+/* ===== Stock rows (logo + spelled-out company name), 2026-08-04 =====
+   Bare tickers (9064.T, PETR4.SA) told Nico nothing about which company he was looking at.
+   One row = logo, name, ticker, score, price — dense enough that five fit on a phone screen
+   without scrolling. Figures use the tabular-nums font so the columns line up. */
+.block-head {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin: 0 0 var(--space-2);
+}
+.stock-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.stock-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+.stock-row:last-of-type {
+  border-bottom: none;
+}
+.stock-logo {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  /* Provider favicons arrive on transparent or white; a neutral inset keeps both readable
+     against the near-black surface without tinting the logo itself. */
+  background: var(--bg-inset);
+  object-fit: contain;
+}
+.stock-logo-mono {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+.stock-ident {
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* lets the name ellipsis instead of widening the row */
+  flex: 1;
+}
+.stock-name {
+  color: var(--text-strong);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stock-ticker {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.stock-figures {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex: none;
+}
+.stock-score {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.stock-price {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.stock-zone {
+  flex: none;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border-radius: var(--radius-pill);
+  padding: 2px var(--space-2);
+}
+.stock-empty {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  margin: 0;
+}
+.stock-more {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--text-xs);
+  padding: var(--space-2) 0 0;
+  cursor: pointer;
+}

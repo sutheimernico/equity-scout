@@ -16,6 +16,7 @@ import { pct } from "../format";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
 import { RegimeCard } from "./RegimeCard";
 import { StatTile } from "./StatTile";
+import { StockList } from "./StockList";
 
 // The system-status start page (plan v6 P6): what needs a decision, how the paper depots
 // stand, what fired recently, when things last ran. Every block degrades independently —
@@ -64,6 +65,17 @@ export function TodayView({ onNavigate }: { onNavigate: (view: string) => void }
       </header>
 
       <RegimeCard />
+
+      {/* Companies before counters (Nico, 2026-08-04): the first thing on the phone should
+          be WHICH names the funnel has in front, spelled out and with a logo, not a tally
+          of how many pitches are open. */}
+      <section className="panel reveal">
+        <h2 className="block-head">Aktuell vorne</h2>
+        <StockList
+          entries={radar?.watchlist?.entries ?? []}
+          onOpen={() => onNavigate("radar")}
+        />
+      </section>
 
       <div className="kpi-row">
         <StatTile
