@@ -2017,6 +2017,33 @@ code {
   .view * {
     overflow-wrap: anywhere;
   }
+  /* ...but NEVER numbers. `anywhere` split "29861 $" into "2986" + "1 $" inside a narrow
+     table cell, which reads as a different figure — a wrong number is worse than any
+     overflow. These selectors carry the `.view` prefix on purpose: `.view *` above has
+     specificity (0,1,0) and would beat a bare `td` (0,0,1), which is exactly why the first
+     attempt at this rule had no effect. Cells keep their integrity and the table scrolls
+     instead (see the table rule below). */
+  .view .num,
+  .view .tnum,
+  .view .metric-value,
+  .view .stock-score,
+  .view .stock-price,
+  .view .tile .value,
+  .view th,
+  .view td {
+    overflow-wrap: normal;
+    word-break: keep-all;
+  }
+  /* Table cells wrap at spaces (label columns need it) but never mid-token, so "29861 $"
+     may break before the "$" and never inside the digits. Only the tagged numeric values
+     stay on one line — forcing nowrap on every cell pushed the Equity column out of view
+     behind a horizontal scroll, which hides the very figure the row is about. */
+  .view .num,
+  .view .tnum,
+  .view .metric-value,
+  .view .tile .value {
+    white-space: nowrap;
+  }
   /* Grid and flex children default to min-content width, which is what let wide cards
      push their container. */
   .view *[class*="grid"] > *,
