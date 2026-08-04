@@ -225,3 +225,26 @@ content-hasht die Assets, der Service Worker liefert also von sich aus die neue 
 Die Analysten-Zeile bricht auf 390 px um und der Fortsetzungstext
 („(11 Schätzungen, fremde Meinung)") hängt ohne Einzug am linken Rand — bestand vor dieser
 Runde, fällt mit dem Raute-Swatch davor nur mehr auf.
+
+### Korrektur direkt danach: das linke Band war eine Fehlaussage
+
+Nico am Balken: „der graue Balken ganz links macht nicht so viel Sinn, das doch alles unter
+der Linie basically grün." Die Intuition ist fachlich falsch, die Kritik am Band trifft aber
+zu — und die Ursache war ein Wording-Fehler aus dieser Session.
+
+`radar.entry_zone` baut die Zone aus Support-Levels: `high = max(supports)` (auf SMA200
+gedeckelt), `low = max(min(supports) − ATR, min(supports) × 0.8)`. Unter `zone_low` heißt
+also nicht „billiger", sondern: alle Supports sind gefallen, plus ein ATR Puffer darunter —
+kein Halt mehr darunter. `radar.zone_note` sagt das seit je („tiefer als die Support-Levels"),
+und `in_zone` ist ein Pitch-Gate (`notify.py:73`, `lanes.py:172`): unter der Zone wird so
+wenig gepitcht wie darüber.
+
+`briefs.zone_gap` textete das aber als **„noch günstiger"** — ein Kaufsignal, das dem
+eigenen Konzept widersprach und genau so gelesen wurde. Jetzt „Support gebrochen", in Schritt
+mit `zone_note`; Regressionstest schließt „günstig" in dieser Aussage aus. Das linke Band ist
+entsprechend amber wie das rechte: beide Seiten sind ein „nicht jetzt", die Seite trägt der
+Marker, den Grund die Verdict-Zeile.
+
+Lehre für künftige Runden: Die Zone ist ein Support-Band, kein Fair-Value-Band. Formulierungen
+in dieser Fläche müssen mit `radar.zone_note` übereinstimmen, sonst erzeugt das Dashboard
+Kaufsignale, die der Funnel nie gegeben hat.
