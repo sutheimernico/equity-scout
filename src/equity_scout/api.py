@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from equity_scout.buckets import BUCKET_WEIGHTS
@@ -54,6 +54,7 @@ from equity_scout.lane_storage import (
     load_lane_valuations,
 )
 from equity_scout.lanes import LANE_AUTOPILOT, LANE_NICO
+from equity_scout.logos import ensure_logo
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.sectors import sector_momentum
@@ -711,6 +712,29 @@ def create_app(
         # The DASH_TOKEN middleware still guards it, which is wanted: an unauthenticated
         # probe must not report the cockpit as reachable.
         return JSONResponse({"ok": True})
+
+    @app.get("/api/logo/{ticker}")
+    def logo(ticker: str) -> Response:
+        # Plain `def` (not `async def`): FastAPI runs sync route handlers in a threadpool,
+        # so the one live network call ensure_logo may make on a cache miss (10 s timeout,
+        # see logos.py) never blocks the event loop - same convention as /api/entry/{ticker}.
+        if not re.fullmatch(r"[A-Za-z0-9.\-]{1,15}", ticker):
+            return JSONResponse({"error": "Ungültiger Ticker."}, status_code=422)
+        path = ensure_logo(ticker)
+        if path is None:
+            # A missing logo is a NORMAL answer, not an error: the frontend falls back to a
+            # monogram badge. 404 (not 200 + null) so the service worker/browser cache never
+            # confuses "no logo" with a cacheable image response.
+            return JSONResponse({"error": "Kein Logo verfügbar."}, status_code=404)
+        # The bytes we serve here never change once cached (ensure_logo never re-fetches a
+        # hit), so a long max-age is safe. 30 days rather than "forever": the only way to
+        # correct a bad cached image today is deleting the file on disk, and we don't want a
+        # phone holding onto a stale/wrong image for a year after that.
+        return Response(
+            content=path.read_bytes(),
+            media_type="image/png",
+            headers={"Cache-Control": "public, max-age=2592000"},
+        )
 
     @app.get("/api/inbox")
     def inbox() -> JSONResponse:

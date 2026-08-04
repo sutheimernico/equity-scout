@@ -8,6 +8,7 @@ __pycache__/
 *.log
 data/cache/
 data/prices/
+data/logos/
 .state/
 .env
 .claude/settings.local.json
