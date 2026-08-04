@@ -137,3 +137,39 @@ ein echtes Microsoft-Logo nur 426. Erkennung läuft deshalb über einen SHA-256-
 bekannten Platzhalters.
 
 Gate: 1227 Python-Tests grün, ruff clean, 22 vitest-Tests grün, `tsc --noEmit` exit 0.
+
+
+## Nachtrag 2: Aktien-Steckbrief (2026-08-04)
+
+Nico: „man checkt nichts da, ich will auf den ersten Blick sehen was ich sehen muss, was
+wäre ein guter Preis, sind wir da drin, was wäre Zielpreis zum Wiederausstieg, dann News-
+Zusammenfassung durch KI, minimal auch pitchen was das Unternehmen macht."
+
+Neu: `GET /api/briefs` bündelt pro Watchlist-Titel Name, Sektor/Branche, Kurs, Zone samt
+Klartext-Urteil, Analysten-Konsens mit Upside, KGV und Score-Band; die Karte im Frontend
+zeigt das in Leserichtung, Details (Zonengrenzen, Score, KGV, Modell-Kursziel) hinter
+einem Tap.
+
+Datenlage, geprüft und nicht schöngeredet:
+- **Kein Modell-Kursziel.** `entry.compute_target_stop` liefert None, weil KEIN
+  `entry_tb`-Champion registriert ist. Die Karte sagt genau das („kein trainiertes
+  Modell") statt eine Zahl zu erfinden. Zielpreis kommt daher nur als Analysten-Konsens,
+  klar als fremde Meinung gelabelt.
+- **`fundamentals.py` hatte keinen Cache** — jedes App-Öffnen wären fünf yfinance-Calls
+  gewesen. Jetzt 6-h-TTL im Prozess (0,86 s → 0,008 s gemessen); ein all-None-Ergebnis
+  wird NIE gecacht, weil genau so ein rate-limitierter Fehlschlag aussieht.
+- Offen aus Nicos Wunschliste: **die KI-Texte** (ein Satz „was macht die Firma", News-
+  Zusammenfassung). Ollama ist installiert und die Modelle liegen lokal (`qwen2.5`,
+  `llama3.1`), aber der Server läuft nicht — deshalb steht in den Pitches auch
+  „Automatische Kurzeinschätzung nicht verfügbar". Geplanter Weg: Generierung in der
+  18:00-Kette + Cache in der DB, nicht live im HTTP-Request (10–30 s Latenz wären auf dem
+  Handy unbrauchbar).
+
+### Vorbefund, NICHT gefixt (außerhalb des Auftrags)
+
+`tests/test_entry_model.py::test_calibrated_model_scores_through_the_calibrator` ist
+flaky: bei drei vollen Suite-Läufen fiel er zweimal durch und war einmal grün, isoliert
+immer grün. Er prüft `plain_scores + calibrated_scores == 100` exakt; der elastic-net-Solver
+weicht threadabhängig minimal ab und kippt damit eine Rundungsgrenze. Unabhängig von der
+Arbeit dieser Session (die berührt kein ML-Training). Fix wäre eine Toleranz von ±1 in der
+Assertion — Nicos Entscheidung, nicht ungefragt mitgefixt.
