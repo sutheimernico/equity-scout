@@ -305,15 +305,36 @@ like an app on the phone (v12 M1–M4):
 3. **Am Handy öffnen** (gleiches WLAN): `http://<laptop-lan-ip>:8420/?token=<DASH_TOKEN>`
    — der Token wandert einmalig in ein Cookie, danach reicht die nackte URL.
 4. **Als App installieren**: Browser-Menü → "Zum Startbildschirm hinzufügen" — das
-   PWA-Manifest liefert Icon + Standalone-Fenster (kein Service Worker: das Cockpit
-   ist bewusst online-only, die Daten liegen auf dem Server).
-5. Optional `DASH_URL=http://<lan-ip>:8420/?token=…` in `.env`: der 18:00-Digest
-   erinnert dann einmal pro Woche an die Adresse.
+   PWA-Manifest liefert Icon + Standalone-Fenster.
+5. `DASH_URL=http://<host>:8420` in `.env`: jede Abschnitts-Überschrift im 18:00-Digest
+   wird damit zum Deeplink in die passende Cockpit-Ansicht.
+
+### Vier Fokusse am Handy (2026-08-04)
+
+Unter 720 px Breite ersetzt eine Tab-Leiste am unteren Rand die 12-teilige Sidebar:
+**🏠 Heute · 🤖 Depot · 📬 Entscheiden · 🧾 Beweis**, die anderen acht Ansichten liegen
+hinter **⋯ Mehr**. Desktop bleibt unverändert.
+
+- **Deeplinks**: `?view=<key>` öffnet direkt eine Ansicht — `today`, `depots`, `inbox`,
+  `proof`, `radar`, `funnel`, `voices`, `strategies`, `model`, `ml`, `learning`, `chat`.
+  Ein unbekannter Wert landet auf "Heute" (ein veralteter Telegram-Link darf die App
+  nicht kaputt machen). Query-Parameter statt Pfad, weil `StaticFiles` bei `/depots`
+  ein 404 liefern würde. Der Tab-Wechsel schreibt per `replaceState` — die Zurück-Geste
+  verlässt die App, statt durch eine Tab-Historie zu laufen.
+- **Offline**: `frontend/public/sw.js` (Cache `es-v1`) hält die App-Shell vor und
+  beantwortet `/api/*` aus dem Cache, wenn das Netz wegbricht. Ein Banner nennt dann
+  den letzten erfolgreichen Kontakt ("Stand von 18:04"); die Frische wird per
+  `/api/health` alle 30 s mit `cache: "no-store"` geprüft, damit ein Cache-Treffer ein
+  unerreichbares Cockpit nicht als online ausgibt. **Cache-Version hochzählen**, wenn
+  sich Shell oder Worker ändern — `activate` löscht dann die alten Caches.
+- **Entscheidungen brauchen Verbindung**: `POST /api/inbox/{id}/decision` wird nie
+  gecacht und nie offline gepuffert — eine Entscheidung, die später gegen alte Kurse
+  feuert, ist schlimmer als eine Fehlermeldung jetzt.
 
 **Token-Rotation**: neuen Wert in `.env` setzen, `systemctl --user restart
-equity-scout-dash` — alte Cookies sind sofort ungültig. **Von unterwegs**: Tailscale
-(free tier) wäre der saubere Weg, braucht aber Nicos Account — bewusst nicht
-automatisiert.
+equity-scout-dash` — alte Cookies sind sofort ungültig. Loopback (127.0.0.1) ist vom
+Token-Gate bewusst ausgenommen; über LAN/Tailscale greift es (401 ohne Token).
+**Von unterwegs**: läuft über Tailscale (Node `wsl-claude`), solange WSL an ist.
 
 ## Automation (cron)
 
