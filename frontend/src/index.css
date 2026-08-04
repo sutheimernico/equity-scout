@@ -2323,3 +2323,124 @@ code {
   margin: 0;
   color: var(--text-strong);
 }
+
+/* ===== Entry-zone bullet bar (2026-08-04) =====
+   Three fixed bands (cheaper · good entry · more expensive) with the price as a marker.
+   The zone is ALWAYS the middle third — see zone.ts for why the scale is normalised.
+
+   Band colours are mixed INTO --bg-surface rather than layered with alpha, so the rendered
+   value is deterministic and matches what was validated: normal-vision separation ΔE 15.5
+   (pass), deuteranopia ΔE 7.9 — inside the 6–8 tolerance band, which is only permissible
+   because meaning also travels via fixed band position, the 2 px gaps, the printed bounds
+   and the ✓/⚠ verdict line. Do not dim these mixes further: at 42 %/38 % the green↔amber
+   pair measured ΔE 11.6 for NORMAL vision, i.e. indistinguishable for everyone. */
+.zonebar {
+  display: block;
+  /* Top margin clears the needle head (6 px triangle + 2 px gap + 3 px overhang). */
+  margin: var(--space-3) 0 var(--space-1);
+  /* Capped for the desktop card (~875 px wide), where a full-width 10 px track reads as a
+     stretched empty rail and pulls the bound labels away from the edges they annotate.
+     Phones are narrower than the cap, so they still use the full width. */
+  max-width: 460px;
+}
+.zonebar-track {
+  position: relative;
+  display: block;
+  height: 10px;
+  border-radius: 4px;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, rgb(180 190 255) 20%, var(--bg-surface)) 0 calc(33.3333% - 1px),
+    var(--bg-surface) calc(33.3333% - 1px) calc(33.3333% + 1px),
+    color-mix(in srgb, var(--accent) 60%, var(--bg-surface)) calc(33.3333% + 1px)
+      calc(66.6667% - 1px),
+    var(--bg-surface) calc(66.6667% - 1px) calc(66.6667% + 1px),
+    color-mix(in srgb, var(--warning) 55%, var(--bg-surface)) calc(66.6667% + 1px) 100%
+  );
+}
+/* The price: the only loud mark in the component. Overhangs the track and carries a 2 px
+   surface ring so it stays readable where it crosses the target diamond. */
+.zonebar-now {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 3px;
+  transform: translateX(-50%);
+  border-radius: 1px;
+  background: var(--text-strong);
+  box-shadow: 0 0 0 2px var(--bg-surface);
+}
+/* A downward head on the price needle. Without it the 3 px needle reads like one of the
+   2 px band separators — same colour family, same shape — and "you are here" is lost. */
+.zonebar-now::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  width: 9px;
+  height: 6px;
+  transform: translateX(-50%);
+  background: var(--text-strong);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+/* Price outside the window: a flush arrow, never a marker pinned to the edge — pinning
+   would claim a position the price does not have. The percentage lives in the verdict line. */
+.zonebar-out {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 13px;
+  transform: translateY(-50%);
+  background: var(--text-strong);
+}
+.zonebar-out-high {
+  right: -5px;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+.zonebar-out-low {
+  left: -5px;
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
+/* Analyst target: a different data source, so it gets its own identity (violet, the app's
+   secondary hue) rather than a status colour. Lightened off --violet because #8b6cff only
+   reaches 1.7:1 against the green band; the surface ring does the actual separating. */
+.zonebar-target {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: color-mix(in srgb, var(--violet) 70%, #fff);
+  box-shadow: 0 0 0 2px var(--bg-surface);
+}
+/* Bounds sit under their band edges (the thirds), not at the bar ends — at the ends they
+   would read as an absolute price axis, which this bar deliberately is not. */
+.zonebar-scale {
+  position: relative;
+  display: block;
+  height: 1em;
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.zonebar-bound {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.zonebar-bound-low {
+  left: 33.3333%;
+}
+.zonebar-bound-high {
+  left: 66.6667%;
+}
+/* Swatch in front of the analyst-target line — the legend, folded into text that already
+   exists, so two marks need no legend box on a 390 px card. */
+.zonebar-key {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  transform: translateY(-1px) rotate(45deg);
+  background: color-mix(in srgb, var(--violet) 70%, #fff);
+}

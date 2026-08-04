@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { fetchBriefs, type StockBrief } from "../api";
 import { shortCompanyName } from "../company";
 import { StockLogo } from "./StockLogo";
+import { ZoneBar } from "./ZoneBar";
 
 // Answers the four questions Nico actually has when looking at a stock (2026-08-04:
 // "man checkt nichts da"): which company is this, would this be a good price, are we in
@@ -48,6 +49,8 @@ function UpsideLine({ brief }: { brief: StockBrief }) {
   const up = brief.analyst_upside_pct >= 0;
   return (
     <span className={up ? "brief-good" : "brief-warn"}>
+      {/* Same diamond as the marker in the bar — identity without a legend box. */}
+      <span className="zonebar-key" aria-hidden="true" />
       Analysten-Ziel {money(brief.analyst_target, brief.currency)} ·{" "}
       {signedPct(brief.analyst_upside_pct)}
       <span className="brief-muted">
@@ -79,6 +82,7 @@ function BriefRow({ brief }: { brief: StockBrief }) {
           </span>
           {business && <span className="brief-business">{business}</span>}
           <span className="brief-price num">{money(brief.price, brief.currency)}</span>
+          <ZoneBar brief={brief} />
           <ZoneLine brief={brief} />
           <UpsideLine brief={brief} />
         </span>
