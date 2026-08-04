@@ -2348,9 +2348,15 @@ code {
   display: block;
   height: 10px;
   border-radius: 4px;
+  /* Both outer bands are amber, not just the expensive one: the zone is a SUPPORT band
+     (radar.entry_zone), so below it every support has broken — that is a "not now", not a
+     bargain, and `in_zone` gates pitches on both sides alike. A neutral grey on the left
+     invited exactly the opposite reading ("everything under the line is basically green").
+     Which side you are on is never carried by colour: the price marker's position says it
+     and the verdict line names the reason. */
   background: linear-gradient(
     to right,
-    color-mix(in srgb, rgb(180 190 255) 20%, var(--bg-surface)) 0 calc(33.3333% - 1px),
+    color-mix(in srgb, var(--warning) 55%, var(--bg-surface)) 0 calc(33.3333% - 1px),
     var(--bg-surface) calc(33.3333% - 1px) calc(33.3333% + 1px),
     color-mix(in srgb, var(--accent) 60%, var(--bg-surface)) calc(33.3333% + 1px)
       calc(66.6667% - 1px),

@@ -53,7 +53,9 @@ def test_zone_gap_above_zone_rounds_against_zone_high():
 def test_zone_gap_below_zone_rounds_against_zone_low():
     gap, verdict = zone_gap(50.0, 90.0, 110.0)
     assert gap == 44.0
-    assert verdict == "44 % unter der Zone — noch günstiger"
+    # Never phrased as a bargain: below the zone every support has broken (see zone_gap).
+    assert verdict == "44 % unter der Zone — Support gebrochen"
+    assert "günstig" not in verdict
 
 
 def test_zone_gap_zero_or_negative_price_is_honest_none():

@@ -32,7 +32,13 @@ def zone_gap(price: float, zone_low: float, zone_high: float) -> tuple[float | N
         gap = round((price / zone_high - 1.0) * 100)
         return float(gap), f"{gap} % über der Zone — zu teuer"
     gap = round((1.0 - price / zone_low) * 100)
-    return float(gap), f"{gap} % unter der Zone — noch günstiger"
+    # NOT "noch günstiger" (the wording this shipped with on 2026-08-04, which read as a buy
+    # signal and was understood as one). The zone is a SUPPORT band — `radar.entry_zone` runs
+    # from the lowest support minus one ATR up to the highest one — so below it means every
+    # support level has broken, with nothing holding underneath. `in_zone` is a pitch gate
+    # (notify.py, lanes.py), so this side is just as much a "not now" as being too expensive.
+    # Kept in step with radar.zone_note's "tiefer als die Support-Levels".
+    return float(gap), f"{gap} % unter der Zone — Support gebrochen"
 
 
 def rank_entries(entries: list[dict]) -> list[dict]:
