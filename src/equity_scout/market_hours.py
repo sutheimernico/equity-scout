@@ -1,12 +1,16 @@
 """US-market window guard for the intraday copilot chain.
 
 Computed in America/New_York (v12 R10, review 2026-07-20): the NYSE session 09:30-16:00
-plus a 30-minute grace so the last DELAYED 15-minute bars still settle inside the window.
-The previous fixed Berlin slot (15:00-22:30) missed the first ~30 session minutes during
-the weeks when the US has switched to DST but Europe has not (US: 2nd Sunday in March,
-EU: last Sunday). US market holidays are still NOT modelled: on a holiday the chain runs
+plus a grace so the last DELAYED 15-minute bars still settle inside the window. The
+previous fixed Berlin slot (15:00-22:30) missed the first ~30 session minutes during the
+weeks when the US has switched to DST but Europe has not (US: 2nd Sunday in March, EU:
+last Sunday). US market holidays are still NOT modelled: on a holiday the chain runs
 against unchanged prices and books nothing new (every step is idempotent), which is
 cheaper and simpler than a holiday-calendar dependency.
+
+The grace was 30 minutes until 2026-08-04 and that was too short by one cron slot — see
+the WINDOW_END comment. The lesson generalises: a window that ends between two cron slots
+is a window no run ever observes.
 """
 from __future__ import annotations
 
@@ -15,7 +19,13 @@ from zoneinfo import ZoneInfo
 
 MARKET_TZ = "America/New_York"
 SESSION_START = time(9, 30)
-WINDOW_END = time(16, 30)  # 16:00 close + 30 min settle grace for the delayed final bars
+# 16:00 close + 50 min. The grace is NOT sized by the data delay but by the cron grid: the
+# final 15:45 bar only settles at 16:20, and a 16:30 end left no */15 slot in between (the
+# 16:30 run starts at 16:30:0X, a second past the guard). Measured 2026-08-04: 0 of 15
+# session exits came from the in-session force-flat — every one of them was swept hours
+# later by the nightly chain. 16:50 keeps the 16:45 slot inside the window and still stops
+# short of 17:00.
+WINDOW_END = time(16, 50)
 
 
 def within_market_window(now: datetime) -> bool:

@@ -24,6 +24,8 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 ## Iron principles (never overridden)
 - **Local & free only.** yfinance / SEC EDGAR (UA header) / public lists. No paid feeds, no
   real-money anything. A task needing a paid resource goes to "Needs Nico", never faked.
+  Order routing to a **paper** broker account is permitted since 2026-08-04 (Nico's decision,
+  session lane / Alpaca Paper); live endpoints and funded accounts stay out of reach.
 - **Honesty guardrails on every surface.** Disclaimer present; LLM theses are interpretation,
   never price forecasts; the data-completeness gate is mandatory — never rank thin-data noise.
 - **Gate is objective:** `uv run pytest -q` green AND `uv run ruff check .` clean. Never commit red.

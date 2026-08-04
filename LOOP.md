@@ -18,7 +18,9 @@ Progress lives on disk (this file, `PLAN.md`, git history, `AUTOPILOT_LOG.md`) �
 
 ## Project-specific hard constraints (never override)
 - **Local & free.** Data only from yfinance / SEC EDGAR (UA header) / public constituent lists.
-  No paid feeds. No real-money trading or order routing — ever.
+  No paid feeds. **No real-money trading — ever.** Order routing to a PAPER broker account is
+  allowed since 2026-08-04 (Nico's explicit decision, for the session lane on Alpaca Paper);
+  a live/funded endpoint or live API key is never used. The loop never widens this line itself.
 - **Honesty guardrails.** Every output surface carries the `DISCLAIMER`. The data-completeness gate
   stays mandatory. LLM theses are context-bounded interpretation, NEVER price forecasts — do not
   let the LLM "predict" or rank.

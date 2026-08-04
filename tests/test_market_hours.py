@@ -22,11 +22,12 @@ def test_inside_window_on_a_weekday():
 
 
 def test_window_follows_the_nyse_session_not_a_berlin_slot():
-    # July: Berlin is CEST, NYSE session = 15:30-22:00 Berlin (+30 min settle grace).
+    # July: Berlin is CEST, NYSE session = 15:30-22:00 Berlin (+50 min settle grace since
+    # 2026-08-04, sized to include the 16:45 ET cron slot).
     assert within_market_window(berlin(2026, 7, 14, 15, 29)) is False  # pre-open
     assert within_market_window(berlin(2026, 7, 14, 15, 30)) is True  # 09:30 ET open
-    assert within_market_window(berlin(2026, 7, 14, 22, 30)) is True  # 16:30 ET grace end
-    assert within_market_window(berlin(2026, 7, 14, 22, 31)) is False
+    assert within_market_window(berlin(2026, 7, 14, 22, 50)) is True  # 16:50 ET grace end
+    assert within_market_window(berlin(2026, 7, 14, 22, 51)) is False
 
 
 def test_dst_transition_weeks_cover_the_real_open():
@@ -34,7 +35,7 @@ def test_dst_transition_weeks_cover_the_real_open():
     assert within_market_window(berlin(2026, 3, 18, 14, 35)) is True
     assert within_market_window(berlin(2026, 3, 18, 14, 25)) is False
     assert within_market_window(berlin(2026, 3, 18, 21, 25)) is True  # 16:25 ET, grace
-    assert within_market_window(berlin(2026, 3, 18, 21, 35)) is False  # 16:35 ET
+    assert within_market_window(berlin(2026, 3, 18, 21, 55)) is False  # 16:55 ET
 
 
 def test_weekend_is_always_outside():
@@ -72,10 +73,39 @@ def test_last_completed_session_mid_session_is_the_prior_day():
 
 
 def test_last_completed_session_flips_after_close_plus_grace():
-    assert last_completed_us_session(berlin(2026, 7, 23, 22, 30)) == date(2026, 7, 22)  # 16:30 ET
-    assert last_completed_us_session(berlin(2026, 7, 23, 22, 31)) == date(2026, 7, 23)  # 16:31 ET
+    assert last_completed_us_session(berlin(2026, 7, 23, 22, 50)) == date(2026, 7, 22)  # 16:50 ET
+    assert last_completed_us_session(berlin(2026, 7, 23, 22, 51)) == date(2026, 7, 23)  # 16:51 ET
 
 
 def test_last_completed_session_rejects_naive_datetime():
     with pytest.raises(ValueError):
         last_completed_us_session(datetime(2026, 7, 24, 2, 35))
+
+
+NEW_YORK = ZoneInfo("America/New_York")
+
+
+def new_york(y, m, d, hh, mm, ss=0) -> datetime:
+    return datetime(y, m, d, hh, mm, ss, tzinfo=NEW_YORK)
+
+
+def test_window_covers_a_cron_slot_after_the_last_bar_settles():
+    """Regression, measured 2026-08-04: the last session bar starts 15:45 ET and is only
+    settled at 16:20 (+15 bar +20 delay margin). The window used to close at 16:30:00 while
+    the */15 cron fires at 16:30:0X — so NO run ever saw that bar inside the session, and
+    st_session's force-flat never executed once in 15 recorded session exits. The window
+    must reach past the 16:45 slot for the flat-by-close rule to be reachable at all."""
+    assert within_market_window(new_york(2026, 8, 4, 16, 45, 3)) is True
+
+
+def test_window_closes_before_the_following_cron_slot():
+    """The counterweight: it must not creep so far that the 17:00 run also fires, which
+    would poll a closed market for another hour."""
+    assert within_market_window(new_york(2026, 8, 4, 17, 0, 3)) is False
+
+
+def test_panel_cutoff_never_treats_a_just_closed_session_as_complete():
+    """WINDOW_END also drives last_completed_us_session. Widening it may only make the
+    panel MORE conservative — never let a still-settling session count as an end-of-day
+    close (the 2026-07-23 incident)."""
+    assert last_completed_us_session(new_york(2026, 8, 4, 16, 40)) == date(2026, 8, 3)

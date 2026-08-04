@@ -234,9 +234,10 @@ history the allocation stays pure equal weight ("Anker-Phase") and says so.
 broker adapter would consume. Candidates as of 2026: Alpaca paper API (free, globally
 available, 200 req/min), Trading 212 public API beta (`demo.trading212.com` practice
 endpoints, Invest/ISA), IBKR paper account (same API as live, needs a TWS/Gateway process).
-Wiring ANY of them up is a deliberate human decision that requires changing the project's
-iron constraint in `LOOP.md` ("no real-money trading or order routing — ever") — the
-autonomous loop never does this.
+Wiring ANY of them up is a deliberate human decision. Nico took it on 2026-08-04 for the
+**session lane only** (Alpaca Paper — see `docs/superpowers/specs/2026-08-04-session-lane-realtime-broker-design.md`);
+`LOOP.md` now permits order routing to a paper account and still forbids real money. The
+auto depot itself remains unrouted — its trade rows stay a seam, not an integration.
 
 ## Kurzfrist-Arena (vision v11)
 
@@ -289,8 +290,9 @@ dieser Unschärfe zu lesen; gemessen wird seitdem korrekt.
 **Der Weg zu echtem Geld** ist eine Nico-Entscheidung, kein Systemfeature: erst wenn der
 Track Record die im Code hinterlegten Schwellen (`proof.CONVICTION_THRESHOLDS`: ≥ 180 Tage,
 Sharpe nach Kosten > 1, Max-Drawdown < 15 %) über Monate hält, lohnt die Diskussion über
-einen Broker — und selbst dann bleibt Order-Routing per LOOP.md verboten, bis Nico diese
-Grenze bewusst und explizit ändert.
+einen Broker. Seit 2026-08-04 darf die Session-Lane an ein **Paper**-Konto routen (Alpaca) —
+das ist eine Messmaßnahme gegen den Executability-Bias, keine Annäherung an Echtgeld.
+Echtgeld bleibt per `LOOP.md` ausgeschlossen und ist allein Nicos Entscheidung.
 
 ## Handy-Cockpit (LAN + PWA)
 
