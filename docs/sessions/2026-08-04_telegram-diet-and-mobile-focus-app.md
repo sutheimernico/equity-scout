@@ -173,3 +173,55 @@ immer grün. Er prüft `plain_scores + calibrated_scores == 100` exakt; der elas
 weicht threadabhängig minimal ab und kippt damit eine Rundungsgrenze. Unabhängig von der
 Arbeit dieser Session (die berührt kein ML-Training). Fix wäre eine Toleranz von ±1 in der
 Assertion — Nicos Entscheidung, nicht ungefragt mitgefixt.
+
+
+## Nachtrag 3: Zielbereich als Balken (2026-08-04)
+
+Nico: „probier mal im Dashboard das visuell zu zeigen, also Zielbereich nicht mit Text
+sondern so Balken."
+
+Neu: `frontend/src/zone.ts` (pure Geometrie, 13 vitest-Tests) + `ZoneBar.tsx` — ein
+Bullet-Balken pro Steckbrief mit drei Bändern (günstiger · guter Einstieg · zu teuer),
+Kurs als Nadel mit Kopf, Analysten-Ziel als violette Raute; die Zonengrenzen stehen jetzt
+sichtbar unter den Bandkanten statt nur hinter dem Tap.
+
+**Skala normalisiert statt preis-proportional:** Fenster = Zone ± eine Zonenbreite, die
+Zone ist damit immer das mittlere Drittel. Preis-proportional wäre Microns Zone bei 70 %
+Abstand zum Kurs ~3 px breit gewesen, und jede Karte hätte eine andere Skala. Die Achse
+misst also Abstand in Zonenbreiten, nicht in Währung — deshalb tragen nur die beiden
+Grenzzahlen eine Beschriftung, keine Achsenticks, und die echte Prozentzahl bleibt in der
+Verdict-Zeile. Kurse außerhalb des Fensters bekommen einen Pfeil am Rand, keinen an die
+Kante geklemmten Marker (das würde eine Position behaupten, die der Kurs nicht hat).
+
+Drei Befunde, die erst durch Messen/Ansehen kamen:
+
+1. **Farben gemessen, nicht geschätzt.** Erste Wahl (Bänder als 42 %/38 %-Mischungen)
+   trennte Grün↔Amber nur mit ΔE 11,6 für *normale* Farbsicht — also für alle schlecht
+   unterscheidbar. Auf 60 %/55 % gehoben → ΔE 15,5. Deuteranopie liegt bei ΔE 7,9, was nur
+   zulässig ist, weil Bandposition, die 2-px-Lücken, die gedruckten Grenzen und das ✓/⚠
+   der Verdict-Zeile die Bedeutung unabhängig von der Farbe tragen. Nicht weiter dimmen.
+2. **Die Nadel war vom Bandtrenner nicht zu unterscheiden** (beides dünne vertikale
+   Linien) — sie hat jetzt einen Kopf. Erst im Screenshot aufgefallen.
+3. **Auf Desktop (Karte ~875 px) las der Balken als gestreckte, leere Schiene** und die
+   Grenzzahlen lösten sich von ihren Kanten → `max-width: 460px`.
+
+Eigener Review-Fund am fertigen Code: Der Balken war als `role="img"` mit Label gebaut.
+Die Zeile ist aber ein `<button>`, also wäre das Label in seinen Accessible Name gefaltet
+worden und ein Screenreader hätte Kurs, Zone und Urteil doppelt vorgelesen. Jetzt
+`aria-hidden` — die Aussage steht vollständig als Text darunter, die exakten Grenzen im
+Detail hinter dem Tap.
+
+Ein Test fand sofort einen falsch konstruierten Testfall: „Kurs unter dem Fenster" ist bei
+einer Zone von 100–200 unerreichbar, weil die Fenster-Untergrenze (2·low − high) dort auf 0
+fällt und kein gültiger Kurs darunter liegen kann. Realistisch sind enge Zonen — Tele2
+154,3–167,0 hat die Untergrenze bei 141,6.
+
+Gate: 35 vitest-Tests grün, `tsc --noEmit` exit 0, Build ok. Python unberührt, daher nicht
+neu gelaufen. Kein `CACHE_VERSION`-Bump nötig: Navigationen laufen network-first und Vite
+content-hasht die Assets, der Service Worker liefert also von sich aus die neue Version.
+
+### Vorbefund, NICHT gefixt (außerhalb des Auftrags)
+
+Die Analysten-Zeile bricht auf 390 px um und der Fortsetzungstext
+(„(11 Schätzungen, fremde Meinung)") hängt ohne Einzug am linken Rand — bestand vor dieser
+Runde, fällt mit dem Raute-Swatch davor nur mehr auf.
