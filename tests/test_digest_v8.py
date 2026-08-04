@@ -1,4 +1,5 @@
-"""v8 digest: market head (regime + sectors), quality-gate transparency, HTML variant."""
+"""v8 digest: market head (regime + sectors), the now-dropped quality-gate count, HTML
+variant."""
 from __future__ import annotations
 
 from equity_scout.digest import build_digest
@@ -33,10 +34,12 @@ def test_digest_head_degrades_honestly_without_data():
     assert "📊" not in text
 
 
-def test_digest_reports_below_threshold_count():
-    text = build_digest([], date_label=DATE, below_threshold=4)
-    assert "4 Watchlist-Titel unter der Qualitätsschwelle" in text
-    # Zero is silence, not a "0 skipped" line.
+def test_below_threshold_count_is_deliberately_not_rendered():
+    """2026-08-04 diet: the daily 'N Watchlist-Titel unter der Qualitätsschwelle' count
+    duplicated the chances line and was dashboard bookkeeping — dropped.
+    `below_threshold` stays an accepted parameter (see build_digest's signature) but
+    nothing renders, regardless of the count."""
+    assert "Qualitätsschwelle" not in build_digest([], date_label=DATE, below_threshold=4)
     assert "Qualitätsschwelle" not in build_digest([], date_label=DATE, below_threshold=0)
 
 
@@ -48,7 +51,9 @@ def test_digest_html_variant_bolds_heads_and_escapes():
         sector_line="Stärkste Sektoren: Energy (+12 %)", html=True,
     )
     assert text.splitlines()[0] == f"<b>Copilot-Digest {DATE}</b>"
-    assert "<b>Offene Pitches: 1</b>" in text
+    # 2026-08-04 diet: "Offene Pitches: N" became the condensed "N Pitch(es) offen ·
+    # <neu-suffix>" head — still a bold section head with no dynamic content to escape.
+    assert "<b>📬 1 Pitch offen · 1 neu</b>" in text
     assert "T&amp;T" in text and "T&T" not in text
     # One <b> pair per line — line-based splitting can never sever a tag.
     assert all(line.count("<b>") == line.count("</b>") for line in text.splitlines())

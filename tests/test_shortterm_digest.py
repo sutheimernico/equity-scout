@@ -10,6 +10,9 @@ from scripts.run_digest import collect_shortterm
 
 
 def test_arena_block_renders_one_line_per_lane() -> None:
+    """2026-08-04 diet: the whole arena condenses to ONE line (lane count, best lane's
+    total return, today's combined P&L) — per-lane returns/benchmarks/trade counts
+    moved to the cockpit; only malfunctions or state changes still earn their own line."""
     shortterm = [
         {"lane": "swing", "label": "Event-Swing", "total_return": 0.012, "day_pnl": 55.0,
          "benchmark_ticker": "SPY", "benchmark_return": 0.004, "trades_today": 2},
@@ -17,22 +20,23 @@ def test_arena_block_renders_one_line_per_lane() -> None:
          "benchmark_ticker": "BTC", "benchmark_return": None, "trades_today": 0},
     ]
     text = build_digest([], date_label="2026-07-20", shortterm=shortterm)
-    assert "⚡ Kurzfrist-Arena:" in text
-    assert "Event-Swing: 🟢 heute +55 $ · gesamt +1.2 % (SPY +0.4 %) · 2 Trades heute" in text
-    assert "Crypto: 🔴 heute -80 $ · gesamt -0.8 %" in text
+    assert "⚡ Arena 2 Lanes · beste Event-Swing +1,2 % · heute −25 $" in text
+    assert "Crypto: " not in text
+    assert "Trades heute" not in text
     assert "(BTC" not in text  # benchmark not yet captured -> no fake number
-    assert "🔴 Arena heute gesamt: -25 $" in text
 
 
 def test_autodepot_day_pnl_line_renders_with_traffic_light() -> None:
+    """2026-08-04 diet: the day move folds into the headline itself (no separate
+    "🔴 Heute:" line) — the return carries the meaning, German-formatted."""
     from tests.test_autotrader_digest import _autodepot
 
     positive = _autodepot(day_pnl=132.2, day_return=0.0013)
     text = build_digest([], date_label="2026-07-20", autodepot=positive)
-    assert "🟢 Heute: +132 $ (+0.13 %)" in text
-    negative = _autodepot(day_pnl=-40.0, day_return=-0.0004)
+    assert "🤖 Auto-Depot 101.500 $ (91.350 €) · 🟢 heute +0,1 %" in text
+    negative = _autodepot(day_pnl=-1073.0, day_return=-0.0106)
     text2 = build_digest([], date_label="2026-07-20", autodepot=negative)
-    assert "🔴 Heute: -40 $" in text2
+    assert "🤖 Auto-Depot 101.500 $ (91.350 €) · 🔴 heute −1,1 %" in text2
 
 
 def test_arena_block_absent_without_lanes() -> None:
@@ -72,7 +76,7 @@ def test_stale_lane_gets_warning_suffix() -> None:
         "stale_days": 3,
     }
     text = build_digest([], date_label="2026-07-20", shortterm=[lane])
-    assert "seit 3 Tagen keine Daten" in text
+    assert "  ⚠ Crypto: 3 Tage keine Daten" in text
 
 
 def test_collect_shortterm_flags_stale_crypto_lane(tmp_path) -> None:
@@ -97,7 +101,11 @@ def test_collect_shortterm_flags_stale_crypto_lane(tmp_path) -> None:
     assert "stale_days" not in swing
 
 
-def test_promotion_checklist_renders_per_lane() -> None:
+def test_promotion_state_change_is_announced() -> None:
+    """2026-08-04 diet: the per-lane 'Prüfstand: N/30 Trades · N/60 Tage · PF x'
+    checklist is gone (the cockpit shows the running counters) — a lane grinding
+    through its test bench gets no line at all. Only a STATE CHANGE still earns one:
+    newly eligible for promotion, or already promoted."""
     from equity_scout.digest import build_digest
 
     base = {
@@ -109,11 +117,22 @@ def test_promotion_checklist_renders_per_lane() -> None:
         "profit_factor": 0.87, "eligible": False, "missing": ["x"],
     }}
     text = build_digest([], date_label="2026-07-21", shortterm=[on_trial])
-    assert "Prüfstand: 12/30 Trades · 41/60 Tage · PF 0.87" in text
+    assert "Prüfstand" not in text
+    assert "Crypto:" not in text and "  ✅" not in text and "  🎓" not in text
 
-    graduated = {**base, "promoted": True, "promotion": {
+    eligible = {**base, "promoted": False, "promotion": {
         "realized_trades": 40, "days_active": 90, "net_pnl": 400.0,
         "profit_factor": 1.5, "eligible": True, "missing": [],
     }}
+    text = build_digest([], date_label="2026-07-21", shortterm=[eligible])
+    assert (
+        "  ✅ Crypto hat den Prüfstand bestanden — Aufnahme beim nächsten Nightly-Lauf"
+        in text
+    )
+
+    # promoted=True wins over an also-eligible promotion dict — a graduated lane never
+    # gets BOTH lines on the same day.
+    graduated = {**base, "promoted": True, "promotion": eligible["promotion"]}
     text = build_digest([], date_label="2026-07-21", shortterm=[graduated])
-    assert "🎓 im Auto-Depot" in text
+    assert "  🎓 Crypto verdient jetzt Depot-Kapital" in text
+    assert "hat den Prüfstand bestanden" not in text

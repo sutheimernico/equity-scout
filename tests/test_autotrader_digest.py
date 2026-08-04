@@ -32,11 +32,14 @@ def _autodepot(**overrides) -> dict:
 
 
 def test_autodepot_block_renders_equity_returns_and_trades() -> None:
+    """2026-08-04 Telegram diet: German-formatted numbers, no "(Stand ...)" in the
+    headline (dashboard shows the as_of date), trades named without the old
+    "(Fill: next-open)" label — that convention is documented once, not repeated daily."""
     text = build_digest([], date_label="2026-07-18", autodepot=_autodepot())
-    assert "🤖 Auto-Depot (Stand 2026-07-17): 101,500 USD (91,350 EUR)" in text
-    assert "Gesamt +1.5 % vs SPY +1.1 %" in text
-    assert "Trades (Fill: next-open): ↑XLK ↓IEF" in text  # v13 O2 convention named
-    assert "Anker-Phase" not in text  # tilt mode carries no anchor note
+    assert "🤖 Auto-Depot 101.500 $ (91.350 €)" in text
+    assert "  Gesamt +1,5 % vs SPY +1,1 %" in text
+    assert "  Trades: ↑XLK 2,0 % · ↓IEF 1,0 %" in text
+    assert "Anker-Phase" not in text  # the note is gone entirely, not just for tilt mode
 
 
 def test_autodepot_block_is_absent_without_data() -> None:
@@ -45,10 +48,12 @@ def test_autodepot_block_is_absent_without_data() -> None:
 
 
 def test_trades_are_capped_and_counted() -> None:
+    """TRADE_NAME_CAP is 3 (2026-08-04 diet, was 4) — the rest are counted, not named."""
     trades = [{"ticker": f"T{i}", "delta_weight": 0.01} for i in range(8)]
     text = build_digest([], date_label="2026-07-18", autodepot=_autodepot(trades=trades))
-    assert "↑T4" in text and "↑T5" not in text
-    assert "+3 weitere" in text
+    assert "↑T0" in text and "↑T1" in text and "↑T2" in text
+    assert "↑T3" not in text
+    assert "+5 kleine" in text
 
 
 def test_anchor_mode_breaker_and_events_are_labelled() -> None:
@@ -60,7 +65,9 @@ def test_anchor_mode_breaker_and_events_are_labelled() -> None:
     assert "Keine Trades an diesem Stand." in text
     assert "⚠ Markt-Ampel ROT" in text
     assert "⛔ Drawdown-Breaker aktiv: halbes Exposure" in text
-    assert "Anker-Phase" in text
+    # The "(Anker-Phase: …)" note is gone entirely (2026-08-04 diet) — the sleeve mode
+    # is not information the phone digest needs; risk events + breaker stage still are.
+    assert "Anker-Phase" not in text
 
 
 def test_html_mode_bolds_the_head_and_escapes() -> None:
@@ -70,8 +77,8 @@ def test_html_mode_bolds_the_head_and_escapes() -> None:
 
 def test_missing_eur_renders_usd_only() -> None:
     text = build_digest([], date_label="2026-07-18", autodepot=_autodepot(equity_eur=None))
-    assert "101,500 USD\n" in text or "101,500 USD" in text
-    assert "EUR" not in text
+    assert "🤖 Auto-Depot 101.500 $" in text
+    assert "€" not in text
 
 
 def test_collect_autodepot_reads_the_seeded_db(tmp_path) -> None:
@@ -107,7 +114,7 @@ def test_collect_autodepot_without_account_is_none(tmp_path) -> None:
 def test_stale_autodepot_gets_a_warning_line() -> None:
     """R7/P1 (review 2026-07-20): a silently stopped nightly chain must be visible."""
     text = build_digest([], date_label="2026-07-18", autodepot=_autodepot(stale_days=4))
-    assert "veraltet" in text and "4 Handelstage" in text
+    assert "⚠️ Stand 4 Handelstage alt — Kette prüfen" in text
 
 
 def test_fresh_autodepot_has_no_staleness_warning() -> None:
