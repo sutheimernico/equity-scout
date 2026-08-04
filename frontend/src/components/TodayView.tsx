@@ -71,10 +71,7 @@ export function TodayView({ onNavigate }: { onNavigate: (view: string) => void }
           of how many pitches are open. */}
       <section className="panel reveal">
         <h2 className="block-head">Aktuell vorne</h2>
-        <StockList
-          entries={radar?.watchlist?.entries ?? []}
-          onOpen={() => onNavigate("radar")}
-        />
+        <StockList onOpen={() => onNavigate("radar")} />
       </section>
 
       <div className="kpi-row">

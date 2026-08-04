@@ -978,3 +978,40 @@ export async function fetchStack(ticker: string): Promise<StackResponse> {
   if (!response.ok) throw new Error(`/api/stack returned ${response.status}`);
   return response.json();
 }
+
+// --- Stock briefs (src/equity_scout/api.py → /api/briefs) -------------------------------
+// One row per watchlist stock, carrying the answers to the four questions the phone card
+// asks: which company (name/sector), is the price a good entry (zone verdict), what is the
+// upside (analyst consensus — never our own forecast), how is it valued (KGV/score).
+export interface StockBrief {
+  ticker: string;
+  name: string;
+  sector: string | null;
+  industry: string | null;
+  currency: string | null;
+  price: number;
+  score: number;
+  score_band: string;
+  zone_low: number;
+  zone_high: number;
+  in_zone: boolean;
+  zone_gap_pct: number | null;
+  zone_verdict: string;
+  analyst_target: number | null;
+  analyst_count: number | null;
+  analyst_upside_pct: number | null;
+  trailing_pe: number | null;
+  model_target: number | null;
+  model_stop: number | null;
+}
+
+export interface BriefsResponse {
+  briefs: StockBrief[];
+  disclaimer: string;
+}
+
+export async function fetchBriefs(limit = 5): Promise<BriefsResponse> {
+  const response = await fetch(`/api/briefs?limit=${limit}`);
+  if (!response.ok) throw new Error(`/api/briefs returned ${response.status}`);
+  return response.json();
+}
