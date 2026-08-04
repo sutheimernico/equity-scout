@@ -44,6 +44,7 @@ from equity_scout.constants import (
 from equity_scout.forward_storage import load_account
 from equity_scout.data.etf_panel import load_etf_panel, load_price_history
 from equity_scout.data.ohlc_panel import load_ohlc_panel
+from equity_scout.digest import MATERIAL_DELTA_WEIGHT, format_de
 from equity_scout.etf_universe import ETF_TICKERS
 from equity_scout.fx import eur_rate
 from equity_scout.state_storage import record_heartbeat
@@ -299,24 +300,38 @@ def advance_autotrader(
     return account, valuation
 
 
-EVENT_TRADE_CAP = 10
+EVENT_TRADE_CAP = 5
 
 
 def build_event_message(valuation: AutoDepotValuation | None) -> str | None:
-    """One bundled nightly push (v12 W2): trades + risk events, or None when the advance
-    was a quiet no-op — no activity, no message."""
-    if valuation is None or (not valuation.trades and not valuation.risk_events):
+    """One bundled nightly push, or None when nothing material happened.
+
+    Diet rule (2026-08-04): a push must earn the notification. Material trades
+    (|Δweight| >= digest.MATERIAL_DELTA_WEIGHT) and risk events do; a night of pure
+    sub-1 % rebalancing does not — that detail lives in the digest and the cockpit.
+    """
+    if valuation is None:
         return None
-    lines = [f"🤖 Auto-Depot {valuation.created_at}: {len(valuation.trades)} Trade(s)"]
-    for t in valuation.trades[:EVENT_TRADE_CAP]:
+    material = sorted(
+        (t for t in valuation.trades if abs(t.delta_weight) >= MATERIAL_DELTA_WEIGHT),
+        key=lambda t: abs(t.delta_weight), reverse=True,
+    )
+    if not material and not valuation.risk_events:
+        return None
+    lines = [f"🤖 Auto-Depot {valuation.created_at}"]
+    for t in material[:EVENT_TRADE_CAP]:
         side = "KAUF" if t.delta_weight > 0 else "VERKAUF"
-        lines.append(f"• {side} {t.ticker} Δ{t.delta_weight:+.1%} (~{t.notional:,.0f} $)")
-    rest = len(valuation.trades) - EVENT_TRADE_CAP
-    if rest > 0:
-        lines.append(f"… +{rest} weitere")
+        lines.append(
+            f"• {side} {t.ticker} {format_de(abs(t.delta_weight) * 100, 1)} %"
+            f" (~{format_de(t.notional)} $)"
+        )
+    hidden = len(valuation.trades) - min(len(material), EVENT_TRADE_CAP)
+    if hidden > 0:
+        # "kleine Rebalance" stays invariant for 1 and n — no plural branch needed.
+        lines.append(f"… {hidden} kleine Rebalance")
     for event in valuation.risk_events:
         lines.append(f"⚠ {event.detail}")
-    lines.append("(Paper-Depot · nächtlicher Lauf · Details im 18:00-Digest)")
+    lines.append("(Paper-Depot · nächtlicher Lauf · Details im Digest)")
     return "\n".join(lines)
 
 
