@@ -18,6 +18,7 @@ import os
 import sys
 from collections.abc import Callable
 from datetime import datetime, timezone
+from pathlib import Path
 
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.earnings_storage import earnings_within
@@ -153,6 +154,12 @@ def main() -> int:
     args = parser.parse_args()
 
     # v12 R6: the */15 chain is the retry loop for a failed 18:00 digest send.
+    # Path-style invocation (`python scripts/run_notify.py`, how daily_copilot.sh calls it)
+    # puts scripts/ on sys.path, NOT the repo root — so `scripts.run_digest` does not
+    # resolve. That silently killed every Telegram pitch delivery between 2026-07-21 and
+    # 2026-08-04: the step raised ModuleNotFoundError and the chain logged `FAILED notify`
+    # and carried on. Anchoring the repo root makes path- and `-m`-style starts equivalent.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from scripts.run_digest import maybe_resend_pending
 
     maybe_resend_pending(args.db)

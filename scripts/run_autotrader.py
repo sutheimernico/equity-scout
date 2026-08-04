@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from pathlib import Path
 
 import pandas as pd
 
@@ -344,13 +345,26 @@ def push_events(valuation: AutoDepotValuation | None, env: dict) -> bool:
 
 def _collect_regime_level(panel: PricePanel) -> str | None:
     """Regime light via the digest's collector; any fetch failure -> None (the gate treats
-    unknown as no-op — a broken feed must never move the book)."""
+    unknown as no-op — a broken feed must never move the book).
+
+    The degradation is deliberately LOUD on stderr: a permanently silent "unknown" means
+    the regime gate never fires, i.e. the book trades without its market filter. Exactly
+    that happened unnoticed from 2026-07-24 on, because path-style invocation
+    (`python scripts/run_autotrader.py`) leaves the repo root off sys.path and the
+    `scripts.run_digest` import below raised ModuleNotFoundError into this except.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     try:
         from scripts.run_digest import collect_regime
 
         regime = collect_regime(panel)
         return regime["level"] if regime else None
-    except Exception:  # noqa: BLE001 - network/feed errors degrade to "unknown"
+    except Exception as err:  # noqa: BLE001 - network/feed errors degrade to "unknown"
+        print(
+            f"Warnung: Regime-Signal nicht ermittelbar ({type(err).__name__}: {err}) — "
+            "Regime-Gate bleibt für diesen Lauf wirkungslos.",
+            file=sys.stderr,
+        )
         return None
 
 
