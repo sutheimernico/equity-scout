@@ -90,6 +90,24 @@ td.num,
   font-variant-numeric: tabular-nums;
 }
 
+/* Freshness banner — shown only when /api/health polling says the cockpit is unreachable
+   (see useFreshness.ts). Sticky at every width, not just on phones: it must stay visible
+   while scrolling past stale numbers below it, or the owner could read a cached P&L as if
+   it were live. z-index is higher than both the bottom nav (20) and its sheet backdrop (25)
+   so it can never end up hidden behind either. Amber is the existing --warning token; the
+   background/border are literal low-alpha tints of it since no --warning-subtle var exists. */
+.freshness-banner {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  padding: var(--space-1) var(--space-3);
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--warning);
+  background: rgba(245, 178, 62, 0.12);
+  border-bottom: 1px solid rgba(245, 178, 62, 0.3);
+}
+
 /* Shell */
 /* App shell: fixed left sidebar (v6.1 — Nico: "Navigation nach links, cleaner als Leiste"),
    content fills the rest. On narrow screens the sidebar falls back to a top bar. */

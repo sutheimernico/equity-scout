@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 
 import { ChatPanel } from "./components/ChatPanel";
 import { DepotsView } from "./components/DepotsView";
+import { FreshnessBanner } from "./components/FreshnessBanner";
 import { ProofView } from "./components/ProofView";
 import { FunnelView } from "./components/FunnelView";
 import { InboxPanel } from "./components/InboxPanel";
@@ -70,6 +71,7 @@ export default function App() {
 
   return (
     <>
+      <FreshnessBanner />
       <div className="aurora" aria-hidden="true" />
       <div className="shell">
         <aside className="sidebar">
