@@ -331,6 +331,27 @@ hinter **⋯ Mehr**. Desktop bleibt unverändert.
   gecacht und nie offline gepuffert — eine Entscheidung, die später gegen alte Kurse
   feuert, ist schlimmer als eine Fehlermeldung jetzt.
 
+### Firmen statt Ticker (2026-08-04)
+
+`9064.T` sagt nichts darüber, welches Unternehmen gemeint ist. Die Startseite führt
+deshalb mit **„Aktuell vorne"**: die höchstbewerteten Watchlist-Titel (in Zone zuerst),
+je Zeile Logo, ausgeschriebener Firmenname, Ticker, Score und Kurs. Die Inbox-Karten
+tragen denselben Kopf, und die Entscheidungs-Buttons stehen jetzt VOR der ausführlichen
+Begründung — vorher lag der ~20-zeilige Pitch-Text zwischen Kopf und Buttons, sodass
+eine Entscheidung am Handy erst nach Durchscrollen möglich war.
+
+- **Namen** kommen aus der Watchlist (`/api/radar`); für Inbox-Karten werden sie aus der
+  ersten Pitch-Zeile (`📈 <TICKER> — <NAME>`) gelesen, weil die `pitches`-Tabelle keinen
+  Namen speichert. Anzeigeform ohne Rechtsform-Suffixe und Yahoo-Aktienklassen
+  („Yamato Holdings Co., Ltd." → „Yamato"), voller Name im `title`.
+- **Logos** liefert `GET /api/logo/<ticker>` aus einem lokalen Cache (`data/logos/`,
+  gitignored, siehe `src/equity_scout/logos.py`): der Server holt sie EINMAL über die
+  Firmen-Domain, das Handy spricht nie mit dem Logo-Dienst. Kalt ~0,5 s, warm ~1 ms.
+  Ein 404 ist eine normale Antwort und fällt auf ein Monogramm-Badge zurück.
+- **Qualität ist gemischt und bewusst nicht kaschiert**: JR Central und Micron kommen in
+  128 px, Petrobras nur in 32 px (weich), Yamato hat keins (Monogramm). Der Cache merkt
+  sich Fehlversuche 30 Tage, damit nicht jeder Seitenaufruf neu anfragt.
+
 **Token-Rotation**: neuen Wert in `.env` setzen, `systemctl --user restart
 equity-scout-dash` — alte Cookies sind sofort ungültig. Loopback (127.0.0.1) ist vom
 Token-Gate bewusst ausgenommen; über LAN/Tailscale greift es (401 ohne Token).

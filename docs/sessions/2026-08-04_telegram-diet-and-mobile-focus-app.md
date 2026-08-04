@@ -100,3 +100,40 @@ erfolgreichen Kontakt, geprüft über den neuen, absichtlich billigen `/api/heal
 3. `stats_by_source` (Evidenz-Trefferquoten) wird im Dashboard weiterhin nicht gerendert.
    Solange das so ist, muss die kondensierte Digest-Zeile bleiben.
 4. Telegram-Token-Rotation steht weiter offen (aus früherer Session).
+
+
+---
+
+## Nachtrag: Handy-UX-Runde (2026-08-04, nach Nicos Feedback)
+
+Nico: „mach die benutzerfreundlicher" + „ich erwarte da gerade heiße Aktien zu sehen und
+die ausgeschriebenen Unternehmen wie Microsoft mit Logo".
+
+Vier Befunde, alle per Screenshot auf 390×844 belegt (Chromium aus dem Playwright-Cache,
+`--force-prefers-reduced-motion`, weil die `.reveal`-Animation in Headless sonst
+unzuverlässig triggert und leere Kästen zeigt — das war zuerst als App-Bug fehlgedeutet):
+
+1. **Alle Views scrollten seitwärts.** Headlines und Karten liefen über den rechten Rand.
+2. **Der erste Bildschirm war Deko** — Titel plus drei Zeilen Onboarding-Prosa, dann eine
+   Kachel pro Zahl (~130 px). Drei Kennzahlen = drei Bildschirme.
+3. **Aktien erschienen nur als Ticker** (`9064.T · 9022.T`).
+4. **Die Inbox-Buttons lagen unter der Textwand** — Entscheiden erforderte Durchscrollen.
+
+Umgesetzt: Overflow-Regeln (`overflow-x: clip`, Umbruch, Tabellen scrollen selbst),
+Erklärtexte auf Handy aus, KPI-Zeile zweispaltig mit halbiertem Padding, neue Sektion
+„Aktuell vorne" mit Logo + Firmenname, Inbox-Karten mit Namenskopf und Entscheidung vor
+Begründung, Logo-Endpoint mit lokalem Cache.
+
+Zwei eigene Regressionen dabei gefunden und behoben:
+- `overflow-wrap: anywhere` zerriss `29861 $` zu `2986 1 $` — eine falsch lesbare Zahl ist
+  in einer Finanzansicht schlimmer als Overflow.
+- Die erste Korrektur wirkte nicht, weil `.view *` (0,1,0) spezifischer ist als `td`
+  (0,0,1). Danach war `nowrap` auf allen Zellen ebenfalls falsch (versteckte die
+  Equity-Spalte hinter horizontalem Scrollen); jetzt brechen Zellen nur an Leerzeichen.
+
+Befund des Logo-Subagenten, festgehalten weil kontraintuitiv: eine Byte-Schwelle kann den
+„kein Favicon"-Platzhalter des Anbieters NICHT erkennen — der Platzhalter ist 726 Bytes,
+ein echtes Microsoft-Logo nur 426. Erkennung läuft deshalb über einen SHA-256-Abgleich des
+bekannten Platzhalters.
+
+Gate: 1227 Python-Tests grün, ruff clean, 22 vitest-Tests grün, `tsc --noEmit` exit 0.
