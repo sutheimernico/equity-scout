@@ -138,10 +138,12 @@ def test_digest_run_records_daily_heartbeat(tmp_path, monkeypatch):
     assert get_state(db, key="heartbeat_daily") is not None
 
 
-def test_dash_url_footer_appears_once_per_week(tmp_path, monkeypatch):
+def test_dash_url_turns_section_heads_into_cockpit_links(tmp_path, monkeypatch):
+    """2026-08-04 diet: the weekly "📱 Dashboard" footer is replaced by deep links on the
+    section heads themselves — DASH_URL must reach build_digest and land in the sent text."""
     db = str(tmp_path / "inbox.db")
     _tg_env(monkeypatch)
-    monkeypatch.setenv("DASH_URL", "http://192.168.1.20:8420/?token=x")
+    monkeypatch.setenv("DASH_URL", "http://192.168.1.20:8420")
     sent: list[str] = []
     monkeypatch.setattr(
         run_digest, "send_long_message",
@@ -150,12 +152,23 @@ def test_dash_url_footer_appears_once_per_week(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["run_digest.py", "--db", db])
 
     assert main() == 0
-    assert "📱 Dashboard (Heimnetz)" in sent[0]
-    assert get_state(db, key="dash_url_hint_week") is not None
+    assert "📱 Dashboard (Heimnetz)" not in sent[0]
+    assert 'href="http://192.168.1.20:8420/?view=' in sent[0]
 
-    monkeypatch.setattr(sys, "argv", ["run_digest.py", "--db", db, "--force"])
-    assert main() == 0  # same week, forced re-send -> no repeated hint
-    assert "📱 Dashboard" not in sent[1]
+
+def test_without_dash_url_the_digest_carries_no_links(tmp_path, monkeypatch):
+    db = str(tmp_path / "inbox.db")
+    _tg_env(monkeypatch)
+    monkeypatch.delenv("DASH_URL", raising=False)
+    sent: list[str] = []
+    monkeypatch.setattr(
+        run_digest, "send_long_message",
+        lambda token, chat_id, text, parse_mode=None: sent.append(text) or 1,
+    )
+    monkeypatch.setattr(sys, "argv", ["run_digest.py", "--db", db])
+
+    assert main() == 0
+    assert "<a href" not in sent[0]
 
 
 def test_first_run_of_the_month_sends_the_proof_report(tmp_path, monkeypatch):

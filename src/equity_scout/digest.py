@@ -26,8 +26,50 @@ _SOURCE_LABEL = {"congress": "Kongress-Käufe", "thirteen_f": "13F-Fonds",
 # past what the beginner persona can scan in one sitting — cap the rendered lines and
 # dedupe per ticker so the section stays a skimmable top-of-list, not a lifetime log.
 OPEN_PITCH_CAP = 6
-AUTODEPOT_TRADE_CAP = 5  # v10: keep the depot block scannable, rest is in the dashboard
 _VERDICT_ORDER = {"green": 0, "yellow": 1, "red": 2}
+
+# A rebalance that moves less than 1 % of the book is bookkeeping, not news: the nightly
+# advance routinely produces a dozen of them (12 trades, largest ~60 USD, on 2026-08-03).
+# Name the material ones, count the rest — the full list lives in the cockpit.
+MATERIAL_DELTA_WEIGHT = 0.01
+TRADE_NAME_CAP = 3
+
+
+# German number rendering: thousands dot, decimal comma, U+2212 minus for negatives.
+# Telegram shows these lines next to German prose, so English 1,234.5 reads as a typo.
+# PUBLIC (no underscore) because scripts/run_autotrader.py formats the same figures for
+# the nightly push — one formatter, so the two Telegram surfaces cannot drift.
+def format_de(value: float, digits: int = 0) -> str:
+    formatted = f"{abs(value):,.{digits}f}".replace(",", " ").replace(".", ",")
+    formatted = formatted.replace(" ", ".")
+    return f"−{formatted}" if value < 0 else formatted
+
+
+def format_de_pct(value: float, digits: int = 1) -> str:
+    """Signed percent from a RATIO (0.012 -> '+1,2 %')."""
+    sign = "+" if value >= 0 else "−"
+    return f"{sign}{format_de(abs(value) * 100, digits)} %"
+
+
+def _trade_summary(trades: list[dict]) -> str:
+    """'Trades: ↓MU 4,1 % · +2 kleine' — or an honest 'Keine Trades'."""
+    if not trades:
+        return "Keine Trades an diesem Stand."
+    material = sorted(
+        (t for t in trades if abs(t["delta_weight"]) >= MATERIAL_DELTA_WEIGHT),
+        key=lambda t: abs(t["delta_weight"]), reverse=True,
+    )
+    named = [
+        f"{'↑' if t['delta_weight'] > 0 else '↓'}{t['ticker']}"
+        f" {format_de(abs(t['delta_weight']) * 100, 1)} %"
+        for t in material[:TRADE_NAME_CAP]
+    ]
+    rest = len(trades) - len(named)
+    parts = list(named)
+    if rest > 0:
+        # "kleine" stays invariant for 1 and n — no singular/plural branch needed.
+        parts.append(f"+{rest} kleine")
+    return "Trades: " + " · ".join(parts)
 
 
 def _dedupe_open(open_pitches: list[dict]) -> list[dict]:
@@ -63,15 +105,16 @@ def build_digest(
     date_label: str,
     decided_since: str | None = None,
     evidence_stats: dict[str, dict] | None = None,
-    alerts_today: list[dict] | None = None,
+    alerts_today: list[dict] | None = None,  # noqa: ARG001 - dashboard renders alerts (VoicesPanel)
     opportunities: list[dict] | None = None,
     earnings_this_week: list[dict] | None = None,
     regime: dict | None = None,
     sector_line: str | None = None,
     core_block: str | None = None,
-    below_threshold: int | None = None,
+    below_threshold: int | None = None,  # noqa: ARG001 - accepted for callers, no longer rendered
     autodepot: dict | None = None,
     shortterm: list[dict] | None = None,
+    dash_url: str | None = None,
     html: bool = False,
 ) -> str:
     """German digest: market head first, all open pitches, then recent decisions.
@@ -105,13 +148,34 @@ def build_digest(
     as_of date instead of claiming "heute". Omitted entirely when None (no depot yet).
 
     v11: `shortterm` (run_digest.collect_shortterm shape, one dict per arena lane) renders
-    the "⚡ Kurzfrist-Arena" one-liner-per-lane block; omitted when None/empty."""
+    the "⚡ Arena" summary line; omitted when None/empty.
+
+    2026-08-04 (Telegram diet): this is a SIGNAL, not a report — one line per topic, target
+    ≤ 16 lines total. Depth is one tap away instead of inlined: with `dash_url` set, every
+    section head deep-links into the matching cockpit view. Reference material moved out
+    entirely (per-lane test-bench counters, exposure/drawdown, the alert list, the
+    below-threshold count) because the dashboard shows it; the evidence hit-rates and the
+    earnings calendar only CONDENSE, because no frontend renders them yet. Repeating
+    yesterday's open-pitch list was the biggest source of noise — only pitches newer than
+    `decided_since` get a line now."""
 
     def _head(text: str) -> str:
         return f"<b>{escape_html(text)}</b>" if html else text
 
     def _line(text: str) -> str:
         return escape_html(text) if html else text
+
+    def _link(text: str, view: str) -> str:
+        """Section head as a deep link into the phone cockpit's matching view.
+
+        Query param (not a path) because the dashboard is served by StaticFiles at "/" —
+        `/depots` would 404, `?view=depots` always resolves to index.html. Plain-text
+        mode never links: a bare URL adds noise to the stdout/SMTP rendering.
+        """
+        if not (html and dash_url):
+            return _head(text)
+        url = escape_html(f"{dash_url.rstrip('/')}/?view={view}")
+        return f'<b><a href="{url}">{escape_html(text)}</a></b>'
 
     lines = [_head(f"Copilot-Digest {date_label}")]
     if regime is not None:
@@ -127,134 +191,103 @@ def build_digest(
         lines.append(core_block)
     if autodepot is not None:
         eur = (
-            f" ({autodepot['equity_eur']:,.0f} EUR)"
+            f" ({format_de(autodepot['equity_eur'])} €)"
             if autodepot.get("equity_eur") is not None
             else ""
         )
-        lines.append(_head(
-            f"🤖 Auto-Depot (Stand {autodepot['as_of']}): {autodepot['equity']:,.0f} USD{eur}"
+        day = ""
+        if autodepot.get("day_pnl") is not None:
+            emoji = "🟢" if autodepot["day_pnl"] >= 0 else "🔴"
+            # The day RETURN carries the meaning; the absolute P&L is one tap away in
+            # the cockpit. Falls back to the absolute figure when no return was stored.
+            move = (
+                format_de_pct(autodepot["day_return"])
+                if autodepot.get("day_return") is not None
+                else f"{format_de(autodepot['day_pnl'])} $"
+            )
+            day = f" · {emoji} heute {move}"
+        lines.append(_link(
+            f"🤖 Auto-Depot {format_de(autodepot['equity'])} ${eur}{day}", "depots"
         ))
         if autodepot.get("stale_days"):
             lines.append(_line(
-                f"  ⚠️ Stand veraltet ({autodepot['stale_days']} Handelstage) — Kette prüfen"
+                f"  ⚠️ Stand {autodepot['stale_days']} Handelstage alt — Kette prüfen"
             ))
-        if autodepot.get("day_pnl") is not None:
-            day = autodepot["day_pnl"]
-            emoji = "🟢" if day >= 0 else "🔴"
-            pct_note = (
-                f" ({autodepot['day_return'] * 100:+.2f} %)"
-                if autodepot.get("day_return") is not None else ""
-            )
-            lines.append(_line(f"  {emoji} Heute: {day:+,.0f} $" + pct_note))
         lines.append(_line(
-            f"  Gesamt {autodepot['total_return'] * 100:+.1f} %"
-            f" vs SPY {autodepot['benchmark_return'] * 100:+.1f} %"
-            f" · Exposure {autodepot['gross_exposure'] * 100:.0f} %"
-            f" · Drawdown {autodepot['drawdown'] * 100:.1f} %"
+            f"  Gesamt {format_de_pct(autodepot['total_return'])}"
+            f" vs SPY {format_de_pct(autodepot['benchmark_return'])}"
         ))
-        trades = autodepot.get("trades") or []
-        if trades:
-            shown = [
-                f"{'↑' if t['delta_weight'] > 0 else '↓'}{t['ticker']}"
-                for t in trades[:AUTODEPOT_TRADE_CAP]
-            ]
-            rest = len(trades) - AUTODEPOT_TRADE_CAP
-            suffix = f" · +{rest} weitere" if rest > 0 else ""
-            # v13 O2: decided one advance earlier, filled at this advance's open
-            lines.append(_line(f"  Trades (Fill: next-open): {' '.join(shown)}{suffix}"))
-        else:
-            lines.append(_line("  Keine Trades an diesem Stand."))
+        lines.append(_line(f"  {_trade_summary(autodepot.get('trades') or [])}"))
         for detail in autodepot.get("risk_events") or []:
             lines.append(_line(f"  ⚠ {detail}"))
         # A persisting breaker stage acts silently in the engine (no daily event spam) —
         # the digest is where its ongoing grip has to stay visible instead.
-        stage_note = {1: "Drawdown-Breaker aktiv: halbes Exposure", 2: "Drawdown-Breaker aktiv: komplett Cash"}
+        stage_note = {1: "Drawdown-Breaker aktiv: halbes Exposure",
+                      2: "Drawdown-Breaker aktiv: komplett Cash"}
         stage = autodepot.get("breaker_stage", 0)
         if stage in stage_note:
             lines.append(_line(f"  ⛔ {stage_note[stage]}"))
-        if autodepot.get("mode") == "anchor":
-            lines.append(_line(
-                "  (Anker-Phase: Sleeves gleichgewichtet — noch zu wenig"
-                " Forward-Historie für einen Performance-Tilt)"
-            ))
     if shortterm:
-        lines.append(_head("⚡ Kurzfrist-Arena:"))
-        for lane in shortterm:
-            day_note = ""
-            if lane.get("day_pnl") is not None:
-                emoji = "🟢" if lane["day_pnl"] >= 0 else "🔴"
-                day_note = f"{emoji} heute {lane['day_pnl']:+,.0f} $ · "
-            bench = ""
-            if lane.get("benchmark_return") is not None:
-                bench = f" ({lane['benchmark_ticker']} {lane['benchmark_return'] * 100:+.1f} %)"
-            trades_note = (
-                f" · {lane['trades_today']} Trades heute" if lane.get("trades_today") else ""
-            )
-            stale_note = (
-                f" · ⚠ seit {lane['stale_days']} Tagen keine Daten"
-                if lane.get("stale_days") else ""
-            )
-            lines.append(_line(
-                f"  {lane['label']}: {day_note}gesamt {lane['total_return'] * 100:+.1f} %"
-                f"{bench}{trades_note}{stale_note}"
-            ))
-            promo = lane.get("promotion")
-            if lane.get("promoted"):
-                lines.append(_line("    🎓 im Auto-Depot — verdient Depot-Kapital"))
-            elif promo is not None:
-                pf = promo.get("profit_factor")
-                pf_str = "—" if pf is None else ("∞" if pf == float("inf") else f"{pf:.2f}")
-                if promo.get("eligible"):
-                    lines.append(_line(
-                        "    ✅ Prüfstand bestanden — Aufnahme beim nächsten Nightly-Lauf"
-                    ))
-                else:
-                    lines.append(_line(
-                        f"    Prüfstand: {promo['realized_trades']}/30 Trades"
-                        f" · {promo['days_active']}/60 Tage · PF {pf_str}"
-                    ))
+        best = max(shortterm, key=lambda lane: lane["total_return"])
         day_values = [lane["day_pnl"] for lane in shortterm if lane.get("day_pnl") is not None]
+        day_note = ""
         if day_values:
             total_day = sum(day_values)
-            emoji = "🟢" if total_day >= 0 else "🔴"
-            lines.append(_line(f"  {emoji} Arena heute gesamt: {total_day:+,.0f} $"))
-    lines.append("")
-    if alerts_today:
-        lines.append(_head("📌 Heute aufgefallen:"))
-        for alert in alerts_today:
-            # Voice reasons carry whole press headlines — cap them so the digest scans
-            # as a list (Nico 2026-07-15: kurz und übersichtlich).
-            reasons = ", ".join(
-                (r if len(r) <= 90 else r[:89] + "…")
-                for r in (_SOURCE_LABEL.get(r, r) for r in alert["reasons"])
+            # "±0 $" instead of "🟢 +0 $": a zero day is not a green day.
+            day_note = (
+                " · heute ±0 $" if total_day == 0
+                else f" · heute {format_de(total_day)} $"
             )
-            buyers = alert.get("buyer_count") or 0
-            suffix = f" ({buyers} Käufer)" if buyers > 1 else ""
-            lines.append(_line(f"  {alert['ticker']}: {reasons}{suffix}"))
-        lines.append("")
+        lines.append(_link(
+            f"⚡ Arena {len(shortterm)} Lanes · beste {best['label']}"
+            f" {format_de_pct(best['total_return'])}{day_note}",
+            "depots",
+        ))
+        # Only malfunctions and state CHANGES get their own line — a lane grinding
+        # through its test bench does not.
+        for lane in shortterm:
+            if lane.get("stale_days"):
+                lines.append(_line(
+                    f"  ⚠ {lane['label']}: {lane['stale_days']} Tage keine Daten"
+                ))
+            if lane.get("promoted"):
+                lines.append(_line(f"  🎓 {lane['label']} verdient jetzt Depot-Kapital"))
+            elif (lane.get("promotion") or {}).get("eligible"):
+                lines.append(_line(
+                    f"  ✅ {lane['label']} hat den Prüfstand bestanden"
+                    " — Aufnahme beim nächsten Nightly-Lauf"
+                ))
+    # Blank line: the market/depot head above, the day's items below. The "📌 Heute
+    # aufgefallen" alert list used to sit here — dropped 2026-08-04, it duplicated the
+    # chances line and its reasons carried whole press headlines. Alerts stay visible in
+    # the dashboard (/api/evidence -> recent_alerts -> VoicesPanel).
+    lines.append("")
     if opportunities:
-        lines.append(_head("🎯 Chancen im Blick:"))
+        attractive = []
         for entry in opportunities:
-            marks = ""
-            if entry.get("in_zone"):
-                marks += " · in Zone"
-            if (entry.get("value_gap") or 0) > 0:
-                marks += " · unterbewertet"
-            base = f"{entry['ticker']} · Score {round(entry['composite'] * 100)}/100{marks}"
             try:
                 verdict = compute_verdict(entry)
             except KeyError:
-                # Minimal/pre-v8 watchlist entries can lack "breakdown" — degrade to the
-                # plain line instead of crashing the whole digest over one missing field.
-                lines.append(_line(f"  {base}"))
+                # Minimal/pre-v8 watchlist entries can lack "breakdown" — skip the entry
+                # instead of crashing the whole digest over one missing field.
                 continue
-            lines.append(_line(f"  {verdict['emoji']} {base} — {verdict['label']}"))
-        lines.append("")
+            if verdict["level"] != "red":
+                attractive.append(f"{entry['ticker']} {round(entry['composite'] * 100)}")
+        if attractive:
+            lines.append(_link("🎯 Chancen: " + " · ".join(attractive), "radar"))
+        else:
+            lines.append(_line(
+                "🎯 Keine attraktive Chance heute — Nichtstun ist die richtige Aktion."
+            ))
     if earnings_this_week:
-        lines.append(_head("📅 Earnings diese Woche:"))
-        for e in earnings_this_week:
-            lines.append(_line(f"  {e['ticker']}: {e['earnings_date']}"))
-        lines.append("")
+        today = [e["ticker"] for e in earnings_this_week if e["earnings_date"] == date_label]
+        rest = len(earnings_this_week) - len(today)
+        if today:
+            lines.append(_line(
+                f"📅 Earnings heute: {', '.join(today)} · {rest} weitere diese Woche"
+            ))
+        else:
+            lines.append(_line(f"📅 Earnings: heute keine · {rest} diese Woche"))
     open_pitches = _dedupe_open([p for p in pitches if p["status"] == "open"])
     decided = [
         p for p in pitches
@@ -263,54 +296,52 @@ def build_digest(
     ]
     if not open_pitches:
         lines.append(_line(
-            "Aktuell keine offenen Pitches — nichts zu tun ist gerade die richtige"
-            " Aktion. Der Sparplan-Kern läuft unabhängig weiter."
+            "📬 Keine offenen Pitches — nichts zu tun ist gerade die richtige Aktion."
         ))
     else:
-        # count style ("Offene Pitches: 1") dodges singular/plural agreement; the count
-        # is per TICKER (post-dedupe), matching what's actually rendered below.
-        lines.append(_head(f"Offene Pitches: {len(open_pitches)}"))
-        for p in open_pitches[:OPEN_PITCH_CAP]:
+        fresh = [
+            p for p in open_pitches
+            if decided_since is None or p["created_at"] >= decided_since
+        ]
+        # "N Pitch(es) offen" carries the count so no singular/plural agreement is needed;
+        # only FRESH pitches get a line — repeating yesterday's identical list every day
+        # is what made the digest a wall of text (Nico, 2026-08-04).
+        noun = "Pitch" if len(open_pitches) == 1 else "Pitches"
+        suffix = f"{len(fresh)} neu" if fresh else "nichts neu"
+        lines.append(_link(f"📬 {len(open_pitches)} {noun} offen · {suffix}", "inbox"))
+        for p in fresh[:OPEN_PITCH_CAP]:
             # v9: the same verdict already persisted on the pitch at notify time
             # (pitch.compute_verdict, see inbox_storage) — "📬" is only the honest
             # fallback for pre-v8 rows that never had a verdict computed/stored.
             icon = VERDICT_EMOJI.get(p.get("verdict"), "📬")
-            why = f" — {p['verdict_why']}" if p.get("verdict_why") else ""
             lines.append(_line(
-                f"  {icon} {p['ticker']} · Score {round(p['composite'] * 100)}/100"
-                f" · Kurs {p['price']:.2f} · seit {p['created_at'][:10]}{why}"
+                f"  {icon} {p['ticker']} · {round(p['composite'] * 100)}/100"
+                f" · {p['price']:.2f}"
             ))
-        rest = len(open_pitches) - OPEN_PITCH_CAP
-        if rest > 0:
-            # No inflection ("weitere" stays invariant for 1 and n) so this doesn't need
-            # a singular/plural branch — same dodge as the "Offene Pitches: N" header.
-            lines.append(_line(f"  … {rest} weitere im Dashboard."))
-    if below_threshold:
-        lines.append(_line(
-            f"  ({below_threshold} Watchlist-Titel unter der Qualitätsschwelle —"
-            " bewusst nicht gepitcht)"
-        ))
     if decided:
-        lines.append("")
-        lines.append(_head("Entschieden:"))
-        for p in decided:
-            icon = _STATUS_ICON.get(p["status"], p["status"])
-            lines.append(_line(f"  {icon} — {p['ticker']} · am {(p['decided_at'] or '')[:10]}"))
+        lines.append(_line(
+            "✅ Entschieden: " + " · ".join(
+                f"{_STATUS_ICON.get(p['status'], p['status'])} {p['ticker']}"
+                for p in decided
+            )
+        ))
     if evidence_stats:
-        lines.append("")
-        lines.append(_head("Evidenz-Quellen — gemessene Trefferquote vs SPY (60-Tage-Horizont):"))
-        for source in sorted(evidence_stats):
-            entry = evidence_stats[source]
-            if entry["n_resolved"] == 0:
-                measured = "noch nichts aufgelöst"
-            else:
-                measured = (
-                    f"{entry['n_resolved']} aufgelöst,"
-                    f" Trefferquote {round(entry['hit_rate'] * 100)} %,"
-                    f" Ø relative Rendite {entry['mean_relative_return'] * 100:+.1f} %"
-                )
-            lines.append(_line(f"  {_SOURCE_LABEL.get(source, source)}: {measured}"
-                               f" · offen: {entry['n_open']}"))
+        resolved = sum(entry["n_resolved"] for entry in evidence_stats.values())
+        open_count = sum(entry["n_open"] for entry in evidence_stats.values())
+        if resolved == 0:
+            lines.append(_line(
+                f"🔬 Evidenz: {format_de(open_count)} offen, noch keine Auflösung"
+            ))
+        else:
+            best = max(
+                (item for item in evidence_stats.items() if item[1]["n_resolved"] > 0),
+                key=lambda item: item[1]["hit_rate"],
+            )
+            lines.append(_line(
+                f"🔬 Evidenz: {format_de(resolved)} aufgelöst · beste Quelle"
+                f" {_SOURCE_LABEL.get(best[0], best[0])}"
+                f" {round(best[1]['hit_rate'] * 100)} %"
+            ))
     lines += ["", SHORT_DISCLAIMER]
     return "\n".join(lines)
 
