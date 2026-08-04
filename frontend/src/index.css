@@ -1985,3 +1985,89 @@ code {
     background: var(--accent-subtle);
   }
 }
+
+/* ===== Phone readability pass (2026-08-04) =====
+   Measured on a 390x844 viewport: every view scrolled sideways — headlines and cards ran
+   past the right edge ("Alle Paper-Depots an einem…" was cut off), and the first screen
+   was spent on a large title plus three lines of explanatory prose before any data.
+   The rules below are grouped by cause, so a future regression is traceable to one of them. */
+@media (max-width: 720px) {
+  /* CAUSE 1: nothing constrained the page width. A single overlong token (ticker, URL,
+     ISIN) or an oversized headline made the layout wider than the viewport and the whole
+     page scrolled sideways — the worst mobile failure mode, because it also shifts every
+     tap target. Content that genuinely cannot shrink (tables, code) gets its own scroll
+     container below instead of pushing the page. */
+  /* `clip`, NOT `hidden`: both stop the sideways scroll, but `hidden` also makes the
+     element a scroll container, which needlessly changes what `position: sticky` and the
+     IntersectionObserver in App.tsx measure against. `clip` has no such side effect. */
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+  .shell,
+  .content,
+  .view {
+    max-width: 100%;
+    min-width: 0;
+  }
+  /* Long words break instead of overflowing. `anywhere` (not `break-word`) also applies
+     inside flex/grid children, which is where the tickers live. */
+  .view,
+  .view * {
+    overflow-wrap: anywhere;
+  }
+  /* Grid and flex children default to min-content width, which is what let wide cards
+     push their container. */
+  .view *[class*="grid"] > *,
+  .tile,
+  .card {
+    min-width: 0;
+  }
+
+  /* CAUSE 2: the first screen was title + prose, not data. The eyebrow and headline stay
+     (they say where you are), the long explanatory subtitle goes — it is onboarding text
+     that costs half a screen on every single visit. */
+  .section-head h1 {
+    font-size: 1.35rem;
+    line-height: 1.25;
+  }
+  .section-head .section-sub {
+    display: none;
+  }
+  .section-head {
+    margin-bottom: var(--space-3);
+  }
+
+  /* CAUSE 3: wide blocks. Tables and pre-formatted output cannot reflow, so they scroll
+     inside themselves rather than widening the page. */
+  table,
+  pre {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  /* CAUSE 4: one number per full-width card. Measured: three KPIs filled three screens,
+     each tile ~130 px tall for a single figure. Two columns plus halved padding put the
+     whole KPI row in one thumb's reach; the number stays the biggest thing in the tile,
+     just not 30 px tall. The `1fr !important` in the older mobile block above would
+     otherwise force one column, hence the same specificity here. */
+  .kpi-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
+  .tile {
+    padding: var(--space-3);
+  }
+  .tile .value {
+    font-size: var(--text-lg);
+    margin-top: var(--space-1);
+  }
+  /* Panels carry desktop padding on all four sides; on a 390 px screen that is up to a
+     third of the width spent on air. */
+  .panel {
+    padding: var(--space-3);
+  }
+}
