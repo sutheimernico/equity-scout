@@ -18,7 +18,7 @@ from collections.abc import Callable
 
 from equity_scout.chat import ChatError, ask_ollama
 from equity_scout.constants import SHORT_DISCLAIMER
-from equity_scout.evidence.aggregate import evidence_block, evidence_summary_lines
+from equity_scout.evidence.aggregate import evidence_block
 from equity_scout.fundamentals import Fundamentals
 from equity_scout.telegram_client import escape_html, strip_html
 
@@ -272,67 +272,45 @@ def _top_factors(breakdown: dict, n: int = 2) -> str:
 def build_pitch_caption(
     entry: dict,
     fundamentals: Fundamentals | None = None,
-    evidence: list[dict] | None = None,
-    one_year_return: float | None = None,
+    evidence: list[dict] | None = None,  # noqa: ARG001 - served by the Details callback
+    one_year_return: float | None = None,  # noqa: ARG001 - the chart photo already shows it
     eur_price: float | None = None,
-    press_lines: list[str] | None = None,
-    target_stop: dict | None = None,
-    f_score: dict | None = None,
+    press_lines: list[str] | None = None,  # noqa: ARG001 - served by the Details callback
+    target_stop: dict | None = None,  # noqa: ARG001 - served by the Details callback
+    f_score: dict | None = None,  # noqa: ARG001 - served by the Details callback
 ) -> str:
-    """Compact, sectioned caption for the chart-photo pitch. v8 layout: Telegram HTML
-    (send with parse_mode="HTML") in four paragraph blocks separated by blank lines —
-    head (who + at-a-glance verdict, bold), numbers, context (evidence/press), risk —
-    so the caption reads as structured paragraphs instead of a wall of lines (Nico
-    2026-07-16). Only <b> is used: photo captions support inline formatting, while the
-    expandable quote is reserved for the long TEXT pitch. All dynamic content is
-    escaped. Hard-capped for Telegram's 1024-unit photo-caption limit; an over-long
-    caption degrades to stripped plain text before cutting so no tag is ever severed.
-    `eur_price` rides along for non-EUR listings; `press_lines` are third-party
-    headlines (see press.py) — quoted, never interpreted. `target_stop` is A4's
-    deterministic model target/stop (`entry.compute_target_stop`); unlike the other
-    optional lines it is omitted (not shown as an absence) when None."""
+    """Four-line caption for the chart-photo pitch (Telegram HTML, parse_mode="HTML").
+
+    2026-08-04 diet: five to ten of these arrive in a row on pitch days, so the caption
+    answers only "which company, how good, at what price, what is the catch" — name +
+    verdict, score, price + entry zone, risk. Everything that used to sit below (KGV,
+    1-year return, analyst consensus, model target/stop, Piotroski F-score, evidence
+    lines, press headlines) is served on demand by the "🔎 Details" button, which replies
+    with `build_pitch(html=True)` — see telegram_client.DETAIL_ACTION. The unused keyword
+    arguments stay in the signature because run_notify passes them for that path.
+
+    Only <b> is used (photo captions support inline formatting; the expandable quote is
+    reserved for the long TEXT pitch). All dynamic content is escaped. Hard-capped for
+    Telegram's 1024-unit photo-caption limit; an over-long caption degrades to stripped
+    plain text before cutting so no tag is ever severed. `eur_price` rides along in the
+    price line for non-EUR listings."""
     cur = f" {fundamentals.currency}" if fundamentals and fundamentals.currency else ""
     score = round(entry["composite"] * 100)
+    verdict = compute_verdict(entry)
     price = f"Kurs {entry['price']:.2f}{cur}"
     if eur_price is not None:
         price += f" (≈ {eur_price:.2f} €)"
-    price_bits = [price]
-    if fundamentals is not None and fundamentals.trailing_pe is not None:
-        price_bits.insert(0, f"KGV {fundamentals.trailing_pe:.0f}")
-    if one_year_return is not None:
-        price_bits.append(f"1 Jahr {one_year_return * 100:+.0f} %")
-    verdict = compute_verdict(entry)
-    head = [
-        f"<b>📈 {entry['ticker']} — {escape_html(entry['name'])}</b>",
-        f"{verdict['emoji']} <b>{verdict['label']}</b> · Score {score}/100 · "
-        f"stark: {_top_factors(entry['breakdown'])}",
-    ]
-    numbers = [
-        "💰 " + " · ".join(price_bits),
-        f"🎯 Zone {entry['entry_zone_low']:.2f}–{entry['entry_zone_high']:.2f}{cur}",
-    ]
-    if target_stop is not None:
-        # Distinct label ("Kursziel" vs "Zone" right after the shared 🎯) keeps the
-        # model target from being read as the entry zone above.
-        numbers.append(
-            f"🎯 Kursziel {target_stop['target']:.2f}{cur} · "
-            f"🛑 Stop {target_stop['stop']:.2f}{cur}"
-        )
-    target = fundamentals.analyst_target if fundamentals else None
-    if target is not None and entry["price"] > 0:
-        upside = (target / entry["price"] - 1.0) * 100
-        numbers.append(f"🔭 Analysten-Ø-Ziel {target:.2f}{cur} ({upside:+.0f} %) — fremde Meinung")
-    if f_score is not None:
-        numbers.append(f"📒 Bilanz-Trend {f_score['score']}/9 ({_fscore_band(f_score['score'])})")
-    context = [
-        f"👥 {escape_html(evidence_line)}"
-        for evidence_line in evidence_summary_lines(evidence or [])
-    ]
-    context += [f"🗞️ {escape_html(press_line)}" for press_line in press_lines or []]
     risk = _risk_line(entry)
-    risk_block = [f"⚠️ {escape_html(risk if len(risk) <= 90 else risk[:89] + '…')}"] if risk else []
-    blocks = ["\n".join(block) for block in (head, numbers, context, risk_block) if block]
-    caption = "\n\n".join(blocks)
+    lines = [
+        f"<b>📈 {entry['ticker']} — {escape_html(entry['name'])}</b>",
+        f"{verdict['emoji']} <b>{verdict['label']}</b> · {score}/100 · "
+        f"stark: {_top_factors(entry['breakdown'])}",
+        f"💰 {price} · 🎯 Zone {entry['entry_zone_low']:.2f}–"
+        f"{entry['entry_zone_high']:.2f}{cur}",
+    ]
+    if risk:
+        lines.append(f"⚠️ {escape_html(risk if len(risk) <= 90 else risk[:89] + '…')}")
+    caption = "\n".join(lines)
     if len(caption) <= _CAPTION_LIMIT:
         return caption
     plain = strip_html(caption)

@@ -153,13 +153,15 @@ def _pitch_entry() -> dict:
     }
 
 
-def test_pitch_surfaces_carry_the_fscore_line():
+def test_pitch_carries_the_fscore_line():
+    """The four-line caption stopped carrying the balance-trend label on 2026-08-04
+    (Telegram diet) — the full pitch behind the "🔎 Details" button is now its only
+    surface, so this is where the wording is pinned."""
     f_score = {"score": 7, "evaluable": 9, "fiscal_year": 2025, "criteria": {}}
     pitch = build_pitch(_pitch_entry(), ask=lambda q, c: "ok", f_score=f_score)
     assert "Bilanz-Trend (Piotroski F-Score): 7/9 — stark" in pitch
     assert "Ohne Einfluss auf den Score oben" in pitch
-    caption = build_pitch_caption(_pitch_entry(), f_score=f_score)
-    assert "📒 Bilanz-Trend 7/9 (stark)" in caption
+    assert "📒" not in build_pitch_caption(_pitch_entry(), f_score=f_score)
 
 
 def test_pitch_omits_fscore_when_absent():
