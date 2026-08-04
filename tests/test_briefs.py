@@ -197,7 +197,8 @@ def test_briefs_endpoint_limit_is_capped(tmp_path, monkeypatch):
                  for i in range(25)],
     )
     save_watchlist(str(db), wl)
-    monkeypatch.setattr(api_mod, "fetch_fundamentals",
+    # The endpoint calls the CACHED wrapper, so that is the seam to patch.
+    monkeypatch.setattr(api_mod, "fetch_fundamentals_cached",
                          lambda t: Fundamentals(None, None, None, None))
 
     client = TestClient(api_mod.create_app(str(db)))

@@ -40,7 +40,7 @@ from equity_scout.autotrader_storage import load_trades as load_autotrader_trade
 from equity_scout.autotrader_storage import load_valuations as load_autotrader_valuations
 from equity_scout.forward_storage import load_all_accounts
 from equity_scout.forward_storage import load_valuations as load_forward_valuations
-from equity_scout.fundamentals import fetch_fundamentals, fetch_fundamentals_cached
+from equity_scout.fundamentals import fetch_fundamentals_cached
 from equity_scout.shortterm_book import stats as shortterm_stats
 from equity_scout.shortterm_storage import (
     DEFAULT_SHORTTERM_DB_PATH,
