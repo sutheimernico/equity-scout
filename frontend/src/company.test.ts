@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { companyInitials, shortCompanyName } from "./company";
+import { companyInitials, companyNameFromPitch, shortCompanyName } from "./company";
 
 describe("shortCompanyName", () => {
   it("strips stacked legal forms", () => {
@@ -43,5 +43,23 @@ describe("companyInitials", () => {
 
   it("ignores punctuation-only fragments", () => {
     expect(companyInitials("A.P. Moller - Maersk")).toBe("AP");
+  });
+});
+
+describe("companyNameFromPitch", () => {
+  const pitch = "📈 PETR4.SA — Petrobras\nEinstiegs-Score: 46/100 (mittel)";
+
+  it("recovers the company name from the pitch head", () => {
+    expect(companyNameFromPitch(pitch, "PETR4.SA")).toBe("Petrobras");
+  });
+
+  it("refuses a head that belongs to a different ticker", () => {
+    // A mismatch means the row and the text got out of sync — show the ticker, not a lie.
+    expect(companyNameFromPitch(pitch, "MU")).toBeNull();
+  });
+
+  it("returns null instead of guessing when the format differs", () => {
+    expect(companyNameFromPitch("Kein Kopf hier", "MU")).toBeNull();
+    expect(companyNameFromPitch("", "MU")).toBeNull();
   });
 });

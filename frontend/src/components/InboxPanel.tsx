@@ -1,12 +1,23 @@
 import { useEffect, useState } from "react";
 
 import { decidePitch, fetchInbox, type InboxResponse, type Pitch } from "../api";
+import { companyNameFromPitch, shortCompanyName } from "../company";
 import { toPercent } from "../format";
+import { StockLogo } from "./StockLogo";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
+import { Disclosure } from "./ui/Disclosure";
 
 // ISO timestamp → compact "YYYY-MM-DD HH:MM" (backend emits tz-aware isoformat).
 function formatStamp(iso: string): string {
   return iso.slice(0, 16).replace("T", " ");
+}
+
+// The pitches table stores only the ticker, but pitch.py writes "📈 <TICKER> — <NAME>" as
+// the text's first line, so the company name is recoverable without a schema migration.
+// null when the format does not match — the ticker is then shown alone rather than a guess.
+function pitchName(pitch: Pitch): string | null {
+  const name = companyNameFromPitch(pitch.pitch, pitch.ticker);
+  return name === null ? null : shortCompanyName(name);
 }
 
 // Decided-outcome badge: label + color class (buy=grün, pass=rot, later=grau).
@@ -116,7 +127,13 @@ export function InboxPanel() {
             return (
               <article className="panel pitch" key={p.id}>
                 <div className="pitch-head">
-                  <span className="ticker">{p.ticker}</span>
+                  <StockLogo ticker={p.ticker} name={pitchName(p) ?? p.ticker} />
+                  <span className="pitch-ident">
+                    {/* The company name is what identifies a holding; the ticker is the
+                        lookup key. Both, name first — a bare 9064.T means nothing. */}
+                    <span className="pitch-company">{pitchName(p) ?? p.ticker}</span>
+                    <span className="ticker">{p.ticker}</span>
+                  </span>
                   <span className="pitch-score tnum">{toPercent(p.composite)}</span>
                   {p.verdict && (
                     <span className={`badge pitch-badge ${VERDICT[p.verdict].cls}`}>
@@ -145,8 +162,10 @@ export function InboxPanel() {
                   <span className="nobr">{formatStamp(p.created_at)}</span>
                 </div>
 
-                <p className="pitch-text">{p.pitch}</p>
-
+                {/* Actions BEFORE the reasoning (2026-08-04): the full pitch text is ~20
+                    lines, so on a phone the buttons used to sit below a wall of text and a
+                    decision required scrolling past everything. Verdict, score, price and
+                    zone above are enough to decide; the depth folds away. */}
                 {p.status === "open" ? (
                   <div className="pitch-actions">
                     <button
@@ -185,6 +204,10 @@ export function InboxPanel() {
                     {inlineErrors[p.id]}
                   </p>
                 )}
+
+                <Disclosure summary="Ausführliche Begründung">
+                  <p className="pitch-text">{p.pitch}</p>
+                </Disclosure>
               </article>
             );
           })}

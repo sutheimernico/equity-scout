@@ -75,3 +75,15 @@ export function companyInitials(name: string): string {
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return (words[0][0] + words[1][0]).toUpperCase();
 }
+
+// The pitch text's first line is built by pitch.py as "📈 <TICKER> — <NAME>", so the
+// company name can be recovered from a pitch row even though the pitches table only stores
+// the ticker. Returns null when the line does not match — no guessing.
+const PITCH_HEAD_RE = /^\s*📈\s*(\S+)\s+—\s+(.+?)\s*$/;
+
+export function companyNameFromPitch(pitch: string, ticker: string): string | null {
+  const match = PITCH_HEAD_RE.exec(pitch.split("\n")[0] ?? "");
+  if (!match) return null;
+  // Guard against a mismatched row: the head must belong to THIS ticker.
+  return match[1] === ticker ? match[2] : null;
+}

@@ -2177,3 +2177,23 @@ code {
   padding: var(--space-2) 0 0;
   cursor: pointer;
 }
+
+/* Inbox pitch head: logo + company name (2026-08-04). The ticker moves under the name —
+   it is the lookup key, not the identity. */
+.pitch-ident {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.pitch-company {
+  color: var(--text-strong);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pitch-head .pitch-ident .ticker {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
