@@ -161,7 +161,9 @@ def test_briefs_endpoint_orders_and_survives_one_bad_ticker(tmp_path, monkeypatc
             return Fundamentals(None, None, None, "EUR")
         raise RuntimeError("yfinance boom")  # BAD ticker: fetch fails
 
-    monkeypatch.setattr(api_mod, "fetch_fundamentals", fake_fetch)
+    # The endpoint calls the CACHED wrapper (see fundamentals.fetch_fundamentals_cached);
+    # patching the raw fetch would silently hit the network instead.
+    monkeypatch.setattr(api_mod, "fetch_fundamentals_cached", fake_fetch)
 
     client = TestClient(api_mod.create_app(str(db)))
     resp = client.get("/api/briefs?limit=5")
@@ -201,3 +203,59 @@ def test_briefs_endpoint_limit_is_capped(tmp_path, monkeypatch):
     client = TestClient(api_mod.create_app(str(db)))
     body = client.get("/api/briefs?limit=999").json()
     assert len(body["briefs"]) == 20  # hard-capped, never all 25
+
+
+# ===== Fundamentals TTL cache (2026-08-04) =====
+# /api/briefs is hit on every phone app open; without a cache that is `limit` live yfinance
+# calls per visit against a free, rate-limited endpoint.
+
+def test_cached_fundamentals_serves_the_second_call_from_memory():
+    from equity_scout.fundamentals import Fundamentals, fetch_fundamentals_cached
+
+    calls = []
+
+    def fake(ticker: str) -> Fundamentals:
+        calls.append(ticker)
+        return Fundamentals(18.6, 1500.0, 43, "USD", "Technology", "Semiconductors")
+
+    first = fetch_fundamentals_cached("CACHE_HIT", fetch=fake, now=1000.0)
+    second = fetch_fundamentals_cached(
+        "CACHE_HIT", fetch=lambda t: (_ for _ in ()).throw(AssertionError("refetched")),
+        now=1000.0 + 60,
+    )
+    assert first == second
+    assert calls == ["CACHE_HIT"]
+
+
+def test_cached_fundamentals_refetches_after_the_ttl():
+    from equity_scout.fundamentals import (
+        FUNDAMENTALS_TTL_SECONDS,
+        Fundamentals,
+        fetch_fundamentals_cached,
+    )
+
+    calls = []
+
+    def fake(ticker: str) -> Fundamentals:
+        calls.append(ticker)
+        return Fundamentals(1.0, None, None, "USD")
+
+    fetch_fundamentals_cached("CACHE_TTL", fetch=fake, now=0.0)
+    fetch_fundamentals_cached("CACHE_TTL", fetch=fake, now=FUNDAMENTALS_TTL_SECONDS + 1)
+    assert len(calls) == 2
+
+
+def test_cached_fundamentals_never_caches_an_empty_result():
+    """An all-None result is what a rate-limited fetch looks like. Caching it would turn
+    one bad moment into hours of empty cards (same rule as data/cache.py)."""
+    from equity_scout.fundamentals import Fundamentals, fetch_fundamentals_cached
+
+    calls = []
+
+    def failing(ticker: str) -> Fundamentals:
+        calls.append(ticker)
+        return Fundamentals(None, None, None, None)
+
+    fetch_fundamentals_cached("CACHE_EMPTY", fetch=failing, now=500.0)
+    fetch_fundamentals_cached("CACHE_EMPTY", fetch=failing, now=501.0)
+    assert len(calls) == 2  # retried, not replayed
