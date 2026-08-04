@@ -65,3 +65,14 @@ def test_material_trades_are_named_with_direction_and_size():
 def test_quiet_advance_stays_silent():
     assert build_event_message(FakeValuation("2026-08-03", [], [])) is None
     assert build_event_message(None) is None
+
+
+def test_material_trades_beyond_the_cap_are_not_called_small():
+    """Review catch (2026-08-04): counting over-cap MATERIAL trades as "kleine
+    Rebalance" would report a 3 % move as bookkeeping. The two remainders stay apart."""
+    trades = [FakeTrade(f"T{i}", -0.03 - i / 1000, 3000.0) for i in range(7)]
+    trades.append(FakeTrade("XLK", -0.0006, 60.0))
+    message = build_event_message(FakeValuation("2026-08-03", trades, []))
+    assert message is not None
+    assert "+2 weitere über der Schwelle" in message  # 7 material, 5 named
+    assert "1 kleine Rebalance" in message           # the sub-threshold one

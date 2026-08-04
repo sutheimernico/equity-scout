@@ -325,10 +325,18 @@ def build_event_message(valuation: AutoDepotValuation | None) -> str | None:
             f"• {side} {t.ticker} {format_de(abs(t.delta_weight) * 100, 1)} %"
             f" (~{format_de(t.notional)} $)"
         )
-    hidden = len(valuation.trades) - min(len(material), EVENT_TRADE_CAP)
-    if hidden > 0:
-        # "kleine Rebalance" stays invariant for 1 and n — no plural branch needed.
-        lines.append(f"… {hidden} kleine Rebalance")
+    # Two distinct remainders, never merged: material trades beyond the cap are NOT
+    # "kleine Rebalance" — calling a 3 % move small would misreport the night.
+    # Both labels stay invariant for 1 and n, so no plural branch is needed.
+    remainder = []
+    over_cap = len(material) - min(len(material), EVENT_TRADE_CAP)
+    if over_cap > 0:
+        remainder.append(f"+{over_cap} weitere über der Schwelle")
+    immaterial = len(valuation.trades) - len(material)
+    if immaterial > 0:
+        remainder.append(f"{immaterial} kleine Rebalance")
+    if remainder:
+        lines.append("… " + " · ".join(remainder))
     for event in valuation.risk_events:
         lines.append(f"⚠ {event.detail}")
     lines.append("(Paper-Depot · nächtlicher Lauf · Details im Digest)")
