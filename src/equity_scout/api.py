@@ -702,6 +702,16 @@ def create_app(
             return JSONResponse({"error": str(exc)}, status_code=503)
         return JSONResponse({"answer": answer})
 
+    @app.get("/api/health")
+    def health() -> JSONResponse:
+        # Liveness only: the phone cockpit polls this every 30 s to tell live data from
+        # service-worker cache. Touches no DB and no feed on purpose — polling a data
+        # endpoint (e.g. /api/regime, which fetches SPY/VIX/yields through yfinance)
+        # would mean rate-limited requests twice a minute for a reachability check.
+        # The DASH_TOKEN middleware still guards it, which is wanted: an unauthenticated
+        # probe must not report the cockpit as reachable.
+        return JSONResponse({"ok": True})
+
     @app.get("/api/inbox")
     def inbox() -> JSONResponse:
         return JSONResponse({"pitches": load_pitches(db_path), "disclaimer": DISCLAIMER})

@@ -668,3 +668,23 @@ def test_entry_endpoint_survives_a_network_failure(tmp_path, monkeypatch):
     assert resp.status_code == 200
     body = resp.json()
     assert body["available"] is False and body["reason"] == "fetch_failed"
+
+
+def test_health_endpoint_is_cheap_and_answers_ok(tmp_path):
+    """The phone cockpit polls this every 30 s to tell live data from service-worker
+    cache — it must answer without touching the DB or any price feed."""
+    db = tmp_path / "health.db"
+    init_db(db)
+    client = TestClient(create_app(str(db)))
+    response = client.get("/api/health")
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+
+
+def test_health_endpoint_is_behind_the_dash_token_gate(tmp_path):
+    """An unauthenticated probe must NOT report the cockpit as reachable."""
+    db = tmp_path / "health_gated.db"
+    init_db(db)
+    client = TestClient(create_app(str(db), dash_token="s3cret"))
+    assert client.get("/api/health").status_code == 401
+    assert client.get("/api/health", headers={"x-dash-token": "s3cret"}).json()["ok"] is True
