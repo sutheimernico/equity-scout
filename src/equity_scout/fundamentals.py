@@ -18,6 +18,10 @@ class Fundamentals:
     analyst_target: float | None    # mean sell-side target price
     analyst_count: int | None       # number of analyst opinions behind the target
     currency: str | None
+    # sector/industry answer "what does this company do" at a glance (briefs.py's phone
+    # card); same `.info` payload as the fields above, so this is not a second fetch.
+    sector: str | None = None
+    industry: str | None = None
 
 
 def _finite(value: object) -> float | None:
@@ -40,6 +44,8 @@ def from_info(info: dict) -> Fundamentals:
         analyst_target=_finite(info.get("targetMeanPrice")),
         analyst_count=count if (count or 0) > 0 else None,
         currency=info.get("currency") or None,
+        sector=info.get("sector") or None,
+        industry=info.get("industry") or None,
     )
 
 

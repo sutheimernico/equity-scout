@@ -111,9 +111,16 @@ def compute_verdict(entry: dict) -> dict:
     return {"level": level, "emoji": emoji, "label": label, "why": why}
 
 
+def score_band(score: int) -> str:
+    """Plain-German band word for a 0-100 entry score. Single source of the
+    niedrig < 40 / mittel < 70 / hoch scale — briefs.py's phone-card bundle imports
+    this instead of keeping a second copy of the thresholds."""
+    return "niedrig" if score < 40 else "mittel" if score < 70 else "hoch"
+
+
 def _score_line(entry: dict) -> str:
     score = round(entry["composite"] * 100)
-    band = "niedrig" if score < 40 else "mittel" if score < 70 else "hoch"
+    band = score_band(score)
     return (
         f"Einstiegs-Score: {score}/100 ({band}) — wie attraktiv der Einstieg gerade ist, "
         "kein Kursversprechen."

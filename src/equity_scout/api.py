@@ -5,6 +5,7 @@ from __future__ import annotations
 import hmac
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +14,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from equity_scout.briefs import build_brief, rank_entries
 from equity_scout.buckets import BUCKET_WEIGHTS
 from equity_scout.constants import (
     DEFAULT_DB_PATH,
@@ -38,6 +40,7 @@ from equity_scout.autotrader_storage import load_trades as load_autotrader_trade
 from equity_scout.autotrader_storage import load_valuations as load_autotrader_valuations
 from equity_scout.forward_storage import load_all_accounts
 from equity_scout.forward_storage import load_valuations as load_forward_valuations
+from equity_scout.fundamentals import fetch_fundamentals
 from equity_scout.shortterm_book import stats as shortterm_stats
 from equity_scout.shortterm_storage import (
     DEFAULT_SHORTTERM_DB_PATH,
@@ -317,6 +320,33 @@ def create_app(
             for entry in watchlist["entries"]:
                 entry["ml"] = scores.get(entry["ticker"])
         return JSONResponse({"watchlist": watchlist, "disclaimer": DISCLAIMER})
+
+    @app.get("/api/briefs")
+    def briefs(limit: int = 5) -> JSONResponse:
+        # Bundles the four things the phone card needs per row — what the company does
+        # (sector/industry), whether the price is a good entry (zone verdict), the
+        # analyst-consensus upside, KGV — so the frontend does not fan out over
+        # /api/radar + /api/entry/{t} + a fundamentals call per row itself.
+        limit = max(1, min(limit, 20))
+        watchlist = load_latest_watchlist(db_path)
+        top = rank_entries((watchlist or {}).get("entries", []))[:limit]
+
+        def _fetch(ticker: str):
+            try:
+                return fetch_fundamentals(ticker)
+            except Exception:  # noqa: BLE001 - one bad ticker must never break the list
+                return None
+
+        # yfinance is rate-limited and free: a small pool bounds one slow/hanging
+        # ticker's latency instead of serialising up to `limit` sequential network
+        # calls into ~20 s.
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            fetched = list(pool.map(_fetch, [e["ticker"] for e in top]))
+
+        return JSONResponse({
+            "briefs": [build_brief(e, f) for e, f in zip(top, fetched)],
+            "disclaimer": DISCLAIMER,
+        })
 
     @app.get("/api/stack/{ticker}")
     def signal_stack(ticker: str) -> JSONResponse:
