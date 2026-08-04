@@ -39,9 +39,12 @@ def test_opportunities_section_renders_as_one_line_of_chances():
     assert "unterbewertet" not in text
 
 
-def test_opportunities_section_omitted_when_empty():
+def test_opportunities_line_omitted_when_empty():
+    """No watchlist at all -> no chances line whatsoever. Distinct from a watchlist whose
+    entries are all red, which DOES render the honest "keine attraktive Chance" line —
+    pinning the current 🎯 marker instead of the retired "Chancen im Blick" heading."""
     text = build_digest([], date_label="2026-07-14", opportunities=[])
-    assert "Chancen im Blick" not in text
+    assert "🎯" not in text
 
 
 def test_section_order_header_opportunities_pitches():
@@ -84,14 +87,15 @@ def test_earnings_section_renders_multiple_tickers_due_today():
     assert "📅 Earnings heute: AAPL, MSFT · 0 weitere diese Woche" in text
 
 
-def test_earnings_section_omitted_when_empty():
+def test_earnings_line_omitted_when_empty():
+    """Pins the current 📅 marker, not the retired "Earnings diese Woche" heading."""
     text = build_digest([], date_label="2026-07-14", earnings_this_week=[])
-    assert "Earnings diese Woche" not in text
+    assert "📅" not in text
 
 
-def test_earnings_section_omitted_when_none():
+def test_earnings_line_omitted_when_none():
     text = build_digest([], date_label="2026-07-14", earnings_this_week=None)
-    assert "Earnings diese Woche" not in text
+    assert "📅" not in text
 
 
 def test_section_order_header_opportunities_earnings_pitches():

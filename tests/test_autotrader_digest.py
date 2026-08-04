@@ -118,8 +118,11 @@ def test_stale_autodepot_gets_a_warning_line() -> None:
 
 
 def test_fresh_autodepot_has_no_staleness_warning() -> None:
+    """Pins the current wording ("Stand N Handelstage alt"), not the retired "veraltet" —
+    asserting the absence of a word the renderer no longer knows would pass vacuously."""
     text = build_digest([], date_label="2026-07-18", autodepot=_autodepot())
-    assert "veraltet" not in text
+    assert "Handelstage alt" not in text
+    assert "⚠️" not in text
 
 
 def test_collect_autodepot_flags_stale_as_of(tmp_path) -> None:
