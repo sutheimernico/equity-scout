@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 
 import { ChatPanel } from "./components/ChatPanel";
 import { DepotsView } from "./components/DepotsView";
@@ -12,48 +12,7 @@ import { RadarPanel } from "./components/RadarPanel";
 import { StrategyDashboard } from "./components/StrategyDashboard";
 import { TodayView } from "./components/TodayView";
 import { VoicesPanel } from "./components/VoicesPanel";
-
-type View =
-  | "today"
-  | "funnel"
-  | "radar"
-  | "voices"
-  | "inbox"
-  | "depots"
-  | "proof"
-  | "strategies"
-  | "model"
-  | "ml"
-  | "learning"
-  | "chat";
-
-// v6 IA (plan P6): visible group labels instead of an anonymous hairline, a "Heute" start
-// page, all paper depots under ONE nav item, and unambiguous German names — "Entry-Modell"
-// vs "Signal-Filter" ends the old Modell/Meta-Modell collision.
-type Group = "start" | "signale" | "entscheiden" | "forschung" | "mehr";
-
-const GROUP_LABELS: Record<Group, string> = {
-  start: "",
-  signale: "Signale",
-  entscheiden: "Entscheiden",
-  forschung: "Forschung",
-  mehr: "",
-};
-
-const NAV: { key: View; label: string; group: Group }[] = [
-  { key: "today", label: "Heute", group: "start" },
-  { key: "funnel", label: "Screener", group: "signale" },
-  { key: "radar", label: "Radar", group: "signale" },
-  { key: "voices", label: "Stimmen", group: "signale" },
-  { key: "inbox", label: "Inbox", group: "entscheiden" },
-  { key: "depots", label: "Depots", group: "entscheiden" },
-  { key: "proof", label: "Beweis", group: "entscheiden" },
-  { key: "strategies", label: "Strategien", group: "forschung" },
-  { key: "model", label: "Entry-Modell", group: "forschung" },
-  { key: "ml", label: "Signal-Filter", group: "forschung" },
-  { key: "learning", label: "Lernkurven", group: "forschung" },
-  { key: "chat", label: "Assistent", group: "mehr" },
-];
+import { GROUP_LABELS, NAV, parseView, type View } from "./views";
 
 // Reveal-on-scroll: one global observer fades in any `.reveal` element as it enters the viewport.
 // A MutationObserver picks up async-loaded and tab-switched sections without per-component wiring.
@@ -95,7 +54,17 @@ function useRevealOnScroll() {
 }
 
 export default function App() {
-  const [view, setView] = useState<View>("today");
+  // View lives in the URL so Telegram can deep-link into a focus and a reload keeps it.
+  // replaceState (not pushState): the phone's back gesture should leave the app, not walk
+  // a tab history the user never built on purpose.
+  const [view, setViewState] = useState<View>(() => parseView(window.location.search));
+  const setView = useCallback((next: View) => {
+    setViewState(next);
+    const params = new URLSearchParams(window.location.search);
+    params.set("view", next);
+    params.delete("token"); // never leave the shared secret in the visible URL
+    window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
+  }, []);
   useRevealOnScroll();
 
   return (
