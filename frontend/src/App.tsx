@@ -12,6 +12,7 @@ import { RadarPanel } from "./components/RadarPanel";
 import { StrategyDashboard } from "./components/StrategyDashboard";
 import { TodayView } from "./components/TodayView";
 import { VoicesPanel } from "./components/VoicesPanel";
+import { BottomNav } from "./components/BottomNav";
 import { GROUP_LABELS, NAV, parseView, type View } from "./views";
 
 // Reveal-on-scroll: one global observer fades in any `.reveal` element as it enters the viewport.
@@ -114,6 +115,7 @@ export default function App() {
           </div>
         </main>
       </div>
+      <BottomNav view={view} onNavigate={setView} />
     </>
   );
 }

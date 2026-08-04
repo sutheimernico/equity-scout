@@ -1851,3 +1851,119 @@ code {
 .stack-toggle {
   margin-top: var(--space-3);
 }
+
+/* --- Bottom nav (phone) ---------------------------------------------------
+   Twelve nav items in one horizontally-scrolling bar doesn't work as a phone app.
+   Four focuses + a "Mehr" sheet for the rest; hidden entirely above the breakpoint
+   so desktop keeps the sidebar untouched. */
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  /* Redundant once the bottom nav is the primary phone navigation — the sidebar's
+     own nav row would just eat vertical space for links the bottom nav already covers. */
+  .sidebar .nav,
+  .nav-group-label,
+  .nav-sep {
+    display: none;
+  }
+
+  .content {
+    /* the fixed bottom bar must never cover the last bit of content */
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0));
+  }
+
+  .bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 20;
+    background: rgba(8, 8, 15, 0.86);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border-soft);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .bottom-nav-link {
+    appearance: none;
+    background: none;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    /* 44px is the iOS/Android baseline minimum tap target — smaller and thumbs miss it. */
+    min-height: 44px;
+    padding: var(--space-1) 0;
+    font: inherit;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .bottom-nav-icon {
+    font-size: var(--text-lg);
+    line-height: 1;
+  }
+  .bottom-nav-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.02em;
+  }
+  .bottom-nav-link.active {
+    color: var(--accent);
+  }
+
+  .sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 25;
+  }
+  .sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: var(--space-4) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom, 0));
+    box-shadow: var(--raised);
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  .sheet-group {
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: var(--space-2) 0 0;
+  }
+  .sheet-group:first-child {
+    margin-top: 0;
+  }
+  .sheet-link {
+    appearance: none;
+    background: none;
+    border: none;
+    text-align: left;
+    font: inherit;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding: var(--space-2);
+    /* 44px is the iOS/Android baseline minimum tap target — smaller and thumbs miss it. */
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .sheet-link:hover,
+  .sheet-link.active {
+    color: var(--accent);
+    background: var(--accent-subtle);
+  }
+}
