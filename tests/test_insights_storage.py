@@ -71,3 +71,18 @@ def test_init_is_idempotent(tmp_path):
     init_insights_db(db)
     init_insights_db(db)
     assert load_insights(db) == {}
+
+
+def test_saving_a_non_finite_close_fails_loudly(tmp_path):
+    """A NaN must never reach the DB silently: json.dumps writes it as `NaN` (invalid
+    JSON), the reader gets float('nan') back, and the /api/briefs response then 500s far
+    away from the cause. Measured live 2026-08-05."""
+    import pytest
+
+    db = str(tmp_path / "t.db")
+    with pytest.raises(ValueError):
+        save_price_series(
+            db, ticker="MU", as_of="2026-08-05T18:00:00+00:00",
+            first_date="2025-08-05", last_date="2026-08-05",
+            closes=[10.0, float("nan")],
+        )

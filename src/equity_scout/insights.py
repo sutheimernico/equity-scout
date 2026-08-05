@@ -18,6 +18,7 @@ side lives in insights_storage.py. This module imports neither.
 """
 from __future__ import annotations
 
+import math
 import re
 from datetime import datetime
 
@@ -123,9 +124,20 @@ def downsample_closes(
     Even index stepping (not averaging): the card draws a price line, and an averaged
     line hides the very drawdowns the shape is there to show. First and last close are
     always the real ones, so the rendered 1-year return matches reality.
+
+    Non-finite closes are dropped first. yfinance returns NaN for a day it has no close
+    for — measured 2026-08-05, the LAST point of the year was NaN for both 9064.T and
+    9022.T, and the endpoint guarantee below would otherwise pin that NaN into the output.
+    From there `json.dumps` writes it as the invalid literal `NaN`, the reader gets it
+    back as a float, and /api/briefs 500s far away from the cause. A missing day is not a
+    value: it is not zero, and it is not the previous day carried forward.
     """
     if not closes or not dates:
         raise ValueError("cannot downsample an empty series")
+    finite = [c for c in closes if math.isfinite(c)]
+    if not finite:
+        raise ValueError("series has no finite closes")
+    closes = finite
     if len(closes) <= points:
         sampled = list(closes)
     else:

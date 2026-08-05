@@ -79,8 +79,16 @@ def save_price_series(
     last_date: str,
     closes: list[float],
 ) -> None:
-    """Upsert one stock's downsampled 1-year close series."""
+    """Upsert one stock's downsampled 1-year close series.
+
+    `allow_nan=False` is the load-bearing part: json's DEFAULT is to write NaN/Infinity as
+    bare literals, which are not valid JSON. Such a row round-trips back as a float and
+    then fails FastAPI's strict encoder with a 500 on the whole /api/briefs response — one
+    bad ticker taking down every card, far from the cause (measured live 2026-08-05).
+    Failing here instead makes the bad value the caller's problem, where it belongs.
+    """
     init_insights_db(db_path)
+    payload = json.dumps(closes, allow_nan=False)
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             "INSERT INTO price_series (ticker, as_of, first_date, last_date, closes)"
@@ -88,7 +96,7 @@ def save_price_series(
             " ON CONFLICT(ticker) DO UPDATE SET"
             "  as_of=excluded.as_of, first_date=excluded.first_date,"
             "  last_date=excluded.last_date, closes=excluded.closes",
-            (ticker, as_of, first_date, last_date, json.dumps(closes)),
+            (ticker, as_of, first_date, last_date, payload),
         )
 
 

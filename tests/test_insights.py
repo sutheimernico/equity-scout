@@ -123,3 +123,29 @@ def test_downsample_records_the_first_and_last_date():
 def test_downsample_rejects_an_empty_series():
     with pytest.raises(ValueError):
         downsample_closes([], [], points=60)
+
+
+# --- NaN closes (live defect 2026-08-05) -----------------------------------------
+
+def test_downsample_drops_non_finite_closes():
+    """yfinance returns NaN for a day it has no close for (measured live on 9064.T and
+    9022.T: the LAST point of the year was NaN). json.dumps happily writes `NaN`, which is
+    invalid JSON, and only FastAPI's strict encoder then fails the whole /api/briefs
+    response with a 500. A missing day is not a value — it is dropped."""
+    dates = [datetime(2025, 8, 5), datetime(2025, 8, 6), datetime(2026, 8, 5)]
+    out = downsample_closes(dates, [10.0, float("nan"), 12.0], points=60)
+    assert out["closes"] == [10.0, 12.0]
+
+
+def test_downsample_keeps_the_last_FINITE_close_as_the_endpoint():
+    """The endpoint guarantee must survive the drop: with a trailing NaN the last real
+    close becomes the endpoint, so the rendered 1-year return stays truthful."""
+    dates = [datetime(2025, 8, 5), datetime(2026, 8, 4), datetime(2026, 8, 5)]
+    out = downsample_closes(dates, [10.0, 12.0, float("nan")], points=60)
+    assert out["closes"][-1] == 12.0
+
+
+def test_downsample_rejects_a_series_that_is_all_nan():
+    dates = [datetime(2025, 8, 5), datetime(2026, 8, 5)]
+    with pytest.raises(ValueError):
+        downsample_closes(dates, [float("nan"), float("inf")], points=60)
