@@ -48,10 +48,21 @@ def rank_entries(entries: list[dict]) -> list[dict]:
     return sorted(entries, key=lambda e: (not e["in_zone"], -e["composite"]))
 
 
-def build_brief(entry: dict, fundamentals: Fundamentals | None) -> dict:
+def build_brief(
+    entry: dict,
+    fundamentals: Fundamentals | None,
+    *,
+    insight: dict | None = None,
+    chart: dict | None = None,
+) -> dict:
     """Assemble one phone-card row from a watchlist entry plus optional fundamentals.
     A missing/failed fundamentals lookup degrades every fundamentals-derived field to
     null — never a placeholder number standing in for an unknown.
+
+    `insight`/`chart` are the pre-generated caches from insights_storage (nightly
+    `scripts/run_insights.py`). Both default to None: a fresh DB, or a stock outside the
+    generator's top-N, renders an honest "noch nicht erzeugt" rather than blocking the
+    card on a 5-second LLM call.
 
     `model_target`/`model_stop` are always null here: the entry_tb champion barrier
     computation (`entry.compute_target_stop`) needs its own price-history fetch per
@@ -86,4 +97,7 @@ def build_brief(entry: dict, fundamentals: Fundamentals | None) -> dict:
         "trailing_pe": fundamentals.trailing_pe if fundamentals else None,
         "model_target": None,
         "model_stop": None,
+        # Pre-generated, never computed here: see the docstring.
+        "insight": insight,
+        "chart": chart,
     }

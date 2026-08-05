@@ -51,6 +51,7 @@ from equity_scout.shortterm_storage import load_book as load_st_book
 from equity_scout.shortterm_storage import load_trades as load_st_trades
 from equity_scout.shortterm_storage import load_valuations as load_st_valuations
 from equity_scout.inbox_storage import decide_pitch, get_pitch, load_pitches
+from equity_scout.insights_storage import load_insights, load_price_series
 from equity_scout.lane_storage import (
     load_lane_portfolio,
     load_lane_trades,
@@ -322,7 +323,7 @@ def create_app(
         return JSONResponse({"watchlist": watchlist, "disclaimer": DISCLAIMER})
 
     @app.get("/api/briefs")
-    def briefs(limit: int = 5) -> JSONResponse:
+    def briefs(limit: int = 12) -> JSONResponse:
         # Bundles the four things the phone card needs per row — what the company does
         # (sector/industry), whether the price is a good entry (zone verdict), the
         # analyst-consensus upside, KGV — so the frontend does not fan out over
@@ -346,8 +347,22 @@ def create_app(
         with ThreadPoolExecutor(max_workers=5) as pool:
             fetched = list(pool.map(_fetch, [e["ticker"] for e in top]))
 
+        # Two cheap keyed reads instead of a query per row: the caches are small (one row
+        # per top-N ticker) and this endpoint is hit on every app open. The LLM texts and
+        # the 1y series are generated nightly (scripts/run_insights.py) — a warm local
+        # call is ~5.6 s, which has no place in a request the phone waits on.
+        insights = load_insights(db_path)
+        series = load_price_series(db_path)
+
         return JSONResponse({
-            "briefs": [build_brief(e, f) for e, f in zip(top, fetched)],
+            "briefs": [
+                build_brief(
+                    e, f,
+                    insight=insights.get(e["ticker"]),
+                    chart=series.get(e["ticker"]),
+                )
+                for e, f in zip(top, fetched)
+            ],
             "disclaimer": DISCLAIMER,
         })
 

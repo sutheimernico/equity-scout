@@ -262,3 +262,86 @@ def test_cached_fundamentals_never_caches_an_empty_result():
     fetch_fundamentals_cached("CACHE_EMPTY", fetch=failing, now=500.0)
     fetch_fundamentals_cached("CACHE_EMPTY", fetch=failing, now=501.0)
     assert len(calls) == 2  # retried, not replayed
+
+
+# --- insight + chart pass-through (2026-08-05) ------------------------------------
+
+def test_build_brief_passes_the_insight_through():
+    brief = build_brief(
+        _entry(), Fundamentals(None, None, None, None),
+        insight={
+            "generated_at": "2026-08-05T18:00:00+00:00",
+            "business": "Baut Speicherchips.",
+            "news_summary": "Prognose angehoben.",
+            "headlines": ["Guidance raised"],
+            "model": "qwen2.5:7b",
+        },
+        chart={
+            "as_of": "2026-08-05T18:00:00+00:00",
+            "first_date": "2025-08-05",
+            "last_date": "2026-08-05",
+            "closes": [10.0, 12.0],
+        },
+    )
+    assert brief["insight"]["business"] == "Baut Speicherchips."
+    assert brief["insight"]["headlines"] == ["Guidance raised"]
+    assert brief["chart"]["closes"] == [10.0, 12.0]
+
+
+def test_build_brief_without_an_insight_is_an_honest_null():
+    # Nothing generated yet (fresh DB, or a stock outside the generator's top-N).
+    brief = build_brief(_entry(), None)
+    assert brief["insight"] is None
+    assert brief["chart"] is None
+
+
+def test_briefs_endpoint_serves_the_cached_insight(tmp_path, monkeypatch):
+    """Same seams as test_briefs_endpoint_orders_and_survives_one_bad_ticker above:
+    the `_watchlist_entry` helper, `api_mod.create_app(str(db))`, and the CACHED
+    fundamentals wrapper patched so the test never touches the network."""
+    import equity_scout.api as api_mod
+    from equity_scout.insights_storage import save_insight, save_price_series
+
+    db = tmp_path / "insights_api.db"
+    save_watchlist(str(db), Watchlist(
+        created_at="2026-08-05T20:30:00",
+        entries=[_watchlist_entry(ticker="MU", name="Micron Technology", in_zone=True)],
+    ))
+    save_insight(
+        str(db), ticker="MU", generated_at="2026-08-05T18:00:00+00:00",
+        business="Baut Speicherchips.", news_summary="Prognose angehoben.",
+        headlines=["Guidance raised"], model="qwen2.5:7b",
+    )
+    save_price_series(
+        str(db), ticker="MU", as_of="2026-08-05T18:00:00+00:00",
+        first_date="2025-08-05", last_date="2026-08-05", closes=[10.0, 12.0],
+    )
+    monkeypatch.setattr(
+        api_mod, "fetch_fundamentals_cached",
+        lambda ticker: Fundamentals(None, None, None, None),
+    )
+
+    client = TestClient(api_mod.create_app(str(db)))
+    payload = client.get("/api/briefs").json()["briefs"]
+    assert payload[0]["insight"]["business"] == "Baut Speicherchips."
+    assert payload[0]["chart"]["closes"] == [10.0, 12.0]
+
+
+def test_briefs_endpoint_serves_a_null_insight_for_an_ungenerated_stock(tmp_path, monkeypatch):
+    """A stock outside the generator's top-N must not break the card."""
+    import equity_scout.api as api_mod
+
+    db = tmp_path / "no_insights.db"
+    save_watchlist(str(db), Watchlist(
+        created_at="2026-08-05T20:30:00",
+        entries=[_watchlist_entry(ticker="AAA")],
+    ))
+    monkeypatch.setattr(
+        api_mod, "fetch_fundamentals_cached",
+        lambda ticker: Fundamentals(None, None, None, None),
+    )
+
+    client = TestClient(api_mod.create_app(str(db)))
+    payload = client.get("/api/briefs").json()["briefs"]
+    assert payload[0]["insight"] is None
+    assert payload[0]["chart"] is None
