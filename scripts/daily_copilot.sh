@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Daily copilot chain: (Mondays: screener first) -> radar -> earnings -> evidence ->
-# notify -> score watchlist -> resolve predictions -> resolve evidence ->
+# Daily copilot chain: (Mondays: screener first) -> radar -> insights -> earnings ->
+# evidence -> notify -> score watchlist -> resolve predictions -> resolve evidence ->
 # resolve events -> lanes -> digest.
 #
 # Design rules:
@@ -48,6 +48,10 @@ if [ "$(date +%u)" = "1" ]; then
 fi
 
 step radar               "$PY" scripts/run_radar.py
+# Phone-card AI texts + 1y sparkline series for the top watchlist names. Needs the fresh
+# watchlist above; needs Ollama up (scripts/install_ollama_service.sh) — without it the
+# texts store as honest nulls and the card says so. ~12 stocks x 2 warm LLM calls ~ 2-3 min.
+step insights            "$PY" scripts/run_insights.py --limit 12
 step earnings            "$PY" scripts/run_earnings.py
 step evidence            "$PY" scripts/run_evidence.py
 # Piotroski F-Scores for the fresh watchlist (EDGAR companyfacts; unconfigured
