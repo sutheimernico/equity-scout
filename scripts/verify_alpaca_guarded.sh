@@ -34,16 +34,31 @@ if [ -f .env ]; then
   set +a
 fi
 
+# Captured rather than streamed straight to the log: the Telegram message quotes the actual
+# measurement, so it has to be held rather than only appended.
+OUTPUT="$(.venv/bin/python scripts/verify_alpaca_paper.py --require-open --place-orders 2>&1)"
+STATUS=$?
+
 {
   echo "===== verify_alpaca start $(date -Is) (trigger: ${1:-cron}) ====="
-  .venv/bin/python scripts/verify_alpaca_paper.py --require-open --place-orders
-  STATUS=$?
-  if [ "$STATUS" -eq 0 ]; then
-    date -Is > "$MARKER"
-    echo "===== PASS — marker written, this job disarms itself ====="
-  elif [ "$STATUS" -eq 2 ]; then
-    echo "===== market closed, retrying next slot ====="
-  else
-    echo "===== FAILED (exit $STATUS) — no marker, will retry ====="
-  fi
+  printf '%s\n' "$OUTPUT"
 } >> "$LOG" 2>&1
+
+# A closed-market skip stays silent on purpose: it happens on most slots and a notification
+# per skip would train Nico to ignore the one message that matters.
+case "$STATUS" in
+  0)
+    date -Is > "$MARKER"
+    echo "===== PASS — marker written, this job disarms itself =====" >> "$LOG"
+    printf '%s' "$OUTPUT" | .venv/bin/python scripts/notify_alpaca_verify.py \
+      --status pass >> "$LOG" 2>&1
+    ;;
+  2)
+    echo "===== market closed, retrying next slot =====" >> "$LOG"
+    ;;
+  *)
+    echo "===== FAILED (exit $STATUS) — no marker, will retry =====" >> "$LOG"
+    printf '%s' "$OUTPUT" | .venv/bin/python scripts/notify_alpaca_verify.py \
+      --status fail >> "$LOG" 2>&1
+    ;;
+esac
