@@ -5,6 +5,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.db
+# SQLite WAL sidecars: they carry committed page data, so they are DB content too.
+*.db-wal
+*.db-shm
 *.log
 data/cache/
 data/prices/

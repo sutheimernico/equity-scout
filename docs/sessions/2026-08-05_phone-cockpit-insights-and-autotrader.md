@@ -82,6 +82,12 @@ als kompakter Autotrader-Tab unter 720 px.
 
 - **Gate**: 1314 Python-Tests grün, `ruff check .` clean, 46 vitest-Tests grün,
   `tsc --noEmit` exit 0, Build ok, `dist/sw.js` + Manifest ausgeliefert.
+- **Nachlauf auf dem kombinierten Stand**: parallel arbeitete eine zweite Session auf
+  demselben Branch (Session-Lane/Alpaca, Commits 23:16–23:33), deren Arbeit nach meinem
+  Gate-Lauf um 23:29 dazukam. Zweiter Lauf über alles: **1318 passed, 1 failed** — der
+  vorbestehende Flake `test_entry_model::test_calibrated_model_scores_through_the_calibrator`
+  (am 04.08. dokumentiert: prüft `plain + calibrated == 100` exakt, hier `11 + 88 = 99`).
+  Isoliert 3× grün nachgeprüft. Er betrifft ML-Training, das diese Session nicht berührt.
 - **Screenshots auf 390 × 844** (Chromium aus dem Playwright-Cache,
   `--force-prefers-reduced-motion`): beide Tabs ohne horizontales Scrollen, Sektionen in
   der richtigen Reihenfolge, Sortierung +69/+64/+38/+32, Detail mit Chart, Kennzahlen und

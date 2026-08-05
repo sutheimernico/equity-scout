@@ -2398,7 +2398,12 @@ git commit -m "docs: record the phone cockpit insights and autotrader view"
 `ruff check .` clean, **46 vitest-Tests grün**, `tsc --noEmit` exit 0, Build ok,
 `dist/sw.js` + Manifest ausgeliefert. Live über Tailscale: 401 ohne Token, 200 mit,
 `/api/briefs` liefert 12 Briefs, **12 mit KI-Text und 12 mit 60-Punkt-Chart**.
-Der bekannte `test_entry_model`-Flake trat nicht auf.
+
+Ein Nachlauf auf dem kombinierten Stand (eine parallele Session committete zwischen
+23:16 und 23:33 auf denselben Branch, also nach meinem Gate um 23:29) ergab
+**1318 passed, 1 failed**: der am 04.08. dokumentierte Flake
+`test_entry_model::test_calibrated_model_scores_through_the_calibrator` (`11 + 88 = 99`
+statt 100), isoliert 3× grün nachgeprüft. Betrifft ML-Training, nicht diese Arbeit.
 
 Screenshots auf 390 × 844 (Chromium aus dem Playwright-Cache): beide Tabs ohne
 horizontales Scrollen, Sortierung +69/+64/+38/+32, Detail mit Sparkline, Kennzahlen und
