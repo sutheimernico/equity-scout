@@ -56,6 +56,18 @@ def init_shortterm_db(db_path: str | Path) -> None:
                 value TEXT NOT NULL,
                 PRIMARY KEY (lane, key)
             );
+            CREATE TABLE IF NOT EXISTS st_executions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lane TEXT NOT NULL,
+                ticker TEXT NOT NULL,
+                side TEXT NOT NULL,
+                signalled_at TEXT NOT NULL,
+                expected_price REAL NOT NULL,
+                actual_price REAL,
+                qty REAL NOT NULL,
+                order_id TEXT NOT NULL,
+                UNIQUE (order_id)
+            );
             """
         )
 
@@ -215,3 +227,63 @@ def set_lane_state(db_path: str | Path, lane: str, key: str, value: str) -> None
     init_shortterm_db(db_path)
     with db.connect(db_path) as con:
         _upsert_state(con, lane, key, value)
+
+
+_EXECUTION_KEYS = (
+    "lane", "ticker", "side", "signalled_at",
+    "expected_price", "actual_price", "qty", "order_id",
+)
+
+
+def record_execution(
+    db_path: str | Path,
+    *,
+    lane: str,
+    ticker: str,
+    side: str,
+    signalled_at: str,
+    expected_price: float,
+    actual_price: float | None,
+    qty: float,
+    order_id: str,
+) -> None:
+    """One broker execution against the price the signal expected. The difference is this
+    project's first MEASURED slippage — every other cost number in the codebase is a
+    modelled estimate. Keyed by order_id so a re-run never double-counts."""
+    init_shortterm_db(db_path)
+    with db.connect(db_path) as con:
+        con.execute(
+            """INSERT OR IGNORE INTO st_executions
+               (lane, ticker, side, signalled_at, expected_price, actual_price, qty, order_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (lane, ticker, side, signalled_at, expected_price, actual_price, qty, order_id),
+        )
+
+
+def load_executions(db_path: str | Path, lane: str) -> list[dict]:
+    init_shortterm_db(db_path)
+    with db.connect(db_path) as con:
+        rows = con.execute(
+            f"SELECT {', '.join(_EXECUTION_KEYS)} FROM st_executions"
+            " WHERE lane = ? ORDER BY signalled_at",
+            (lane,),
+        ).fetchall()
+    return [dict(zip(_EXECUTION_KEYS, row)) for row in rows]
+
+
+def slippage_summary(db_path: str | Path, lane: str = "session") -> dict | None:
+    """Mean and worst realised slippage in basis points, or None while nothing filled.
+    Positive means the fill was WORSE than the signal price for that side."""
+    # `is not None`, not truthiness: a 0.0 fill price is a broker anomaly worth seeing,
+    # while None is an order that simply has not filled yet.
+    rows = [r for r in load_executions(db_path, lane) if r["actual_price"] is not None]
+    if not rows:
+        return None
+    bps = []
+    for row in rows:
+        direction = 1.0 if row["side"] == "buy" else -1.0
+        bps.append(
+            direction * (row["actual_price"] - row["expected_price"])
+            / row["expected_price"] * 10_000.0
+        )
+    return {"n": len(bps), "mean_bps": sum(bps) / len(bps), "worst_bps": max(bps)}

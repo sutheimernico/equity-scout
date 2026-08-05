@@ -130,3 +130,106 @@ def test_persist_lane_step_rolls_back_completely_on_mid_write_failure(db) -> Non
     assert load_trades(db, "swing") == []
     assert load_valuations(db, "swing") == []
     assert get_lane_state(db, "swing", "events_seen_until") is None
+
+
+def test_execution_records_expected_and_actual_price(tmp_path) -> None:
+    from equity_scout.shortterm_storage import (
+        init_shortterm_db,
+        load_executions,
+        record_execution,
+    )
+
+    path = tmp_path / "st.db"
+    init_shortterm_db(path)
+    record_execution(
+        path, lane="session", ticker="AAPL", side="buy",
+        signalled_at="2026-08-04T09:45:00-04:00", expected_price=301.00,
+        actual_price=301.44, qty=3.0, order_id="abc",
+    )
+    rows = load_executions(path, lane="session")
+    assert len(rows) == 1
+    assert rows[0]["expected_price"] == 301.00
+    assert rows[0]["actual_price"] == 301.44
+    assert rows[0]["order_id"] == "abc"
+
+
+def test_recording_the_same_order_twice_is_idempotent(tmp_path) -> None:
+    from equity_scout.shortterm_storage import (
+        init_shortterm_db,
+        load_executions,
+        record_execution,
+    )
+
+    path = tmp_path / "st.db"
+    init_shortterm_db(path)
+    for _ in range(2):
+        record_execution(
+            path, lane="session", ticker="AAPL", side="buy",
+            signalled_at="2026-08-04T09:45:00-04:00", expected_price=301.00,
+            actual_price=301.44, qty=3.0, order_id="abc",
+        )
+    assert len(load_executions(path, lane="session")) == 1
+
+
+def test_slippage_is_none_until_something_actually_filled(tmp_path) -> None:
+    """An accepted-but-unfilled order carries no measurement. Reporting 0 bps there would
+    claim perfect execution on evidence that does not exist."""
+    from equity_scout.shortterm_storage import (
+        init_shortterm_db,
+        record_execution,
+        slippage_summary,
+    )
+
+    path = tmp_path / "st.db"
+    init_shortterm_db(path)
+    assert slippage_summary(path) is None
+    record_execution(
+        path, lane="session", ticker="AAPL", side="buy",
+        signalled_at="2026-08-04T09:45:00-04:00", expected_price=301.00,
+        actual_price=None, qty=3.0, order_id="pending",
+    )
+    assert slippage_summary(path) is None
+
+
+def test_slippage_is_positive_when_the_fill_was_worse_than_the_signal(tmp_path) -> None:
+    """Sign convention, both sides: positive bps always means "we paid for it". A buy
+    filled above the signal and a sell filled below are the same kind of bad."""
+    from equity_scout.shortterm_storage import (
+        init_shortterm_db,
+        record_execution,
+        slippage_summary,
+    )
+
+    path = tmp_path / "st.db"
+    init_shortterm_db(path)
+    record_execution(
+        path, lane="session", ticker="AAPL", side="buy",
+        signalled_at="2026-08-04T09:45:00-04:00", expected_price=100.00,
+        actual_price=100.10, qty=1.0, order_id="buy-worse",
+    )
+    record_execution(
+        path, lane="session", ticker="AAPL", side="sell",
+        signalled_at="2026-08-04T10:45:00-04:00", expected_price=100.00,
+        actual_price=99.95, qty=1.0, order_id="sell-worse",
+    )
+    summary = slippage_summary(path)
+    assert summary["n"] == 2
+    assert summary["worst_bps"] == pytest.approx(10.0)  # the buy: 0.10 on 100
+    assert summary["mean_bps"] == pytest.approx(7.5)  # (10 + 5) / 2
+
+
+def test_a_better_than_expected_fill_counts_negative(tmp_path) -> None:
+    from equity_scout.shortterm_storage import (
+        init_shortterm_db,
+        record_execution,
+        slippage_summary,
+    )
+
+    path = tmp_path / "st.db"
+    init_shortterm_db(path)
+    record_execution(
+        path, lane="session", ticker="AAPL", side="buy",
+        signalled_at="2026-08-04T09:45:00-04:00", expected_price=100.00,
+        actual_price=99.90, qty=1.0, order_id="buy-better",
+    )
+    assert slippage_summary(path)["mean_bps"] == pytest.approx(-10.0)
