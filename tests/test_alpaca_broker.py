@@ -1,0 +1,68 @@
+"""The broker seam. Every test fakes the transport — a live call from the suite would
+place orders in the paper book and corrupt the track record it exists to measure."""
+from __future__ import annotations
+
+import pytest
+
+from equity_scout.alpaca_broker import (
+    AlpacaBrokerError,
+    BrokerPosition,
+    bracket_payload,
+    parse_order,
+    parse_positions,
+)
+
+
+def test_bracket_payload_carries_stop_and_target() -> None:
+    payload = bracket_payload("AAPL", qty=3.5, stop_price=295.0, target_price=310.0)
+    assert payload["symbol"] == "AAPL"
+    assert payload["side"] == "buy"
+    assert payload["type"] == "market"
+    assert payload["order_class"] == "bracket"
+    assert payload["time_in_force"] == "day"
+    assert payload["stop_loss"]["stop_price"] == "295.00"
+    assert payload["take_profit"]["limit_price"] == "310.00"
+
+
+def test_bracket_payload_rounds_quantity_down_to_whole_shares() -> None:
+    """Bracket orders reject fractional quantities at Alpaca. Rounding DOWN keeps the
+    position inside the size the book approved."""
+    assert bracket_payload("AAPL", qty=3.9, stop_price=1.0, target_price=2.0)["qty"] == "3"
+
+
+def test_bracket_payload_rejects_a_position_below_one_share() -> None:
+    with pytest.raises(AlpacaBrokerError, match="unter einer ganzen Aktie"):
+        bracket_payload("AAPL", qty=0.4, stop_price=1.0, target_price=2.0)
+
+
+def test_parse_positions_maps_symbol_to_qty_and_price() -> None:
+    positions = parse_positions([
+        {"symbol": "AAPL", "qty": "3", "avg_entry_price": "301.25"},
+        {"symbol": "TSLA", "qty": "2", "avg_entry_price": "330.10"},
+    ])
+    assert positions["AAPL"] == BrokerPosition(ticker="AAPL", qty=3.0, avg_entry_price=301.25)
+    assert len(positions) == 2
+
+
+def test_parse_order_reports_an_unfilled_order_as_none_price() -> None:
+    order = parse_order({"id": "abc", "status": "accepted", "filled_qty": "0",
+                         "filled_avg_price": None})
+    assert order.order_id == "abc"
+    assert order.filled_qty == 0.0
+    assert order.filled_avg_price is None
+
+
+def test_parse_order_reads_a_filled_order() -> None:
+    order = parse_order({"id": "abc", "status": "filled", "filled_qty": "3",
+                         "filled_avg_price": "301.44"})
+    assert order.filled_qty == 3.0
+    assert order.filled_avg_price == 301.44
+
+
+def test_parse_order_keeps_a_zero_fill_price_distinct_from_no_fill() -> None:
+    """Not in the plan. "0.0" is a real (if pathological) price and must not silently
+    become None — that is the difference between "filled at zero, investigate" and
+    "not filled yet, wait", and the reconciliation acts differently on each."""
+    order = parse_order({"id": "abc", "status": "filled", "filled_qty": "1",
+                         "filled_avg_price": "0.0"})
+    assert order.filled_avg_price == 0.0
