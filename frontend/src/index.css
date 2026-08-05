@@ -2450,3 +2450,26 @@ code {
   transform: translateY(-1px) rotate(45deg);
   background: color-mix(in srgb, var(--violet) 70%, #fff);
 }
+
+/* ===== 1-year sparkline (2026-08-05) ===== */
+.yearchart {
+  margin: 0;
+  /* On desktop the card is ~875 px wide; a stretched, near-empty rail is what the ZoneBar
+     looked like before it got the same cap on 2026-08-04. */
+  max-width: 460px;
+}
+.yearchart-svg {
+  width: 100%;
+  height: 64px;
+  display: block;
+}
+.yearchart-svg.up path {
+  stroke: var(--positive);
+}
+.yearchart-svg.down path {
+  stroke: var(--warning);
+}
+.yearchart figcaption {
+  font-size: var(--text-xs);
+  margin-top: 2px;
+}
