@@ -259,7 +259,7 @@ positions. At a one-minute cadence that is ~390 such blocks a day.
 - Create: `src/equity_scout/alpaca_data.py`
 - Test: `tests/test_alpaca_data.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Alpaca IEX bars must satisfy the exact contract intraday_bars.fetch_bars satisfies:
@@ -322,12 +322,12 @@ def test_complete_bars_keeps_a_just_finished_interval() -> None:
     assert len(complete_bars(frames["AAPL"], now)) == 2
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `uv run pytest tests/test_alpaca_data.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'equity_scout.alpaca_data'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """Real-time 15-minute IEX bars for the session lane (2026-08-04).
@@ -422,12 +422,12 @@ def fetch_bars(tickers: list[str], *, now: datetime, hours: int = 8) -> dict[str
 Note: `fetch_bars` imports `DATA_BASE` and `auth_headers` from `alpaca_broker` (Task 2).
 Write Task 2 first if the import order bothers you — the tests above do not touch either.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `uv run pytest tests/test_alpaca_data.py -v`
 Expected: 5 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/equity_scout/alpaca_data.py tests/test_alpaca_data.py
@@ -442,7 +442,7 @@ git commit -m "feat(session): fetch real-time IEX bars on the intraday_bars cont
 - Create: `src/equity_scout/alpaca_broker.py`
 - Test: `tests/test_alpaca_broker.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """The broker seam. Every test fakes the transport — a live call from the suite would
@@ -506,12 +506,12 @@ def test_parse_order_reads_a_filled_order() -> None:
     assert order.filled_avg_price == 301.44
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `uv run pytest tests/test_alpaca_broker.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'equity_scout.alpaca_broker'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """Alpaca PAPER broker seam for the session lane (2026-08-04).
@@ -648,12 +648,12 @@ def close_position(ticker: str) -> BrokerOrder:
     return parse_order(response.json())
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `uv run pytest tests/test_alpaca_broker.py -v`
 Expected: 6 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/equity_scout/alpaca_broker.py tests/test_alpaca_broker.py
@@ -668,7 +668,7 @@ git commit -m "feat(session): add the Alpaca paper broker seam with bracket entr
 - Create: `src/equity_scout/session_reconcile.py`
 - Test: `tests/test_session_reconcile.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """Two books that can drift are two books that WILL drift. This compares them and says so
@@ -719,12 +719,12 @@ def test_rounding_difference_below_one_share_is_not_a_divergence() -> None:
     assert reconcile(_book(AAPL=_pos(3.9)), broker) == []
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `uv run pytest tests/test_session_reconcile.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'equity_scout.session_reconcile'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```python
 """Broker-vs-book reconciliation for the session lane (2026-08-04).
@@ -781,12 +781,12 @@ def reconcile(book: LaneBook, broker: dict[str, BrokerPosition]) -> list[Diverge
     return out
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `uv run pytest tests/test_session_reconcile.py -v`
 Expected: 5 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/equity_scout/session_reconcile.py tests/test_session_reconcile.py
@@ -801,7 +801,7 @@ git commit -m "feat(session): reconcile broker positions against the lane book"
 - Modify: `src/equity_scout/shortterm_storage.py` (add table to `init_shortterm_db`, add two functions)
 - Test: `tests/test_shortterm_storage.py` (append)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_shortterm_storage.py`:
 
@@ -845,12 +845,12 @@ def test_recording_the_same_order_twice_is_idempotent(tmp_path) -> None:
     assert len(load_executions(path, lane="session")) == 1
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `uv run pytest tests/test_shortterm_storage.py -k execution -v`
 Expected: FAIL — `ImportError: cannot import name 'record_execution'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 In `init_shortterm_db`'s `executescript`, add before the closing `"""`:
 
@@ -924,12 +924,12 @@ def slippage_summary(db_path: str | Path, lane: str = "session") -> dict | None:
 Note: check whether `shortterm_storage.py` already imports `sqlite3` at module level and
 use that instead of the inline `__import__` if so — match the file's existing idiom.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `uv run pytest tests/test_shortterm_storage.py -v`
 Expected: all passed (including the two new ones)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/equity_scout/shortterm_storage.py tests/test_shortterm_storage.py
@@ -944,7 +944,7 @@ git commit -m "feat(session): persist expected-vs-actual fills for slippage meas
 - Modify: `scripts/run_shortterm.py` (new module-level function)
 - Test: `tests/test_run_shortterm_alpaca.py` (create)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 """The 2026-07-21 outage rule, stated as code: whoever cannot show they were here a bar ago
@@ -983,12 +983,12 @@ scripts.run_shortterm as runner`) — `scripts/` is importable as a package, so 
 `sys.path` hack. Binding `may_open_new_position` off the module keeps the later
 monkeypatch tests in this same file working against `runner`.
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `uv run pytest tests/test_run_shortterm_alpaca.py -v`
 Expected: FAIL — `ImportError: cannot import name 'may_open_new_position'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 In `scripts/run_shortterm.py`, next to `_session_overnight_sweep`:
 
@@ -1011,12 +1011,12 @@ Add `from equity_scout.alpaca_data import BAR_MINUTES` to the imports (or reuse 
 existing `intraday_bars.BAR_MINUTES` import if one is already there — they are both 15;
 do not import both).
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `uv run pytest tests/test_run_shortterm_alpaca.py -v`
 Expected: 3 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/run_shortterm.py tests/test_run_shortterm_alpaca.py
@@ -1493,7 +1493,7 @@ Ordering note: this task is what actually delivers the latency win, but it must 
 volume; running the new logic on the old cadence wastes most of the gain. Land Tasks 1–6
 first, then flip the cadence in one reviewable step.
 
-- [ ] **Step 1: Silence the no-op run first — this is a prerequisite, not polish**
+- [x] **Step 1: Silence the no-op run first — this is a prerequisite, not polish**
 
 At `*/15` the lane produces ~26 log blocks a day and every one is worth reading. At
 `* * * * *` it produces ~390, and `intraday.log` (220 kB today) becomes unreadable within a
@@ -1641,3 +1641,49 @@ checks re-run green against the new account (order probes included).
 | [2/4] Freshness | **still open** — needs an open session; the cron runner collects it |
 
 Tasks 1–8 unblock the moment freshness passes. Task 0 is already done.
+
+### Build round 1 — 2026-08-05 night, Tasks 1–5 + Task 9 Step 1
+
+Built ahead of the freshness measurement on the explicit judgement that these five tasks do
+not depend on it: all of them are tested against faked HTTP responses, so how fast the feed
+is cannot change the code. Tasks 6 and 9 (which actually switch the lane over and change the
+cadence) deliberately wait — flipping production on an unmeasured premise is the exact
+failure the precondition exists to prevent.
+
+Commits `5c0b83d` … `cb2ca9d`. Gate at the end: **1314 tests, ruff clean.**
+
+Deviations from the plan as written, each deliberate:
+
+1. **Task 2 built before Task 1.** `alpaca_data` imports `DATA_BASE`/`auth_headers` from
+   `alpaca_broker`, so Task 1's tests would have failed on the import, not on the assertion.
+2. **Real bug in Task 1's `fetch_bars`:** `.astimezone(tz=None)` converts to the machine's
+   local zone while the `"Z"` suffix claims UTC — the request window would have been shifted
+   by the local offset (two hours in Berlin summer). Now `timezone.utc`.
+3. **Resolution is a parameter, not a constant** (design decision 5): `complete_bars(...,
+   bar_minutes=...)` and `fetch_bars(..., bar_minutes=...)`, with `RANGE_BAR_MINUTES = 15`
+   and `TRIGGER_BAR_MINUTES = 1` exported.
+4. **`parse_order` distinguishes 0.0 from None.** The plan's `float(price) if price` folds a
+   zero fill price into "not filled yet"; those mean opposite things to the reconciliation.
+   Same fix in `slippage_summary`'s row filter.
+5. **`MAX_RUN_GAP` is an argument with a default, not a hardcoded constant.** Task 5 said
+   `BAR_MINUTES * 1.5` (22.5 min) and Task 6's revision said 5 min — because the gate
+   measures *missed cron slots*, so its tolerance belongs to the cadence, which changes in
+   Task 9. Default is 5 min (target cadence); the caller may override. Also rejects a
+   *future* `last_run`: clock skew is not evidence that we were just here (cf. the
+   2026-07-24 Tokyo-timestamp incident).
+6. **Task 4 follows the module's own idiom** — explicit column list plus `dict(zip(keys,
+   row))`, as `load_trades` does — rather than the plan's `SELECT *` with a row factory.
+   `st_executions` needs no migration: every accessor calls `init_shortterm_db`, and
+   `CREATE TABLE IF NOT EXISTS` makes existing DBs self-migrating.
+
+Tests added beyond the plan, each covering a boundary the plan left open: the zero-fill
+price, the exact one-share reconciliation tolerance, a sub-share book position the broker
+never took, stable divergence ordering, `describe()` output, the slippage sign convention
+on both sides (a buy filled high and a sell filled low are both positive bps), `None`
+slippage while nothing has filled, the gate's tolerance boundary and its future-stamp
+rejection.
+
+**Note for the next session — this already changed production behaviour.** Task 9 Step 1 is
+live on the current `*/15` cadence: the session lane now prints its report block only on a
+fill or on the first run of the day, so the log goes from ~26 blocks a day to two or three.
+That is intended, but it means a quiet `intraday.log` is no longer evidence of a problem.
