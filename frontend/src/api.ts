@@ -422,6 +422,11 @@ export interface AutodepotTrade {
   delta_weight: number;
   notional: number;
   cost: number;
+  // v13 next-open fills: "open" when the trade filled at the following session's open,
+  // "close_fallback" when no open existed. Absent on rows written before v13.
+  fill?: string | null;
+  fill_price?: number | null;
+  decided_as_of?: string | null;
 }
 
 export interface AutodepotRiskEvent {
@@ -439,6 +444,8 @@ export interface AutodepotResponse {
   sleeve_weights?: AutodepotSleeveWeight[];
   trades?: AutodepotTrade[];
   risk_events?: AutodepotRiskEvent[];
+  /** e.g. "next-open (seit v13)" — how a decided rebalance became a fill. */
+  fill_convention?: string;
   disclaimer: string;
 }
 

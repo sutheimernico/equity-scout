@@ -2525,3 +2525,109 @@ code {
   margin: 0;
   font-size: 0.7rem;
 }
+
+/* ===== Phone autotrader view (2026-08-05) ===== */
+/* One breakpoint pair for "phone only" / "desktop only" content. 720 px is the same
+   threshold the bottom nav uses — one number, not two that can drift apart. */
+.only-phone {
+  display: none;
+}
+@media (max-width: 720px) {
+  .only-phone {
+    display: block;
+  }
+  .only-desktop {
+    display: none;
+  }
+}
+.pd-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+.pd-kpis span {
+  display: flex;
+  flex-direction: column;
+}
+.pd-kpis b {
+  font-size: 1.1rem;
+}
+.pd-kpis small {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+.pd-stamp {
+  font-size: 0.72rem;
+  margin: var(--space-1) 0 0;
+}
+.pd-sub {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: 0.82rem;
+}
+.pd-lane {
+  border-top: 1px solid var(--border-soft);
+  padding-top: var(--space-2);
+  margin-top: var(--space-2);
+}
+.pd-lane-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.pd-badge {
+  font-size: 0.66rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+}
+.pd-alloc,
+.pd-positions,
+.pd-trades {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  font-size: 0.8rem;
+}
+.pd-alloc li,
+.pd-positions li,
+.pd-trades li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px 0;
+}
+.pd-alloc-ticker {
+  min-width: 3.4em;
+  font-weight: 600;
+}
+/* The weight bar carries no meaning the numbers next to it do not also carry (it is
+   aria-hidden), so it may be purely decorative — it exists to make "which holding is
+   large" answerable without reading five percentages. */
+.pd-alloc-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-soft);
+  overflow: hidden;
+}
+.pd-alloc-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.pd-alloc-num {
+  min-width: 3.6em;
+  text-align: right;
+}
+.pd-toggle {
+  margin-top: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 0.76rem;
+  /* 44 px tap target without a visible box: the row above it is already dense. */
+  min-height: 44px;
+}

@@ -6,6 +6,7 @@ import { AutoDepotPanel } from "./AutoDepotPanel";
 import { ForwardPanel } from "./ForwardPanel";
 import { KurzfristArenaPanel } from "./KurzfristArenaPanel";
 import { OverviewPanel } from "./OverviewPanel";
+import { PhoneDepot } from "./PhoneDepot";
 import { Portfolio } from "./Portfolio";
 import { TimeContextBadge } from "./ui/TimeContextBadge";
 
@@ -61,42 +62,51 @@ export function DepotsView() {
         </p>
       </header>
 
-      <div className="tabbar wrap">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            className={tab === t.key ? "tab active" : "tab"}
-            onClick={() => setTab(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Phone: one screen, the two questions ("was hält er, was hat er gehandelt").
+          Desktop: the seven-tab detail below. CSS decides which one is visible — both
+          render, but they read the same two endpoints either way, so the only cost is one
+          extra fetch pair on a phone, not a second data path to keep in step. */}
+      <div className="only-phone">
+        <PhoneDepot />
       </div>
 
-      <div className="chip-row" style={{ marginBottom: "var(--space-3)" }}>
-        {tab === "gesamt" && <TimeContextBadge kind="paper" />}
-        {tab === "arena" && <TimeContextBadge kind="paper" />}
-        {tab === "screener" && <TimeContextBadge kind="paper" />}
-        {(tab === "forward" || tab === "bots" || tab === "autodepot" || tab === "shortterm") && (
-          <TimeContextBadge kind="forward" />
+      <div className="only-desktop">
+        <div className="tabbar wrap">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              className={tab === t.key ? "tab active" : "tab"}
+              onClick={() => setTab(t.key)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="chip-row" style={{ marginBottom: "var(--space-3)" }}>
+          {tab === "gesamt" && <TimeContextBadge kind="paper" />}
+          {tab === "arena" && <TimeContextBadge kind="paper" />}
+          {tab === "screener" && <TimeContextBadge kind="paper" />}
+          {(tab === "forward" ||
+            tab === "bots" ||
+            tab === "autodepot" ||
+            tab === "shortterm") && <TimeContextBadge kind="forward" />}
+        </div>
+
+        {tab === "gesamt" && <OverviewPanel />}
+        {tab === "arena" && <ArenaPanel embedded />}
+        {tab === "screener" && <ScreenerDepot />}
+        {tab === "forward" && <ForwardPanel include={(name) => !name.startsWith("ML ")} />}
+        {tab === "bots" && (
+          <ForwardPanel
+            include={(name) => name.startsWith("ML ")}
+            emptyHint="Die ML-Bots handeln erst, wenn ihre Modell-Familie einen promoteten Champion hat — kein nachgewiesener Edge, kein Trade. Das nächtliche Training (nightly_train.sh) registriert und promotet Kandidaten."
+            botNote
+          />
         )}
+        {tab === "autodepot" && <AutoDepotPanel />}
+        {tab === "shortterm" && <KurzfristArenaPanel />}
       </div>
-
-      {tab === "gesamt" && <OverviewPanel />}
-      {tab === "arena" && <ArenaPanel embedded />}
-      {tab === "screener" && <ScreenerDepot />}
-      {tab === "forward" && (
-        <ForwardPanel include={(name) => !name.startsWith("ML ")} />
-      )}
-      {tab === "bots" && (
-        <ForwardPanel
-          include={(name) => name.startsWith("ML ")}
-          emptyHint="Die ML-Bots handeln erst, wenn ihre Modell-Familie einen promoteten Champion hat — kein nachgewiesener Edge, kein Trade. Das nächtliche Training (nightly_train.sh) registriert und promotet Kandidaten."
-          botNote
-        />
-      )}
-      {tab === "autodepot" && <AutoDepotPanel />}
-      {tab === "shortterm" && <KurzfristArenaPanel />}
     </>
   );
 }
