@@ -2,7 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Remove the executability bias from the session lane by sourcing real-time IEX bars and routing entries as bracket orders to an Alpaca **paper** account, so the lane's track record is measured against fills that actually existed.
+**Goal:** Remove the executability bias from the session lane by sourcing real-time IEX bars and routing entries as bracket orders to an Alpaca **paper** account, so the lane's track record is measured against fills that actually existed — **and cut the reaction latency from 30–45 minutes to about one**, so the lane can actually trade the move it claims to trade.
+
+> **Revision 2026-08-05 (Nico):** The first draft of this plan removed only the settle
+> buffer and kept 15-minute bars on the `*/15` cron — that lands at 0–15 minutes, average
+> ~7. Measured latency chain in the *current* system: a spike at 10:31 ET falls in the
+> 10:30–10:45 bar, which settles at 11:05 (`SETTLE_MINUTES = 20`) and is first seen by the
+> 11:15 cron slot — **44 minutes**. Three additions close the rest of the gap, see design
+> decisions 5–7. Holding overnight was raised and deliberately deferred: the session lane
+> stays flat-by-close so its 48-trade track stays comparable, and a hold-for-hours-to-days
+> lane goes on top later — nothing here blocks it.
 
 **Architecture:** Two new network-isolated modules mirror the existing `intraday_bars` shape — `alpaca_data.py` (bars, same DataFrame contract) and `alpaca_broker.py` (orders, positions, cancel). `st_session.decide()` stays byte-identical: it keeps producing signals, but its price field becomes the *expected* price rather than the booked fill. `run_shortterm.py`'s session path places bracket orders instead of booking locally, then reconciles the broker's positions against `shortterm.db` — the broker is the source of truth, the DB is journal and mirror.
 
@@ -14,10 +23,22 @@
 
 **No Alpaca code may be built before `scripts/verify_alpaca_paper.py` runs green during US
 market hours (15:30–22:00 CEST).** Task 0 fixes a defect in the existing lane and is
-deliberately outside this gate — it is worth doing even if the Alpaca path is abandoned. The design rests on one measured claim: that
-IEX 15-minute bars arrive roughly one bar-interval old. If they arrive 15+ minutes late,
-the delay we are paying to remove is still there and this plan is void — fall back to
-quantifying the bias in the existing track instead.
+deliberately outside this gate — it is worth doing even if the Alpaca path is abandoned.
+
+The design rests on **two** measured claims, both checked by `[2/4]`:
+
+1. **Freshness** — IEX bars arrive roughly one bar-interval old. If they arrive 15+ minutes
+   late, the delay we are paying to remove is still there and this plan is void.
+2. **Density** — at 1-minute resolution the mega-caps actually print. IEX is ~2–3 % of US
+   volume, so a given minute can carry no trade at all; below 80 % of the last 60 minutes
+   covered, a minute-resolution trigger fires on stale prints and re-introduces exactly the
+   bias this plan removes. Then the trigger resolution goes back up (5Min) and the latency
+   target moves with it.
+
+If either fails, fall back to quantifying the bias in the existing track instead.
+
+Density is anchored on the newest bar, not on the wall clock, so **it is verdicted even
+outside market hours** — that check can be run the moment the keys exist. Freshness cannot.
 
 ```bash
 # Nico enters ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY in .env first (paper keys!)
@@ -52,6 +73,32 @@ balance.
 guess; the broker fill is a measurement. Fills booked from Alpaca carry
 `slippage_bps=0.0` and the real difference lands in the reconciliation table. Booking both
 would double-count.
+
+**5. Two resolutions, two roles.** The opening range keeps its 15-minute bars; only the
+breakout trigger drops to 1 minute. The range is a *breadth* measurement — it wants every
+print of the first 30 minutes, and IEX's thin slice hurts least when aggregated. The
+trigger is an *immediacy* measurement, where aggregation is precisely the cost. Running the
+range on 1-minute bars would buy nothing and would make the stop and the target noisier,
+since both are derived from it (`STOP_RANGE_MULT`, `TARGET_RANGE_MULT`).
+
+**6. The exits leave our loop entirely.** This is the largest single latency win and it
+needs no fast feed at all: with stop and target resting at the broker as bracket legs, the
+exchange triggers them in milliseconds regardless of when our process next wakes. Our code
+only has to be awake for *entries*. It also retires the failure mode found in Task 0 — a
+position can no longer sit unmanaged because a run did not happen.
+
+**7. Polling every minute, not a streaming daemon.** 1-minute bars over REST on a
+`* * * * *` cron gives ~30–60 s entry latency with no long-lived process. A WebSocket
+subscription (`wss://stream.data.alpaca.markets/v2/iex`) would cut that to milliseconds but
+adds a daemon with reconnect, heartbeat and state recovery — parts that die quietly at
+night, which is the failure class this project has already been bitten by twice (the v12
+cron `cd` bug, the Tokyo-stamped panel row). For an opening-range breakout on mega-caps the
+seconds are not the binding constraint. Revisit only if a measured miss rate says so.
+
+Rate limits are not a concern: one multi-symbol bars call per minute against Alpaca Basic's
+200 requests/minute. But it does require splitting the session lane out of
+`scripts/intraday_copilot.sh` — that chain also runs radar, evidence and notify, none of
+which may run 15× more often. New Task 9.
 
 ---
 
@@ -187,6 +234,13 @@ observed, this fix is unverified in production regardless of green tests.
 ---
 
 ### Task 1: Alpaca bar fetch with the same DataFrame contract
+
+> **Revised 2026-08-05 (design decision 5).** The code below is written against a single
+> `BAR_MINUTES = 15`. Build it with the resolution as a **parameter** instead —
+> `fetch_bars(tickers, *, bar_minutes)` — because the lane now needs both: 15Min for the
+> opening range, 1Min for the breakout trigger. The DataFrame contract, the completeness
+> gate and the tests are otherwise unchanged; the gate just takes its interval from the
+> argument rather than from a module constant.
 
 **Files:**
 - Create: `src/equity_scout/alpaca_data.py`
@@ -968,6 +1022,16 @@ This is the task where the lane changes behaviour. Keep the yfinance path reacha
 `--feed yfinance` so a broken key never silently stops the lane — it degrades to the old,
 biased-but-working path with a loud warning rather than trading nothing.
 
+> **Revised 2026-08-05 (design decisions 5 + 7).** Two changes to what is written below.
+> First, `run_session` now fetches twice: 15Min bars to build the opening range,
+> 1Min bars to test the breakout against. `st_session.decide()` keeps its signature —
+> it receives the range it always received, just evaluated against a fresher last price.
+> Second, `MAX_RUN_GAP` was `BAR_MINUTES * 1.5` = 22.5 min against a `*/15` cron. On a
+> minute cron the same 1.5-interval reasoning gives 90 s, which would alarm on every
+> ordinary hiccup. Size it against the *cron* period, not the bar period: `MAX_RUN_GAP =
+> timedelta(minutes=5)` — long enough to ride out a slow fetch, short enough that a dead
+> cron is caught inside one opening range.
+
 - [ ] **Step 1: Write the failing tests**
 
 Append to `tests/test_run_shortterm_alpaca.py`:
@@ -1402,12 +1466,76 @@ git commit -m "docs(session): record the Alpaca paper switch and its measured pr
 
 ---
 
+### Task 9: Run the session lane every minute (added 2026-08-05, design decision 7)
+
+**Files:**
+- Modify: `scripts/intraday_copilot.sh` (drop the `st_session` step)
+- Create: `scripts/session_lane.sh` (session lane only, own flock)
+- Modify: `crontab` (one new line, one shortened)
+- Modify: `src/equity_scout/run_watchdog.py` (expected cadence)
+- Test: `tests/test_run_shortterm_alpaca.py` (quiet-run assertion)
+
+Ordering note: this task is what actually delivers the latency win, but it must come
+**last**. Running the old 15-minute logic 15× more often changes nothing except the log
+volume; running the new logic on the old cadence wastes most of the gain. Land Tasks 1–6
+first, then flip the cadence in one reviewable step.
+
+- [ ] **Step 1: Silence the no-op run first — this is a prerequisite, not polish**
+
+At `*/15` the lane produces ~26 log blocks a day and every one is worth reading. At
+`* * * * *` it produces ~390, and `intraday.log` (220 kB today) becomes unreadable within a
+week — which is how the two production bugs this project already hit stayed invisible.
+
+Before touching the cron: make `run_session` print its block **only when something
+happened** (a fill, an order placed, a rejection, an error, or the session's first and last
+run of the day). A run that looks at bars and decides nothing writes nothing. Add a test
+that asserts the quiet path produces no output.
+
+- [ ] **Step 2: Split the script**
+
+`scripts/session_lane.sh` runs only the session lane, with its own lock file
+(`/tmp/equity-scout-session.lock`) so it can never be blocked by — or block — the slower
+chain. `scripts/intraday_copilot.sh` keeps radar, evidence and notify and loses the
+`st_session` step.
+
+- [ ] **Step 3: Cron**
+
+```cron
+* * * * 1-5 flock -n /tmp/equity-scout-session.lock  <repo>/scripts/session_lane.sh  >> <repo>/session.log 2>&1
+*/15 * * * 1-5 flock -n /tmp/equity-scout-intraday.lock <repo>/scripts/intraday_copilot.sh >> <repo>/intraday.log 2>&1
+```
+
+Own log file. `flock -n` skips rather than queues, so a slow minute is dropped, never
+stacked. The `within_market_window` guard already keeps out-of-hours runs from doing work —
+verify that it exits before any network call, otherwise the lane fetches bars 1,440 times a
+day for nothing.
+
+- [ ] **Step 4: Watchdog**
+
+`run_watchdog.py` was written against a 15-minute cadence. Update its expected gap for the
+session lane and confirm it does not alarm on ordinary skipped minutes — one missed minute
+is normal, ten in a row is not.
+
+- [ ] **Step 5: Verify on a live session, then commit**
+
+The day after: confirm from `session.log` that runs happened every minute inside the window
+and that the log is still readable. Record the measured entry latency — the gap between the
+1-minute bar that triggered and the order timestamp — in the outcome section. That number
+is the whole point of this plan; "it felt fast" is not a record.
+
+---
+
 ## Risks that are not resolved by this plan
 
 1. **IEX is ~2–3 % of US volume.** For 15-minute OHLC on mega-caps that is enough to shape a
    bar, but IEX highs and lows can differ from the consolidated tape. The opening range —
    and therefore every stop and target — is computed from a partial view of the market.
-   Measurable later against the SIP-based daily panel; not measurable now.
+   Measurable later against the SIP-based daily panel; not measurable now. At 1-minute
+   resolution this stops being a caveat and becomes a gate: the density check in the
+   precondition decides whether the trigger resolution is viable at all. Even at 100 %
+   density the 1-minute high/low is a *thin* high/low — a breakout level touched only on
+   other venues does not exist for us, so the lane will systematically miss some real moves.
+   That is a miss, not a false fill, and it is the acceptable direction to be wrong in.
 2. **Alpaca paper fills are simulated**, not matched against real resting liquidity. They
    remove the executability bias (the price existed when the order was sent) but they are
    not proof of executability at size. At 10,000 USD across mega-caps, size is not the
@@ -1420,6 +1548,13 @@ git commit -m "docs(session): record the Alpaca paper switch and its measured pr
 5. **Task 0 and the bracket orders overlap but do not replace each other.** Task 0 makes the
    force-flat reachable; the resting legs protect the position when no run happens at all.
    Keep both — they fail in different ways.
+6. **Faster entries are not better entries.** This plan removes a delay; it does not add
+   edge. It is entirely possible that the 44-minute lag was accidentally *protecting* the
+   lane by filtering out the noisiest breakouts, and that trading them promptly makes the
+   track worse. That would be a real finding, not a failure of the rewrite — but it means
+   the post-change track must be judged on its own, against its own DSR hurdle, and not
+   spliced onto the 48 trades that came before it. The `execution_regime` marker (design
+   decision 1) is what keeps that honest.
 
 ## Outcome
 
