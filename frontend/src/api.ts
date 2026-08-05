@@ -1030,7 +1030,7 @@ export interface BriefsResponse {
   disclaimer: string;
 }
 
-export async function fetchBriefs(limit = 5): Promise<BriefsResponse> {
+export async function fetchBriefs(limit = 12): Promise<BriefsResponse> {
   const response = await fetch(`/api/briefs?limit=${limit}`);
   if (!response.ok) throw new Error(`/api/briefs returned ${response.status}`);
   return response.json();
