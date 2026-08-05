@@ -121,6 +121,22 @@ MAX_RUN_GAP = timedelta(minutes=5)
 LAST_RUN_KEY = "last_session_run"
 
 
+def session_report_due(*, fills: list, first_run_of_day: bool) -> bool:
+    """Whether this session run has anything worth a log block.
+
+    Task 9 Step 1, and a prerequisite for the one-minute cadence rather than polish: at
+    `*/15` the lane writes ~26 report blocks a day and every one carries information, but at
+    `* * * * *` it writes ~390 near-identical ones and the log stops being read. Both
+    production defects this project has hit (the v12 cron `cd` bug, the Tokyo-stamped panel
+    row) survived by hiding in output nobody scanned.
+
+    A run reports when it FILLED something, plus once per session so that "the lane found no
+    setup" stays distinguishable from "the lane never ran". Errors and missing data print
+    on their own paths regardless — silence is only for the genuinely uneventful run.
+    """
+    return bool(fills) or first_run_of_day
+
+
 def may_open_new_position(
     *, last_run: str | None, now: datetime, max_gap: timedelta = MAX_RUN_GAP
 ) -> bool:
@@ -198,8 +214,8 @@ def run_session(db: str, *, now: datetime) -> None:
         book = load_book(db, "session")
         if book is not None and book.positions:
             _session_overnight_sweep(db, book, now=now)
-        else:
-            print("Außerhalb des US-Marktfensters — Session-Lane hat nichts zu tun.")
+        # Silent otherwise: outside the window with a flat book is the normal state for
+        # most of the day, and on a one-minute cron it would be ~1,380 lines of it.
         return
     book = load_book(db, "session") or LaneBook.fresh("session", benchmark_ticker="SPY")
     state = json.loads(get_lane_state(db, "session", SESSION_STATE_KEY) or "{}")
@@ -210,7 +226,8 @@ def run_session(db: str, *, now: datetime) -> None:
         return
 
     session_date = next(iter(all_bars.values())).index[0].date().isoformat()
-    if state.get("date") != session_date:
+    first_run_of_day = state.get("date") != session_date
+    if first_run_of_day:
         state = {"date": session_date, "last_bar": {}, "ranges": {}, "traded": []}
 
     book, fills = _flatten_stale_positions(book, all_bars, session_date, now)
@@ -248,9 +265,10 @@ def run_session(db: str, *, now: datetime) -> None:
     persist_lane_step(db, book, updated_at=now.isoformat(timespec="seconds"),
                       trades=fills, valuation=snap,
                       state=[(SESSION_STATE_KEY, json.dumps(state))])
-    print(f"Session {session_date}: Equity {snap.equity:,.2f} ({snap.total_return:+.2%}), "
-          f"{len(book.positions)} offen, {len(fills)} Fills")
-    _print_fills(fills)
+    if session_report_due(fills=fills, first_run_of_day=first_run_of_day):
+        print(f"Session {session_date}: Equity {snap.equity:,.2f} ({snap.total_return:+.2%}), "
+              f"{len(book.positions)} offen, {len(fills)} Fills")
+        _print_fills(fills)
 
 
 def run_crypto(db: str, *, now: datetime, fetch=fetch_ohlc) -> bool:

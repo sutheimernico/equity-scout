@@ -59,3 +59,24 @@ def test_a_last_run_stamp_from_the_future_does_not_unlock_entries() -> None:
     now = datetime(2026, 8, 4, 10, 15, tzinfo=NY)
     ahead = (now + timedelta(hours=3)).isoformat()
     assert may_open_new_position(last_run=ahead, now=now) is False
+
+
+# --- Task 9 Step 1: the quiet run ------------------------------------------------------
+
+
+def test_a_run_that_changed_nothing_reports_nothing() -> None:
+    """Prerequisite for the one-minute cadence. At */15 a report block per run is 26 lines
+    a day and all of them worth reading; at * * * * * it is ~390, and that is how the two
+    production bugs this project already hit stayed invisible in the log.
+    """
+    assert runner.session_report_due(fills=[], first_run_of_day=False) is False
+
+
+def test_a_fill_is_always_reported() -> None:
+    assert runner.session_report_due(fills=["a fill"], first_run_of_day=False) is True
+
+
+def test_the_first_run_of_the_day_is_reported_even_without_fills() -> None:
+    """One anchor line per session proves the lane ran at all — otherwise a lane that died
+    at 09:30 and a lane that simply found no setup look identical in the log."""
+    assert runner.session_report_due(fills=[], first_run_of_day=True) is True
