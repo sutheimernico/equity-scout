@@ -354,6 +354,59 @@ eine Entscheidung am Handy erst nach Durchscrollen möglich war.
   128 px, Petrobras nur in 32 px (weich), Yamato hat keins (Monogramm). Der Cache merkt
   sich Fehlversuche 30 Tage, damit nicht jeder Seitenaufruf neu anfragt.
 
+### Ein Blick pro Tag: Potenzial, Chart, KI-News (2026-08-05)
+
+Ziel ist, dass ein Blick am Tag reicht. Der **Aktien-Tab** führt deshalb mit dem
+Potenzial als größter Zahl und teilt die Liste in **zwei benannte Sektionen**:
+
+- **„Jetzt im Einstiegsbereich"** — unser eigenes Signal (`in_zone`, Score absteigend).
+- **„Höchstes Potenzial · laut Analysten, nicht unser Modell"** — die restlichen Titel
+  nach Analysten-Upside, gekappt auf vier Zeilen.
+
+Der Split ist notwendig, nicht kosmetisch: `rank_entries` sortiert in-zone zuerst, und am
+05.08. stand damit ein Potenzial von **−7 %** in Zeile eins, während **+69 %** auf Rang
+drei lag. Eine einzige Liste kann „jetzt kaufbar" und „höchstes Potenzial" nicht
+gleichzeitig beantworten, und nach Upside zu sortieren würde eine fremde Meinung über
+unser eigenes Signal stellen. **„Potenzial" ist immer Analysten-Konsens** — das Label
+`laut N Analysten` steht direkt darunter, ein eigenes Modell-Kursziel gibt es nicht
+(`entry.compute_target_stop` braucht einen registrierten `entry_tb`-Champion; ohne den
+sagt die Karte „kein trainiertes Modell"). Fehlt die Coverage, steht dort „—", niemals 0 %.
+Ein negatives Potenzial erscheint amber, wird aber nicht versteckt.
+
+Ein Tap öffnet **1-Jahres-Chart, Kennzahlen und die KI-Texte**:
+
+- **Chart**: Inline-SVG aus unseren eigenen Kursen (`frontend/src/sparkline.ts` +
+  `MiniYearChart.tsx`), nicht das TradingView-Widget, das `StockChart.tsx` auf dem Desktop
+  einbettet. Grund: der Service Worker kann es cachen (zeichnet also auch mit
+  ausgeschaltetem WSL), es erbt das dunkle Cockpit statt `colorTheme: "light"`, und ein
+  privates Cockpit lädt kein Fremd-Skript pro Kartenöffnung.
+- **KI-Texte**: ein Satz Geschäftsmodell plus News-Zusammenfassung, erzeugt vom nächtlichen
+  Schritt `scripts/run_insights.py` (lokales Ollama, `qwen2.5:7b`) und in SQLite gecacht
+  (`stock_insights`, `price_series`). **Nie live im Request**: ein warmer LLM-Call kostet
+  ~5,6 s, ein kalter ~27 s (gemessen 05.08.). Ohne erzeugte Texte sagt die Karte
+  „Noch keine KI-Zusammenfassung erzeugt (läuft im 18:00-Lauf)". Die Original-Schlagzeilen
+  stehen unter der Zusammenfassung, damit jede Aussage nachprüfbar ist — nötig, weil ein
+  lokales 7B-Modell holpriges Deutsch produziert.
+- **Voraussetzung**: `./scripts/install_ollama_service.sh` (systemd --user). Läuft Ollama
+  nicht, speichert der Schritt ehrliche Nulls und die Kette läuft weiter.
+- **Modellwahl gemessen, nicht geraten**: `llama3.1:8b` brauchte 52,8 s statt 7,1 s und
+  ignorierte den Prompt (nummerierte die Schlagzeilen durch, ließ englische Titel stehen).
+
+Der **Autotrader-Tab** zeigt am Handy statt der sieben Desktop-Tabs eine kompakte Ansicht
+(`PhoneDepot.tsx`) aus denselben zwei Endpunkten:
+
+- **Langfrist (Auto-Depot)** handelt **ETFs, keine Einzelaktien** — „aktuelles Depot"
+  heißt hier Allokation. Ein Gewichtsbalken pro ETF, skaliert auf die größte Position
+  (bei 10 % Maximum wäre eine 100-%-Skala nur Splitter), plus die investierte Quote.
+- **Umschichtungen** werden nach Materialität gefiltert (≥ 1 % Buchgewicht, dieselbe
+  Schwelle wie `digest.MATERIAL_DELTA_WEIGHT`); die kleinen liegen hinter
+  „+ N kleine Rebalances zeigen", weil nichts aus Telegram verschwinden darf, was das
+  Dashboard nicht zeigt. Ohne den Filter sind es Zeilen wie GLD über 1,40 $.
+- **Kurzfrist (Lanes)** zeigt echte Positionen mit Stückzahl und Einstiegskurs sowie die
+  letzten Trades mit realisiertem P&L. Stückzahlen werden auf vier signifikante Stellen
+  gekürzt — die Bücher speichern exakte Bruchteile, und `32.19510896380651` drückt auf
+  390 px den Kurs aus der Zeile.
+
 **Token-Rotation**: neuen Wert in `.env` setzen, `systemctl --user restart
 equity-scout-dash` — alte Cookies sind sofort ungültig. Loopback (127.0.0.1) ist vom
 Token-Gate bewusst ausgenommen; über LAN/Tailscale greift es (401 ohne Token).
@@ -362,8 +415,8 @@ Token-Gate bewusst ausgenommen; über LAN/Tailscale greift es (401 ohne Token).
 ## Automation (cron)
 
 `scripts/daily_copilot.sh` runs the whole chain unattended (Mondays: screener + person
-scores first): radar → evidence → notify → score → resolve ×2 → lanes → digest — every
-step degrades independently into `copilot.log`. `scripts/receiver_keepalive.sh` keeps the
+scores first): radar → insights → evidence → notify → score → resolve ×2 → lanes → digest
+— every step degrades independently into `copilot.log`. `scripts/receiver_keepalive.sh` keeps the
 Telegram receiver alive under `flock`. Install both cron lines once with
 `./scripts/install_crontab.sh`. Since v9 all daily triggers (cron, a persistent systemd
 user timer, an optional Windows Task Scheduler task) funnel through

@@ -2392,6 +2392,47 @@ git commit -m "docs: record the phone cockpit insights and autotrader view"
 
 ---
 
-## Outcome
+## Outcome (2026-08-05)
 
-_(Fill in after Task 10: what was built, measured gate numbers, deviations, open points.)_
+**Alle 10 Tasks umgesetzt und live verifiziert.** Gate: **1314 Python-Tests grün**,
+`ruff check .` clean, **46 vitest-Tests grün**, `tsc --noEmit` exit 0, Build ok,
+`dist/sw.js` + Manifest ausgeliefert. Live über Tailscale: 401 ohne Token, 200 mit,
+`/api/briefs` liefert 12 Briefs, **12 mit KI-Text und 12 mit 60-Punkt-Chart**.
+Der bekannte `test_entry_model`-Flake trat nicht auf.
+
+Screenshots auf 390 × 844 (Chromium aus dem Playwright-Cache): beide Tabs ohne
+horizontales Scrollen, Sortierung +69/+64/+38/+32, Detail mit Sparkline, Kennzahlen und
+KI-Texten; Desktop bei 1440 px unverändert.
+
+### Abweichungen
+
+- **Kein `sys.path`-Anker in `run_insights.py`** (Task 4 verlangte ihn): geprüft, dass das
+  Muster nur für `from scripts.<sibling> import …` nötig ist. `equity_scout` ist editable
+  installiert, also wäre der Anker toter Code mit irreführendem Kommentar.
+- **CSS-Tokens hießen anders**: real `--positive`, `--warning`, `--bg-surface` (der Plan
+  nannte `--good`, `--warn`, `--surface`). Vor dem Schreiben geprüft, keine neuen Variablen
+  angelegt.
+- **Task 6 und 7 getauscht** (schon im Plan korrigiert): `StockList` importiert
+  `MiniYearChart`, die Sparkline muss zuerst existieren.
+- **`TodayViews` Überschrift „Aktuell vorne" entfernt** — mit den zwei neuen
+  Sektions-Überschriften darunter war sie eine gestapelte Dopplung. Nicht im Plan.
+- **Zwei Fixes, die der Plan nicht vorsah**, beide in der gebauten Fläche:
+  - `clean_company_query` lieferte für „Yamato Holdings Co., Ltd." nur „Yamato", worauf die
+    News-Zusammenfassung drei fremde TSE-Listings beschrieb; gleichzeitig kosteten die
+    Nasdaq-Listing-Suffixe 4 von 12 Titeln ALLE Schlagzeilen. Nach dem Fix 12/12, Yamato
+    trifft TSE:9064. Ein bestehender Test kodierte den Defekt und wurde umgeschrieben.
+  - NaN als letzter Jahres-Close (9064.T, 9022.T) setzte `/api/briefs` komplett auf 500 —
+    die Endpunkt-Zusicherung pinnte den NaN fest, `json.dumps` schrieb ihn als ungültiges
+    Literal. Jetzt vor dem Sampling verworfen, `save_price_series` mit `allow_nan=False`.
+  - Stückzahlen als 16-stellige Rohfloats brachen die Handy-Handelszeilen mitten im Token
+    („sel l", „BT C"); jetzt vier signifikante Stellen plus Umbruch-Ausnahmen.
+- **Modellwahl gemessen**: `llama3.1:8b` war 52,8 s statt 7,1 s und ignorierte den Prompt.
+  `qwen2.5:7b` bleibt.
+
+### Offen
+
+Walk-Through am Handy durch Nico; die holprige Qualität des lokalen 7B-Deutsch (Optionen
+brauchen seine Entscheidung, weil eine bezahlte API die private Kostengrenze berührt); kein
+Modell-Kursziel ohne registrierten `entry_tb`-Champion.
+
+Details: `docs/sessions/2026-08-05_phone-cockpit-insights-and-autotrader.md`.
