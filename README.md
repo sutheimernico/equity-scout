@@ -407,9 +407,31 @@ Der **Autotrader-Tab** zeigt am Handy statt der sieben Desktop-Tabs eine kompakt
   gekürzt — die Bücher speichern exakte Bruchteile, und `32.19510896380651` drückt auf
   390 px den Kurs aus der Zeile.
 
+### Token in den Telegram-Deeplinks (2026-08-05)
+
+Ist `DASH_TOKEN` beim Digest-Lauf gesetzt, tragen die Abschnitts-Links den Token
+(`?view=depots&token=…`). Ein Handy mit abgelaufenem `es_dash`-Cookie landet damit direkt
+in der Ansicht statt auf einem 401; beim ersten Aufruf wandert der Token ins Cookie, und
+das Frontend entfernt ihn aus der sichtbaren URL. **Nur im HTML-Pfad** — die
+Plain-Text-Fassung geht nach stdout und in `copilot.log`, wo ein Secret nichts zu suchen
+hat.
+
+**Preis, bewusst akzeptiert**: der Token liegt damit dauerhaft in der Telegram-Historie,
+die serverseitig gespeichert und nicht Ende-zu-Ende-verschlüsselt ist. Wer den Chat
+einsehen kann, kommt ins Cockpit — vorausgesetzt er ist im Tailnet. Wer das nicht will,
+lässt `DASH_TOKEN` beim Digest-Lauf ungesetzt; die Links funktionieren dann weiter, nur
+eben erst nach einmaligem Login. Gemessen (05.08.): Telegram dekodiert das `&amp;` aus dem
+HTML-Attribut korrekt zu `&`, die Link-Entity trägt die vollständige URL.
+
+**Erreichbarkeit ist die häufigere Fehlerursache als der Token**: `100.99.224.50` existiert
+nur im Tailnet. Ist Tailscale am Handy aus, läuft jeder Link ins Nichts — `tailscale status`
+zeigt, ob der Handy-Node online ist. Ein WLAN-Weg besteht nicht: WSL läuft im NAT-Modus,
+die WSL-IP ist von außen nicht erreichbar, und es gibt keinen Windows-Port-Proxy.
+
 **Token-Rotation**: neuen Wert in `.env` setzen, `systemctl --user restart
-equity-scout-dash` — alte Cookies sind sofort ungültig. Loopback (127.0.0.1) ist vom
-Token-Gate bewusst ausgenommen; über LAN/Tailscale greift es (401 ohne Token).
+equity-scout-dash` — alte Cookies sind sofort ungültig, und der nächste Digest verlinkt
+automatisch mit dem neuen Token. Loopback (127.0.0.1) ist vom Token-Gate bewusst
+ausgenommen; über LAN/Tailscale greift es (401 ohne Token).
 **Von unterwegs**: läuft über Tailscale (Node `wsl-claude`), solange WSL an ist.
 
 ## Automation (cron)

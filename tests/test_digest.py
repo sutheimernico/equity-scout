@@ -468,3 +468,35 @@ def test_dash_url_is_escaped():
         dash_url="https://host/?a=1&b=2", html=True,
     )
     assert "&amp;b=2" in text  # a raw & would break Telegram's HTML parser
+
+
+def test_dash_token_is_appended_to_the_deep_links(tmp_path):
+    """Nico 2026-08-05: "am besten über Telegram den Link inkl Token immer schicken" —
+    a fresh browser (or one whose es_dash cookie expired) otherwise lands on a 401.
+    The token rides as a query param, which api.py's middleware exchanges for the
+    httponly cookie on first load; the frontend then strips it from the visible URL."""
+    text = build_digest(
+        [], date_label="2026-08-05", autodepot=AUTODEPOT,
+        dash_url="https://host:8420", dash_token="abc123", html=True,
+    )
+    # &amp; not a raw & — same reason as test_dash_url_is_escaped above.
+    assert '<a href="https://host:8420/?view=depots&amp;token=abc123">' in text
+
+
+def test_without_a_dash_token_the_links_stay_token_free():
+    text = build_digest(
+        [], date_label="2026-08-05", autodepot=AUTODEPOT,
+        dash_url="https://host:8420", html=True,
+    )
+    assert "token=" not in text
+    assert '<a href="https://host:8420/?view=depots">' in text
+
+
+def test_plain_text_mode_never_leaks_the_token():
+    """The stdout/SMTP rendering has no links at all, so it must not carry the secret
+    either — otherwise a piped digest in copilot.log would hold it in plain text."""
+    text = build_digest(
+        [], date_label="2026-08-05", autodepot=AUTODEPOT,
+        dash_url="https://host:8420", dash_token="abc123", html=False,
+    )
+    assert "abc123" not in text

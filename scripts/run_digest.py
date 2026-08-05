@@ -374,6 +374,11 @@ def main() -> int:
             autodepot=autodepot,
             shortterm=shortterm,
             dash_url=os.environ.get("DASH_URL") or None,
+            # Nico 2026-08-05: the deep links carry the token so a phone with an expired
+            # es_dash cookie opens straight into the view instead of a 401. build_digest
+            # only uses it in html mode, so the plain-text copy in copilot.log stays clean.
+            # Consequence accepted: the secret then lives in the Telegram history.
+            dash_token=os.environ.get("DASH_TOKEN") or None,
             html=html,
         )
 

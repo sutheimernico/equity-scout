@@ -115,6 +115,7 @@ def build_digest(
     autodepot: dict | None = None,
     shortterm: list[dict] | None = None,
     dash_url: str | None = None,
+    dash_token: str | None = None,
     html: bool = False,
 ) -> str:
     """German digest: market head first, all open pitches, then recent decisions.
@@ -171,11 +172,23 @@ def build_digest(
         Query param (not a path) because the dashboard is served by StaticFiles at "/" —
         `/depots` would 404, `?view=depots` always resolves to index.html. Plain-text
         mode never links: a bare URL adds noise to the stdout/SMTP rendering.
+
+        With `dash_token` the link carries the shared secret, so a phone whose `es_dash`
+        cookie expired does not land on a 401 (Nico 2026-08-05). api.py's middleware
+        exchanges `?token=` for the httponly cookie on first load and the frontend strips
+        it from the visible URL afterwards. The trade-off is deliberate and one-way: the
+        token then sits in the Telegram history, which is server-stored and not
+        end-to-end encrypted. It is only ever added in `html` mode — the plain-text
+        rendering goes to stdout and copilot.log, where a secret has no business.
         """
         if not (html and dash_url):
             return _head(text)
-        url = escape_html(f"{dash_url.rstrip('/')}/?view={view}")
-        return f'<b><a href="{url}">{escape_html(text)}</a></b>'
+        target = f"{dash_url.rstrip('/')}/?view={view}"
+        if dash_token:
+            target += f"&token={dash_token}"
+        # escape_html turns the & into &amp;, which is what an HTML attribute needs — a
+        # raw & breaks Telegram's parser (see test_dash_url_is_escaped).
+        return f'<b><a href="{escape_html(target)}">{escape_html(text)}</a></b>'
 
     lines = [_head(f"Copilot-Digest {date_label}")]
     if regime is not None:

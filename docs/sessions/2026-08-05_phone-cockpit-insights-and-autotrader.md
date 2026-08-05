@@ -136,3 +136,41 @@ Die Desktop-Panels (`KurzfristArenaPanel`, `AutoDepotPanel`) zeigen Stückzahlen
 `num(qty, 4)`, also z. B. `32.1951` — am Desktop lesbar, aber dieselbe Rohdaten-Optik.
 Die Handy-Ansicht nutzt jetzt vier signifikante Stellen; eine Vereinheitlichung wäre eine
 eigene kleine Runde.
+
+---
+
+## Nachtrag: Token in den Telegram-Deeplinks (2026-08-05, nach Nicos Rückmeldung)
+
+Nico: „lässt sich nicht aufrufen über den Link" → dann „am besten über Telegram den Link
+inkl Token immer schicken".
+
+**Die gemeldete Ursache war nicht der Token.** `tailscale status` zeigte
+`oneplus-13 … offline, last seen 19h ago` — das Handy war nicht im Tailnet, und
+`100.99.224.50` existiert nur dort. Der Server war korrekt: lauscht auf `0.0.0.0:8420`,
+Tailscale-IP aktiv, 401 ohne / 200 mit Token gemessen. Ein WLAN-Weg besteht nicht: keine
+`.wslconfig` (NAT-Modus), also ist `172.31.12.11` von außen unerreichbar, und auf Windows
+(LAN-IP `192.168.178.59`) ist kein Port-Proxy eingerichtet. Das wurde so gesagt, der
+Token-Wunsch danach trotzdem umgesetzt — er löst einen anderen, echten Fall: ein Browser
+ohne gültiges `es_dash`-Cookie.
+
+Umgesetzt: `build_digest(dash_token=…)` hängt `&token=` an die Deeplinks, `run_digest.py`
+gibt `DASH_TOKEN` aus der Umgebung weiter. Nur im HTML-Pfad — die Plain-Text-Fassung landet
+in `copilot.log`, wo ein Secret nichts zu suchen hat; ein Test hält das fest.
+
+**Ein Risiko vorab benannt und dann gemessen**: `escape_html` macht aus dem `&` ein
+`&amp;`. Hätte Telegrams Parser das nicht dekodiert, wäre `view=depots&amp;token=…` in der
+URL gelandet, `parseView` hätte auf „today" zurückgefallen und der Token wäre nie
+eingelöst worden. Die API-Antwort auf einen echten Send (`ok: true`, message_id 47) zeigt
+die Link-Entity mit echtem `&` und vollständigem Token — korrekt. Diesmal also gegen die
+echte Zustellung geprüft, nicht nur gegen den Renderer (das war am 04.08. offen geblieben).
+
+**Preis, den Nico bewusst zahlt**: der Token liegt dauerhaft in der Telegram-Historie
+(serverseitig gespeichert, nicht E2E-verschlüsselt). Wer den Chat sieht, kommt ins Cockpit,
+sofern er im Tailnet ist. Rückweg: `DASH_TOKEN` beim Digest-Lauf ungesetzt lassen.
+
+Gate: **1322 Python-Tests grün** (3 neue), ruff clean. Der `test_entry_model`-Flake trat in
+diesem Lauf nicht auf.
+
+**Nachtrag zur Ausgabe des Tokens im Chat**: Nico hat den vollständigen Link mit Token
+ausdrücklich zweimal angefordert; er steht damit auch im Session-Transcript. Rotation
+empfohlen, wenn das nicht gewollt ist.
