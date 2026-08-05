@@ -1626,7 +1626,18 @@ history. This breaks Task 3's premise: reconciliation treats broker positions as
 and AAPL is in `SESSION_TICKERS`, so that share would be read as a lane position on the
 first run.
 
-Not resolved here — it is Nico's book. Two ways out: a **second paper account** in the
-Alpaca dashboard used only by equity-scout (clean, keeps signal-trader's book intact), or
-close the AAPL share and take the account over. The plan assumed an empty account and does
-not say which; decide before Task 3.
+**RESOLVED same evening.** Nico created a dedicated paper account named "Short Term" and
+swapped its keys into `equity-scout/.env`. Verified: account **`PA3SIKMAPF0N`**, 100,000 USD,
+**0 positions, 0 orders** — signal-trader-demo keeps its own book on the old keys. All
+checks re-run green against the new account (order probes included).
+
+### Precondition status
+
+| Check | State |
+|---|---|
+| [1/4] Credentials | PASS (new account) |
+| [2/4] Density 1Min | PASS (9× 100 %, QQQ 98 %) |
+| [3/4] + [4/4] Orders | PASS (accepted + cancelled, nothing left behind) |
+| [2/4] Freshness | **still open** — needs an open session; the cron runner collects it |
+
+Tasks 1–8 unblock the moment freshness passes. Task 0 is already done.
