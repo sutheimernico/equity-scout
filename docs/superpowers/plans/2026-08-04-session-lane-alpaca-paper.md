@@ -95,7 +95,7 @@ guard rail already off.
 
 This is worth fixing whether or not Alpaca happens, so it comes first.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_market_hours.py`:
 
@@ -132,13 +132,13 @@ def test_panel_cutoff_still_excludes_the_session_that_just_closed() -> None:
 Check the imports at the top of `tests/test_market_hours.py` and add
 `last_completed_us_session` if it is not already imported.
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `uv run pytest tests/test_market_hours.py -v`
 Expected: `test_window_still_open_at_the_cron_slot_after_the_last_bar_settles` FAILS
 (assert False is True); the other two pass already.
 
-- [ ] **Step 3: Fix the constant**
+- [x] **Step 3: Fix the constant**
 
 In `src/equity_scout/market_hours.py`:
 
@@ -154,12 +154,12 @@ Update the module docstring's "plus a 30-minute grace" to match the new value an
 why the grace is now 50 minutes: it is not about the data delay, it is about a cron slot
 existing after the last bar becomes usable.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `uv run pytest tests/test_market_hours.py tests/test_run_shortterm.py -v`
 Expected: all passed
 
-- [ ] **Step 5: Full gate and commit**
+- [x] **Step 5: Full gate and commit** — done 2026-08-04, commit `18b6f45`.
 
 ```bash
 uv run pytest -q && uv run ruff check .
