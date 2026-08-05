@@ -174,3 +174,65 @@ diesem Lauf nicht auf.
 **Nachtrag zur Ausgabe des Tokens im Chat**: Nico hat den vollständigen Link mit Token
 ausdrücklich zweimal angefordert; er steht damit auch im Session-Transcript. Rotation
 empfohlen, wenn das nicht gewollt ist.
+
+---
+
+## Nachtrag 2: Visuelles Review (2026-08-06, nach Nicos Kritik)
+
+Nico: „Das passt mir noch nicht mit dem Visuellen. Das sieht noch nicht intuitiv aus. Diese
+Balken sehen nicht schön aus. Es ist teilweise ein bisschen erdrückend, erschlagend."
+Plus konkret: Monate auf der X-Achse (alle drei Monate) und Preise auf der Y-Achse.
+
+Die dataviz-Referenz benannte die Ursachen, statt sie zu erraten. Fünf Regelverstöße im
+eigenen Code gefunden:
+
+1. **„Thick saturated blocks, no breathing room"** — der Zonenbalken: drei gesättigte
+   Bänder (amber/grün/amber, 55–60 % Mix) auf 10 px Höhe. Damit war das Chrome-Element das
+   lauteste der Karte. Genau Nicos „Balken sehen nicht schön aus".
+2. **„A number on every data point"** — die zwei Zonengrenzen an *jeder* Karte, dazu Kurs
+   *und* Potenzial groß.
+3. **„A container whose fixed height excludes the x-axis band"** — der Chart hatte
+   `height: 64px` fix, es gab schlicht keinen Platz für Achsen.
+4. **„Text never wears the data color"** — die Chart-Beschriftung war grün/amber.
+5. **„tabular-nums on a large standalone number"** — die Potenzial-Zahl trug `.num`, also
+   Monospace + tabular-nums. Nebeneffekt: das schmale Leerzeichen vor dem `%` war in
+   Monospace volle Breite, weshalb Zahl und Einheit als zwei Dinge lasen.
+
+### Umgesetzt
+
+**Liste:** vier Dinge pro Zeile statt sieben — Logo, Name, Status-Chip, Potenzial. Kurs,
+Branche und Zonen-Meter ins Detail. Gemessen am Screenshot: **sieben Aktien auf einem
+Bildschirm, vorher drei.**
+
+**Chart:** echte Achsen. Preis-Ticks auf einer 1/2/5-Leiter (kein 2,5er-Schritt: 1925
+neben 1900/1950 ist Rauschen), Monatsmarken auf jedem dritten Monat am **echten
+Handelstag** — dafür trägt `price_series` jetzt eine `dates`-Spalte mit idempotenter
+Migration. Aus erstem und letztem Datum interpoliert hätte eine Marke neben dem falschen
+Kurs gesessen, weil Handelstage ungleich verteilt sind.
+
+**Zonenbalken → Meter:** eine gewaschene Zone in einer ruhigen 6-px-Schiene.
+
+### Drei Fehler, die erst das Ansehen zeigte
+
+1. **Zwei Kurse, beide „aktuell".** Der Chart-Endpunkt (letzter Close der Reihe) und der
+   Kartenkurs (aus dem Watchlist-Lauf) unterschieden sich bei 9064.T um **35 JPY**
+   (1.880 vs. 1.915,50). Jetzt „Stand <Datum>" — die Zahlen kommen aus verschiedenen
+   Läufen und dürfen nicht dasselbe Etikett tragen.
+2. **Widersprüchliche Trennzeichen in einer Zeile.** Der Depot-Tab druckte „+10.0 %" neben
+   „10.065" — englischer Dezimalpunkt neben deutschem Tausenderpunkt, zwei Bedeutungen für
+   dasselbe Zeichen. `pct()` formatiert jetzt de-DE.
+3. **Elf gesättigte Allokationsbalken.** Die Farbe trägt dort keine Information (nur die
+   Länge tut das), also tritt sie jetzt zurück: 45 % Mix und ein gerundetes Datenende.
+
+### Gate
+
+**1327 Python-Tests grün** (5 neue für `dates`), ruff clean, **58 vitest-Tests grün**
+(5 neue für `priceTicks`/`monthTicks`/Ursprung/`shortVerdict`), `tsc --noEmit` exit 0,
+Build ok. Alle Screenshots auf 390 × 844 gegengeprüft.
+
+### Offen
+
+Der Sortier-Widerspruch bleibt bewusst stehen: Yamato steht mit **−7 %** oben, weil es
+unser Signal (in Zone) nach vorn setzt. Das ist die ehrliche Darstellung zweier
+Perspektiven, kein Fehler — falls Nico das anders will, wäre die Alternative, die
+Einstiegszonen-Sektion nach Potenzial zu sortieren.

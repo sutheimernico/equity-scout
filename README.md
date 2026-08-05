@@ -373,13 +373,35 @@ unser eigenes Signal stellen. **„Potenzial" ist immer Analysten-Konsens** — 
 sagt die Karte „kein trainiertes Modell"). Fehlt die Coverage, steht dort „—", niemals 0 %.
 Ein negatives Potenzial erscheint amber, wird aber nicht versteckt.
 
-Ein Tap öffnet **1-Jahres-Chart, Kennzahlen und die KI-Texte**:
+**Die Liste trägt vier Dinge pro Zeile** — Logo, Firmenname, ein Status-Chip
+(„✓ Einstiegsbereich" / „⚠ 69 % über der Zone") und das Potenzial. Kurs, Branche und der
+Zonen-Meter liegen im Detail. Vorher waren es sieben gestapelte Zeilen und zwei große
+Zahlen pro Karte, die miteinander konkurrierten; damit brauchten drei Aktien einen
+Bildschirm, jetzt passen sieben (Nico: „teilweise erdrückend, erschlagend").
 
-- **Chart**: Inline-SVG aus unseren eigenen Kursen (`frontend/src/sparkline.ts` +
+Ein Tap öffnet **1-Jahres-Chart, Zonen-Meter, Kennzahlen und die KI-Texte**:
+
+- **Chart mit Achsen**: Inline-SVG aus unseren eigenen Kursen (`frontend/src/sparkline.ts` +
   `MiniYearChart.tsx`), nicht das TradingView-Widget, das `StockChart.tsx` auf dem Desktop
   einbettet. Grund: der Service Worker kann es cachen (zeichnet also auch mit
   ausgeschaltetem WSL), es erbt das dunkle Cockpit statt `colorTheme: "light"`, und ein
   privates Cockpit lädt kein Fremd-Skript pro Kartenöffnung.
+  Preis-Ticks liegen auf einer 1/2/5-Leiter innerhalb der Kursspanne, Monatsmarken auf
+  jedem dritten Monat — und zwar am **echten Handelstag**: dafür trägt `price_series` eine
+  `dates`-Spalte, denn aus erstem und letztem Datum interpoliert würde eine Marke neben dem
+  falschen Kurs landen (Handelstage sind ungleich verteilt). Die Bildfläche schließt das
+  Achsenband ein, damit die Labels nie abgeschnitten werden; nur der Endpunkt ist direkt
+  beschriftet, Achsentext trägt Text-Tokens (eine helle Signalfarbe ist als Text
+  unlesbar), und die Fläche unter der Linie ist ein 10-%-Hauch, kein Block.
+  Der Endpunkt heißt **„Stand <Datum>", nie „aktuell"**: er ist der letzte Close der
+  gecachten Reihe, während der Kartenkurs aus dem Watchlist-Lauf kommt — bei 9064.T lagen
+  35 JPY dazwischen, und zwei Zahlen mit demselben Etikett in einer Karte muss der Leser
+  auflösen.
+- **Zonen-Meter statt Balkenbanden**: eine ruhige 6-px-Schiene mit der Einstiegszone als
+  einziger gefüllter Fläche. Die frühere Fassung hatte drei gesättigte Bänder
+  (amber/grün/amber) und war damit das lauteste Element der Karte, obwohl die Kursnadel
+  die Aussage trägt. Auf welcher Seite der Kurs liegt, sagte die Farbe ohnehin nie — das
+  tun Nadelposition und Urteilszeile.
 - **KI-Texte**: ein Satz Geschäftsmodell plus News-Zusammenfassung, erzeugt vom nächtlichen
   Schritt `scripts/run_insights.py` (lokales Ollama, `qwen2.5:7b`) und in SQLite gecacht
   (`stock_insights`, `price_series`). **Nie live im Request**: ein warmer LLM-Call kostet
