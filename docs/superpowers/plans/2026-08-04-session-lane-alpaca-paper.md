@@ -231,6 +231,19 @@ print(c.execute(\"select count(*) from st_trades where lane='session' and reason
 Expected: a non-zero count on the first day a position runs into the close. Until that is
 observed, this fix is unverified in production regardless of green tests.
 
+**Partially verified 2026-08-05** (first full session after the fix): the 16:30 ET *and*
+16:45 ET cron slots both ran and both reached `st_session` — under the old `WINDOW_END` the
+16:30 slot fired one second too late and 16:45 did not exist at all, so the window now
+demonstrably contains a slot after the last bar settles at 16:20. The `Session-Ende (flat)`
+count is still 0, but for a benign reason: both of the day's positions (NVDA, AAPL) were
+stopped out at 10:45 and 11:15 ET, so nothing ran into the close. **Still open** — the fix
+is proven reachable, not yet proven to fire. Re-check on the first day a position survives
+to 16:45.
+
+Side observation from the same log, which is why Task 9 Step 1 exists: the 16:45 run wrote
+a full report block including the disclaimer for a session with *zero* fills and zero open
+positions. At a one-minute cadence that is ~390 such blocks a day.
+
 ---
 
 ### Task 1: Alpaca bar fetch with the same DataFrame contract
