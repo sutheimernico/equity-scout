@@ -1571,4 +1571,46 @@ is the whole point of this plan; "it felt fast" is not a record.
 
 ## Outcome
 
-_(to be filled after execution — including the verification run's actual bar ages)_
+_(to be filled after execution)_
+
+### Precondition run 1 — 2026-08-05 20:50 UTC, market CLOSED
+
+Keys were already on disk, in `signal-trader-demo/.env` under different names
+(`ALPACA_API_KEY` / `ALPACA_API_SECRET`); copied into `equity-scout/.env` as
+`ALPACA_API_KEY_ID` / `ALPACA_API_SECRET_KEY`. Note the invocation: this repo has no
+`python-dotenv`, the shell scripts `. ./.env`. A bare `uv run python scripts/...` sees
+nothing. Use:
+
+```bash
+set -a && . ./.env && set +a && uv run python scripts/verify_alpaca_paper.py
+```
+
+| Check | Result |
+|---|---|
+| [1/4] Credentials | **PASS** — account `PA3AKCY23RCD`, ACTIVE, paper (`PK…` key prefix) |
+| [2/4] Density, 1Min | **PASS** — 9 of 10 tickers at 100 %, QQQ 98 % |
+| [2/4] Freshness | **not measurable** — market closed, ages 1.4–65 min are meaningless |
+| [3/4] + [4/4] Orders | **not run** — see the account conflict below |
+
+**Density holds, which was the gate that could have killed the 1-minute trigger.** IEX
+prints essentially every regular-session minute for these mega-caps.
+
+The first density run reported 20–72 % for MSFT, AMD, AAPL and SPY and would have condemned
+the design. That was a defect in the check, not in the feed: those four were the only
+tickers still printing after 20:00 UTC, so a window anchored on their newest bar fell into
+the thin after-hours tape. Fixed in `7df0f1b` — density is measured over regular-session
+bars only. The lesson is worth keeping: a freshness/density metric anchored on "the last
+bar" silently changes meaning outside session hours.
+
+### Blocker found during the run: the paper account is not ours alone
+
+The account already carries **1 share of AAPL**, bought 2026-06-18 — a smoke test from
+`signal-trader-demo`, which shares these keys. Equity 100,012.37, one order in the whole
+history. This breaks Task 3's premise: reconciliation treats broker positions as the truth,
+and AAPL is in `SESSION_TICKERS`, so that share would be read as a lane position on the
+first run.
+
+Not resolved here — it is Nico's book. Two ways out: a **second paper account** in the
+Alpaca dashboard used only by equity-scout (clean, keeps signal-trader's book intact), or
+close the AAPL share and take the account over. The plan assumed an empty account and does
+not say which; decide before Task 3.
