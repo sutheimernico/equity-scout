@@ -36,6 +36,17 @@ function money(value: number): string {
   return value.toLocaleString("de-DE", { maximumFractionDigits: 0 });
 }
 
+/** Share/coin quantity, readable at phone width.
+ *
+ * The books store exact fractional quantities, and printed raw they are 16-digit floats
+ * ("BUSE 32.19510896380651", "BTC 0.038163611924095855") that push the price off the row
+ * and force mid-token line breaks. Significant digits rather than a fixed number of
+ * decimals, because one row can hold 2297 XRP and 0.038 BTC and both must stay compact.
+ */
+function qty(value: number): string {
+  return value.toLocaleString("de-DE", { maximumSignificantDigits: 4 });
+}
+
 /** DD.MM. — on a phone row the day is what orients you, the year never changes mid-list. */
 function dayOf(iso: string): string {
   const [, month, day] = iso.slice(0, 10).split("-");
@@ -170,7 +181,11 @@ function RebalanceList({ trades }: { trades: AutodepotTrade[] }) {
           {shown.map((t, i) => (
             <li key={`${t.created_at}-${t.ticker}-${i}`}>
               <span className="pd-trade-day">{dayOf(t.created_at)}</span>
-              <span className={t.delta_weight >= 0 ? "brief-good" : "brief-warn"}>
+              <span
+                className={
+                  t.delta_weight >= 0 ? "pd-trade-side brief-good" : "pd-trade-side brief-warn"
+                }
+              >
                 {t.delta_weight >= 0 ? "auf" : "ab"}
               </span>
               <span className="pd-trade-ticker">{t.ticker}</span>
@@ -213,7 +228,7 @@ function LaneCard({ lane }: { lane: ShortTermLane }) {
               <StockLogo ticker={p.ticker} name={p.ticker} />
               <span className="pd-trade-ticker">{p.ticker}</span>
               <span className="num">
-                {p.qty} @ {p.entry_price.toFixed(2)}
+                {qty(p.qty)} @ {p.entry_price.toFixed(2)}
               </span>
             </li>
           ))}
@@ -227,13 +242,17 @@ function LaneCard({ lane }: { lane: ShortTermLane }) {
             <li key={`${t.executed_at}-${t.ticker}-${i}`}>
               <span className="pd-trade-day">{dayOf(t.executed_at)}</span>
               <span
-                className={t.side.toLowerCase().startsWith("b") ? "brief-good" : "brief-warn"}
+                className={
+                  t.side.toLowerCase().startsWith("b")
+                    ? "pd-trade-side brief-good"
+                    : "pd-trade-side brief-warn"
+                }
               >
                 {t.side}
               </span>
               <span className="pd-trade-ticker">{t.ticker}</span>
               <span className="num">
-                {t.qty} @ {t.price.toFixed(2)}
+                {qty(t.qty)} @ {t.price.toFixed(2)}
               </span>
               {t.realized_pnl !== null && (
                 <span className={t.realized_pnl >= 0 ? "brief-good num" : "brief-warn num"}>

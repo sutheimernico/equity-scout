@@ -2631,3 +2631,17 @@ code {
   /* 44 px tap target without a visible box: the row above it is already dense. */
   min-height: 44px;
 }
+
+/* The trade rows live inside `.view`, whose `.view *` rule sets overflow-wrap: anywhere
+   (see the phone-overflow block above). Without an exception "sell" broke into "sel l" and
+   "BTC" into "BT C" — measured on the crypto lane, 2026-08-05. `.num` is already exempt;
+   these three carry the `.view` prefix for the same specificity reason documented there. */
+@media (max-width: 720px) {
+  .view .pd-trade-day,
+  .view .pd-trade-side,
+  .view .pd-trade-ticker,
+  .view .pd-alloc-ticker {
+    overflow-wrap: normal;
+    word-break: keep-all;
+  }
+}

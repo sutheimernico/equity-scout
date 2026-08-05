@@ -69,8 +69,10 @@ export function TodayView({ onNavigate }: { onNavigate: (view: string) => void }
       {/* Companies before counters (Nico, 2026-08-04): the first thing on the phone should
           be WHICH names the funnel has in front, spelled out and with a logo, not a tally
           of how many pitches are open. */}
+      {/* No own heading anymore: StockList carries two of its own ("Jetzt im
+          Einstiegsbereich" / "Höchstes Potenzial", 2026-08-05), and a third one above them
+          read as a stacked duplicate on the phone. */}
       <section className="panel reveal">
-        <h2 className="block-head">Aktuell vorne</h2>
         <StockList onOpen={() => onNavigate("radar")} />
       </section>
 
