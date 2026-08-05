@@ -2758,3 +2758,28 @@ code {
   margin: 0;
   font-size: 0.8rem;
 }
+
+/* Relates timing to value — the sentence that keeps "+69 %" next to "über der Zone" from
+   reading as a contradiction (2026-08-06). */
+.brief-note {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+.brief-headlines-head {
+  margin: var(--space-1) 0 2px;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* The market light's plain-language consequence, on its own line under the label. */
+.regime-meaning {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--text-muted);
+}

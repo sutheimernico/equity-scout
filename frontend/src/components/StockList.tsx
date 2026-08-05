@@ -90,11 +90,14 @@ function BriefInsight({ brief }: { brief: StockBrief }) {
         <p className="brief-muted">Keine aktuellen Schlagzeilen gefunden.</p>
       )}
       {insight.headlines.length > 0 && (
-        <ul className="brief-headlines">
-          {insight.headlines.map((title) => (
-            <li key={title}>{title}</li>
-          ))}
-        </ul>
+        <>
+          <p className="brief-headlines-head">Schlagzeilen</p>
+          <ul className="brief-headlines">
+            {insight.headlines.map((title) => (
+              <li key={title}>{title}</li>
+            ))}
+          </ul>
+        </>
       )}
       <p className="brief-muted brief-insight-foot">
         KI-Zusammenfassung ({insight.model ?? "lokal"}) vom {when} — keine Empfehlung.
@@ -130,10 +133,15 @@ function BriefRow({ brief }: { brief: StockBrief }) {
             {business ? ` · ${business}` : ""}
           </p>
           <MiniYearChart chart={brief.chart} currency={brief.currency} />
+          {/* News before the figures (Nico 2026-08-06: "Ich find die News jetzt nicht mehr
+              beim Aufklappen") — behind the five-row table they sat below the fold. */}
+          <BriefInsight brief={brief} />
           <ZoneBar brief={brief} />
           <p className={brief.in_zone ? "brief-good brief-verdict" : "brief-warn brief-verdict"}>
             {brief.in_zone ? "✓" : "⚠"} {brief.zone_verdict}
           </p>
+          {/* Says why a high potential and a poor entry are not a contradiction. */}
+          <p className="brief-muted brief-note">{brief.entry_note}</p>
           <dl className="brief-detail">
             <dt>Guter Einstieg</dt>
             <dd className="num">
@@ -160,7 +168,6 @@ function BriefRow({ brief }: { brief: StockBrief }) {
                 : money(brief.model_target, brief.currency)}
             </dd>
           </dl>
-          <BriefInsight brief={brief} />
         </div>
       )}
     </li>

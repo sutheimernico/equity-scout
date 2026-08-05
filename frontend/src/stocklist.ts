@@ -8,6 +8,12 @@ import type { StockBrief } from "./api";
 // Four rows is one thumb-scroll on a 390 px screen; more turns the highlight into a list.
 const POTENTIAL_ROWS = 4;
 
+// Nico 2026-08-06: "ich würd alles ab Potenzial dreißig plus filtern" — the section is
+// there to answer "which ones should I actually look at", and a +9 % consensus does not
+// earn a highlight slot. Only this section is gated: the entry section leads with OUR
+// signal, where a small or negative upside is information, not a reason to hide the row.
+const MIN_POTENTIAL_PCT = 30;
+
 export interface Sections {
   /** Our own signal: the price sits inside the support-derived entry zone. */
   inZone: StockBrief[];
@@ -22,7 +28,7 @@ export function splitSections(briefs: StockBrief[]): Sections {
     .filter((b) => !b.in_zone)
     // A null upside means no coverage, not zero potential; a negative one contradicts
     // the heading. Both stay visible on their own card, just not as a highlight.
-    .filter((b) => b.analyst_upside_pct !== null && b.analyst_upside_pct > 0)
+    .filter((b) => b.analyst_upside_pct !== null && b.analyst_upside_pct >= MIN_POTENTIAL_PCT)
     .sort((a, b) => (b.analyst_upside_pct ?? 0) - (a.analyst_upside_pct ?? 0))
     .slice(0, POTENTIAL_ROWS);
 
@@ -31,7 +37,7 @@ export function splitSections(briefs: StockBrief[]): Sections {
 
 /** The entry state in as few words as a list row can carry.
  *
- * The backend's `zone_verdict` is a full sentence ("69 % über der Zone — zu teuer"). The
+ * The backend's `zone_verdict` states the timing fact ("69 % über der Einstiegszone"). The
  * list needs the fact, not the reason: everything after the em dash is explanation and
  * belongs in the detail view, where the zone meter and the bounds live. "im
  * Einstiegsbereich" loses its preposition so the chip reads as a state, not a sentence

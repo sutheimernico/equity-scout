@@ -16,7 +16,7 @@ from __future__ import annotations
 from equity_scout.fundamentals import Fundamentals
 from equity_scout.pitch import score_band  # single source of the niedrig/mittel/hoch scale
 
-__all__ = ["score_band", "zone_gap", "rank_entries", "build_brief"]
+__all__ = ["score_band", "zone_gap", "entry_note", "rank_entries", "build_brief"]
 
 
 def zone_gap(price: float, zone_low: float, zone_high: float) -> tuple[float | None, str]:
@@ -30,7 +30,14 @@ def zone_gap(price: float, zone_low: float, zone_high: float) -> tuple[float | N
         return 0.0, "im Einstiegsbereich"
     if price > zone_high:
         gap = round((price / zone_high - 1.0) * 100)
-        return float(gap), f"{gap} % über der Zone — zu teuer"
+        # NOT "zu teuer" (the wording this shipped with on 2026-08-04). The zone is a
+        # SUPPORT band, so above it says the price has run far from its last floor — a
+        # TIMING statement. "Teuer" is a VALUE statement, and on a card that also shows a
+        # +69 % analyst upside the two read as a flat contradiction ("Warum sollte die
+        # Aktie dann zu teuer sein, wenn noch so ein hohes Potenzial?", Nico 2026-08-06).
+        # Same class of error as "noch günstiger" below, corrected the same way: state what
+        # the geometry means and let `entry_note` relate it to the analyst view.
+        return float(gap), f"{gap} % über der Einstiegszone"
     gap = round((1.0 - price / zone_low) * 100)
     # NOT "noch günstiger" (the wording this shipped with on 2026-08-04, which read as a buy
     # signal and was understood as one). The zone is a SUPPORT band — `radar.entry_zone` runs
@@ -39,6 +46,48 @@ def zone_gap(price: float, zone_low: float, zone_high: float) -> tuple[float | N
     # (notify.py, lanes.py), so this side is just as much a "not now" as being too expensive.
     # Kept in step with radar.zone_note's "tiefer als die Support-Levels".
     return float(gap), f"{gap} % unter der Zone — Support gebrochen"
+
+
+def entry_note(*, in_zone: bool, gap_pct: float | None, upside_pct: float | None) -> str:
+    """One sentence relating the two things the card shows, because they answer different
+    questions and looked like a contradiction when shown side by side.
+
+    - The analyst upside is a VALUE claim over ~12 months, made by other people.
+    - The entry zone is a TIMING observation from our own support levels.
+
+    A stock can be worth more (analysts) and still sit far above its last floor (us) — that
+    is not a conflict, it is two axes. Naming both axes is what makes the card readable;
+    saying which one should win would be advice, which this project does not give.
+    """
+    has_upside = upside_pct is not None
+    if in_zone:
+        if has_upside and upside_pct > 0:
+            return (
+                f"Kurs liegt im Support-Bereich (Zeitpunkt), Analysten sehen "
+                f"{round(upside_pct)} % Luft (Wert)."
+            )
+        if has_upside:
+            return (
+                "Kurs liegt im Support-Bereich (Zeitpunkt), aber die Analysten sehen "
+                "kein Aufwärtspotenzial (Wert)."
+            )
+        return "Kurs liegt im Support-Bereich (Zeitpunkt); keine Analystenschätzung zum Wert."
+    if gap_pct is not None and gap_pct < 0:
+        # Below the zone: every support has broken, and no price target changes that.
+        base = f"Alle Support-Levels sind gefallen ({abs(round(gap_pct))} % darunter)"
+        if has_upside and upside_pct > 0:
+            return f"{base} — kein Halt mehr, unabhängig vom Kursziel der Analysten."
+        return f"{base} — kein Halt mehr darunter."
+    distance = f"{round(gap_pct)} % über dem letzten Support" if gap_pct is not None else "über der Zone"
+    if has_upside and upside_pct > 0:
+        return (
+            f"Kein Widerspruch, zwei Fragen: Analysten sehen {round(upside_pct)} % Luft "
+            f"(Wert), der Kurs steht aber {distance} (Zeitpunkt) — ein Rücksetzer hätte "
+            "Fallhöhe."
+        )
+    if has_upside:
+        return f"Kurs {distance} (Zeitpunkt), und die Analysten sehen keine Luft (Wert)."
+    return f"Kurs {distance} (Zeitpunkt); keine Analystenschätzung zum Wert."
 
 
 def rank_entries(entries: list[dict]) -> list[dict]:
@@ -91,6 +140,12 @@ def build_brief(
         "in_zone": entry["in_zone"],
         "zone_gap_pct": gap_pct,
         "zone_verdict": verdict,
+        # Relates the timing observation above to the value claim below, so the card does
+        # not read as self-contradicting. Built here, not in the frontend: the support-band
+        # semantics live on this side (see zone_gap) and must not be encoded twice.
+        "entry_note": entry_note(
+            in_zone=entry["in_zone"], gap_pct=gap_pct, upside_pct=upside
+        ),
         "analyst_target": target,
         "analyst_count": fundamentals.analyst_count if fundamentals else None,
         "analyst_upside_pct": upside,

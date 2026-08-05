@@ -64,7 +64,12 @@ export function TodayView({ onNavigate }: { onNavigate: (view: string) => void }
         </p>
       </header>
 
-      <RegimeCard />
+      {/* Desktop keeps the market light at the top; on the phone it moves BELOW the stock
+          list. It answers "how is the market", not "what should I look at" — and the first
+          screen belongs to the second question (Nico 2026-08-06). */}
+      <div className="only-desktop">
+        <RegimeCard />
+      </div>
 
       {/* Companies before counters (Nico, 2026-08-04): the first thing on the phone should
           be WHICH names the funnel has in front, spelled out and with a logo, not a tally
@@ -75,6 +80,10 @@ export function TodayView({ onNavigate }: { onNavigate: (view: string) => void }
       <section className="panel reveal">
         <StockList onOpen={() => onNavigate("radar")} />
       </section>
+
+      <div className="only-phone">
+        <RegimeCard />
+      </div>
 
       <div className="kpi-row">
         <StatTile

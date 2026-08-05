@@ -8,6 +8,22 @@ function signalDot(signal: RegimeSignal): string {
   return signal.green ? "🟢" : "🔴";
 }
 
+/** What "Risk-on" means in one plain sentence per level.
+ *
+ * Nico 2026-08-06: "diese Marktlage risk on, ich check gar nicht, was Du damit willst.
+ * Also ist halt einfach alles grün, check ich nicht." The label was jargon plus a score
+ * (4/4) with no statement of consequence — and it sat at the TOP of the phone screen, the
+ * most prominent slot, for the least actionable fact. Each line says what the state does
+ * and does not imply; none of them tells anyone to buy or sell.
+ */
+const MEANING: Record<string, string> = {
+  green:
+    "Der breite Markt trägt gerade. Rücksetzer einzelner Aktien sind dann eher titelspezifisch als Marktstress — kein Kaufsignal, nur Kontext.",
+  yellow:
+    "Gemischtes Bild: ein Teil der Marktsignale ist gedreht. Einzeltitel reagieren in so einer Lage stärker auf schlechte Nachrichten.",
+  red: "Der breite Markt ist unter Druck. Auch fundamental gute Titel fallen dann mit — der Autotrader drosselt in dieser Lage über sein Regime-Gate.",
+};
+
 /** v8 market traffic light: one glance for the market, the four signals fold away. */
 export function RegimeCard() {
   const [regime, setRegime] = useState<Regime | null>(null);
@@ -30,6 +46,9 @@ export function RegimeCard() {
             <span className="nobr">
               ({regime.green_count}/{regime.available} Signale grün)
             </span>
+            {MEANING[regime.level] && (
+              <span className="regime-meaning">{MEANING[regime.level]}</span>
+            )}
           </>
         }
       >

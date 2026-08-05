@@ -7,7 +7,7 @@ function brief(over: Partial<StockBrief>): StockBrief {
   return {
     ticker: "AAA", name: "AAA Inc.", sector: null, industry: null, currency: "USD",
     price: 100, score: 40, score_band: "mittel", zone_low: 90, zone_high: 110,
-    in_zone: false, zone_gap_pct: 0, zone_verdict: "", analyst_target: null,
+    in_zone: false, zone_gap_pct: 0, zone_verdict: "", entry_note: "", analyst_target: null,
     analyst_count: null, analyst_upside_pct: null, trailing_pe: null,
     model_target: null, model_stop: null, insight: null, chart: null,
     ...over,
@@ -26,11 +26,21 @@ describe("splitSections", () => {
 
   it("ranks the potential section by upside, highest first", () => {
     const { potential } = splitSections([
-      brief({ ticker: "MID", analyst_upside_pct: 30 }),
+      brief({ ticker: "MID", analyst_upside_pct: 35 }),
       brief({ ticker: "TOP", analyst_upside_pct: 69 }),
-      brief({ ticker: "LOWP", analyst_upside_pct: 9 }),
+      brief({ ticker: "LOWP", analyst_upside_pct: 31 }),
     ]);
     expect(potential.map((b) => b.ticker)).toEqual(["TOP", "MID", "LOWP"]);
+  });
+
+  it("keeps only upsides worth a look — 30 % and above", () => {
+    // Nico: "ich würd alles ab Potenzial dreißig plus filtern". A +9 % consensus is not a
+    // highlight; it still shows on the stock's own card wherever that appears.
+    const { potential } = splitSections([
+      brief({ ticker: "IN", analyst_upside_pct: 30 }),
+      brief({ ticker: "OUT", analyst_upside_pct: 29 }),
+    ]);
+    expect(potential.map((b) => b.ticker)).toEqual(["IN"]);
   });
 
   it("never shows the same stock in both sections", () => {
@@ -56,7 +66,7 @@ describe("splitSections", () => {
 
   it("caps the potential section at four rows", () => {
     const many = Array.from({ length: 9 }, (_, i) =>
-      brief({ ticker: `T${i}`, analyst_upside_pct: 10 + i }),
+      brief({ ticker: `T${i}`, analyst_upside_pct: 40 + i }),
     );
     expect(splitSections(many).potential).toHaveLength(4);
   });
@@ -69,11 +79,11 @@ describe("shortVerdict", () => {
     );
   });
 
-  it("keeps the distance but drops the explanatory tail", () => {
-    // The list needs the number; the reason belongs in the detail view.
+  it("keeps the distance, which now carries no value claim", () => {
+    // The list needs the fact; the reason belongs in the detail view.
     expect(
-      shortVerdict(brief({ in_zone: false, zone_verdict: "69 % über der Zone — zu teuer" })),
-    ).toBe("69 % über der Zone");
+      shortVerdict(brief({ in_zone: false, zone_verdict: "69 % über der Einstiegszone" })),
+    ).toBe("69 % über der Einstiegszone");
   });
 
   it("handles the broken-support side the same way", () => {

@@ -1025,6 +1025,9 @@ export interface StockBrief {
   in_zone: boolean;
   zone_gap_pct: number | null;
   zone_verdict: string;
+  /** One sentence relating the timing observation (our zone) to the value claim (analyst
+   *  upside) — they answer different questions and read as a contradiction side by side. */
+  entry_note: string;
   analyst_target: number | null;
   analyst_count: number | null;
   analyst_upside_pct: number | null;

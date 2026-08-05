@@ -47,7 +47,9 @@ def test_zone_gap_inside_zone():
 def test_zone_gap_above_zone_rounds_against_zone_high():
     gap, verdict = zone_gap(829.5, 462.31, 479.44)
     assert gap == 73.0
-    assert verdict == "73 % über der Zone — zu teuer"
+    # Wording changed 2026-08-06: "zu teuer" claimed a value judgement the support-band
+    # geometry cannot make, and contradicted the analyst upside on the same card.
+    assert verdict == "73 % über der Einstiegszone"
 
 
 def test_zone_gap_below_zone_rounds_against_zone_low():
@@ -111,7 +113,10 @@ def test_build_brief_analyst_upside_correct():
     assert brief["analyst_count"] == 43
     assert brief["analyst_upside_pct"] == 81.8
     assert brief["zone_gap_pct"] == 73.0
-    assert brief["zone_verdict"] == "73 % über der Zone — zu teuer"
+    # This assertion pair used to read "+81.8 % upside" and "zu teuer" in the same breath —
+    # the contradiction Nico hit on the card, sitting unnoticed in a green test.
+    assert brief["zone_verdict"] == "73 % über der Einstiegszone"
+    assert "Wert" in brief["entry_note"] and "Zeitpunkt" in brief["entry_note"]
 
 
 def test_build_brief_analyst_upside_null_when_price_is_zero():
@@ -345,3 +350,65 @@ def test_briefs_endpoint_serves_a_null_insight_for_an_ungenerated_stock(tmp_path
     payload = client.get("/api/briefs").json()["briefs"]
     assert payload[0]["insight"] is None
     assert payload[0]["chart"] is None
+
+
+# --- entry_note: value vs. timing (2026-08-06) ------------------------------------
+
+def test_zone_verdict_above_the_zone_no_longer_claims_the_stock_is_expensive():
+    """"zu teuer" reads as a VALUE statement and collided head-on with a +69 % analyst
+    upside on the same card (Nico: "Warum sollte die Aktie dann zu teuer sein, wenn noch
+    so ein hohes Potenzial?"). The zone is a SUPPORT band, so being above it is a TIMING
+    statement — same lesson as the 2026-08-04 "noch günstiger" correction on the low side.
+    """
+    _gap, verdict = zone_gap(200.0, 90.0, 110.0)
+    assert "teuer" not in verdict
+    assert "über der Einstiegszone" in verdict
+
+
+def test_entry_note_names_both_perspectives_when_they_disagree():
+    from equity_scout.briefs import entry_note
+
+    note = entry_note(in_zone=False, gap_pct=69.0, upside_pct=69.0)
+    # Both words must appear: the reader has to see that these are two different questions.
+    assert "Wert" in note
+    assert "Zeitpunkt" in note
+    assert "69" in note
+
+
+def test_entry_note_when_price_is_in_the_zone_and_analysts_see_room():
+    from equity_scout.briefs import entry_note
+
+    note = entry_note(in_zone=True, gap_pct=0.0, upside_pct=15.0)
+    assert "Support" in note
+    # Never a recommendation — the project makes no buy calls.
+    assert "kaufen" not in note.lower()
+    assert "einstieg" not in note.lower() or "Einstiegszone" in note
+
+
+def test_entry_note_when_in_zone_but_analysts_see_no_upside():
+    from equity_scout.briefs import entry_note
+
+    note = entry_note(in_zone=True, gap_pct=0.0, upside_pct=-7.0)
+    assert "kein" in note.lower()
+
+
+def test_entry_note_below_the_zone_says_support_is_gone():
+    from equity_scout.briefs import entry_note
+
+    note = entry_note(in_zone=False, gap_pct=-12.0, upside_pct=40.0)
+    assert "Support" in note
+
+
+def test_entry_note_without_analyst_coverage_only_states_the_timing():
+    from equity_scout.briefs import entry_note
+
+    note = entry_note(in_zone=False, gap_pct=30.0, upside_pct=None)
+    assert "Analyst" not in note or "keine" in note.lower()
+
+
+def test_build_brief_carries_the_entry_note():
+    fund = Fundamentals(trailing_pe=None, analyst_target=169.0, analyst_count=43,
+                        currency="USD")
+    brief = build_brief(_entry(price=100.0, zone_low=50.0, zone_high=60.0, in_zone=False), fund)
+    assert "Wert" in brief["entry_note"]
+    assert "Zeitpunkt" in brief["entry_note"]
