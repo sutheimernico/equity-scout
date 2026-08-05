@@ -1608,6 +1608,12 @@ placed once, not daily. Output goes to `alpaca_verify.log`. The script's new `--
 flag exits 2 when the market is closed, so a closed-market run can never write the marker
 and call an unmeasured freshness "green". Re-arm by deleting the marker.
 
+It also **notifies by Telegram** (`scripts/notify_alpaca_verify.py`, on Nico's request) —
+on a pass and on a real failure, never on a closed-market skip, which happens on most slots
+and would train the recipient to ignore the one message that matters. The message quotes the
+measured 1-minute ages, and a failure names the fallback (coarser trigger resolution) rather
+than only reporting doom. Send path verified live 2026-08-05 with sample data.
+
 **Density holds, which was the gate that could have killed the 1-minute trigger.** IEX
 prints essentially every regular-session minute for these mega-caps.
 
