@@ -135,13 +135,29 @@ def _starts(series: list[dict]) -> list[datetime]:
     return [datetime.fromisoformat(b["t"].replace("Z", "+00:00")) for b in series]
 
 
-def _coverage(series: list[dict]) -> float:
-    """Share of the COVERAGE_MINUTES slots ending at the newest bar that carry a bar.
+def _regular_session_only(starts: set[datetime]) -> set[datetime]:
+    """Drop pre- and after-hours bars (UTC bounds, same rough definition as
+    _market_probably_open).
 
-    Anchored on the newest bar rather than on `now`, so the number means the same thing
-    whether the market is open or the last session ended hours ago.
+    Measured 2026-08-05: anchoring density on the newest bar of *any* session condemns
+    exactly the most liquid tickers — MSFT, AMD, AAPL and SPY were the only four still
+    printing after 20:00 UTC, so their 60-minute window fell into the thin after-hours tape
+    and scored 20-72 %, while the six that stopped at 19:59 scored 100 %. The lane only ever
+    trades the regular session, so that is the only window whose density means anything.
     """
-    starts = set(_starts(series))
+    return {t for t in starts if 13 * 60 + 30 <= t.hour * 60 + t.minute < 20 * 60}
+
+
+def _coverage(series: list[dict]) -> float:
+    """Share of the COVERAGE_MINUTES regular-session slots ending at the newest
+    regular-session bar that carry a bar.
+
+    Anchored on that bar rather than on `now`, so the number means the same thing whether
+    the market is open or the last session ended hours ago.
+    """
+    starts = _regular_session_only(set(_starts(series)))
+    if not starts:
+        return 0.0
     window_start = max(starts) - timedelta(minutes=COVERAGE_MINUTES - 1)
     return sum(1 for t in starts if t >= window_start) / COVERAGE_MINUTES
 
