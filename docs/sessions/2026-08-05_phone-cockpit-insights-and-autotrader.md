@@ -236,3 +236,53 @@ Der Sortier-Widerspruch bleibt bewusst stehen: Yamato steht mit **−7 %** oben,
 unser Signal (in Zone) nach vorn setzt. Das ist die ehrliche Darstellung zweier
 Perspektiven, kein Fehler — falls Nico das anders will, wäre die Alternative, die
 Einstiegszonen-Sektion nach Potenzial zu sortieren.
+
+---
+
+## Nachtrag 3: „Warum zu teuer bei 69 % Potenzial?" (2026-08-06)
+
+Nicos Frage beim Draufschauen: „Ich sehe grad zu teuer, aber ein weiteres Potenzial von
+neunundsechzig Prozent. Warum sollte die Aktie dann zu teuer sein, wenn noch so ein hohes
+Potenzial haben?" Dazu: „ich würd alles ab Potenzial dreißig plus filtern", „diese Marktlage
+risk on, ich check gar nicht, was Du damit willst", „Ich find die News jetzt nicht mehr beim
+Aufklappen".
+
+**Die Frage war berechtigt — die Karte hat den Widerspruch wirklich behauptet.**
+
+„Zu teuer" ist eine **Wert**-Aussage. Die Einstiegszone ist aber ein Support-Band
+(`radar.entry_zone`), also sagt „über der Zone" nur: der Kurs ist weit von seinem letzten
+Halt weg — eine **Zeitpunkt**-Aussage. Der Analysten-Upside ist eine Wertaussage fremder
+Leute über ~12 Monate. Beides kann gleichzeitig gelten: fundamental Luft, technisch
+schlechter Moment. Nebeneinander ohne Erklärung liest es sich als Unsinn.
+
+Das ist dieselbe Fehlerklasse wie „noch günstiger" für gebrochenen Support (korrigiert am
+04.08.) — und sie steckte in einem **grünen Test**, der `analyst_upside_pct == 81.8` und
+`zone_verdict == "73 % über der Zone — zu teuer"` in derselben Zusicherung prüfte. Die
+Lehre vom 04.08. („Die Zone ist ein Support-Band, kein Fair-Value-Band") war notiert, aber
+nur auf der unteren Seite angewandt.
+
+### Umgesetzt
+
+- `zone_gap` oberhalb der Zone sagt jetzt **„69 % über der Einstiegszone"** — kein Urteil
+  über den Wert.
+- Neu: `briefs.entry_note` benennt beide Achsen in einem Satz („Kein Widerspruch, zwei
+  Fragen: Analysten sehen 69 % Luft (Wert), der Kurs steht aber 69 % über dem letzten
+  Support (Zeitpunkt) — ein Rücksetzer hätte Fallhöhe."). Serverseitig, weil die
+  Support-Semantik dort lebt und sonst zweimal kodiert wäre.
+- **Potenzial-Sektion ab 30 %**. Die Einstiegssektion bleibt ungefiltert: dort führt unser
+  eigenes Signal, und ein kleines oder negatives Potenzial ist dort Information.
+- **News direkt unter den Chart**, mit sichtbarer Überschrift „Schlagzeilen". Hinter der
+  fünfzeiligen Kennzahlen-Tabelle lagen sie unter dem Fold — sie waren nie verschwunden,
+  nur unerreichbar.
+- **Marktlage**: sagt jetzt, was sie bedeutet („Der breite Markt trägt gerade. Rücksetzer
+  einzelner Aktien sind dann eher titelspezifisch als Marktstress — kein Kaufsignal, nur
+  Kontext.") und steht auf dem Handy **unter** der Aktienliste. Sie beantwortet „wie steht
+  der Markt", nicht „was soll ich mir ansehen" — und der erste Bildschirm gehört der
+  zweiten Frage. Desktop unverändert oben.
+
+### Gate
+
+**1334 Python-Tests grün** (7 neue für `entry_note` und das Wording), ruff clean,
+**59 vitest-Tests grün** (1 neuer für die 30-%-Schwelle), `tsc --noEmit` exit 0, Build ok.
+Live gegengeprüft: alle 12 Briefs tragen eine `entry_note`, die zur jeweiligen Konstellation
+passt.
