@@ -109,7 +109,7 @@ def main() -> int:
             save_price_series(
                 args.db, ticker=ticker, as_of=now,
                 first_date=series["first_date"], last_date=series["last_date"],
-                closes=series["closes"],
+                closes=series["closes"], dates=series["dates"],
             )
         except Exception as exc:  # noqa: BLE001 - yfinance is rate-limited and flaky
             print(f"    kein Kursverlauf: {type(exc).__name__}: {exc}", file=sys.stderr)

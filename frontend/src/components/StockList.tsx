@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { fetchBriefs, type StockBrief } from "../api";
 import { shortCompanyName } from "../company";
-import { splitSections } from "../stocklist";
+import { shortVerdict, splitSections } from "../stocklist";
 import { MiniYearChart } from "./MiniYearChart";
 import { StockLogo } from "./StockLogo";
 import { ZoneBar } from "./ZoneBar";
@@ -29,7 +29,9 @@ function money(value: number, currency: string | null): string {
 
 function signedPct(value: number): string {
   const rounded = Math.round(value);
-  return `${rounded > 0 ? "+" : rounded < 0 ? "−" : ""}${Math.abs(rounded)} %`;
+  // U+202F narrow no-break space: German typography puts a space before the % sign, but a
+  // full space at 1.35rem tears the number and the unit apart.
+  return `${rounded > 0 ? "+" : rounded < 0 ? "−" : ""}${Math.abs(rounded)}\u202F%`;
 }
 
 /** The headline number. Big on purpose — it is the reason to look at all — but it is a
@@ -46,7 +48,7 @@ function PotentialBlock({ brief }: { brief: StockBrief }) {
   const up = brief.analyst_upside_pct >= 0;
   return (
     <span className={up ? "brief-potential brief-good" : "brief-potential brief-warn"}>
-      <span className="brief-potential-num num">{signedPct(brief.analyst_upside_pct)}</span>
+      <span className="brief-potential-num">{signedPct(brief.analyst_upside_pct)}</span>
       <span className="brief-potential-label">
         laut {brief.analyst_count ?? "?"} Analysten
       </span>
@@ -54,13 +56,12 @@ function PotentialBlock({ brief }: { brief: StockBrief }) {
   );
 }
 
-function ZoneLine({ brief }: { brief: StockBrief }) {
-  // The verdict already reads as plain German from the backend ("im Einstiegsbereich",
-  // "59 % über der Zone — zu teuer"); colour only reinforces it.
-  const cls = brief.in_zone ? "brief-zone brief-good" : "brief-zone brief-warn";
+/** Entry state as a compact chip. Status colour never travels alone — the glyph and the
+ *  word carry the same meaning, which is what makes the green/amber pair legal here. */
+function ZoneChip({ brief }: { brief: StockBrief }) {
   return (
-    <span className={cls}>
-      {brief.in_zone ? "✓" : "⚠"} {brief.zone_verdict}
+    <span className={brief.in_zone ? "brief-chip brief-chip-good" : "brief-chip brief-chip-warn"}>
+      {brief.in_zone ? "✓" : "⚠"} {shortVerdict(brief)}
     </span>
   );
 }
@@ -108,25 +109,31 @@ function BriefRow({ brief }: { brief: StockBrief }) {
 
   return (
     <li className="brief-row">
+      {/* Four things only (2026-08-05: "teilweise erdrückend, erschlagend"): who, how much
+          potential, is the price good, and one tap for everything else. Price, sector and
+          the zone meter moved into the detail — two large numbers per row competed, and
+          seven stacked lines per stock is not a glance. */}
       <button className="brief-main" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <StockLogo ticker={brief.ticker} name={brief.name} />
         <span className="brief-body">
-          <span className="brief-head">
-            <span className="brief-name" title={brief.name}>
-              {shortCompanyName(brief.name)}
-            </span>
-            <span className="brief-ticker">{brief.ticker}</span>
+          <span className="brief-name" title={brief.name}>
+            {shortCompanyName(brief.name)}
           </span>
-          {business && <span className="brief-business">{business}</span>}
-          <PotentialBlock brief={brief} />
-          <span className="brief-price num">{money(brief.price, brief.currency)}</span>
-          <ZoneBar brief={brief} />
-          <ZoneLine brief={brief} />
+          <ZoneChip brief={brief} />
         </span>
+        <PotentialBlock brief={brief} />
       </button>
       {open && (
         <div className="brief-detail-wrap">
+          <p className="brief-sub">
+            {brief.ticker}
+            {business ? ` · ${business}` : ""}
+          </p>
           <MiniYearChart chart={brief.chart} currency={brief.currency} />
+          <ZoneBar brief={brief} />
+          <p className={brief.in_zone ? "brief-good brief-verdict" : "brief-warn brief-verdict"}>
+            {brief.in_zone ? "✓" : "⚠"} {brief.zone_verdict}
+          </p>
           <dl className="brief-detail">
             <dt>Guter Einstieg</dt>
             <dd className="num">

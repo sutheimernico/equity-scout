@@ -29,7 +29,13 @@ const MATERIAL_DELTA_WEIGHT = 0.01;
 function pct(value: number | null | undefined, digits = 1): string {
   if (value === null || value === undefined) return "—";
   const p = value * 100;
-  return `${p > 0 ? "+" : p < 0 ? "−" : ""}${Math.abs(p).toFixed(digits)} %`;
+  // de-DE, not toFixed: "+10.0 %" sat next to "10.065" (money's German thousands dot) in
+  // the same row, so the two dots meant different things and neither was readable.
+  const magnitude = Math.abs(p).toLocaleString("de-DE", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+  return `${p > 0 ? "+" : p < 0 ? "−" : ""}${magnitude}\u202F%`;
 }
 
 function money(value: number): string {

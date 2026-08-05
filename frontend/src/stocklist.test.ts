@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { StockBrief } from "./api";
-import { splitSections } from "./stocklist";
+import { shortVerdict, splitSections } from "./stocklist";
 
 function brief(over: Partial<StockBrief>): StockBrief {
   return {
@@ -59,5 +59,34 @@ describe("splitSections", () => {
       brief({ ticker: `T${i}`, analyst_upside_pct: 10 + i }),
     );
     expect(splitSections(many).potential).toHaveLength(4);
+  });
+});
+
+describe("shortVerdict", () => {
+  it("names the entry state in two words when in zone", () => {
+    expect(shortVerdict(brief({ in_zone: true, zone_verdict: "im Einstiegsbereich" }))).toBe(
+      "Einstiegsbereich",
+    );
+  });
+
+  it("keeps the distance but drops the explanatory tail", () => {
+    // The list needs the number; the reason belongs in the detail view.
+    expect(
+      shortVerdict(brief({ in_zone: false, zone_verdict: "69 % über der Zone — zu teuer" })),
+    ).toBe("69 % über der Zone");
+  });
+
+  it("handles the broken-support side the same way", () => {
+    expect(
+      shortVerdict(
+        brief({ in_zone: false, zone_verdict: "12 % unter der Zone — Support gebrochen" }),
+      ),
+    ).toBe("12 % unter der Zone");
+  });
+
+  it("passes a verdict without a tail straight through", () => {
+    expect(shortVerdict(brief({ zone_verdict: "kein gültiger Kurs verfügbar" }))).toBe(
+      "kein gültiger Kurs verfügbar",
+    );
   });
 });

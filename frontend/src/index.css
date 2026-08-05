@@ -2346,26 +2346,26 @@ code {
 .zonebar-track {
   position: relative;
   display: block;
-  height: 10px;
-  border-radius: 4px;
-  /* Both outer bands are amber, not just the expensive one: the zone is a SUPPORT band
-     (radar.entry_zone), so below it every support has broken — that is a "not now", not a
-     bargain, and `in_zone` gates pitches on both sides alike. A neutral grey on the left
-     invited exactly the opposite reading ("everything under the line is basically green").
-     Which side you are on is never carried by colour: the price marker's position says it
-     and the verdict line names the reason. */
-  background: linear-gradient(
-    to right,
-    color-mix(in srgb, var(--warning) 55%, var(--bg-surface)) 0 calc(33.3333% - 1px),
-    var(--bg-surface) calc(33.3333% - 1px) calc(33.3333% + 1px),
-    color-mix(in srgb, var(--accent) 60%, var(--bg-surface)) calc(33.3333% + 1px)
-      calc(66.6667% - 1px),
-    var(--bg-surface) calc(66.6667% - 1px) calc(66.6667% + 1px),
-    color-mix(in srgb, var(--warning) 55%, var(--bg-surface)) calc(66.6667% + 1px) 100%
-  );
+  /* 6 px, not 10: the track is chrome. It recedes so the needle can be the loud mark. */
+  height: 6px;
+  border-radius: 3px;
+  /* A single quiet rail. The former three saturated bands (amber/green/amber at 55–60 %
+     mix) made the card's largest element its least important one — "diese Balken sehen
+     nicht schön aus" (Nico, 2026-08-05). Which side of the zone the price sits on is
+     carried by the needle's position and named by the verdict line, never by a band. */
+  background: color-mix(in srgb, var(--border-soft) 70%, transparent);
+  overflow: hidden;
 }
-/* The price: the only loud mark in the component. Overhangs the track and carries a 2 px
-   surface ring so it stays readable where it crosses the target diamond. */
+/* The zone: the one filled area, a wash rather than a block. */
+.zonebar-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--text-muted) 30%, transparent);
+}
+.zonebar-zone.in {
+  background: color-mix(in srgb, var(--positive) 32%, transparent);
+}
 .zonebar-now {
   position: absolute;
   top: -3px;
@@ -2422,26 +2422,24 @@ code {
 /* Bounds sit under their band edges (the thirds), not at the bar ends — at the ends they
    would read as an absolute price axis, which this bar deliberately is not. */
 .zonebar-scale {
-  position: relative;
-  display: block;
-  height: 1em;
-  margin-top: var(--space-1);
-  font-size: var(--text-xs);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: 3px;
+  font-size: 0.68rem;
   color: var(--text-muted);
+  max-width: 460px;
 }
 .zonebar-bound {
-  position: absolute;
-  transform: translateX(-50%);
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
-.zonebar-bound-low {
-  left: 33.3333%;
+/* Names what the filled area is, so the meter needs no separate legend box. */
+.zonebar-legend {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.62rem;
 }
-.zonebar-bound-high {
-  left: 66.6667%;
-}
-/* Swatch in front of the analyst-target line — the legend, folded into text that already
-   exists, so two marks need no legend box on a 390 px card. */
 .zonebar-key {
   display: inline-block;
   width: 7px;
@@ -2451,23 +2449,62 @@ code {
   background: color-mix(in srgb, var(--violet) 70%, #fff);
 }
 
-/* ===== 1-year sparkline (2026-08-05) ===== */
+/* ===== 1-year price chart with axes (2026-08-05) ===== */
 .yearchart {
   margin: 0;
   /* On desktop the card is ~875 px wide; a stretched, near-empty rail is what the ZoneBar
      looked like before it got the same cap on 2026-08-04. */
   max-width: 460px;
 }
+/* Height comes from the viewBox aspect, NOT a fixed pixel value: a fixed height that
+   excludes the x-axis band is exactly how axis labels end up clipped. */
 .yearchart-svg {
   width: 100%;
-  height: 64px;
+  height: auto;
   display: block;
+  overflow: visible;
 }
-.yearchart-svg.up path {
+/* Only the line and its wash carry the direction colour. Grid, axis and tick text wear
+   text tokens — a light hue as text is illegible on this surface. */
+.yearchart-svg.up .yc-line,
+.yearchart-svg.up .yc-now {
   stroke: var(--positive);
 }
-.yearchart-svg.down path {
+.yearchart-svg.down .yc-line,
+.yearchart-svg.down .yc-now {
   stroke: var(--warning);
+}
+.yearchart-svg.up .yc-area {
+  fill: color-mix(in srgb, var(--positive) 10%, transparent);
+}
+.yearchart-svg.down .yc-area {
+  fill: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+.yc-line {
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+/* The end marker: filled with the surface and ringed in the line colour, so it stays
+   legible where it sits on the last gridline. */
+.yc-now {
+  fill: var(--bg-surface);
+  stroke-width: 2;
+}
+/* Solid hairlines, one step off the surface — never dashed (that reads as a threshold). */
+.yc-grid,
+.yc-axis {
+  stroke: var(--border-soft);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+.yc-axis {
+  stroke: color-mix(in srgb, var(--text-muted) 45%, transparent);
+}
+.yc-tick {
+  fill: var(--text-muted);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
 }
 .yearchart figcaption {
   font-size: var(--text-xs);
@@ -2612,10 +2649,15 @@ code {
   background: var(--border-soft);
   overflow: hidden;
 }
+/* Muted, not the full accent: eleven saturated blocks made the allocation the loudest
+   thing on the screen while the percentage beside each bar carries the actual value. The
+   bar only answers "which holding is big" at a glance, so it recedes. Rounded data-end,
+   square where it grows from the baseline. */
 .pd-alloc-bar span {
   display: block;
   height: 100%;
-  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 .pd-alloc-num {
   min-width: 3.6em;
@@ -2644,4 +2686,75 @@ code {
     overflow-wrap: normal;
     word-break: keep-all;
   }
+}
+
+/* ===== Phone list row, rebuilt 2026-08-05 ("erdrückend, erschlagend") ===== */
+/* Three columns: identity · name+state · potential. One glance, one tap for depth. */
+.brief-main {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+}
+.brief-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.brief-name {
+  font-weight: 600;
+  font-size: 0.98rem;
+}
+/* Status chip: glyph + word + colour, so colour is never the only channel. */
+.brief-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+.brief-chip-good {
+  color: var(--positive);
+  background: color-mix(in srgb, var(--positive) 12%, transparent);
+}
+.brief-chip-warn {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+/* The potential sits right-aligned in its own column, label under the number. */
+.brief-potential {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  text-align: right;
+}
+/* Deliberately WITHOUT the .num class: that sets the mono family plus tabular-nums, and
+   equal-width digits make a two-digit percentage look loose at this size — the same reason
+   a hero figure never uses tabular figures. The mono space before the % was also full
+   width there, so the number and its unit read as two separate things. */
+.brief-potential-num {
+  font-size: 1.35rem;
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: proportional-nums;
+}
+.brief-potential-label {
+  font-size: 0.66rem;
+  white-space: nowrap;
+}
+/* Detail: the ticker and sector line the list no longer carries. */
+.brief-sub {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+.brief-verdict {
+  margin: 0;
+  font-size: 0.8rem;
 }

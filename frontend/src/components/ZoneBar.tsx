@@ -1,15 +1,25 @@
 import type { StockBrief } from "../api";
-import { boundDigits, formatBound, zoneGeometry } from "../zone";
+import {
+  ZONE_END_PCT,
+  ZONE_START_PCT,
+  boundDigits,
+  formatBound,
+  zoneGeometry,
+} from "../zone";
 
-// The entry zone as a bullet bar instead of a sentence (2026-08-04: Nico wanted the target
-// range visual, not textual). Three fixed bands — cheaper than the zone · good entry ·
-// more expensive than the zone — with the current price as the loud marker and the
-// analyst target as a quiet diamond.
+// The entry zone as a meter (2026-08-04 as a three-band bullet bar; rebuilt 2026-08-05
+// after "diese Balken sehen nicht schön aus"). ONE marked zone inside a quiet neutral
+// track, not three saturated bands: three coloured blocks at 10 px read as the loud
+// element of the card when the price marker is the thing that matters. Now the track
+// recedes, the zone is a wash, and the needle is the only loud mark.
 //
-// Colour is never the only channel: the bands sit at fixed positions, 2 px surface gaps
-// split them, the zone bounds are printed under their edges, and the verdict line below
-// keeps the plain-German statement with its ✓/⚠ glyph. That secondary encoding is what
-// makes the green↔amber pair legal at ΔE 7.9 for deuteranopia (measured, see index.css).
+// Colour is never the only channel: the zone sits at a fixed position (always the middle
+// third — see zone.ts), the needle's position says which side the price is on, and the
+// verdict line right below states it in plain German with a ✓/⚠ glyph. The exact bounds
+// live in the detail list, so the printed bound labels are gone — they were a number at
+// every card, which is what made the list feel crowded.
+//
+// Lives in the detail view only; the list carries a compact chip instead.
 
 export function ZoneBar({ brief }: { brief: StockBrief }) {
   const geo = zoneGeometry(brief.price, brief.zone_low, brief.zone_high, brief.analyst_target);
@@ -26,6 +36,13 @@ export function ZoneBar({ brief }: { brief: StockBrief }) {
   return (
     <span className="zonebar" aria-hidden="true">
       <span className="zonebar-track">
+        {/* The zone itself: the only filled area. Accent when the price is inside it,
+            muted when it is not — the state is already carried by the needle and the
+            verdict, so the fill only has to say "this is the range". */}
+        <span
+          className={brief.in_zone ? "zonebar-zone in" : "zonebar-zone"}
+          style={{ left: `${ZONE_START_PCT}%`, width: `${ZONE_END_PCT - ZONE_START_PCT}%` }}
+        />
         {geo.targetPct !== null && (
           <span className="zonebar-target" style={{ left: `${geo.targetPct}%` }} />
         )}
@@ -39,6 +56,7 @@ export function ZoneBar({ brief }: { brief: StockBrief }) {
         <span className="zonebar-bound zonebar-bound-low num">
           {formatBound(brief.zone_low, digits)}
         </span>
+        <span className="zonebar-legend">Einstiegszone</span>
         <span className="zonebar-bound zonebar-bound-high num">
           {formatBound(brief.zone_high, digits)}
         </span>

@@ -149,3 +149,31 @@ def test_downsample_rejects_a_series_that_is_all_nan():
     dates = [datetime(2025, 8, 5), datetime(2026, 8, 5)]
     with pytest.raises(ValueError):
         downsample_closes(dates, [float("nan"), float("inf")], points=60)
+
+
+# --- dates for the chart's month axis (2026-08-05, Nicos Achsen-Wunsch) -----------
+
+def test_downsample_returns_the_date_of_every_kept_point():
+    """The chart's month ticks must sit on real trading days. Interpolating them from
+    first/last would drift, because trading days are not evenly spaced."""
+    dates = [datetime(2025, 8, 5), datetime(2025, 11, 5), datetime(2026, 8, 5)]
+    out = downsample_closes(dates, [10.0, 11.0, 12.0], points=60)
+    assert out["dates"] == ["2025-08-05", "2025-11-05", "2026-08-05"]
+
+
+def test_downsample_keeps_dates_aligned_with_closes_when_sampling():
+    dates = [datetime(2025, 1, 1 + (i % 28)) for i in range(250)]
+    closes = [float(i) for i in range(250)]
+    out = downsample_closes(dates, closes, points=60)
+    assert len(out["dates"]) == len(out["closes"]) == 60
+    # Sampling picks index pairs, so the first/last date must be the real endpoints.
+    assert out["dates"][0] == dates[0].date().isoformat()
+    assert out["dates"][-1] == dates[-1].date().isoformat()
+
+
+def test_downsample_drops_the_date_of_a_dropped_nan_close():
+    """A dropped NaN must take its date with it, or every later point shifts by one."""
+    dates = [datetime(2025, 8, 5), datetime(2025, 8, 6), datetime(2026, 8, 5)]
+    out = downsample_closes(dates, [10.0, float("nan"), 12.0], points=60)
+    assert out["closes"] == [10.0, 12.0]
+    assert out["dates"] == ["2025-08-05", "2026-08-05"]

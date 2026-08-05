@@ -28,3 +28,16 @@ export function splitSections(briefs: StockBrief[]): Sections {
 
   return { inZone, potential };
 }
+
+/** The entry state in as few words as a list row can carry.
+ *
+ * The backend's `zone_verdict` is a full sentence ("69 % über der Zone — zu teuer"). The
+ * list needs the fact, not the reason: everything after the em dash is explanation and
+ * belongs in the detail view, where the zone meter and the bounds live. "im
+ * Einstiegsbereich" loses its preposition so the chip reads as a state, not a sentence
+ * fragment.
+ */
+export function shortVerdict(brief: StockBrief): string {
+  const head = brief.zone_verdict.split("—")[0].trim();
+  return head.startsWith("im ") ? head.slice(3) : head;
+}

@@ -37,9 +37,16 @@ def init_insights_db(db_path: str = DEFAULT_DB_PATH) -> None:
                 as_of TEXT NOT NULL,
                 first_date TEXT NOT NULL,
                 last_date TEXT NOT NULL,
-                closes TEXT NOT NULL
+                closes TEXT NOT NULL,
+                dates TEXT
             )"""
         )
+        # `dates` arrived with the chart's month axis (2026-08-05). Same PRAGMA + ALTER
+        # idiom as radar_storage/storage: a row written before it keeps NULL and loads as
+        # an empty list, so the chart draws without month ticks instead of crashing.
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(price_series)")]
+        if "dates" not in cols:
+            conn.execute("ALTER TABLE price_series ADD COLUMN dates TEXT")
 
 
 def save_insight(
@@ -78,8 +85,12 @@ def save_price_series(
     first_date: str,
     last_date: str,
     closes: list[float],
+    dates: list[str] | None = None,
 ) -> None:
     """Upsert one stock's downsampled 1-year close series.
+
+    `dates` is one ISO day per close, so the chart can place month ticks on real trading
+    days. Optional for callers that only have closes; the chart then omits the month axis.
 
     `allow_nan=False` is the load-bearing part: json's DEFAULT is to write NaN/Infinity as
     bare literals, which are not valid JSON. Such a row round-trips back as a float and
@@ -91,12 +102,14 @@ def save_price_series(
     payload = json.dumps(closes, allow_nan=False)
     with sqlite3.connect(db_path) as conn:
         conn.execute(
-            "INSERT INTO price_series (ticker, as_of, first_date, last_date, closes)"
-            " VALUES (?, ?, ?, ?, ?)"
+            "INSERT INTO price_series"
+            " (ticker, as_of, first_date, last_date, closes, dates)"
+            " VALUES (?, ?, ?, ?, ?, ?)"
             " ON CONFLICT(ticker) DO UPDATE SET"
             "  as_of=excluded.as_of, first_date=excluded.first_date,"
-            "  last_date=excluded.last_date, closes=excluded.closes",
-            (ticker, as_of, first_date, last_date, payload),
+            "  last_date=excluded.last_date, closes=excluded.closes,"
+            "  dates=excluded.dates",
+            (ticker, as_of, first_date, last_date, payload, json.dumps(dates or [])),
         )
 
 
@@ -125,7 +138,7 @@ def load_price_series(db_path: str = DEFAULT_DB_PATH) -> dict[str, dict]:
     init_insights_db(db_path)
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute(
-            "SELECT ticker, as_of, first_date, last_date, closes FROM price_series"
+            "SELECT ticker, as_of, first_date, last_date, closes, dates FROM price_series"
         ).fetchall()
     return {
         row[0]: {
@@ -133,6 +146,9 @@ def load_price_series(db_path: str = DEFAULT_DB_PATH) -> dict[str, dict]:
             "first_date": row[2],
             "last_date": row[3],
             "closes": json.loads(row[4]),
+            # NULL for rows written before the dates column: an empty list, so the chart
+            # simply omits the month ticks.
+            "dates": json.loads(row[5] or "[]"),
         }
         for row in rows
     }

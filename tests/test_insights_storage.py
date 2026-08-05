@@ -86,3 +86,30 @@ def test_saving_a_non_finite_close_fails_loudly(tmp_path):
             first_date="2025-08-05", last_date="2026-08-05",
             closes=[10.0, float("nan")],
         )
+
+
+def test_dates_round_trip_with_the_series(tmp_path):
+    db = str(tmp_path / "t.db")
+    save_price_series(
+        db, ticker="MU", as_of="2026-08-05T18:00:00+00:00",
+        first_date="2025-08-05", last_date="2026-08-05", closes=[10.0, 12.0],
+        dates=["2025-08-05", "2026-08-05"],
+    )
+    assert load_price_series(db)["MU"]["dates"] == ["2025-08-05", "2026-08-05"]
+
+
+def test_a_row_written_before_the_dates_column_existed_loads_as_empty(tmp_path):
+    """The API must survive a DB from before this migration: no dates means the chart
+    draws without month ticks, not that it crashes."""
+    import sqlite3
+
+    db = str(tmp_path / "legacy.db")
+    init_insights_db(db)
+    with sqlite3.connect(db) as conn:
+        # Simulate the pre-migration shape by clearing the column the migration added.
+        conn.execute(
+            "INSERT INTO price_series (ticker, as_of, first_date, last_date, closes, dates)"
+            " VALUES ('OLD', '2026-08-05T18:00:00+00:00', '2025-08-05', '2026-08-05',"
+            " '[1.0, 2.0]', NULL)"
+        )
+    assert load_price_series(db)["OLD"]["dates"] == []

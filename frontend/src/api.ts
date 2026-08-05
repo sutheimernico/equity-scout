@@ -1006,6 +1006,9 @@ export interface StockChart {
   last_date: string;
   /** Downsampled 1-year closes; first and last are the real endpoints. */
   closes: number[];
+  /** One ISO day per close, so the chart's month ticks sit on real trading days.
+   *  Empty for cache rows written before the column existed. */
+  dates: string[];
 }
 
 export interface StockBrief {

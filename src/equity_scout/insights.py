@@ -134,18 +134,20 @@ def downsample_closes(
     """
     if not closes or not dates:
         raise ValueError("cannot downsample an empty series")
-    finite = [c for c in closes if math.isfinite(c)]
-    if not finite:
+    # Dates travel WITH their close through both the NaN drop and the sampling. Deriving
+    # the month ticks from first/last instead would drift: trading days are not evenly
+    # spaced (weekends, holidays), so an interpolated "1st of March" lands on the wrong x.
+    pairs = [(d, c) for d, c in zip(dates, closes) if math.isfinite(c)]
+    if not pairs:
         raise ValueError("series has no finite closes")
-    closes = finite
-    if len(closes) <= points:
-        sampled = list(closes)
-    else:
-        step = (len(closes) - 1) / (points - 1)
-        sampled = [closes[round(i * step)] for i in range(points)]
-        sampled[0], sampled[-1] = closes[0], closes[-1]
+    if len(pairs) > points:
+        step = (len(pairs) - 1) / (points - 1)
+        sampled = [pairs[round(i * step)] for i in range(points)]
+        sampled[0], sampled[-1] = pairs[0], pairs[-1]
+        pairs = sampled
     return {
-        "first_date": dates[0].date().isoformat(),
-        "last_date": dates[-1].date().isoformat(),
-        "closes": sampled,
+        "first_date": pairs[0][0].date().isoformat(),
+        "last_date": pairs[-1][0].date().isoformat(),
+        "dates": [d.date().isoformat() for d, _ in pairs],
+        "closes": [c for _, c in pairs],
     }
