@@ -4,7 +4,7 @@ Checks the four assumptions the "zeitaktuell" design rests on, and FAILS LOUDLY 
 instead of quietly degrading:
   1. paper credentials are valid                    -> GET  paper-api /v2/account
   2. IEX bars are FRESH and, at 1 minute, DENSE     -> GET  data     /v2/stocks/bars
-  3. market orders are accepted                     -> POST paper-api /v2/orders
+  3. the broker accepts our orders                  -> POST paper-api /v2/orders (type=limit)
   4. resting stop orders are accepted               -> POST paper-api /v2/orders (type=stop)
 
 Check 2 is the one that decides the design, and it asks two separate questions because the
@@ -22,9 +22,10 @@ moving off yfinance).
   freshness this IS measurable outside market hours (it reads the last session's tail),
   so it is verdicted unconditionally.
 
-Orders are OFF by default: pass --place-orders. Every order placed is cancelled again
-immediately. No real money is involved (paper endpoint), but an accidental resting order
-in a paper book still corrupts a track record, so it stays opt-in.
+Orders are OFF by default: pass --place-orders. Both probes are priced 20 % away from the
+market so they *cannot fill* even with the market open, and both are cancelled immediately.
+No real money is involved (paper endpoint), but an accidental filled probe in a paper book
+corrupts a track record just the same, so it stays opt-in.
 
 Not covered by tests on purpose — it talks to a live third-party API and exists to be run
 once by hand, then deleted or kept as a smoke check (same rationale as
@@ -66,6 +67,9 @@ def _fresh_limit(bar_minutes: int) -> timedelta:
 # "current" price is routinely a stale print, which is the very bias this design removes.
 COVERAGE_MINUTES = 60
 MIN_COVERAGE = 0.80
+
+# Single ticker used by the order probes. Liquid enough that a quote always exists.
+PROBE_TICKER = "AAPL"
 
 
 class VerificationFailed(RuntimeError):
@@ -247,38 +251,57 @@ def _place_and_cancel(client: httpx.Client, payload: dict, label: str) -> None:
               f"Order {order_id} manuell pruefen!")
 
 
-def check_market_order(client: httpx.Client) -> None:
-    print("\n[3/4] Market-Order")
-    _place_and_cancel(
-        client,
-        {"symbol": "AAPL", "qty": "1", "side": "buy", "type": "market", "time_in_force": "day"},
-        "Market buy 1 AAPL",
-    )
-
-
-def check_stop_order(client: httpx.Client) -> None:
-    """The resting stop is what makes an outage survivable — it triggers in the market
-    without the machine polling, which is exactly what failed on 2026-07-21."""
-    print("\n[4/4] Ruhende Stop-Order")
+def _bid(client: httpx.Client) -> float:
     quote = client.get(
-        f"{DATA_BASE}/stocks/quotes/latest", params={"symbols": "AAPL", "feed": "iex"}
+        f"{DATA_BASE}/stocks/quotes/latest", params={"symbols": PROBE_TICKER, "feed": "iex"}
     )
     if quote.status_code != 200:
         raise VerificationFailed(
             f"GET /v2/stocks/quotes/latest -> {quote.status_code}: {quote.text[:200]}"
         )
-    quotes = quote.json().get("quotes", {})
-    bid = (quotes.get("AAPL") or {}).get("bp")
+    bid = ((quote.json().get("quotes") or {}).get(PROBE_TICKER) or {}).get("bp")
     if not bid:
-        raise VerificationFailed("Kein Bid fuer AAPL — Stop-Preis nicht bestimmbar.")
-    # Well below the market so it cannot fill before the cancel lands.
-    stop_price = round(float(bid) * 0.80, 2)
-    print(f"  Bid {bid} -> Stop {stop_price} (20% darunter, kann nicht ausloesen)")
+        raise VerificationFailed(f"Kein Bid fuer {PROBE_TICKER} — Preis nicht bestimmbar.")
+    return float(bid)
+
+
+def check_market_order(client: httpx.Client) -> None:
+    """Deliberately NOT a market order.
+
+    A market order fills in milliseconds while the market is open, the DELETE that follows
+    then 404s on a filled order, and the probe leaves a real position behind — exactly the
+    contamination that made the shared paper account a blocker on 2026-08-05. The question
+    this check actually needs to answer is "does the broker accept our orders", and a limit
+    order far below the market answers it without ever being fillable.
+    """
+    print("\n[3/4] Order-Annahme (Limit weit unter Markt, nicht fuellbar)")
+    limit_price = round(_bid(client) * 0.80, 2)
+    print(f"  Limit {limit_price} (20% unter Bid)")
     _place_and_cancel(
         client,
-        {"symbol": "AAPL", "qty": "1", "side": "sell", "type": "stop",
+        {"symbol": PROBE_TICKER, "qty": "1", "side": "buy", "type": "limit",
+         "limit_price": str(limit_price), "time_in_force": "day"},
+        f"Limit buy 1 {PROBE_TICKER}",
+    )
+
+
+def check_stop_order(client: httpx.Client) -> None:
+    """The resting stop is what makes an outage survivable — it triggers in the market
+    without the machine polling, which is exactly what failed on 2026-07-21.
+
+    A stop *buy* above the market, not a stop sell: selling without a position is a short,
+    which a fresh paper account may reject outright and which would leave a short position
+    behind if it did not. A buy stop 20 % above the market can only trigger on a move that
+    cannot happen before the cancel lands.
+    """
+    print("\n[4/4] Ruhende Stop-Order")
+    stop_price = round(_bid(client) * 1.20, 2)
+    print(f"  Stop {stop_price} (20% ueber Bid, kann nicht ausloesen)")
+    _place_and_cancel(
+        client,
+        {"symbol": PROBE_TICKER, "qty": "1", "side": "buy", "type": "stop",
          "stop_price": str(stop_price), "time_in_force": "day"},
-        "Stop sell 1 AAPL",
+        f"Stop buy 1 {PROBE_TICKER}",
     )
 
 
@@ -288,10 +311,18 @@ def main() -> int:
         "--place-orders", action="store_true",
         help="Checks 3+4 ausfuehren (platziert und storniert echte Paper-Orders)",
     )
+    parser.add_argument(
+        "--require-open", action="store_true",
+        help="Abbrechen, wenn der US-Markt zu ist (fuer unbeaufsichtigte Laeufe: ohne "
+             "offenen Markt ist die Frische ungemessen und ein gruener Lauf waere gelogen)",
+    )
     args = parser.parse_args()
 
     now = datetime.now(timezone.utc)
     print(f"Alpaca-Paper-Verifikation — {now:%Y-%m-%d %H:%M:%S}Z")
+    if args.require_open and not _market_probably_open(now):
+        print("\nUEBERSPRUNGEN: US-Markt zu — --require-open verlangt eine offene Session.")
+        return 2
     try:
         key, secret = _credentials()
         with httpx.Client(headers=_headers(key, secret), timeout=30.0) as client:
