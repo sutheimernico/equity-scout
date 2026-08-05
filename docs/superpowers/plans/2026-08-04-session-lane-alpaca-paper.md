@@ -1590,7 +1590,23 @@ set -a && . ./.env && set +a && uv run python scripts/verify_alpaca_paper.py
 | [1/4] Credentials | **PASS** — account `PA3AKCY23RCD`, ACTIVE, paper (`PK…` key prefix) |
 | [2/4] Density, 1Min | **PASS** — 9 of 10 tickers at 100 %, QQQ 98 % |
 | [2/4] Freshness | **not measurable** — market closed, ages 1.4–65 min are meaningless |
-| [3/4] + [4/4] Orders | **not run** — see the account conflict below |
+| [3/4] Order accepted | **PASS** — limit buy 1 AAPL, accepted and cancelled, nothing left |
+| [4/4] Resting stop | **PASS** — stop buy 1 AAPL, accepted and cancelled, nothing left |
+
+Both order probes were rewritten before running them, because as written they were unsafe
+during market hours: [3/4] placed a **market** order, which fills in milliseconds while the
+market is open — the DELETE that follows then cannot cancel a filled order and the probe
+leaves a real position behind. [4/4] placed a stop **sell** without a position, i.e. a
+short, which a fresh paper account may reject. Both are now priced 20 % away from the
+market (limit buy below, stop buy above) so neither can fill in either market state.
+Verified after the run: 0 open orders, no new position.
+
+**Freshness is now automated** rather than waiting for a hand-run: `scripts/verify_alpaca_guarded.sh`
+(cron `0 16-21 * * 1-5`) runs the full check hourly inside the US session and **disarms
+itself** by writing `.state/alpaca_verified` on the first pass — so the order probes are
+placed once, not daily. Output goes to `alpaca_verify.log`. The script's new `--require-open`
+flag exits 2 when the market is closed, so a closed-market run can never write the marker
+and call an unmeasured freshness "green". Re-arm by deleting the marker.
 
 **Density holds, which was the gate that could have killed the 1-minute trigger.** IEX
 prints essentially every regular-session minute for these mega-caps.
