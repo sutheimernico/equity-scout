@@ -117,6 +117,30 @@ def run_swing(db: str, main_db: str, *, now: datetime) -> None:
     _print_fills(fills)
 
 
+MAX_RUN_GAP = timedelta(minutes=5)
+LAST_RUN_KEY = "last_session_run"
+
+
+def may_open_new_position(
+    *, last_run: str | None, now: datetime, max_gap: timedelta = MAX_RUN_GAP
+) -> bool:
+    """False when the previous run is further back than `max_gap`. A gap means the machine
+    cannot promise to be here for the exit either, and an entry without a reliable exit is
+    the exact shape of the 2026-07-21 loss. The very first run is allowed: no history is
+    not the same as a gap. Exits and sweeps ignore this gate entirely.
+
+    The tolerance is an argument, not a constant folded into the body, because it measures
+    MISSED SLOTS and therefore belongs to the cron cadence — which is 15 minutes today and
+    one minute after Task 9. The default is sized for the target cadence; a caller running
+    on the old schedule must pass its own. A future `last_run` also fails the gate: clock
+    skew or a repaired state file is not evidence that we were just here (cf. the
+    2026-07-24 Tokyo-timestamp incident).
+    """
+    if last_run is None:
+        return True
+    return timedelta(0) <= now - datetime.fromisoformat(last_run) <= max_gap
+
+
 def _session_overnight_sweep(db: str, book: LaneBook, *, now: datetime) -> None:
     """Flatten anything still open once the session is over. The last session bar (15:45 ET)
     is not yet 'settled' when the final intraday run fires, so a position entered late can
