@@ -3,15 +3,30 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from equity_scout.evidence.backfill_congress import (
+    FILERS_URL,
     backfill_congress,
     events_from_filer_payload,
+    filer_ids_from_index,
     filer_ids_from_trades,
 )
 from equity_scout.evidence.congress import FILER_URL_TEMPLATE, TRADES_URL
-from equity_scout.evidence.historical_storage import unresolved_events
+from equity_scout.evidence.historical_storage import record_historical_events, unresolved_events
 
 NOW = "2026-08-06T12:00:00+00:00"
+
+
+def _counts(**overrides) -> dict:
+    """Full shape of backfill_congress's return value, zeroed except for overrides."""
+    base = {
+        "filers": 0, "filers_failed": 0, "events_new": 0, "events_seen": 0,
+        "index_fallback": 0, "no_ticker": 0, "not_stock": 0, "no_date": 0,
+        "malformed": 0, "duplicate": 0,
+    }
+    base.update(overrides)
+    return base
 
 
 def _trades_row(**overrides) -> dict:
@@ -58,6 +73,14 @@ def _filer_payload(trades: list[dict], *, name: str = "Jane Doe", chamber: str =
     }
 
 
+def _filers_index_row(**overrides) -> dict:
+    """One row of the mirror's full filer index (live-verified shape, 2026-08-06)."""
+    row = {"id": "senate_jane_doe", "full_name": "Jane Doe", "branch": "congress",
+           "chamber": "senate", "party": "D", "state": "CA"}
+    row.update(overrides)
+    return row
+
+
 def test_filer_ids_from_trades_extracts_distinct_ids_in_first_seen_order():
     payload = json.dumps(
         [
@@ -72,6 +95,27 @@ def test_filer_ids_from_trades_extracts_distinct_ids_in_first_seen_order():
 def test_filer_ids_from_trades_skips_missing_ids():
     payload = json.dumps([_trades_row(filer_id=None), _trades_row(id="t1", filer_id="")])
     assert filer_ids_from_trades(payload) == []
+
+
+def test_filer_ids_from_trades_rejects_non_list_payload():
+    with pytest.raises(ValueError):
+        filer_ids_from_trades('{"not": "a list"}')
+
+
+def test_filer_ids_from_index_extracts_distinct_ids_in_first_seen_order():
+    payload = json.dumps(
+        [
+            _filers_index_row(),
+            _filers_index_row(id="house_max_roe"),
+            _filers_index_row(),  # dup -> ignored
+        ]
+    )
+    assert filer_ids_from_index(payload) == ["senate_jane_doe", "house_max_roe"]
+
+
+def test_filer_ids_from_index_rejects_non_list_payload():
+    with pytest.raises(ValueError):
+        filer_ids_from_index('{"not": "a list"}')
 
 
 def test_events_from_filer_payload_keeps_purchases_and_counts_skips():
@@ -95,7 +139,8 @@ def test_events_from_filer_payload_keeps_purchases_and_counts_skips():
     assert events[0].details["amount_range"] == "$15,001 - $50,000"
     assert events[0].details["filer_id"] == "senate_jane_doe"
     assert counters == {
-        "rows": 5, "kept": 1, "not_purchase": 1, "not_stock": 1, "no_ticker": 1, "no_date": 1,
+        "rows": 5, "kept": 1, "not_purchase": 1, "not_stock": 1, "no_ticker": 1,
+        "no_date": 1, "malformed": 0, "duplicate": 0,
     }
 
 
@@ -117,6 +162,49 @@ def test_events_from_filer_payload_has_no_filing_age_bound():
     assert events[0].t0 == "2012-07-01"
 
 
+def test_events_from_filer_payload_collapse_keeps_earliest_t0_regardless_of_order():
+    """A later-filed duplicate (e.g. an amendment) arriving FIRST in payload order must
+    not anchor the fact's public date later than it really was -- the fix for the
+    5.4%-of-events measured regression: earliest t0 wins, not first-seen."""
+    payload = _filer_payload(
+        [
+            _filer_trade(filing_date="2012-07-11"),  # later filing, listed first
+            _filer_trade(filing_date="2012-07-01"),  # earlier filing, listed second
+        ]
+    )
+    events, counters = events_from_filer_payload(payload, person="Jane Doe")
+    assert len(events) == 1
+    assert events[0].t0 == "2012-07-01"
+    assert counters["kept"] == 1
+    assert counters["duplicate"] == 1
+
+
+def test_events_from_filer_payload_details_tolerate_missing_optional_fields():
+    payload = {
+        "filer": {"full_name": "No Chamber Guy"},  # no "chamber"/"branch"/"party"/"state"
+        "trades": [_filer_trade(amount_range_label=None)],
+    }
+    events, _ = events_from_filer_payload(payload, person="No Chamber Guy")
+    assert events[0].details["chamber"] is None
+    assert events[0].details["committee"] is None
+    assert events[0].details["amount_range"] is None
+    assert events[0].details["party"] is None
+    assert events[0].details["state"] is None
+
+
+def test_events_from_filer_payload_chamber_falls_back_to_branch():
+    """Executive-branch filers (e.g. the President) have chamber=null but branch set --
+    live-verified 2026-08-06 on oge_donald_trump."""
+    payload = {
+        "filer": {"full_name": "An Exec", "branch": "executive", "chamber": None,
+                   "party": "R", "state": None},
+        "trades": [_filer_trade()],
+    }
+    events, _ = events_from_filer_payload(payload, person="An Exec")
+    assert events[0].details["chamber"] == "executive"
+    assert events[0].details["party"] == "R"
+
+
 def test_events_from_filer_payload_collapses_same_filer_same_day_same_ticker():
     payload = _filer_payload(
         [_filer_trade(), _filer_trade(amount_range_label="$50,001 - $100,000")]
@@ -124,17 +212,41 @@ def test_events_from_filer_payload_collapses_same_filer_same_day_same_ticker():
     events, counters = events_from_filer_payload(payload, person="Jane Doe")
     assert len(events) == 1
     assert counters["kept"] == 1
+    assert counters["duplicate"] == 1
 
 
-def test_events_from_filer_payload_details_tolerate_missing_optional_fields():
-    payload = {
-        "filer": {"full_name": "No Chamber Guy"},  # no "chamber" key at all
-        "trades": [_filer_trade(amount_range_label=None)],
-    }
-    events, _ = events_from_filer_payload(payload, person="No Chamber Guy")
-    assert events[0].details["chamber"] is None
-    assert events[0].details["committee"] is None
-    assert events[0].details["amount_range"] is None
+def test_events_from_filer_payload_survives_malformed_rows():
+    payload = _filer_payload([None, 7, "not a dict", _filer_trade()])
+    events, counters = events_from_filer_payload(payload, person="Jane Doe")
+    assert len(events) == 1
+    assert counters["rows"] == 4
+    assert counters["malformed"] == 3
+
+
+def test_events_from_filer_payload_coerces_non_string_type_fields_instead_of_crashing():
+    payload = _filer_payload([_filer_trade(asset_type=7), _filer_trade(transaction_type=1)])
+    events, counters = events_from_filer_payload(payload, person="Jane Doe")
+    assert events == []
+    assert counters["not_stock"] == 1
+    assert counters["not_purchase"] == 1
+
+
+def test_events_from_filer_payload_prefers_caller_supplied_filer_id_for_event_key():
+    row_no_filer_id = {k: v for k, v in _filer_trade().items() if k != "filer_id"}
+    payload = _filer_payload([row_no_filer_id])
+    events, _ = events_from_filer_payload(payload, person="Jane Doe", filer_id="senate_override")
+    assert events[0].event_key == "senate_override-2012-06-16-purchase"
+    assert events[0].details["filer_id"] == "senate_override"
+
+
+def test_events_from_filer_payload_preserves_unicode_person_through_storage(tmp_path):
+    db = str(tmp_path / "test.db")
+    events, _ = events_from_filer_payload(
+        _filer_payload([_filer_trade()], name="José E. Serrano"), person="José E. Serrano"
+    )
+    record_historical_events(db, events, now=NOW)
+    rows = unresolved_events(db)
+    assert rows[0]["person"] == "José E. Serrano"
 
 
 def test_backfill_congress_records_events_and_reports_counts(tmp_path):
@@ -160,7 +272,7 @@ def test_backfill_congress_records_events_and_reports_counts(tmp_path):
     counts = backfill_congress(
         db, now=NOW, http_get=http_get, filer_ids=["senate_jane_doe", "house_max_roe"]
     )
-    assert counts == {"filers": 2, "events_new": 2, "events_seen": 2}
+    assert counts == _counts(filers=2, events_new=2, events_seen=2)
     assert {r["ticker"] for r in unresolved_events(db)} == {"NVDA", "MSFT"}
 
 
@@ -172,10 +284,10 @@ def test_backfill_congress_dedupes_on_rerun(tmp_path):
         return json.dumps(filer_a)
 
     first = backfill_congress(db, now=NOW, http_get=http_get, filer_ids=["senate_jane_doe"])
-    assert first == {"filers": 1, "events_new": 1, "events_seen": 1}
+    assert first == _counts(filers=1, events_new=1, events_seen=1)
 
     second = backfill_congress(db, now=NOW, http_get=http_get, filer_ids=["senate_jane_doe"])
-    assert second == {"filers": 1, "events_new": 0, "events_seen": 1}
+    assert second == _counts(filers=1, events_new=0, events_seen=1)
 
 
 def test_backfill_congress_skips_broken_filer_without_aborting(tmp_path):
@@ -192,18 +304,72 @@ def test_backfill_congress_skips_broken_filer_without_aborting(tmp_path):
     counts = backfill_congress(
         db, now=NOW, http_get=http_get, filer_ids=["senate_broken", "house_max_roe"]
     )
-    # The broken filer is still counted as attempted -- but contributes zero events,
-    # and the working filer right after it is unaffected.
-    assert counts == {"filers": 2, "events_new": 1, "events_seen": 1}
+    # The broken filer is still counted as attempted (and now as failed) -- but
+    # contributes zero events, and the working filer right after it is unaffected.
+    assert counts == _counts(filers=2, filers_failed=1, events_new=1, events_seen=1)
     assert {r["ticker"] for r in unresolved_events(db)} == {"MSFT"}
 
 
-def test_backfill_congress_derives_filer_ids_from_trades_json_when_not_given(tmp_path):
+def test_backfill_congress_falls_back_to_filer_id_as_person_when_name_missing(tmp_path):
+    db = str(tmp_path / "test.db")
+    payload = {"filer": {"id": "senate_jane_doe"}, "trades": [_filer_trade()]}  # no full_name
+
+    def http_get(url: str) -> str:
+        return json.dumps(payload)
+
+    backfill_congress(db, now=NOW, http_get=http_get, filer_ids=["senate_jane_doe"])
+    rows = unresolved_events(db)
+    assert rows[0]["person"] == "senate_jane_doe"
+
+
+def test_backfill_congress_keeps_cross_filer_identity_without_row_level_filer_id(tmp_path):
+    """Two different filers buying the same ticker on the same transaction date must
+    stay two distinct rows -- proves event identity comes from the caller's known
+    filer_id (from the fetch URL), not a per-row fallback that could collide when
+    different filers' own rows both lack filer_id."""
+    db = str(tmp_path / "test.db")
+    row_no_filer_id = {k: v for k, v in _filer_trade().items() if k != "filer_id"}
+    payload_a = _filer_payload([row_no_filer_id], name="Filer A")
+    payload_b = _filer_payload([row_no_filer_id], name="Filer B")
+
+    def http_get(url: str) -> str:
+        if url == FILER_URL_TEMPLATE.format(filer_id="filer_a"):
+            return json.dumps(payload_a)
+        if url == FILER_URL_TEMPLATE.format(filer_id="filer_b"):
+            return json.dumps(payload_b)
+        raise AssertionError(f"unexpected url: {url}")
+
+    counts = backfill_congress(db, now=NOW, http_get=http_get, filer_ids=["filer_a", "filer_b"])
+    assert counts["events_new"] == 2
+    rows = unresolved_events(db)
+    assert len(rows) == 2
+    assert {r["details"]["filer_id"] for r in rows} == {"filer_a", "filer_b"}
+
+
+def test_backfill_congress_seeds_from_full_filer_index_by_default(tmp_path):
+    db = str(tmp_path / "test.db")
+    index_payload = json.dumps([_filers_index_row()])
+    filer_payload = _filer_payload([_filer_trade()])
+
+    def http_get(url: str) -> str:
+        if url == FILERS_URL:
+            return index_payload
+        if url == FILER_URL_TEMPLATE.format(filer_id="senate_jane_doe"):
+            return json.dumps(filer_payload)
+        raise AssertionError(f"unexpected url: {url}")
+
+    counts = backfill_congress(db, now=NOW, http_get=http_get)
+    assert counts == _counts(filers=1, events_new=1, events_seen=1, index_fallback=0)
+
+
+def test_backfill_congress_falls_back_to_trades_json_when_index_fetch_fails(tmp_path):
     db = str(tmp_path / "test.db")
     trades_payload = json.dumps([_trades_row(filer_id="senate_jane_doe")])
     filer_payload = _filer_payload([_filer_trade()])
 
     def http_get(url: str) -> str:
+        if url == FILERS_URL:
+            raise OSError("index gone")
         if url == TRADES_URL:
             return trades_payload
         if url == FILER_URL_TEMPLATE.format(filer_id="senate_jane_doe"):
@@ -211,4 +377,4 @@ def test_backfill_congress_derives_filer_ids_from_trades_json_when_not_given(tmp
         raise AssertionError(f"unexpected url: {url}")
 
     counts = backfill_congress(db, now=NOW, http_get=http_get)
-    assert counts == {"filers": 1, "events_new": 1, "events_seen": 1}
+    assert counts == _counts(filers=1, events_new=1, events_seen=1, index_fallback=1)
