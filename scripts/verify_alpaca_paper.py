@@ -19,8 +19,9 @@ moving off yfinance).
   Density — the share of the last 60 one-minute slots that actually carry a bar. IEX is
   ~2-3 % of US volume, so a mega-cap can print no trade at all in a given minute. A
   1-minute trigger on a feed with holes fires late and at prices nobody quoted. Unlike
-  freshness this IS measurable outside market hours (it reads the last session's tail),
-  so it is verdicted unconditionally.
+  freshness this IS measurable outside market hours (it reads the last session's tail), but
+  only where enough session minutes exist to measure: in the first 20 minutes after the open
+  the window is mostly pre-market and the run reports "not yet measurable" (exit 2).
 
 Orders are OFF by default: pass --place-orders. Both probes are priced 20 % away from the
 market so they *cannot fill* even with the market open, and both are cancelled immediately.
@@ -68,12 +69,22 @@ def _fresh_limit(bar_minutes: int) -> timedelta:
 COVERAGE_MINUTES = 60
 MIN_COVERAGE = 0.80
 
+# Below this many regular-session slots the density is noise, not a measurement: a run 15
+# minutes after the open can reach at most 15/60 and would condemn a perfect feed (this
+# happened on 2026-08-06). Such a run reports "not yet measurable" and retries, exactly like
+# a closed market — it must never write a green marker.
+MIN_MEASURABLE_SLOTS = 20
+
 # Single ticker used by the order probes. Liquid enough that a quote always exists.
 PROBE_TICKER = "AAPL"
 
 
 class VerificationFailed(RuntimeError):
     """A checked assumption does not hold — the design must not be built on it."""
+
+
+class NotYetMeasurable(RuntimeError):
+    """The premise could not be measured yet — not a failure, and not a pass either."""
 
 
 def _credentials() -> tuple[str, str]:
@@ -90,14 +101,22 @@ def _headers(key: str, secret: str) -> dict[str, str]:
     return {"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret}
 
 
+def _in_regular_session(moment: datetime) -> bool:
+    """Whether a minute slot falls inside the US regular session (13:30-20:00 UTC).
+
+    Time-of-day only: a 60-minute window can never span two sessions (they are 6.5 h long,
+    17.5 h apart), so the date does not have to be considered.
+    """
+    return 13 * 60 + 30 <= moment.hour * 60 + moment.minute < 20 * 60
+
+
 def _market_probably_open(now: datetime) -> bool:
     """Rough US regular-session check in UTC (13:30-20:00 UTC, Mon-Fri). Deliberately
     ignores holidays and half days — it only decides whether to trust the freshness
     verdict, never whether to trade."""
     if now.weekday() >= 5:
         return False
-    minutes = now.hour * 60 + now.minute
-    return 13 * 60 + 30 <= minutes <= 20 * 60
+    return _in_regular_session(now)
 
 
 def check_account(client: httpx.Client) -> None:
@@ -149,21 +168,34 @@ def _regular_session_only(starts: set[datetime]) -> set[datetime]:
     and scored 20-72 %, while the six that stopped at 19:59 scored 100 %. The lane only ever
     trades the regular session, so that is the only window whose density means anything.
     """
-    return {t for t in starts if 13 * 60 + 30 <= t.hour * 60 + t.minute < 20 * 60}
+    return {t for t in starts if _in_regular_session(t)}
 
 
-def _coverage(series: list[dict]) -> float:
-    """Share of the COVERAGE_MINUTES regular-session slots ending at the newest
-    regular-session bar that carry a bar.
+def _coverage(series: list[dict]) -> tuple[float | None, int]:
+    """Density of the 1-minute feed, plus the number of slots it was measured over.
 
-    Anchored on that bar rather than on `now`, so the number means the same thing whether
-    the market is open or the last session ended hours ago.
+    The window ends at the newest regular-session bar and spans COVERAGE_MINUTES back —
+    anchored on that bar rather than on `now`, so the number means the same thing whether the
+    market is open or the last session ended hours ago.
+
+    The denominator is the slots in that window that lie INSIDE the session, not the window
+    length: shortly after the open most of it is pre-market, where no bar could exist. Using
+    60 there reported 25 % for a feed printing every single minute (2026-08-06). Below
+    MIN_MEASURABLE_SLOTS the share is `None` — not yet measurable, to be retried.
     """
     starts = _regular_session_only(set(_starts(series)))
     if not starts:
-        return 0.0
-    window_start = max(starts) - timedelta(minutes=COVERAGE_MINUTES - 1)
-    return sum(1 for t in starts if t >= window_start) / COVERAGE_MINUTES
+        return 0.0, 0
+    newest = max(starts)
+    window_start = newest - timedelta(minutes=COVERAGE_MINUTES - 1)
+    slots = sum(
+        1
+        for i in range(COVERAGE_MINUTES)
+        if _in_regular_session(window_start + timedelta(minutes=i))
+    )
+    if slots < MIN_MEASURABLE_SLOTS:
+        return None, slots
+    return sum(1 for t in starts if t >= window_start) / slots, slots
 
 
 def _report_resolution(
@@ -187,9 +219,12 @@ def _report_resolution(
         line = (f"    {verdict}{ticker:5s} neuester Bar {newest:%H:%M:%S}Z  Alter "
                 f"{age.total_seconds() / 60:6.1f} min  ({len(series)} Bars")
         if bar_minutes == TRIGGER_BAR_MINUTES:
-            share = _coverage(series)
-            flag = "OK" if share >= MIN_COVERAGE else "LUECKENHAFT"
-            line += f", Dichte {share:5.0%} {flag}"
+            share, slots = _coverage(series)
+            if share is None:
+                line += f", Dichte n/b (erst {slots} Session-Minuten)"
+            else:
+                flag = "OK" if share >= MIN_COVERAGE else "LUECKENHAFT"
+                line += f", Dichte {share:5.0%} {flag} ({slots} Slots)"
         print(line + ")")
     return missing
 
@@ -217,7 +252,19 @@ def check_bar_freshness(client: httpx.Client, *, now: datetime) -> None:
         )
 
     coverage = {t: _coverage(s) for t, s in trigger_bars.items()}
-    thin = {t: share for t, share in coverage.items() if share < MIN_COVERAGE}
+    unmeasurable = {t: slots for t, (share, slots) in coverage.items() if share is None}
+    if unmeasurable:
+        slots = min(unmeasurable.values())
+        raise NotYetMeasurable(
+            f"Die Session laeuft erst {slots} Minuten — die Dichte braucht mindestens "
+            f"{MIN_MEASURABLE_SLOTS} Session-Minuten, sonst verurteilt sie einen intakten "
+            "Feed. Naechster Slot."
+        )
+    thin = {
+        t: share
+        for t, (share, _) in coverage.items()
+        if share is not None and share < MIN_COVERAGE
+    }
     if thin:
         detail = ", ".join(f"{t} {share:.0%}" for t, share in sorted(thin.items()))
         raise VerificationFailed(
@@ -334,6 +381,11 @@ def main() -> int:
             else:
                 print("\n[3/4] Market-Order      uebersprungen (--place-orders)")
                 print("[4/4] Stop-Order        uebersprungen (--place-orders)")
+    except NotYetMeasurable as error:
+        # Same exit code as a closed market: retry, and above all do not let the runner
+        # write its "verified" marker on a premise nobody has measured.
+        print(f"\nUEBERSPRUNGEN: {error}")
+        return 2
     except VerificationFailed as error:
         print(f"\nFEHLGESCHLAGEN: {error}")
         return 1

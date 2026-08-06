@@ -7,8 +7,9 @@
 # every later trigger a silent no-op, so the order probes are placed once, not daily.
 #
 # Exit codes from the Python script: 0 = all checked assumptions hold (marker written),
-# 2 = market closed (--require-open, no marker, try again next slot), 1 = a real failure
-# (no marker — the run must be looked at, so it retries and stays visible in the log).
+# 2 = not measurable yet — market closed, or the session is younger than the density window
+# needs (no marker, try again next slot), 1 = a real failure (no marker — the run must be
+# looked at, so it retries and stays visible in the log).
 #
 # Remove "$STATE_DIR/alpaca_verified" to arm it again.
 set -u
@@ -54,7 +55,7 @@ case "$STATUS" in
       --status pass >> "$LOG" 2>&1
     ;;
   2)
-    echo "===== market closed, retrying next slot =====" >> "$LOG"
+    echo "===== not measurable yet, retrying next slot =====" >> "$LOG"
     ;;
   *)
     echo "===== FAILED (exit $STATUS) — no marker, will retry =====" >> "$LOG"
