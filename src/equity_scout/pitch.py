@@ -223,6 +223,14 @@ def _target_stop_line(target_stop: dict | None, cur: str) -> str:
     )
 
 
+# No window claim in the wording: build_pitch receives whatever event slice the caller
+# collected, so naming a number of days here could assert a window this pitch never used.
+_NO_EVIDENCE_NOTE = (
+    "Externe Signale: keine gemeldet — kein Kongress-Handel, keine Insider-Käufe, "
+    "keine Fonds- oder Stimmen-Signale zu diesem Titel."
+)
+
+
 def _detail_blocks(
     entry: dict,
     fundamentals: Fundamentals | None,
@@ -239,7 +247,10 @@ def _detail_blocks(
         _fscore_line(f_score),
         # External evidence annotates the pitch; it has no influence on the composite
         # or the selection above — see evidence/aggregate.py for the delay honesty note.
-        evidence_block(evidence) if evidence else None,
+        # An empty finding is SAID, not omitted: a pitch without the section read as if
+        # the check never ran ("nicht überall waren externe Signale — okay, vielleicht
+        # dann nicht vorhanden", Nico 2026-08-06).
+        (evidence_block(evidence) if evidence else None) or _NO_EVIDENCE_NOTE,
         _analyst_line(entry, fundamentals, cur),
         _target_stop_line(target_stop, cur),
     ]

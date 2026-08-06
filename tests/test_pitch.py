@@ -55,6 +55,15 @@ def test_build_pitch_plain_layout_header_score_band_tranches_disclaimer():
     assert pitch.endswith("Keine Anlageberatung.")
 
 
+def test_build_pitch_says_when_no_external_signals_exist():
+    # The absence is SAID, not omitted: without the section a reader cannot tell
+    # "nothing found" from "never checked" (Nico 2026-08-06).
+    no_evidence = build_pitch(ENTRY, ask=_fixed())
+    assert "Externe Signale: keine gemeldet" in no_evidence
+    empty_list = build_pitch(ENTRY, ask=_fixed(), evidence=[])
+    assert "Externe Signale: keine gemeldet" in empty_list
+
+
 def test_build_pitch_renders_kgv_when_present_and_omits_when_none():
     with_pe = build_pitch(ENTRY, FUND, ask=_fixed())
     assert "KGV 18" in with_pe
@@ -170,9 +179,12 @@ def test_build_pitch_inserts_evidence_block_between_kennzahlen_and_analyst():
     assert "kein Frühsignal" in pitch
 
 
-def test_build_pitch_without_evidence_has_no_evidence_block():
+def test_build_pitch_without_evidence_says_none_reported():
+    # Was "no section at all" until 2026-08-06; the silent omission read as "never
+    # checked" — now the empty finding is stated, with no signal lines under it.
     pitch = build_pitch(ENTRY, FUND, ask=_fixed())
-    assert "Externe Signale:" not in pitch
+    assert "Externe Signale: keine gemeldet" in pitch
+    assert "Kongress-Kauf" not in pitch
 
 
 def test_build_pitch_shows_target_stop_when_present():
