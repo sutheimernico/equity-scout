@@ -29,7 +29,7 @@ const HEADLINE: Record<string, string> = {
  */
 const MEANING: Record<string, string> = {
   green:
-    "Der breite Markt trägt gerade. Rücksetzer einzelner Aktien sind dann eher titelspezifisch als Marktstress — kein Kaufsignal, nur Kontext.",
+    "Rücksetzer einzelner Aktien sind in so einer Lage eher titelspezifisch als Marktstress — kein Kaufsignal, nur Kontext.",
   yellow:
     "Gemischtes Bild: ein Teil der Marktsignale ist gedreht. Einzeltitel reagieren in so einer Lage stärker auf schlechte Nachrichten.",
   red: "Der breite Markt ist unter Druck. Auch fundamental gute Titel fallen dann mit — der Autotrader drosselt in dieser Lage über sein Regime-Gate.",

@@ -110,6 +110,11 @@ export function TodayView({ onNavigate }: { onNavigate: (view: string) => void }
             sub={`vs. Markt ${pct(lane.benchmark_return)}`}
           />
         ))}
+        {/* After a reset the nico lane has no portfolio row until the next lane run —
+            the tile stays, honestly empty, instead of silently disappearing. */}
+        {arena?.available && !lanes.some((lane) => lane.lane === "nico") && (
+          <StatTile label="Depot Du" value="—" sub="leer — noch kein Pitch gekauft" />
+        )}
       </div>
 
       <section className="strat-block">
