@@ -286,3 +286,93 @@ nur auf der unteren Seite angewandt.
 **59 vitest-Tests grün** (1 neuer für die 30-%-Schwelle), `tsc --noEmit` exit 0, Build ok.
 Live gegengeprüft: alle 12 Briefs tragen eine `entry_note`, die zur jeweiligen Konstellation
 passt.
+
+---
+
+## Nachtrag 4: Farbrecherche, Depot-Switch, Icons (2026-08-06)
+
+Nicos Rückmeldungen in zwei Wellen: Farben „zu sehr nach KI" (mit dem Auftrag, im Netz zu
+recherchieren), „−7 % Potenzial" unverständlich, Schlagzeilen auf Deutsch; dann Switch
+zwischen „Long Term" und „Day Trader", Positionen geclustert nach offen/abgeschlossen,
+ETF-Klartext, Icons „nicht clean", „Direkt weiter" und der Disclaimer weg vom Handy.
+
+### Der Farb-Befund stand im eigenen Kommentar
+
+Die Recherche (aydesign.ai zu Dark-Dashboard-Mustern 2026, colorarchive.org zu
+Fintech-Dark-Paletten) nennt das Muster, das „nach KI" aussieht: neutrale Graustufe
+#0E–#1A als Fläche, EIN gesättigter Akzent im ansonsten gedämpften System, eigene
+Chart-Farben statt invertierter Light-Palette. Der eigentliche Fehler war aber hausgemacht
+und stand als Kommentar im Code:
+
+    --accent: #3ef2a0; /* primary: brand + positive signal */
+
+**Markenfarbe und „Gewinn"-Farbe waren derselbe Token.** Jeder Button, Tab, Spinner und
+Chart trug damit die Farbe, die Richtung bedeuten soll — „ist halt einfach alles grün,
+check ich nicht" beschreibt genau das. In einem Finanz-UI gehören Grün und Rot der
+Richtung; die Marke ist jetzt ein gedämpftes Blau (#5d91e5), die Flächen neutrales
+Dunkelgrau statt blau-violettem Schwarz (#10101c, HSL 240/27 %).
+
+Statuspaar mit dem dataviz-Validator geprüft statt geschätzt: **Grün↔Rot ΔE 15,8 für
+Deuteranopie, vorher 5,4** — die alte Neon-Kombination lag unter der zulässigen Grenze von
+8. Alle vier Farben ≥ 3:1 Kontrast auf der Fläche. Der verbleibende „Lightness
+band"-Fehlschlag gilt für kategoriale Serien, bei Statusfarben trägt der
+Helligkeitsunterschied gerade die Unterscheidbarkeit.
+
+### Ein Kommentar, der den Code brach
+
+Beim Dokumentieren der Palette wurde die alte Deklaration wörtlich zitiert — samt ihres
+eigenen Kommentars: `(--accent: #3ef2a0 /* brand + positive signal */)`. **CSS-Kommentare
+verschachteln nicht.** Das innere `*/` beendete den äußeren Kommentar mitten im Satz, der
+Rest wurde als CSS geparst und riss den Token-Block auf. Folge: jeder `var(--accent)`
+-Konsument danach rendered farblos — der Donut zeigte einen grauen Bogen, die
+Allokationsbalken waren unsichtbar. Gemessen: 14 von 36 Ringpunkten grau, **null blau**;
+nach dem Fix #5D91E5 wie spezifiziert.
+
+Das war nur auffindbar, weil das gerenderte SVG korrekt war (`--dump-dom` zeigte richtige
+dasharray/offset/opacity) und die CSS-Regel im Build stand — der Fehler lag zwischen beidem.
+
+### Schlagzeilen: erst Chinesisch, dann Deutsch
+
+Erster Versuch der deutschen Kurzfassungen: qwen2.5 ist chinesisch trainiert und antwortete
+auf den Übersetzungs-Prompt **auf Chinesisch** („Yamato Holdings第一财季收益改善有限").
+Der Prompt nennt die Sprache jetzt ausdrücklich, und `split_bullets` verwirft jede Zeile mit
+CJK-Zeichen — eine Karte kann keinen Text zeigen, den der Leser nicht lesen kann. Die
+englischen Originale bleiben als Quelle gespeichert und sind der Fallback.
+
+### Yamato: zweimal gefragt, deshalb anders gelöst
+
+Erst nach unten sortiert, dann — als die Frage wiederkam — aus der Liste genommen. In der
+Einstiegszone zu liegen ist eine Zeitpunkt-Aussage und macht eine Aktie nicht sehenswert.
+Solche Titel werden aber **gezählt** und mit Ticker benannt („2 weitere Titel liegen in
+ihrer Einstiegszone, aber die Analysten sehen dort kein Potenzial"), weil der Widerspruch
+zwischen unserem Signal und den Analysten die eigentliche Information ist.
+
+### Depot
+
+Ein Switch oben (`Long Term` / `Day Trader`, englisch auf Nicos Wunsch). Day Trader zeigt
+„Läuft noch" mit aktuellem Stand pro Position und darunter „Abgeschlossen" mit realisiertem
+Ergebnis je Trade plus Summe. Der aktuelle Stand brauchte einen Kurs, den das Payload nicht
+hatte: `/api/shortterm` liest jetzt den letzten Close aus dem **eigenen lokalen Snapshot des
+Lane-Runners** (`refresh=False`, kein Netzzugriff) und ergänzt Exit-Level je Lane-Regel.
+Zwei von drei Lanes können keinen festen Zielkurs nennen (crypto exit auf gleitendem
+10-Tage-Tief, session auf der Eröffnungsspanne des Tages) — dort steht das, statt eine Zahl
+zu erfinden.
+
+Long Term bekommt einen Donut plus antippbare ETF-Zeilen mit Klartext (`src/etfs.ts`), weil
+„IEF" keine Information ist.
+
+### Icons
+
+Die Emoji-Tabs sind handgezeichnete Stroke-Icons auf einem 24er-Raster, die `currentColor`
+erben. Emoji rendern in der OS-Schrift — Gewicht, Farbe und optische Größe waren damit
+außerhalb unserer Kontrolle und passten nie zu den Labels darunter. Keine neue Abhängigkeit.
+
+### Gate
+
+**1348 Python-Tests grün**, ruff clean, **61 vitest-Tests grün**, `tsc --noEmit` exit 0,
+Build ok. Alle Ansichten auf 390 × 844 gegengeprüft, Desktop unverändert.
+
+### Quellen der Farbrecherche
+
+- https://www.aydesign.ai/blog/dark-mode-dashboard-design-patterns-2026
+- https://colorarchive.org/guides/fintech-dark-mode-colors/
