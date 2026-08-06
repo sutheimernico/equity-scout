@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 import { decidePitch, fetchInbox, type InboxResponse, type Pitch } from "../api";
 import { companyNameFromPitch, shortCompanyName } from "../company";
 import { toPercent } from "../format";
+import { isUnrated, sortByVerdict } from "../inbox";
 import { StockLogo } from "./StockLogo";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
 import { Disclosure } from "./ui/Disclosure";
@@ -103,7 +104,9 @@ export function InboxPanel() {
   if (error) return <p className="state err">Fehler: {error}</p>;
   if (!data) return <p className="state">Lädt…</p>;
 
-  const pitches = data.pitches;
+  // Best entry first (Nico 2026-08-06). The bands themselves come from the server
+  // (pitch.compute_verdict) — this only orders them; see ../inbox.ts.
+  const pitches = sortByVerdict(data.pitches);
 
   return (
     <>
@@ -122,10 +125,19 @@ export function InboxPanel() {
         </p>
       ) : (
         <div className="inbox-grid">
-          {pitches.map((p) => {
+          {pitches.map((p, index) => {
             const busy = pending.has(p.id);
+            // Unrated pitches are a GROUP, not the weakest band: the heading says the rating is
+            // missing rather than letting the reader infer a bad one (Nico 2026-08-06).
+            const opensUnrated = isUnrated(p) && (index === 0 || !isUnrated(pitches[index - 1]!));
             return (
-              <article className="panel pitch" key={p.id}>
+              <Fragment key={p.id}>
+              {opensUnrated && (
+                <h3 className="inbox-group">
+                  Ohne Bewertung — für diese Titel fehlt ein Einstiegs-Score
+                </h3>
+              )}
+              <article className="panel pitch">
                 <div className="pitch-head">
                   <StockLogo ticker={p.ticker} name={pitchName(p) ?? p.ticker} />
                   <span className="pitch-ident">
@@ -209,6 +221,7 @@ export function InboxPanel() {
                   <p className="pitch-text">{p.pitch}</p>
                 </Disclosure>
               </article>
+              </Fragment>
             );
           })}
         </div>

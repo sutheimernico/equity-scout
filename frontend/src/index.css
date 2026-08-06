@@ -3087,3 +3087,13 @@ li.pd-alloc-row {
   color: var(--text-primary);
   font-weight: 600;
 }
+
+/* The unrated group heading spans the whole inbox grid — a missing score is a statement about
+   the data, not a card of its own. */
+.inbox-group {
+  grid-column: 1 / -1;
+  margin: var(--space-4) 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
