@@ -2661,6 +2661,19 @@ code {
   min-width: 3.4em;
   font-weight: 600;
 }
+/* The plain name of a large holding sits on its own line UNDER the row, indented to the
+   ticker column like .pd-alloc-note is.
+   Two rejected alternatives, both measured on 390 px: putting the name in the ticker column
+   made that column content-wide, so SPY, IEF and VEU — all three at 10 % — drew visibly
+   different bar lengths; a fixed-width column instead clipped "US-Staatsanleihen 7–10 J."
+   mid-number. Bar length and the number are the data here; the name must not distort either. */
+.pd-alloc-name {
+  display: block;
+  padding-left: 3.4em;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+}
 /* The weight bar carries no meaning the numbers next to it do not also carry (it is
    aria-hidden), so it may be purely decorative — it exists to make "which holding is
    large" answerable without reading five percentages. */
@@ -2863,9 +2876,7 @@ code {
   padding: 0;
 }
 .pd-alloc-main {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  display: block;
   width: 100%;
   padding: 3px 0;
   border: 0;
@@ -2873,6 +2884,11 @@ code {
   text-align: left;
   color: inherit;
   font-size: 0.8rem;
+}
+.pd-alloc-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 .pd-alloc-note {
   margin: 2px 0 var(--space-2);

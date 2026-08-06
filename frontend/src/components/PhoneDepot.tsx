@@ -10,7 +10,7 @@ import {
   type ShortTermResponse,
   type ShortTermTrade,
 } from "../api";
-import { ETF_NOTES } from "../etfs";
+import { ETF_NOTES, rowName } from "../etfs";
 import { StockLogo } from "./StockLogo";
 
 // The phone's answer to "what did my traders do?" — one switch at the top between the two
@@ -201,21 +201,27 @@ function EtfRow({
 }) {
   const [open, setOpen] = useState(false);
   const note = ETF_NOTES[ticker];
+  const inlineName = rowName(ticker, weight);
   return (
     <li className="pd-alloc-row">
       <button className="pd-alloc-main" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        <span className="pd-alloc-ticker">{ticker}</span>
-        <span className="pd-alloc-bar" aria-hidden="true">
-          <span style={{ width: `${(Math.abs(weight) / largest) * 100}%` }} />
+        <span className="pd-alloc-line">
+          <span className="pd-alloc-ticker">{ticker}</span>
+          <span className="pd-alloc-bar" aria-hidden="true">
+            <span style={{ width: `${(Math.abs(weight) / largest) * 100}%` }} />
+          </span>
+          <span className="num pd-alloc-num">{pct(weight)}</span>
+          <span className="num brief-muted">{money(weight * equity)}</span>
         </span>
-        <span className="num pd-alloc-num">{pct(weight)}</span>
-        <span className="num brief-muted">{money(weight * equity)}</span>
+        {inlineName && <span className="pd-alloc-name">{inlineName}</span>}
       </button>
       {open && (
         <p className="pd-alloc-note">
           {note ? (
+            // The name is only repeated when the row does not already carry it.
             <>
-              <b>{note.name}</b> — {note.what}
+              {!inlineName && <b>{note.name} — </b>}
+              {note.what}
             </>
           ) : (
             "Für diesen Ticker ist keine Kurzbeschreibung hinterlegt."

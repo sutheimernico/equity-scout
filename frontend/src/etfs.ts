@@ -15,6 +15,21 @@ export interface EtfNote {
   what: string;
 }
 
+// Nico 2026-08-06: "dass dieser High dann halt auch zumindest bei den plus zehn Prozent
+// oder plus fünf Prozent da irgendwie Namen drinstehen."
+//
+// Only the large holdings carry their name in the row: the book holds eleven positions, and
+// a second line on every one of them turns the list back into the wall that the 05.08.
+// rebuild removed. The small ones keep the name behind the tap.
+export const NAME_IN_ROW_WEIGHT = 0.05;
+
+/** The plain name to show in the row itself, or null — either because the holding is small
+ *  or because no description is on file. Never a guessed name. */
+export function rowName(ticker: string, weight: number): string | null {
+  if (Math.abs(weight) < NAME_IN_ROW_WEIGHT) return null;
+  return ETF_NOTES[ticker]?.name ?? null;
+}
+
 export const ETF_NOTES: Record<string, EtfNote> = {
   SPY: { name: "S&P 500", what: "die 500 größten US-Unternehmen, nach Börsenwert gewichtet." },
   IEF: {
