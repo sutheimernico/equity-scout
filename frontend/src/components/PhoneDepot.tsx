@@ -12,6 +12,7 @@ import {
 } from "../api";
 import { ETF_NOTES, rowName } from "../etfs";
 import { StockLogo } from "./StockLogo";
+import { Chevron } from "./ui/Chevron";
 
 // The phone's answer to "what did my traders do?" — one switch at the top between the two
 // books, because they answer different questions and stacking both turned the screen into
@@ -212,6 +213,7 @@ function EtfRow({
           </span>
           <span className="num pd-alloc-num">{pct(weight)}</span>
           <span className="num brief-muted">{money(weight * equity)}</span>
+          <Chevron />
         </span>
         {inlineName && <span className="pd-alloc-name">{inlineName}</span>}
       </button>
@@ -384,6 +386,7 @@ function OpenPosition({ position }: { position: ShortTermPosition }) {
         <span className={`${toneOf(position.unrealized_pct)} num pd-position-pnl`}>
           {position.unrealized_pct === null ? "—" : pct(position.unrealized_pct)}
         </span>
+        <Chevron />
       </button>
       {open && (
         <div className="pd-position-detail">

@@ -5,6 +5,7 @@ import { shortCompanyName } from "../company";
 import { shortVerdict, splitSections } from "../stocklist";
 import { MiniYearChart } from "./MiniYearChart";
 import { StockLogo } from "./StockLogo";
+import { Chevron } from "./ui/Chevron";
 import { ZoneBar } from "./ZoneBar";
 
 // Answers the questions Nico actually has on one daily look (2026-08-05: "auf den ersten
@@ -135,6 +136,7 @@ function BriefRow({ brief }: { brief: StockBrief }) {
           <ZoneChip brief={brief} />
         </span>
         <PotentialBlock brief={brief} />
+        <Chevron />
       </button>
       {open && (
         <div className="brief-detail-wrap">

@@ -1236,7 +1236,8 @@ code {
   .chip-pulse::after {
     animation: none;
   }
-  .disclosure-chev {
+  .disclosure-chev,
+  .chevron {
     transition: none;
   }
   .aurora,
@@ -2727,7 +2728,7 @@ code {
 /* Three columns: identity · name+state · potential. One glance, one tap for depth. */
 .brief-main {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto auto; /* logo · name+chip · potential · chevron */
   align-items: center;
   gap: var(--space-3);
   width: 100%;
@@ -2871,7 +2872,11 @@ code {
 .pd-donut-cash {
   stroke: var(--text-muted);
 }
-.pd-alloc-row {
+/* Selector carries the `li` so it outweighs `.pd-alloc li { display: flex }` above.
+   Without that, the expanded description laid itself out as a second flex COLUMN beside the
+   row and squeezed the weight bar to a stub — visible only once a row is opened, which is why
+   it survived until the 06.08. screenshot pass. */
+li.pd-alloc-row {
   display: block;
   padding: 0;
 }
@@ -2889,6 +2894,22 @@ code {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* ===== Expandable-row affordance (2026-08-06: "dass da irgendwie so ein Pfeil nach unten
+   ist und darunter aufgeklappt wird") ===== */
+/* Muted and small: it says "there is more here", it is not a data mark. The rotation is
+   keyed off the row button's own aria-expanded, which every expandable row already sets. */
+.chevron {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  color: var(--text-muted);
+  transition: transform 160ms var(--ease);
+}
+[aria-expanded="true"] > .chevron,
+[aria-expanded="true"] .pd-alloc-line > .chevron {
+  transform: rotate(180deg);
 }
 .pd-alloc-note {
   margin: 2px 0 var(--space-2);
