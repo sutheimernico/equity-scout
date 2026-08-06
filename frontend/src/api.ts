@@ -745,6 +745,20 @@ export interface Pitch {
   // v8 at-a-glance verdict; null on pitches from before the verdict column existed.
   verdict: "green" | "yellow" | "red" | null;
   verdict_why: string | null;
+  // Today's market context (2026-08-06), joined on by /api/inbox from the CURRENT
+  // watchlist + cached fundamentals. All null on decided pitches and on tickers that
+  // dropped off the watchlist — the card then says the live view is missing instead
+  // of passing off the pitch-time numbers as current.
+  name: string | null;
+  current_price: number | null;
+  currency: string | null;
+  in_zone: boolean | null;
+  zone_gap_pct: number | null;
+  zone_verdict: string | null;
+  analyst_target: number | null;
+  analyst_count: number | null;
+  analyst_upside_pct: number | null;
+  entry_note: string | null;
 }
 
 export interface InboxResponse {

@@ -2,23 +2,31 @@ import { Fragment, useEffect, useState } from "react";
 
 import { decidePitch, fetchInbox, type InboxResponse, type Pitch } from "../api";
 import { companyNameFromPitch, shortCompanyName } from "../company";
-import { toPercent } from "../format";
-import { isUnrated, sortByVerdict } from "../inbox";
+import { GROUP_HEADINGS, groupKey, sortByVerdict } from "../inbox";
+import { PotentialBlock } from "./PotentialBlock";
 import { StockLogo } from "./StockLogo";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
 import { Disclosure } from "./ui/Disclosure";
 
-// ISO timestamp → compact "YYYY-MM-DD HH:MM" (backend emits tz-aware isoformat).
-function formatStamp(iso: string): string {
-  return iso.slice(0, 16).replace("T", " ");
+// ISO timestamp → "16.07.2026". The old "2026-07-16 19:39" read as machine output, and
+// the minute of a pitch never matters for the decision — the day does (a three-week-old
+// pitch must be recognisable as one).
+function pitchDate(iso: string): string {
+  return `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}`;
 }
 
-// The pitches table stores only the ticker, but pitch.py writes "📈 <TICKER> — <NAME>" as
-// the text's first line, so the company name is recoverable without a schema migration.
-// null when the format does not match — the ticker is then shown alone rather than a guess.
+function money(value: number, currency: string | null): string {
+  const formatted = value.toLocaleString("de-DE", { maximumFractionDigits: 2 });
+  return currency ? `${formatted} ${currency}` : formatted;
+}
+
+// The server-joined name (watchlist/run_scores) first; the pitch-text header is the
+// fallback for tickers the server knows no name for. Ticker alone when both fail —
+// never a guess.
 function pitchName(pitch: Pitch): string | null {
-  const name = companyNameFromPitch(pitch.pitch, pitch.ticker);
-  return name === null ? null : shortCompanyName(name);
+  if (pitch.name) return shortCompanyName(pitch.name);
+  const parsed = companyNameFromPitch(pitch.pitch, pitch.ticker);
+  return parsed === null ? null : shortCompanyName(parsed);
 }
 
 // Decided-outcome badge: label + color class (buy=grün, pass=rot, later=grau).
@@ -28,12 +36,26 @@ const OUTCOME: Record<Exclude<Pitch["status"], "open">, { label: string; cls: st
   later: { label: "Später", cls: "pitch-badge--later" },
 };
 
-// v8 verdict badge — same wording as the Telegram pitch so both surfaces agree.
-const VERDICT: Record<NonNullable<Pitch["verdict"]>, { label: string; cls: string }> = {
-  green: { label: "🟢 Einstieg attraktiv", cls: "verdict-badge--green" },
-  yellow: { label: "🟡 Einstieg neutral", cls: "verdict-badge--yellow" },
-  red: { label: "🔴 Einstieg schwach", cls: "verdict-badge--red" },
-};
+/** Today's entry state, same chip as the Heute list (StockList.ZoneChip) so the same
+ *  fact looks the same everywhere. null zone_verdict (decided / off the watchlist)
+ *  renders nothing — the meta line below carries the honest explanation. */
+function TodayZoneChip({ pitch }: { pitch: Pitch }) {
+  if (!pitch.zone_verdict) return null;
+  const head = pitch.zone_verdict.split("—")[0].trim();
+  const label = head.startsWith("im ") ? head.slice(3) : head;
+  return (
+    <span className={pitch.in_zone ? "brief-chip brief-chip-good" : "brief-chip brief-chip-warn"}>
+      {pitch.in_zone ? "✓" : "⚠"} {label}
+    </span>
+  );
+}
+
+// The pitch text of every pitch since 2026-08-06 SAYS when no external signals were
+// found. Older stored texts simply omitted the section — and by construction the section
+// is present exactly when signals existed, so the absence can be stated honestly here.
+function hasEvidenceSection(pitch: Pitch): boolean {
+  return pitch.pitch.includes("Externe Signale:");
+}
 
 export function InboxPanel() {
   const [data, setData] = useState<InboxResponse | null>(null);
@@ -104,9 +126,19 @@ export function InboxPanel() {
   if (error) return <p className="state err">Fehler: {error}</p>;
   if (!data) return <p className="state">Lädt…</p>;
 
-  // Best entry first (Nico 2026-08-06). The bands themselves come from the server
-  // (pitch.compute_verdict) — this only orders them; see ../inbox.ts.
+  // Open before decided, best band first, score descending inside a band (Nico
+  // 2026-08-06). The bands come from the server (pitch.compute_verdict); see ../inbox.ts.
   const pitches = sortByVerdict(data.pitches);
+
+  // A ticker can carry several open pitches (cooldown re-pitches) with DIFFERENT verdicts
+  // — the same stock rated "neutral" and "schwach" two cards apart reads as a
+  // contradiction unless the older card says a newer take exists. id order = pitch order.
+  const newestOpenId = new Map<string, number>();
+  for (const p of data.pitches) {
+    if (p.status !== "open") continue;
+    const known = newestOpenId.get(p.ticker);
+    if (known === undefined || p.id > known) newestOpenId.set(p.ticker, p.id);
+  }
 
   return (
     <>
@@ -114,7 +146,7 @@ export function InboxPanel() {
         <p className="eyebrow">Inbox</p>
         <h1>Entscheidungen — ein Tipp pro Pitch</h1>
         <p className="section-sub">
-          Offene Pitches zuerst. Jede Entscheidung ist eine Papier-Notiz, kein realer Handel und
+          Beste Einstiege zuerst. Jede Entscheidung ist eine Papier-Notiz, kein realer Handel und
           keine Anlageberatung.
         </p>
       </header>
@@ -127,15 +159,18 @@ export function InboxPanel() {
         <div className="inbox-grid">
           {pitches.map((p, index) => {
             const busy = pending.has(p.id);
-            // Unrated pitches are a GROUP, not the weakest band: the heading says the rating is
-            // missing rather than letting the reader infer a bad one (Nico 2026-08-06).
-            const opensUnrated = isUnrated(p) && (index === 0 || !isUnrated(pitches[index - 1]!));
+            const group = groupKey(p);
+            // A heading opens every band, so the band-first order is READABLE — with the
+            // score as the card's number, a hidden band order read as no order at all.
+            const opensGroup = index === 0 || groupKey(pitches[index - 1]!) !== group;
+            const score = Math.round(p.composite * 100);
             return (
               <Fragment key={p.id}>
-              {opensUnrated && (
-                <h3 className="inbox-group">
-                  Ohne Bewertung — für diese Titel fehlt ein Einstiegs-Score
-                </h3>
+              {opensGroup && (
+                <div className="inbox-group">
+                  <h3>{GROUP_HEADINGS[group].title}</h3>
+                  <p className="inbox-group-sub">{GROUP_HEADINGS[group].sub}</p>
+                </div>
               )}
               <article className="panel pitch">
                 <div className="pitch-head">
@@ -145,14 +180,11 @@ export function InboxPanel() {
                         lookup key. Both, name first — a bare 9064.T means nothing. */}
                     <span className="pitch-company">{pitchName(p) ?? p.ticker}</span>
                     <span className="ticker">{p.ticker}</span>
+                    <TodayZoneChip pitch={p} />
                   </span>
-                  <span className="pitch-score tnum">{toPercent(p.composite)}</span>
-                  {p.verdict && (
-                    <span className={`badge pitch-badge ${VERDICT[p.verdict].cls}`}>
-                      {VERDICT[p.verdict].label}
-                    </span>
-                  )}
-                  {p.status !== "open" && (
+                  {p.status === "open" ? (
+                    <PotentialBlock upsidePct={p.analyst_upside_pct} analystCount={p.analyst_count} />
+                  ) : (
                     <span className={`badge pitch-badge ${OUTCOME[p.status].cls}`}>
                       {OUTCOME[p.status].label}
                     </span>
@@ -163,16 +195,37 @@ export function InboxPanel() {
 
                 <div className="pitch-meta">
                   <span className="nobr">
-                    Kurs <span className="tnum">{p.price}</span>
+                    Score <span className="tnum">{score}/100</span>
                   </span>
-                  <span className="nobr">
-                    Zone{" "}
-                    <span className="tnum">
-                      {p.zone_low}–{p.zone_high}
+                  {p.current_price !== null ? (
+                    <span className="nobr">
+                      Kurs heute <span className="tnum">{money(p.current_price, p.currency)}</span>
                     </span>
-                  </span>
-                  <span className="nobr">{formatStamp(p.created_at)}</span>
+                  ) : (
+                    p.status === "open" && (
+                      <span className="nobr">
+                        Pitch-Kurs <span className="tnum">{money(p.price, null)}</span>
+                      </span>
+                    )
+                  )}
+                  <span className="nobr">Pitch vom {pitchDate(p.created_at)}</span>
                 </div>
+
+                {/* An open pitch whose ticker left the watchlist has NO current view —
+                    said out loud instead of letting pitch-time numbers pass as today's. */}
+                {p.status === "open" && p.current_price === null && (
+                  <p className="pitch-stale">
+                    Kein aktueller Kurs — der Titel steht nicht mehr auf der Beobachtungsliste.
+                    Alle Zahlen stammen vom Pitch-Tag.
+                  </p>
+                )}
+
+                {p.status === "open" && newestOpenId.get(p.ticker) !== p.id && (
+                  <p className="pitch-stale">
+                    Es gibt eine neuere Einschätzung zu diesem Titel — die Bewertung hier ist
+                    der Stand vom {pitchDate(p.created_at)}.
+                  </p>
+                )}
 
                 {/* Actions BEFORE the reasoning (2026-08-04): the full pitch text is ~20
                     lines, so on a phone the buttons used to sit below a wall of text and a
@@ -207,7 +260,7 @@ export function InboxPanel() {
                   </div>
                 ) : (
                   p.decided_at && (
-                    <p className="pitch-decided">Entschieden {formatStamp(p.decided_at)}</p>
+                    <p className="pitch-decided">Entschieden am {pitchDate(p.decided_at)}</p>
                   )
                 )}
 
@@ -219,6 +272,15 @@ export function InboxPanel() {
 
                 <Disclosure summary="Ausführliche Begründung">
                   <p className="pitch-text">{p.pitch}</p>
+                  {!hasEvidenceSection(p) && (
+                    <p className="pitch-evidence-none">
+                      Externe Signale: keine gemeldet — kein Kongress-Handel, keine
+                      Insider-Käufe, keine Fonds- oder Stimmen-Signale zu diesem Titel.
+                    </p>
+                  )}
+                  {/* Why a high potential and a poor entry are not a contradiction —
+                      same explainer the Heute list shows in its detail. */}
+                  {p.entry_note && <p className="pitch-entry-note">{p.entry_note}</p>}
                 </Disclosure>
               </article>
               </Fragment>

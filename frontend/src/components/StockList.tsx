@@ -4,6 +4,7 @@ import { fetchBriefs, type StockBrief } from "../api";
 import { shortCompanyName } from "../company";
 import { shortVerdict, splitSections } from "../stocklist";
 import { MiniYearChart } from "./MiniYearChart";
+import { PotentialBlock } from "./PotentialBlock";
 import { StockLogo } from "./StockLogo";
 import { Chevron } from "./ui/Chevron";
 import { ZoneBar } from "./ZoneBar";
@@ -26,40 +27,6 @@ function money(value: number, currency: string | null): string {
     maximumFractionDigits: 2,
   });
   return currency ? `${formatted} ${currency}` : formatted;
-}
-
-function signedPct(value: number): string {
-  const rounded = Math.round(value);
-  // U+202F narrow no-break space: German typography puts a space before the % sign, but a
-  // full space at 1.35rem tears the number and the unit apart.
-  return `${rounded > 0 ? "+" : rounded < 0 ? "−" : ""}${Math.abs(rounded)}\u202F%`;
-}
-
-/** The headline number. Big on purpose — it is the reason to look at all — but it is a
- *  third-party opinion, so the label under it says so instead of a legend elsewhere. */
-function PotentialBlock({ brief }: { brief: StockBrief }) {
-  if (brief.analyst_upside_pct === null || brief.analyst_target === null) {
-    return (
-      <span className="brief-potential brief-potential-none">
-        <span className="brief-potential-cap">Potenzial</span>
-        <span className="brief-potential-num">—</span>
-        <span className="brief-potential-label">keine Schätzung</span>
-      </span>
-    );
-  }
-  const up = brief.analyst_upside_pct >= 0;
-  return (
-    <span className={up ? "brief-potential brief-good" : "brief-potential brief-warn"}>
-      {/* The number was unlabelled and read as a riddle: "ich kann nichts mit diesen minus
-          sieben Prozent anfangen. Was meint das jetzt?" (Nico 2026-08-06). The caption says
-          what it is, the footer says whose opinion it is. */}
-      <span className="brief-potential-cap">Potenzial</span>
-      <span className="brief-potential-num">{signedPct(brief.analyst_upside_pct)}</span>
-      <span className="brief-potential-label">
-        laut {brief.analyst_count ?? "?"} Analysten
-      </span>
-    </span>
-  );
 }
 
 /** Entry state as a compact chip. Status colour never travels alone — the glyph and the
@@ -135,7 +102,7 @@ function BriefRow({ brief }: { brief: StockBrief }) {
           </span>
           <ZoneChip brief={brief} />
         </span>
-        <PotentialBlock brief={brief} />
+        <PotentialBlock upsidePct={brief.analyst_upside_pct} analystCount={brief.analyst_count} />
         <Chevron />
       </button>
       {open && (

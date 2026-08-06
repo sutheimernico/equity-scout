@@ -1,37 +1,64 @@
-// Ordering of the decision inbox.
+// Ordering and grouping of the decision inbox.
 //
-// Nico 2026-08-06: "die ganzen Einstiege schwach oben, aber Einstieg neutral dann weiter unten.
-// Also macht schon Sinn, absteigend zu sortieren."
-//
-// The inbox arrives newest-first, which scattered the verdicts: a weak entry sat above an
-// attractive one for no reason a reader could see. Best entry first is the order the list is
-// actually read in.
+// Nico 2026-08-06 (round two): "es ist nicht absteigend sortiert, also nach diesem Score".
+// Round one sorted by verdict band but kept newest-first INSIDE each band — with the score
+// as the most prominent number on the card, 50 → 60 → 61 → 47 still read as no order at
+// all. Inside a band the score now descends, and each band gets a visible group heading so
+// the band-first order is readable instead of implicit.
 //
 // The BANDS are not re-derived here — they come from `pitch.compute_verdict`
-// (src/equity_scout/pitch.py: <40 red, 40-70 yellow, ≥70 green, with a penalty for a very weak
-// component). This module only orders what the server decided; rebuilding the thresholds in the
-// frontend would let the two drift.
+// (src/equity_scout/pitch.py: <40 red, 40-70 yellow, ≥70 green, with a penalty for a very
+// weak component — which is why a 61 can sit in "schwach" while a 60 is "neutral"; the
+// card's verdict_why carries that reason). This module only orders and groups what the
+// server decided.
 
 import type { Pitch } from "./api";
 
-/** Best entry first. A pitch without a verdict is NOT guessed into a band — it sorts last. */
-const VERDICT_RANK: Record<string, number> = { green: 0, yellow: 1, red: 2 };
+export type InboxGroupKey = "green" | "yellow" | "red" | "unrated" | "decided";
 
-export function verdictRank(verdict: string | null | undefined): number {
-  if (!verdict) return 3; // unrated: own group at the end
-  return VERDICT_RANK[verdict] ?? 3;
+/** Display order of the groups: best entry first, unrated after the rated ones
+ *  (absence of a rating is NOT the weakest band), decided history last. */
+const GROUP_ORDER: InboxGroupKey[] = ["green", "yellow", "red", "unrated", "decided"];
+
+export const GROUP_HEADINGS: Record<InboxGroupKey, { title: string; sub: string }> = {
+  green: {
+    title: "🟢 Einstieg attraktiv",
+    sub: "Modell-Score 70–100 — innerhalb der Gruppe absteigend sortiert.",
+  },
+  yellow: {
+    title: "🟡 Einstieg neutral",
+    sub: "Modell-Score 40–70. Ein höherer Score kann hier landen, wenn ein einzelnes Signal sehr schwach ist — der Grund steht auf der Karte.",
+  },
+  red: {
+    title: "🔴 Einstieg schwach",
+    sub: "Modell-Score unter 40, oder ein sehr schwaches Einzelsignal bremst.",
+  },
+  unrated: {
+    title: "Ohne Bewertung",
+    sub: "Für diese Titel fehlt ein Einstiegs-Score — ältere Pitches von vor der Bewertung.",
+  },
+  decided: {
+    title: "Bereits entschieden",
+    sub: "Deine bisherigen Entscheidungen — nur Notizen, kein realer Handel.",
+  },
+};
+
+export function groupKey(pitch: Pick<Pitch, "verdict" | "status">): InboxGroupKey {
+  if (pitch.status !== "open") return "decided";
+  if (!pitch.verdict) return "unrated";
+  return pitch.verdict;
 }
 
-/** True when the pitch carries no verdict at all — rendered as its own labelled group so the
- *  absence is visible instead of looking like the weakest band. */
-export function isUnrated(pitch: Pick<Pitch, "verdict">): boolean {
-  return !pitch.verdict;
-}
+type Sortable = Pick<Pitch, "verdict" | "status" | "composite" | "id">;
 
-/** Sorted copy: verdict descending, newest first inside each band. */
-export function sortByVerdict<T extends Pick<Pitch, "verdict" | "id">>(pitches: T[]): T[] {
+/** Sorted copy: open before decided, best band first, score descending inside a band
+ *  (decided: newest decision first via id). */
+export function sortByVerdict<T extends Sortable>(pitches: T[]): T[] {
   return [...pitches].sort((a, b) => {
-    const byVerdict = verdictRank(a.verdict) - verdictRank(b.verdict);
-    return byVerdict !== 0 ? byVerdict : b.id - a.id;
+    const byGroup = GROUP_ORDER.indexOf(groupKey(a)) - GROUP_ORDER.indexOf(groupKey(b));
+    if (byGroup !== 0) return byGroup;
+    if (groupKey(a) === "decided") return b.id - a.id;
+    const byScore = b.composite - a.composite;
+    return byScore !== 0 ? byScore : b.id - a.id;
   });
 }

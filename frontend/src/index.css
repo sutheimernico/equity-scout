@@ -1472,18 +1472,30 @@ code {
 }
 .pitch-head {
   display: flex;
-  align-items: baseline;
+  /* flex-start, not baseline: the right side is a multi-line column (Potenzial cap /
+     number / attribution), and baseline would hang it off the first text line. */
+  align-items: flex-start;
   gap: var(--space-2);
 }
-.pitch-score {
-  margin-left: auto;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--accent);
-}
 .pitch-head .pitch-badge {
-  margin-left: var(--space-2);
+  margin-left: auto;
   align-self: center;
+}
+/* Today's entry chip sits under the ticker, same look as the Heute list. */
+.pitch-ident .brief-chip {
+  margin-top: 2px;
+}
+/* An open pitch without a current market view says so — quiet, but never hidden. */
+.pitch-stale {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--warning);
+}
+.pitch-evidence-none,
+.pitch-entry-note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 .pitch-meta {
   display: flex;
@@ -3088,12 +3100,21 @@ li.pd-alloc-row {
   font-weight: 600;
 }
 
-/* The unrated group heading spans the whole inbox grid — a missing score is a statement about
-   the data, not a card of its own. */
+/* Band group headings span the whole inbox grid — they make the band-first order readable
+   (title) and explain what the band means (sub), so the score order inside never reads as
+   random. */
 .inbox-group {
   grid-column: 1 / -1;
   margin: var(--space-4) 0 0;
-  font-size: 0.85rem;
-  font-weight: 600;
+}
+.inbox-group h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: var(--text-strong);
+}
+.inbox-group-sub {
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
