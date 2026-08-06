@@ -90,3 +90,24 @@ def test_stats_counts_wins_and_fees_across_fill_shapes() -> None:
     # dict rows (storage shape) work too
     as_dicts = [f.__dict__ for f in fills]
     assert stats(as_dicts)["win_rate"] == pytest.approx(0.5)
+
+
+def test_buy_books_a_known_quantity_instead_of_re_deriving_it() -> None:
+    """A broker fill is a FACT. Re-deriving the size from `fraction` after the fill made the
+    book hold 4.59188 TSLA against the broker's 4 (live run 2026-08-06) — Alpaca rounds a
+    bracket order DOWN to whole shares, and the book has to book what actually happened."""
+    book = LaneBook(lane="session", initial_capital=10_000.0, cash=10_000.0,
+                    benchmark_ticker="SPY")
+    booked, fill = buy(book, "TSLA", 321.11, "2026-08-06T10:34:00-04:00",
+                       fraction=0.15, reason="ORB", qty=4.0, slippage_bps=0.0)
+    assert booked.positions["TSLA"].qty == 4.0
+    assert fill is not None and fill.qty == 4.0
+    # cash reflects 4 shares plus fees, not the fractional size the ratio would have given
+    assert booked.cash < 10_000.0 - 4 * 321.11 + 0.01
+
+
+def test_an_explicit_quantity_of_zero_books_nothing() -> None:
+    book = LaneBook(lane="session", initial_capital=10_000.0, cash=10_000.0,
+                    benchmark_ticker="SPY")
+    booked, fill = buy(book, "TSLA", 321.11, "t", fraction=0.15, reason="ORB", qty=0.0)
+    assert fill is None and booked.positions == {}

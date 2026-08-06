@@ -34,8 +34,11 @@ current="$(crontab -l 2>/dev/null || true)"
 before="$current"
 
 # Drop every line referencing a managed script, then re-add the canonical lines.
+# Matched WITHOUT a leading slash: the crypto line invokes its script relatively after a `cd`
+# ("cd <repo> && .venv/bin/python scripts/run_shortterm.py"), so a "/scripts/..." pattern
+# missed it and every re-run appended a second copy of that line (seen 2026-08-06).
 for script in $MANAGED_SCRIPTS; do
-  current="$(printf '%s\n' "$current" | grep -vF "/scripts/${script}" || true)"
+  current="$(printf '%s\n' "$current" | grep -vF "scripts/${script}" || true)"
 done
 for line in "$CHAIN_LINE" "$RECEIVER_LINE" "$INTRADAY_LINE" "$NIGHTLY_LINE" "$PREFETCH_LINE" "$CRYPTO_LINE" "$SESSION_LINE"; do
   current="${current}"$'\n'"${line}"

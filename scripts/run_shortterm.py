@@ -274,8 +274,11 @@ def _open_position(db: str, book: LaneBook, action, *, or_range: tuple[float, fl
                      order_id=order.order_id)
     if get_lane_state(db, "session", EXECUTION_REGIME_KEY) is None:
         set_lane_state(db, "session", EXECUTION_REGIME_KEY, action.at)
+    # The broker's quantity, not the ratio's: Alpaca rounds a bracket down to whole shares,
+    # and a book holding more than the broker does is the divergence this design prevents.
     return buy(book, action.ticker, order.filled_avg_price, action.at,
-               fraction=SESSION_FRACTION, reason=action.reason, slippage_bps=0.0)
+               fraction=SESSION_FRACTION, reason=action.reason, slippage_bps=0.0,
+               qty=order.filled_qty)
 
 
 def _close_position(db: str, book: LaneBook, action, *, feed: str) -> tuple[LaneBook, object]:

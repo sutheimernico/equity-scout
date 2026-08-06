@@ -333,3 +333,21 @@ def test_an_order_that_stays_pending_leaves_the_book_flat(tmp_path, monkeypatch,
     book = load_book(db_path, "session")
     assert book is None or book.positions == {}
     assert "storniert" in capsys.readouterr().err
+
+
+def test_the_book_holds_exactly_what_the_broker_filled(tmp_path, monkeypatch):
+    """The invariant that broke live on 2026-08-06: book 4.59188 TSLA, broker 4."""
+    from equity_scout.shortterm_storage import load_book
+
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)
+    monkeypatch.setattr(runner, "place_bracket",
+                        lambda t, **k: BrokerOrder("o7", "filled", 4.0, 103.0))
+
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+
+    book = load_book(db_path, "session")
+    assert book is not None and book.positions["AAPL"].qty == 4.0

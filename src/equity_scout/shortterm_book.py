@@ -78,19 +78,45 @@ def buy(
     reason: str,
     fee_bps: float = DEFAULT_FEE_BPS,
     slippage_bps: float = DEFAULT_SLIPPAGE_BPS,
+    qty: float | None = None,
 ) -> tuple[LaneBook, TradeFill | None]:
     """Open a long position sized as `fraction` of current book value, capped by available
     cash: spend = min(cash, fraction * (cash + Σ qty*entry_price)). Positions count at
     their ENTRY price here — sizing must not depend on marks the caller may not have.
     Returns (book, None) when the ticker is already held, the price is invalid, or the
-    spendable amount is dust (< 1 currency unit)."""
-    if ticker in book.positions or price <= 0 or fraction <= 0:
+    spendable amount is dust (< 1 currency unit).
+
+    `qty` books an ALREADY KNOWN quantity and skips the sizing: a broker fill is a fact, and
+    re-deriving it from `fraction` made the book hold 4.59188 TSLA against the broker's 4
+    (live run 2026-08-06 — Alpaca rounds a bracket order down to whole shares). The spend then
+    follows from the quantity instead of the other way round."""
+    if ticker in book.positions or price <= 0:
+        return book, None
+    effective = price * (1.0 + slippage_bps / 10_000.0)
+    if qty is not None:
+        if qty <= 0:
+            return book, None
+        spend = qty * effective * (1.0 + fee_bps / 10_000.0)
+        fees = spend * fee_bps / 10_000.0
+        if spend > book.cash:
+            # The fill already happened, so refusing it would hide a real position; but a book
+            # that cannot pay for it is a bug worth seeing rather than smoothing over.
+            return book, None
+        slip_cost = qty * (effective - price)
+        position = LanePosition(qty=qty, entry_price=effective, opened_at=executed_at)
+        new_book = replace(
+            book, cash=book.cash - spend, positions={**book.positions, ticker: position}
+        )
+        return new_book, TradeFill(
+            lane=book.lane, executed_at=executed_at, ticker=ticker, side="buy",
+            qty=qty, price=effective, fees=fees + slip_cost, reason=reason,
+        )
+    if fraction <= 0:
         return book, None
     entry_value = sum(p.qty * p.entry_price for p in book.positions.values())
     spend = min(book.cash, fraction * (book.cash + entry_value))
     if spend < 1.0:
         return book, None
-    effective = price * (1.0 + slippage_bps / 10_000.0)
     fees = spend * fee_bps / 10_000.0
     qty = (spend - fees) / effective
     slip_cost = qty * (effective - price)
