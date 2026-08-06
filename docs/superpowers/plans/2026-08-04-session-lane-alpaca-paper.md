@@ -1637,6 +1637,31 @@ calendar — noted, not faked.
 between the triggering 1-minute bar and the order timestamp). Nico has to look at the phone
 cockpit once — the regime label is rendered but never seen on a real device.
 
+### Day-after verification — 2026-08-06 ~22:45 CEST (read-only)
+
+Task 8 closed earlier today (`06d356d`). The log verification ran against the first
+cron-driven session:
+
+- **Cadence:** the dedicated minute cron was installed 16:38 CEST; from 16:39 to 22:43 CEST
+  `/var/log/syslog` shows **324 ticks**, spacing 50–65 s. Between 16:15 and 16:39 CEST the
+  lane did not run at all (~24 min) — cutover artifact of the deploy itself (old `*/15`
+  chain step removed 16:28), not recurring.
+- **Entry latency (the number this section demanded):** the one genuinely cron-placed fill
+  (MSFT, trigger bar 10:43:00 ET) was submitted at 10:44:05 ET — **~5 s after bar close**
+  (~65 s after bar open), filled 1.47 s later. Target "~30–60 s from bar open" met. The
+  other four fills that day (TSLA/AMD/QQQ/AVGO) were a pre-cron manual run and prove nothing.
+- **Host sleep, new operational finding:** cron gap 21:41→22:23 CEST caused by the Windows
+  host sleeping (`tailscaled: time jump detected (slept 41m25s)`), i.e. right across the
+  16:00 ET close. One DNS traceback on wake; the staleness gate then correctly refused new
+  entries ("Lücke seit dem letzten Lauf — nur Bestandsführung"). The 10-min wake task
+  (`0ff31c6`) did not prevent this — Windows power settings / wake-task coverage until at
+  least 23:00 CEST need a look (Needs Nico).
+- **Session-end flat exit: still 0 occurrences.** All positions had been closed ~10:47 ET by
+  the qty-divergence cleanup, hours before the close — `WINDOW_END` logic remains live-unproven.
+  Keep watching the next session with an open position into the close.
+- Regime: `st_state.execution_regime` carries the broker-cutover marker (first real broker
+  fill 10:34 ET); market traffic light 4/4 green (risk-on).
+
 
 ### Precondition run 1 — 2026-08-05 20:50 UTC, market CLOSED
 
