@@ -1,0 +1,9 @@
+[Unit]
+Description=equity-scout weekly full-universe scout Mon 05:30; Persistent catch-up fires once at the next WSL start after a missed slot (the guarded wrapper's ISO-week marker keeps it to one run per week)
+
+[Timer]
+OnCalendar=Mon 05:30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

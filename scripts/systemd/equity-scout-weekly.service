@@ -1,0 +1,6 @@
+[Unit]
+Description=equity-scout weekly full-universe scout (scheduled_run.sh; guarded wrapper)
+
+[Service]
+Type=oneshot
+ExecStart=%h/private/equity-scout/scripts/run_weekly_guarded.sh systemd
