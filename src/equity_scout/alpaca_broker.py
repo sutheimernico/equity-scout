@@ -13,10 +13,22 @@ process that would check it is not alive.
 from __future__ import annotations
 
 import os
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 
 DATA_BASE = "https://data.alpaca.markets/v2"
 PAPER_BASE = "https://paper-api.alpaca.markets/v2"  # never parameterised — see docstring
+
+
+# How long a freshly placed order is given to report its fill before it is cancelled. A
+# market bracket on a mega-cap fills in well under a second on the paper venue; this only has
+# to outlast the round trip, and the caller runs on a one-minute cron.
+FILL_POLL_ATTEMPTS = 6
+FILL_POLL_SECONDS = 0.4
+
+# Statuses an order never leaves — polling them again only costs time.
+TERMINAL_STATUSES = frozenset({"canceled", "cancelled", "expired", "rejected", "done_for_day"})
 
 
 class AlpacaBrokerError(RuntimeError):
@@ -124,6 +136,65 @@ def place_bracket(ticker: str, *, qty: float, stop_price: float,
             f"POST /v2/orders ({ticker}) -> {response.status_code}: {response.text[:300]}"
         )
     return parse_order(response.json())
+
+
+def fetch_order(order_id: str) -> BrokerOrder:
+    """One order's current state (network)."""
+    with _client() as client:
+        response = client.get(f"{PAPER_BASE}/orders/{order_id}")
+    if response.status_code != 200:
+        raise AlpacaBrokerError(
+            f"GET /v2/orders/{order_id} -> {response.status_code}: {response.text[:300]}"
+        )
+    return parse_order(response.json())
+
+
+def cancel_order(order_id: str) -> None:
+    """Cancel one order (network). Raises when the venue refuses — which, for an order that
+    filled a moment ago, is the normal answer and tells the caller to read it back."""
+    with _client() as client:
+        response = client.delete(f"{PAPER_BASE}/orders/{order_id}")
+    if response.status_code not in (200, 204):
+        raise AlpacaBrokerError(
+            f"DELETE /v2/orders/{order_id} -> {response.status_code}: {response.text[:300]}"
+        )
+
+
+def settle_or_cancel(
+    order: BrokerOrder,
+    *,
+    fetch: Callable[[str], BrokerOrder] = fetch_order,
+    sleep: Callable[[float], None] = time.sleep,
+    cancel: Callable[[str], None] = cancel_order,
+    attempts: int = FILL_POLL_ATTEMPTS,
+    delay: float = FILL_POLL_SECONDS,
+) -> BrokerOrder:
+    """Read a freshly placed order back until it has filled — and cancel it if it has not.
+
+    Alpaca answers POST /v2/orders with `pending_new` even for a market bracket that fills
+    milliseconds later, so a caller that trusts the POST response books nothing. The first
+    live run (2026-08-06) placed four brackets that way and left four positions the book knew
+    nothing about — unmanaged by design, because the book cannot manage what it never saw.
+
+    Cancelling on timeout is the other half of that rule: an order resting at the venue that
+    the book has not booked is exactly the same problem, one minute later. If the cancel is
+    refused the order filled in the meantime, so it is read back once more and returned.
+    """
+    for attempt in range(attempts):
+        if order.filled_qty and order.filled_avg_price is not None:
+            return order
+        if order.status in TERMINAL_STATUSES:
+            return order
+        if attempt:
+            sleep(delay)
+        order = fetch(order.order_id)
+    if order.filled_qty and order.filled_avg_price is not None:
+        return order
+    try:
+        cancel(order.order_id)
+    except AlpacaBrokerError:
+        return fetch(order.order_id)  # refused = it filled while we were cancelling
+    return order
 
 
 def close_position(ticker: str) -> BrokerOrder:

@@ -6,10 +6,12 @@ import pytest
 
 from equity_scout.alpaca_broker import (
     AlpacaBrokerError,
+    BrokerOrder,
     BrokerPosition,
     bracket_payload,
     parse_order,
     parse_positions,
+    settle_or_cancel,
 )
 
 
@@ -66,3 +68,72 @@ def test_parse_order_keeps_a_zero_fill_price_distinct_from_no_fill() -> None:
     order = parse_order({"id": "abc", "status": "filled", "filled_qty": "1",
                          "filled_avg_price": "0.0"})
     assert order.filled_avg_price == 0.0
+
+
+# --- Reading the fill back (found live 2026-08-06) -----------------------------------------
+# Alpaca answers POST /v2/orders with `pending_new`, ALWAYS — the fill arrives milliseconds
+# later. The first live run therefore placed four bracket orders, booked none of them, and
+# left four positions the book knew nothing about. The fill has to be read back.
+
+def _order(status: str, qty: float = 0.0, price: float | None = None) -> BrokerOrder:
+    return BrokerOrder(order_id="o1", status=status, filled_qty=qty, filled_avg_price=price)
+
+
+def test_a_fill_that_arrives_on_the_second_look_is_returned() -> None:
+    answers = [_order("pending_new"), _order("filled", 3.0, 490.72)]
+    slept: list[float] = []
+    settled = settle_or_cancel(
+        _order("pending_new"),
+        fetch=lambda _id: answers.pop(0),
+        sleep=slept.append,
+        cancel=lambda _id: (_ for _ in ()).throw(AssertionError("must not cancel a fill")),
+    )
+    assert settled.filled_avg_price == 490.72
+    assert slept, "it has to wait at least once before giving up"
+
+
+def test_an_order_that_never_fills_is_cancelled_not_left_resting() -> None:
+    """An unbooked resting order is a position nobody manages."""
+    cancelled: list[str] = []
+    settled = settle_or_cancel(
+        _order("pending_new"),
+        fetch=lambda _id: _order("new"),
+        sleep=lambda _s: None,
+        cancel=cancelled.append,
+        attempts=2,
+    )
+    assert cancelled == ["o1"]
+    assert settled.filled_avg_price is None
+
+
+def test_a_fill_that_wins_the_race_against_the_cancel_is_still_booked() -> None:
+    """Cancel refused means it filled in the meantime — read it back rather than lose it."""
+    reads = [_order("new"), _order("new"), _order("filled", 2.0, 717.64)]
+
+    def refuse(_id: str) -> None:
+        raise AlpacaBrokerError("order already filled")
+
+    settled = settle_or_cancel(
+        _order("pending_new"),
+        fetch=lambda _id: reads.pop(0),
+        sleep=lambda _s: None,
+        cancel=refuse,
+        attempts=2,
+    )
+    assert settled.filled_avg_price == 717.64
+
+
+def test_a_rejected_order_stops_the_polling_at_once() -> None:
+    looks: list[str] = []
+
+    def fetch(order_id: str) -> BrokerOrder:
+        looks.append(order_id)
+        return _order("rejected")
+
+    settled = settle_or_cancel(
+        _order("pending_new"), fetch=fetch, sleep=lambda _s: None,
+        cancel=lambda _id: (_ for _ in ()).throw(AssertionError("nothing to cancel")),
+        attempts=5,
+    )
+    assert settled.status == "rejected"
+    assert len(looks) == 1, "a terminal status must not be polled again"

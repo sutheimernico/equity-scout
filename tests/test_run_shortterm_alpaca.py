@@ -256,3 +256,80 @@ def test_a_session_run_with_something_to_say_is_framed_as_before(monkeypatch, ca
     runner.main()
     out = capsys.readouterr().out
     assert "Kurzfrist-Arena" in out and "Session: 1 Fill" in out and "Anlageberatung" in out
+
+
+def test_a_blocked_entry_does_not_send_its_stop_to_the_broker(tmp_path, monkeypatch):
+    """Found on the first live run, 2026-08-06 10:31 ET.
+
+    `decide` can emit buy AND sell for the same bar (an entry whose own bar trades through the
+    stop). With entries blocked the buy is dropped — and the sell was still routed, so the lane
+    asked the broker to close a position it had never opened (`404 position not found: SPY`).
+    An exit without a holding must never reach the broker.
+    """
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    # Stale stamp -> may_open_new_position() is False, exactly as on the cold start.
+    set_lane_state(db_path, "session", runner.LAST_RUN_KEY,
+                   datetime(2026, 8, 4, 9, 0, tzinfo=NY).isoformat())
+
+    def entry_then_stop(ticker, bars, position, **kwargs):
+        at = "2026-08-04T10:03:00-04:00"
+        return (
+            [runner.SessionAction("buy", ticker, 103.0, at, "ORB-Ausbruch"),
+             runner.SessionAction("sell", ticker, 102.0, at, "Stop (0.5x Range)")],
+            at,
+        )
+
+    def refuse_close(ticker):
+        raise AssertionError("no exit may be routed for a position the book does not hold")
+
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)
+    monkeypatch.setattr(runner, "decide", entry_then_stop)
+    monkeypatch.setattr(runner, "close_position", refuse_close)
+    monkeypatch.setattr(runner, "place_bracket",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("no entry either")))
+
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+
+
+def test_a_pending_order_is_read_back_before_it_is_booked(tmp_path, monkeypatch):
+    """The realistic path: the POST says `pending_new`, the fill arrives right after."""
+    from equity_scout.shortterm_storage import load_book
+
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)
+    monkeypatch.setattr(runner, "place_bracket",
+                        lambda t, **k: BrokerOrder("o5", "pending_new", 0.0, None))
+    monkeypatch.setattr(runner, "settle_or_cancel",
+                        lambda order: BrokerOrder("o5", "filled", 3.0, 103.4))
+
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+
+    book = load_book(db_path, "session")
+    assert book is not None and book.positions["AAPL"].entry_price == pytest.approx(103.4)
+    assert load_executions(db_path, lane="session")[0]["actual_price"] == pytest.approx(103.4)
+
+
+def test_an_order_that_stays_pending_leaves_the_book_flat(tmp_path, monkeypatch, capsys):
+    from equity_scout.shortterm_storage import load_book
+
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)
+    monkeypatch.setattr(runner, "place_bracket",
+                        lambda t, **k: BrokerOrder("o6", "pending_new", 0.0, None))
+    monkeypatch.setattr(runner, "settle_or_cancel",
+                        lambda order: BrokerOrder("o6", "canceled", 0.0, None))
+
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+
+    book = load_book(db_path, "session")
+    assert book is None or book.positions == {}
+    assert "storniert" in capsys.readouterr().err

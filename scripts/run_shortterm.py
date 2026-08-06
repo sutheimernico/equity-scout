@@ -26,7 +26,7 @@ from equity_scout.alpaca_broker import (
     close_position,
 )
 from equity_scout.alpaca_broker import fetch_positions as fetch_broker_positions
-from equity_scout.alpaca_broker import place_bracket
+from equity_scout.alpaca_broker import place_bracket, settle_or_cancel
 from equity_scout.alpaca_data import (
     RANGE_BAR_MINUTES,
     TRIGGER_BAR_MINUTES,
@@ -261,9 +261,12 @@ def _open_position(db: str, book: LaneBook, action, *, or_range: tuple[float, fl
     except AlpacaBrokerError as error:
         print(f"Order abgelehnt ({action.ticker}): {error}", file=sys.stderr)
         return book, None
+    # The POST answers `pending_new` even when the fill is milliseconds away, so the fill is
+    # read back; an order that still has not filled is cancelled rather than left resting.
+    order = settle_or_cancel(order)
     if not order.filled_qty or order.filled_avg_price is None:
-        print(f"Order {order.order_id} ({action.ticker}) noch nicht ausgefuehrt "
-              f"(status={order.status}) — Buchung erfolgt im naechsten Lauf.", file=sys.stderr)
+        print(f"Order {order.order_id} ({action.ticker}) nicht ausgefuehrt "
+              f"(status={order.status}) — storniert, Buch bleibt flat.", file=sys.stderr)
         return book, None
     record_execution(db, lane="session", ticker=action.ticker, side="buy",
                      signalled_at=action.at, expected_price=action.price,
@@ -429,8 +432,14 @@ def run_session(db: str, *, now: datetime, feed: str = "alpaca") -> None:
                                             feed=feed)
                 if fill:
                     state["traded"].append(ticker)
-            else:
+            elif action.ticker in book.positions:
                 book, fill = _close_position(db, book, action, feed=feed)
+            else:
+                # `decide` emits buy AND sell for an entry bar that trades through its own
+                # stop. If the entry was dropped (run gap, rejected order), its exit must be
+                # dropped too — routing it asked the broker to close a position that was never
+                # opened (live run 2026-08-06: 404 position not found: SPY).
+                continue
             if fill:
                 fills.append(fill)
         if new_marker:
