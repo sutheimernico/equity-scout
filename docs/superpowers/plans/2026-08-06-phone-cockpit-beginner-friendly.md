@@ -199,14 +199,14 @@ Nico: „die ganzen Einstiege schwach oben, aber Einstieg neutral dann weiter un
 macht schon Sinn, absteigend zu sortieren. Des Weiteren sind dann Aktien, die gar keinen
 Einstieg neutral haben, Einstieg stark."
 
-- [ ] **Schritt 1:** Die Ansicht finden und den Ist-Zustand per Screenshot festhalten.
-- [ ] **Schritt 2:** Absteigend sortieren (stark → neutral → schwach). Die Bänder kommen
+- [x] **Schritt 1:** Die Ansicht finden und den Ist-Zustand per Screenshot festhalten.
+- [x] **Schritt 2:** Absteigend sortieren (stark → neutral → schwach). Die Bänder kommen
   aus `pitch._VERDICT_LEVELS` (<40 / 40–70 / ≥70, mit Abzug bei sehr schwachem
   Teilsignal) — **dort ist die einzige Quelle**, nicht im Frontend nachbauen.
-- [ ] **Schritt 3:** Titel ohne Bewertung: prüfen, warum sie keine haben (kein Score? kein
+- [x] **Schritt 3:** Titel ohne Bewertung: prüfen, warum sie keine haben (kein Score? kein
   Reading?) und sie **als eigene Gruppe am Ende** zeigen, nicht mit einem geschätzten Band
   auffüllen.
-- [ ] **Schritt 4:** Gate, Screenshot, Commit.
+- [x] **Schritt 4:** Gate, Screenshot, Commit.
 
 ## Task 7: „Ergebnisse" — die Ansicht verständlich machen (Umbenennung ist erledigt)
 
