@@ -32,7 +32,7 @@ export const NAV: { key: View; label: string; group: Group }[] = [
   { key: "voices", label: "Stimmen", group: "signale" },
   { key: "inbox", label: "Inbox", group: "entscheiden" },
   { key: "depots", label: "Depots", group: "entscheiden" },
-  { key: "proof", label: "Beweis", group: "entscheiden" },
+  { key: "proof", label: "Ergebnisse", group: "entscheiden" },
   { key: "strategies", label: "Strategien", group: "forschung" },
   { key: "model", label: "Entry-Modell", group: "forschung" },
   { key: "ml", label: "Signal-Filter", group: "forschung" },
@@ -47,7 +47,7 @@ export const MOBILE_LABELS: Record<string, string> = {
   today: "Heute",
   depots: "Depot",
   inbox: "Entscheiden",
-  proof: "Beweis",
+  proof: "Ergebnisse",
 };
 
 const VIEW_KEYS = new Set<string>(NAV.map((item) => item.key));

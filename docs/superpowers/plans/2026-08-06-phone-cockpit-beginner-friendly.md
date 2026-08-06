@@ -208,7 +208,7 @@ Einstieg neutral haben, Einstieg stark."
   auffüllen.
 - [ ] **Schritt 4:** Gate, Screenshot, Commit.
 
-## Task 7: „Beweis" umbenennen und die Ansicht verständlich machen
+## Task 7: „Ergebnisse" — die Ansicht verständlich machen (Umbenennung ist erledigt)
 
 **Dateien:** `frontend/src/views.ts:35,50`, `frontend/src/components/ProofView.tsx`,
 `src/equity_scout/proof.py` (nur lesen)
@@ -219,10 +219,12 @@ mal das Prinzip überarbeiten, da checkt man gar nix."
 Die Ansicht zeigt, ob die Paper-Depots nach Kosten tatsächlich etwas geliefert haben
 (Sharpe/CAGR ab 60 Tagen, MaxDD, Trefferquote, Kostenanteil, vs. Benchmark, Urteil).
 
-- [ ] **Schritt 1:** Namen wählen. Vorschlag: **„Bilanz"** oder **„Ergebnisse"** — beides
-  sagt „was ist herausgekommen", ohne etwas zu behaupten. „Beweis" ist inhaltlich zu stark
-  (das Projekt verspricht ausdrücklich keinen Edge). Kurz mit Nico abstimmen, weil es ein
-  sichtbarer Tab-Name ist.
+- [x] **Schritt 1: ERLEDIGT 2026-08-06.** Nico hat „Ergebnisse" gewählt und der Tab ist
+  umbenannt — inklusive `ProofView`-Kopfzeile, dem Verweis im Monatsbericht
+  (`digest.py`: „Monats-Ergebnisbericht", Tab-Verweis) und README. Der technische View-Key
+  bleibt `proof`: die Telegram-Deeplinks zeigen auf `?view=proof`, ein Umbenennen hätte
+  jeden bereits verschickten Link gebrochen. **Es bleibt also nur die inhaltliche Arbeit
+  unten.**
 - [ ] **Schritt 2:** Ansicht neu aufbauen mit **einer Leitfrage pro Block**, in
   Alltagssprache: „Hat es mehr gebracht als einfach den Markt zu kaufen?" · „Wie viel ist
   zwischenzeitlich verloren gegangen?" · „Wie viel davon frisst die Gebühr?" · „Reicht die
@@ -302,8 +304,7 @@ Muster, das sich in dieser Session bewährt hat und hier gelten sollte:
 
 ## Offene Punkte für Nico (nicht durch diesen Plan gelöst)
 
-1. **Neuer Name für „Beweis"** — Task 7 Schritt 1 braucht seine Zustimmung, weil es ein
-   sichtbarer Tab-Name ist.
+1. ~~Neuer Name für „Beweis"~~ — entschieden: **„Ergebnisse"**, umgesetzt am 06.08.
 2. **Qualität der lokalen KI-Texte.** `qwen2.5:7b` schreibt holpriges Deutsch
    („Gewinnsträften"). Besser würde nur ein größeres lokales Modell (RAM) oder eine
    bezahlte API — letzteres berührt die private Kostengrenze und braucht seine Entscheidung.

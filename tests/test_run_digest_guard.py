@@ -195,11 +195,11 @@ def test_first_run_of_the_month_sends_the_proof_report(tmp_path, monkeypatch):
 
     assert main() == 0
     assert len(sent) == 2  # digest + proof report
-    assert "Monats-Beweisbericht" in sent[1]
+    assert "Monats-Ergebnisbericht" in sent[1]
     assert "Auto-Depot" in sent[1]
     assert get_state(db, key="proof_report_month") is not None
 
     monkeypatch.setattr(sys, "argv", ["run_digest.py", "--db", db, "--force"])
     assert main() == 0  # same month again -> digest only
     assert len(sent) == 3
-    assert "Monats-Beweisbericht" not in sent[2]
+    assert "Monats-Ergebnisbericht" not in sent[2]

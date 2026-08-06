@@ -265,15 +265,15 @@ fills charge slippage, per-trade realized P&L / win rate / fees are first-class
 block "⚡ Kurzfrist-Arena". Run a lane manually:
 `uv run python scripts/run_shortterm.py --lane crypto`.
 
-## Kann das funktionieren? (v12 Beweis-Rahmen)
+## Kann das funktionieren? (v12 Ergebnis-Rahmen)
 
-Die ehrliche Antwort steht im Dashboard-Tab **„Beweis"** (`/api/proof`) und im monatlichen
-Telegram-Beweisbericht — gemessen, nicht versprochen. Was dieses System GARANTIERT:
+Die ehrliche Antwort steht im Dashboard-Tab **„Ergebnisse"** (`/api/proof`) und im monatlichen
+Telegram-Ergebnisbericht — gemessen, nicht versprochen. Was dieses System GARANTIERT:
 Disziplin (regelbasierte, look-ahead-sichere Ausführung), Kostenwahrheit (jeder Trade
 zahlt Slippage/Fees), Risiko-Management (Concentration-Cap, Regime-Gate, Vol-Target,
 Drawdown-Breaker) und Messung (jede Kennzahl fällt aus echten, gespeicherten Paper-Trades).
 Was es NICHT verspricht: Alpha. Kurzfrist-Lanes verdienen Depot-Kapital erst über das
-**Beweis-Gate** (≥ 30 realisierte Trades, ≥ 60 Tage, Netto-P&L > 0, Profit-Faktor ≥ 1.1)
+**Ergebnis-Gate** (≥ 30 realisierte Trades, ≥ 60 Tage, Netto-P&L > 0, Profit-Faktor ≥ 1.1)
 und fliegen bei negativem 60-Tage-Netto wieder raus.
 
 **Gefundene und behobene Messfehler (v13, 2026-07-23/24) — Ehrlichkeit heißt auch das
@@ -314,7 +314,7 @@ like an app on the phone (v12 M1–M4):
 ### Vier Fokusse am Handy (2026-08-04)
 
 Unter 720 px Breite ersetzt eine Tab-Leiste am unteren Rand die 12-teilige Sidebar:
-**🏠 Heute · 🤖 Depot · 📬 Entscheiden · 🧾 Beweis**, die anderen acht Ansichten liegen
+**🏠 Heute · 🤖 Depot · 📬 Entscheiden · 🧾 Ergebnisse**, die anderen acht Ansichten liegen
 hinter **⋯ Mehr**. Desktop bleibt unverändert.
 
 - **Deeplinks**: `?view=<key>` öffnet direkt eine Ansicht — `today`, `depots`, `inbox`,

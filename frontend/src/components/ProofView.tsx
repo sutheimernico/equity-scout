@@ -76,7 +76,7 @@ export function ProofView() {
   return (
     <>
       <header className="section-head reveal">
-        <p className="eyebrow">Entscheiden · Beweis</p>
+        <p className="eyebrow">Entscheiden · Ergebnisse</p>
         <h1>Kann das funktionieren?</h1>
         <p className="section-sub">
           Ehrliche Bilanz jedes Papier-Buchs — gemessen, nicht versprochen. Kennzahlen, die der
@@ -95,7 +95,7 @@ export function ProofView() {
       )}
 
       {!data.available && (
-        <p className="state">Noch keine Bücher mit genug Historie — die Beweise wachsen täglich.</p>
+        <p className="state">Noch keine Bücher mit genug Historie — die Ergebnisse wachsen täglich.</p>
       )}
       {data.books?.map((book) => <BookCard key={book.label} book={book} />)}
 

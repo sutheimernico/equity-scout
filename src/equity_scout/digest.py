@@ -379,7 +379,7 @@ def build_proof_report(books: list[dict], *, month_label: str, html: bool = Fals
     def fmt(value, digits=2, suffix=""):  # noqa: ANN001, ANN202
         return "—" if value is None else f"{value:,.{digits}f}{suffix}"
 
-    lines = [head(f"🧾 Monats-Beweisbericht — {month_label}")]
+    lines = [head(f"🧾 Monats-Ergebnisbericht — {month_label}")]
     for book in books:
         lines.append("")
         lines.append(head(book["label"]))
@@ -397,5 +397,5 @@ def build_proof_report(books: list[dict], *, month_label: str, html: bool = Fals
         if extra:
             lines.append("  " + " · ".join(extra))
     lines.append("")
-    lines.append("Gemessen, nicht versprochen — Details im Dashboard-Tab „Beweis\u201c.")
+    lines.append("Gemessen, nicht versprochen — Details im Dashboard-Tab „Ergebnisse\u201c.")
     return "\n".join(lines)
