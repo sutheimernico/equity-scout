@@ -4,6 +4,7 @@ from __future__ import annotations
 import sys
 
 import pandas as pd
+import pytest
 
 import scripts.run_resolve_predictions as resolve_mod
 from equity_scout.market import PricePanel
@@ -76,3 +77,30 @@ def test_resolve_main_happy_path_exits_zero(tmp_path, monkeypatch, capsys):
     assert main() == 0
     assert resolved_stats(db)["n_resolved"] == 1
     assert "Aufgelöst" in capsys.readouterr().out
+
+
+def test_panel_that_starts_after_created_at_resolves_to_none():
+    """A panel whose first row lies AFTER the prediction date must not silently measure a
+    shifted window (regression 2026-08-05: clean_panel/young tickers moved the panel start)."""
+    truncated = PricePanel(_panel().closes.loc[pd.Timestamp("2026-01-20"):])
+    assert resolve_mod._realized_relative_return(
+        truncated, "AAA", "2026-01-05T00:00:00+00:00", 20
+    ) is None
+
+
+def test_price_panel_loader_is_column_wise(monkeypatch):
+    """Prediction tickers are global (5101.T, CQR.AX, PETR4.SA) — the common-range trim of
+    load_etf_panel/clean_panel would cut every history at the youngest ticker's first bar."""
+    import equity_scout.data.etf_panel as panel_mod
+    seen = {}
+    monkeypatch.setattr(
+        panel_mod, "load_price_history",
+        lambda tickers, **kw: seen.update(kw) or PricePanel(pd.DataFrame()),
+    )
+    monkeypatch.setattr(
+        panel_mod, "load_etf_panel",
+        lambda *a, **k: pytest.fail("resolver must not use the common-range loader"),
+    )
+    resolve_mod._fetch_price_panel(["AAA", "SPY"], "2026-01-01")
+    assert seen["snapshot"] == resolve_mod.RESOLVE_SNAPSHOT
+    assert seen["refresh"] is True

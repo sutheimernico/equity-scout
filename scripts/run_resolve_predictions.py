@@ -29,6 +29,9 @@ from equity_scout.ml.prediction_ledger import (
 BENCHMARK = "SPY"
 # Distinct snapshot so resolving never clobbers the training/backtest panels.
 RESOLVE_SNAPSHOT = "data/prices/resolve_panel.csv"
+# Lead-in so the fetched panel always reaches back to the prediction day itself
+# (created_at on a weekend/holiday, plus provider quirks at range starts).
+PANEL_LEAD_IN_DAYS = 10
 
 
 def _as_of_timestamp(created_at: str) -> pd.Timestamp:
@@ -49,7 +52,12 @@ def _realized_relative_return(
     if ticker not in closes.columns or BENCHMARK not in closes.columns:
         return None
     pair = closes[[ticker, BENCHMARK]].dropna()
-    on_or_after = pair.index[pair.index >= _as_of_timestamp(created_at)]
+    as_of = _as_of_timestamp(created_at)
+    if len(pair) == 0 or pair.index[0] > as_of:
+        # Panel does not reach back to the prediction day: stay open rather than
+        # silently measuring a shifted window.
+        return None
+    on_or_after = pair.index[pair.index >= as_of]
     if len(on_or_after) == 0:
         return None
     at = on_or_after[0]
@@ -69,7 +77,8 @@ def run_resolve_predictions(
     resolved = 0
     if due:
         tickers = sorted({d["ticker"] for d in due} | {BENCHMARK})
-        start = min(_as_of_timestamp(d["created_at"]) for d in due).date().isoformat()
+        oldest = min(_as_of_timestamp(d["created_at"]) for d in due)
+        start = (oldest - pd.Timedelta(days=PANEL_LEAD_IN_DAYS)).date().isoformat()
         panel = fetch_prices(tickers, start)
         for pred in due:
             rel = _realized_relative_return(
@@ -88,9 +97,11 @@ def _fetch_price_panel(tickers: list[str], start: str) -> PricePanel:
     """Network default: fresh daily closes for the due tickers + SPY from `start`. refresh=True so
     the forward window reflects the latest prices; a distinct snapshot keeps other panels untouched.
     Lazy import keeps the network out of import time and tests."""
-    from equity_scout.data.etf_panel import load_etf_panel
+    # Column-wise like every sibling resolver: prediction tickers are global, and one
+    # young or gappy ticker must not truncate everyone else's history.
+    from equity_scout.data.etf_panel import load_price_history
 
-    return load_etf_panel(tickers, start=start, snapshot=RESOLVE_SNAPSHOT, refresh=True)
+    return load_price_history(tickers, start=start, snapshot=RESOLVE_SNAPSHOT, refresh=True)
 
 
 def main() -> int:
