@@ -3,6 +3,7 @@ does not open a new position. Exits stay allowed — abandoning an open position
 than any entry rule."""
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -236,3 +237,22 @@ def test_missing_keys_fall_back_to_yfinance_loudly(tmp_path, monkeypatch, capsys
     monkeypatch.setattr(runner, "alpaca_fetch_bars", forbidden)
     runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
     assert "yfinance" in capsys.readouterr().err
+
+
+# --- Task 9: the log has to survive 390 runs a day ----------------------------------------
+
+def test_a_silent_session_run_prints_no_header_and_no_disclaimer(monkeypatch, capsys):
+    """At `* * * * *` the CLI's own framing is the noise: 390 headers plus 390 disclaimers a
+    day is how the two production bugs of 2026-07 stayed invisible in intraday.log."""
+    monkeypatch.setattr(sys, "argv", ["run_shortterm.py", "--lane", "session"])
+    monkeypatch.setattr(runner, "run_session", lambda db, *, now: None)
+    runner.main()
+    assert capsys.readouterr().out == ""
+
+
+def test_a_session_run_with_something_to_say_is_framed_as_before(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["run_shortterm.py", "--lane", "session"])
+    monkeypatch.setattr(runner, "run_session", lambda db, *, now: print("Session: 1 Fill"))
+    runner.main()
+    out = capsys.readouterr().out
+    assert "Kurzfrist-Arena" in out and "Session: 1 Fill" in out and "Anlageberatung" in out

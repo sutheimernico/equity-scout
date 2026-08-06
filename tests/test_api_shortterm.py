@@ -76,3 +76,27 @@ def test_lanes_carry_promotion_status(tmp_path) -> None:
     assert lane["promoted"] is False
     assert lane["promotion"]["eligible"] is False
     assert "missing" in lane["promotion"]
+
+
+def test_shortterm_payload_exposes_the_execution_regime(tmp_path) -> None:
+    """A track record whose measurement method changed mid-flight, without saying so, is a lie
+    by omission. The equity numbers need no correction — the label does."""
+    from equity_scout.shortterm_storage import set_lane_state
+
+    db = str(tmp_path / "shortterm.db")
+    save_book(db, LaneBook(lane="session", initial_capital=10_000.0, cash=10_000.0,
+                           benchmark_ticker="SPY"), updated_at="t")
+    set_lane_state(db, "session", "execution_regime", "2026-08-06T09:45:00-04:00")
+
+    payload = _client(tmp_path, db).get("/api/shortterm").json()
+    session = next(lane for lane in payload["lanes"] if lane["lane"] == "session")
+    assert session["execution_regime"] == "2026-08-06T09:45:00-04:00"
+
+
+def test_lanes_without_the_marker_report_none(tmp_path) -> None:
+    db = str(tmp_path / "shortterm.db")
+    save_book(db, LaneBook(lane="crypto", initial_capital=10_000.0, cash=10_000.0,
+                           benchmark_ticker="BTC"), updated_at="t")
+    payload = _client(tmp_path, db).get("/api/shortterm").json()
+    assert payload["lanes"]
+    assert all(lane["execution_regime"] is None for lane in payload["lanes"])

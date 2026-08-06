@@ -365,6 +365,15 @@ function LaneCard({ lane }: { lane: ShortTermLane }) {
           ) : (
             "Für diese Lane ist keine Erklärung hinterlegt."
           )}
+          {/* The measurement method changed mid-track (2026-08-06). Saying nothing would let
+              the simulated part of the curve pass as the same thing as the real part. */}
+          {lane.execution_regime && (
+            <span className="pd-lane-regime">
+              Seit {new Date(lane.execution_regime).toLocaleDateString("de-DE")} kommen die
+              Kurse von echten Broker-Ausführungen. Davor waren sie simuliert und dadurch
+              zu günstig — die beiden Zeiträume sind nicht vergleichbar.
+            </span>
+          )}
         </p>
       )}
 

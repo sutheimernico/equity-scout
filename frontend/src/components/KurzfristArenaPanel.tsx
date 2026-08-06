@@ -47,6 +47,20 @@ function PromotionLine({ lane }: { lane: ShortTermLane }) {
   );
 }
 
+/** The measurement method changed mid-track on 2026-08-06 — saying nothing would make the
+ *  earlier, simulated part of the curve look like the same thing as the later, real part. */
+function RegimeNote({ lane }: { lane: ShortTermLane }) {
+  if (!lane.execution_regime) return null;
+  const since = new Date(lane.execution_regime).toLocaleDateString("de-DE");
+  return (
+    <Explain tone="hint">
+      Echte Broker-Fills (Alpaca Paper) seit dem {since}. Davor: simulierte Fills auf
+      verzögerten Kursen — der frühere Verlauf ist dadurch zu günstig und darf nicht als
+      derselbe Track gelesen werden.
+    </Explain>
+  );
+}
+
 function LaneCard({ lane }: { lane: ShortTermLane }) {
   const lead =
     lane.benchmark_return !== null ? lane.total_return - lane.benchmark_return : null;
@@ -60,6 +74,7 @@ function LaneCard({ lane }: { lane: ShortTermLane }) {
         <Chip>{lane.open_positions.length} offen</Chip>
       </div>
       <Explain tone="hint">{LANE_NOTE[lane.lane]}</Explain>
+      <RegimeNote lane={lane} />
       <PromotionLine lane={lane} />
 
       <table className="history">

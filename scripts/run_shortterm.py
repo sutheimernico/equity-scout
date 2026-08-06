@@ -14,6 +14,8 @@ not, and the arena will say so either way. See the disclaimer and LOOP.md.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import os
 import sys
@@ -52,6 +54,7 @@ from equity_scout.shortterm_storage import (
     load_book,
     persist_lane_step,
     record_execution,
+    set_lane_state,
 )
 from equity_scout.state_storage import record_heartbeat
 from equity_scout.st_crypto import ENTRY_FRACTION as CRYPTO_FRACTION
@@ -142,6 +145,10 @@ def run_swing(db: str, main_db: str, *, now: datetime) -> None:
 
 MAX_RUN_GAP = timedelta(minutes=5)
 LAST_RUN_KEY = "last_session_run"
+# Stamped once, on the first fill that came from the broker rather than from a simulation.
+# Everything before it was priced off delayed bars and is therefore too favourable — the
+# dashboard says so rather than splicing the two track records together silently.
+EXECUTION_REGIME_KEY = "execution_regime"
 
 
 def session_report_due(*, fills: list, first_run_of_day: bool) -> bool:
@@ -262,6 +269,8 @@ def _open_position(db: str, book: LaneBook, action, *, or_range: tuple[float, fl
                      signalled_at=action.at, expected_price=action.price,
                      actual_price=order.filled_avg_price, qty=order.filled_qty,
                      order_id=order.order_id)
+    if get_lane_state(db, "session", EXECUTION_REGIME_KEY) is None:
+        set_lane_state(db, "session", EXECUTION_REGIME_KEY, action.at)
     return buy(book, action.ticker, order.filled_avg_price, action.at,
                fraction=SESSION_FRACTION, reason=action.reason, slippage_bps=0.0)
 
@@ -493,11 +502,24 @@ def main() -> None:
     args = ap.parse_args()
 
     now = datetime.now(timezone.utc)
-    print(f"\nKurzfrist-Arena — Lane '{args.lane}' ({now.isoformat(timespec='seconds')})\n")
+    header = f"\nKurzfrist-Arena — Lane '{args.lane}' ({now.isoformat(timespec='seconds')})\n"
+    if args.lane == "session":
+        # The session lane runs every minute, and most of those minutes decide nothing. The
+        # header and the disclaimer are framing, not content: printed unconditionally they add
+        # ~3,000 lines a day to session.log, which is how two production bugs stayed invisible
+        # in intraday.log. Warnings go to stderr and are therefore never swallowed here.
+        body = io.StringIO()
+        with contextlib.redirect_stdout(body):
+            run_session(args.db, now=now)
+        if body.getvalue().strip():
+            print(header)
+            print(body.getvalue(), end="")
+            print(f"\n{DISCLAIMER}\n")
+        return
+
+    print(header)
     if args.lane == "swing":
         run_swing(args.db, args.main_db, now=now)
-    elif args.lane == "session":
-        run_session(args.db, now=now)
     elif run_crypto(args.db, now=now):
         # heartbeat only on a live advance: a dead feed must LOOK dead (v12 W1)
         record_heartbeat(args.main_db, "crypto", now=now.isoformat())

@@ -2688,6 +2688,13 @@ code {
   line-height: 1.45;
   color: var(--text-secondary);
 }
+/* Own paragraph, not another sentence in the rules text: it is a caveat about the numbers
+   above, not a description of the strategy. */
+.pd-lane-regime {
+  display: block;
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+}
 .pd-badge {
   font-size: 0.66rem;
   padding: 1px 6px;

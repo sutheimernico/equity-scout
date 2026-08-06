@@ -54,7 +54,8 @@ echo "[$(date -Is)] ===== intraday_copilot start =====" >> "$LOG"
 step radar    "$PY" scripts/run_radar.py
 step evidence "$PY" scripts/run_evidence.py --fast
 step notify   "$PY" scripts/run_notify.py --inbox-only
-# v11 session lane: ORB paper day-trader on delayed 15-min bars (settled-bar honesty
-# gate inside); the market-window guard above already scopes this to trading hours.
-step st_session "$PY" scripts/run_shortterm.py --lane session
+# The session lane LEFT this chain on 2026-08-06: it trades 1-minute bars and now runs from
+# its own per-minute cron (scripts/session_lane.sh, own lock, own log). Running it here would
+# have thrown away 14 of every 15 minutes of the latency the Alpaca rewrite bought, and a slow
+# radar fetch would have delayed an entry.
 echo "[$(date -Is)] ===== intraday_copilot end =====" >> "$LOG"

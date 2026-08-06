@@ -48,6 +48,7 @@ from equity_scout.shortterm_storage import (
     LANE_LABELS,
     LANES,
 )
+from equity_scout.shortterm_storage import get_lane_state as get_st_lane_state
 from equity_scout.shortterm_storage import load_book as load_st_book
 from equity_scout.shortterm_storage import load_trades as load_st_trades
 from equity_scout.shortterm_storage import load_valuations as load_st_valuations
@@ -603,6 +604,8 @@ def create_app(
                 "benchmark_ticker": book.benchmark_ticker,
                 "benchmark_return": latest["benchmark_return"] if latest else None,
                 "max_drawdown": max_dd,
+                # None for every lane that never routed a real order (swing, crypto).
+                "execution_regime": get_st_lane_state(shortterm_db, lane, "execution_regime"),
                 "open_positions": [
                     _open_position(lane, ticker, pos)
                     for ticker, pos in sorted(book.positions.items())

@@ -511,6 +511,10 @@ export interface ShortTermLane {
   benchmark_ticker: string;
   benchmark_return: number | null;
   max_drawdown: number;
+  /** ISO timestamp of the first fill that came from the broker instead of a simulation;
+   *  null for lanes that never routed a real order. Everything before it was priced off
+   *  delayed bars and is therefore too favourable. */
+  execution_regime: string | null;
   open_positions: ShortTermPosition[];
   equity_curve: [string, number][];
   stats: ShortTermStats;
