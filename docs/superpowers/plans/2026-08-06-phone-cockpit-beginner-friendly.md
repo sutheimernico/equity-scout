@@ -311,3 +311,36 @@ Muster, das sich in dieser Session bewährt hat und hier gelten sollte:
 3. **Telegram-Token-Rotation** steht weiter offen; der Token liegt inzwischen im
    Session-Transcript und in der Telegram-Historie (auf Nicos ausdrücklichen Wunsch).
 4. `autopilot/work` → `main` mergen/pushen.
+
+---
+
+## Zwischenstand 2026-08-06 (Tasks 1-5 umgesetzt)
+
+**Fertig:** Task 1 (ETF-Namen bei ≥ 5 % Gewicht, eigene Zeile unter dem Balken), Task 2
+(Chevron auf allen drei aufklappbaren Zeilen), Task 3 (Lane-Karten mit Klartextnamen, Regeln
+hinter ⓘ, gezählte Gruppen), Task 4 (Firmenname statt Ticker in „Was zuletzt passiert ist"),
+Task 5 (Inbox-Buttons einzeilig).
+
+**Drei Befunde, die erst der Screenshot zeigte:**
+
+1. **Der Balken hat gelogen.** Mit dem Namen in der Ticker-Spalte wurde diese inhaltsbreit, und
+   SPY, IEF und VEU — alle drei bei 10 % — zeichneten drei verschieden lange Balken. Feste
+   Spaltenbreite schnitt dafür „US-Staatsanleihen 7–10 J." mitten in der Zahl ab. Der Name sitzt
+   deshalb auf einer eigenen Zeile unter der Zeile, eingerückt wie die Detailnotiz.
+2. **Die ETF-Beschreibung stand NEBEN der Zeile, nicht darunter** (und quetschte den Balken zu
+   einem Stummel): `.pd-alloc li { display: flex }` ist spezifischer als `.pd-alloc-row`. Ein
+   Vorbefund — sichtbar nur im aufgeklappten Zustand, den vorher niemand gescreenshottet hatte.
+3. **Nicos Umbruch bei den Inbox-Buttons war kein Zeilenumbruch.** Bei 390 px passen die drei
+   Buttons; bei 360 px (sein Gerät) schrumpft Flex sie unter die Labelbreite und
+   `overflow-wrap: anywhere` bricht IM WORT — „Kaufe/n", „Ablehn/en", „Spät/er". Gemessen, nicht
+   geraten: Fix ist `nowrap` + `flex: 1` + kleineres Seitenpadding im Mobile-Block, verifiziert
+   auf 320/360/390 px.
+
+Zusätzlich zeigt der Day-Trader-Tab jetzt ehrlich, dass die Liste gekürzt ist („die 6 jüngsten
+von 13 gezeigt") — der Zähler nannte 13, die Liste zeigte 6 —, und die realisierte Summe trägt
+das Wort „realisiert" statt nur „+8" zu behaupten.
+
+**Offen:** Task 6 (Sortierung/Wording der Einstiegs-Bewertung), Task 7 Schritte 2-5
+(„Ergebnisse" inhaltlich), Task 8 (Assistent messen), Task 9 (der große Durchgang über die acht
+„Mehr"-Ansichten). Gate am Ende dieser Runde: **1381 Python-Tests, 75 vitest, ruff clean,
+tsc exit 0, Build ok.**
