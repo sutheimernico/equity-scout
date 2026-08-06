@@ -86,14 +86,14 @@ Prozent da irgendwie Namen drinstehen."
 Aktuell zeigt die Zeile nur den Ticker; der Klartext liegt hinter dem Tap. Bei den großen
 Positionen soll der Name schon in der Zeile stehen.
 
-- [ ] **Schritt 1:** In `EtfRow` unter dem Ticker `ETF_NOTES[ticker]?.name` als zweite,
+- [x] **Schritt 1:** In `EtfRow` unter dem Ticker `ETF_NOTES[ticker]?.name` als zweite,
   kleinere Zeile rendern — aber nur, wenn `Math.abs(weight) >= 0.05`. Begründung im
   Kommentar: bei elf Positionen würde jede Zeile zweizeilig und die Liste wieder zur
   Wand; die kleinen Positionen behalten den Namen hinter dem Tap.
-- [ ] **Schritt 2:** Layout prüfen — `.pd-alloc-main` ist ein Flex-Row. Der Name braucht
+- [x] **Schritt 2:** Layout prüfen — `.pd-alloc-main` ist ein Flex-Row. Der Name braucht
   eine eigene Spalte (Ticker + Name links untereinander, Balken/Prozent/Betrag rechts).
-- [ ] **Schritt 3:** Screenshot 390 px: kein Seitwärts-Scrollen, Balken nicht zerdrückt.
-- [ ] **Schritt 4:** Commit.
+- [x] **Schritt 3:** Screenshot 390 px: kein Seitwärts-Scrollen, Balken nicht zerdrückt.
+- [x] **Schritt 4:** Commit.
 
 ## Task 2: Aufklappen mit Pfeil, Inhalt darunter
 
@@ -106,14 +106,14 @@ ein Pfeil nach unten ist und darunter aufgeklappt wird."
 Der Inhalt klappt schon darunter auf — was fehlt, ist der **sichtbare Hinweis, dass die
 Zeile aufklappbar ist**. Ein Chevron, der sich beim Öffnen dreht.
 
-- [ ] **Schritt 1:** Chevron in `frontend/src/components/ui/TabIcon.tsx` ergänzen (dort
+- [x] **Schritt 1:** Chevron in `frontend/src/components/ui/TabIcon.tsx` ergänzen (dort
   liegt schon das Stroke-Icon-Set mit einheitlichem 24er-Raster und `currentColor`) —
   oder eine kleine eigene `Chevron`-Komponente daneben. Nicht als Emoji/Unicode: die
   Session vom 06.08. hat Emoji-Glyphen genau deswegen entfernt.
-- [ ] **Schritt 2:** In allen drei aufklappbaren Zeilen rechts einsetzen, mit
+- [x] **Schritt 2:** In allen drei aufklappbaren Zeilen rechts einsetzen, mit
   `transform: rotate(180deg)` im offenen Zustand und einer kurzen Transition.
   `aria-expanded` ist überall schon gesetzt — nicht doppelt beschriften.
-- [ ] **Schritt 3:** Screenshot beider Zustände, Commit.
+- [x] **Schritt 3:** Screenshot beider Zustände, Commit.
 
 ## Task 3: Day-Trader-Lanes klar trennen und erklären
 
@@ -126,7 +126,7 @@ erläutert sind und klarer abtrennen."
 
 Drei Lanes mit je zwei Untergruppen erzeugen sechs gleich aussehende Überschriften.
 
-- [ ] **Schritt 1:** Klartext-Namen und Erklärungen je Lane hinterlegen (analog `etfs.ts`,
+- [x] **Schritt 1:** Klartext-Namen und Erklärungen je Lane hinterlegen (analog `etfs.ts`,
   z. B. `frontend/src/lanes.ts`). Prüfen, ob `shortterm_storage.LANE_LABELS` schon
   brauchbare Namen hat — **wenn ja, die verwenden statt neue zu erfinden** (sonst driften
   Backend und UI auseinander). Vorschlag für die Erklärungen, fachlich gegen
@@ -134,14 +134,14 @@ Drei Lanes mit je zwei Untergruppen erzeugen sechs gleich aussehende Überschrif
   - `swing`: hält Aktien einige Tage nach guten Nachrichten (Ziel +5 %, Stop −3 %, max. 7 Tage)
   - `session`: kauft am Morgen aus der Eröffnungsspanne und ist zum Handelsschluss flach
   - `crypto`: folgt Ausbrüchen bei Kryptowährungen, Stop −2 %, Ausstieg am 10-Tage-Tief
-- [ ] **Schritt 2:** Jede Lane wird eine **abgesetzte Karte** (eigene Fläche
+- [x] **Schritt 2:** Jede Lane wird eine **abgesetzte Karte** (eigene Fläche
   `--bg-inset`, Radius wie die anderen Karten, Abstand dazwischen) statt nur einer
   Trennlinie. Der Lane-Kopf trägt Klartextnamen + kleines Info-Icon (ⓘ als Stroke-Icon),
   das die Erklärung aufklappt.
-- [ ] **Schritt 3:** Die Untergruppen-Überschriften eindeutig machen. „Läuft noch" /
+- [x] **Schritt 3:** Die Untergruppen-Überschriften eindeutig machen. „Läuft noch" /
   „Abgeschlossen" mehrfach untereinander liest sich als Wiederholung — z. B. in die
   Kartenstruktur einrücken oder als Zähler formulieren („2 laufen noch", „5 abgeschlossen").
-- [ ] **Schritt 4:** Screenshot, Commit.
+- [x] **Schritt 4:** Screenshot, Commit.
 
 ## Task 4: „Was zuletzt passiert ist" — Firmennamen statt Ticker
 
@@ -154,22 +154,22 @@ hinschreiben."
 
 `V` = Visa, `UNH` = UnitedHealth. Für einen Einsteiger ist ein Ticker keine Information.
 
-- [ ] **Schritt 1 (Test zuerst):** `/api/evidence` liefert pro Alert-Row ein zusätzliches
+- [x] **Schritt 1 (Test zuerst):** `/api/evidence` liefert pro Alert-Row ein zusätzliches
   `name`-Feld. Test: ein Alert auf einem Watchlist-Ticker bekommt den Namen; ein Alert auf
   einem unbekannten Ticker bekommt `null` (und die UI zeigt dann den Ticker — **kein
   erfundener Name**).
-- [ ] **Schritt 2:** Namens-Lookup serverseitig: Watchlist-Entries und `load_run_scores`
+- [x] **Schritt 2:** Namens-Lookup serverseitig: Watchlist-Entries und `load_run_scores`
   des letzten Runs zu einem `{ticker: name}`-Dict zusammenführen. Beides ist bereits
   geladen bzw. billig; **kein** yfinance-Call im Request (das Projekt hat sich diese Regel
   mit dem 6-h-Cache in `fundamentals.py` erarbeitet).
-- [ ] **Schritt 3:** Frontend: `shortCompanyName(name)` nutzen (existiert in
+- [x] **Schritt 3:** Frontend: `shortCompanyName(name)` nutzen (existiert in
   `frontend/src/company.ts`), Ticker klein dahinter. Gleiche Darstellung wie die
   Aktienliste, damit dieselbe Firma überall gleich aussieht.
-- [ ] **Schritt 4:** Auch prüfen, ob der **Alert-Text selbst** verständlich ist. „2
+- [x] **Schritt 4:** Auch prüfen, ob der **Alert-Text selbst** verständlich ist. „2
   Kongress-Mitglieder haben gekauft" ist ok; andere Alert-Gründe (`reasons[0]`) können
   Fachjargon sein — Stichprobe über die letzten 20 Alerts ziehen und die kryptischen
   übersetzen.
-- [ ] **Schritt 5:** Gate, Screenshot, Commit.
+- [x] **Schritt 5:** Gate, Screenshot, Commit.
 
 ## Task 5: Inbox-Entscheidungen in eine Zeile
 
@@ -178,16 +178,16 @@ hinschreiben."
 Nico: „Bei den Entscheidungen kaufen, ablehnen und später fängt jedes Mal eine neue Zeile
 an. Sorg dafür, dass es in einer Zeile steht."
 
-- [ ] **Schritt 1: Ursache messen, nicht raten.** `.pitch-actions` ist `display:flex` ohne
+- [x] **Schritt 1: Ursache messen, nicht raten.** `.pitch-actions` ist `display:flex` ohne
   `flex-wrap`, und ein Mobile-Override wurde nicht gefunden — der Umbruch kommt also
   vermutlich aus der Button-Breite (seitliches Padding `var(--space-4)` = 24 px × 3) oder
   einem `flex-wrap` weiter oben in der Kaskade. Per `--dump-dom` bzw. Screenshot auf
   390 px verifizieren, welche Regel greift.
-- [ ] **Schritt 2:** Im Mobile-Block seitliches Padding reduzieren und `flex-wrap: nowrap`
+- [x] **Schritt 2:** Im Mobile-Block seitliches Padding reduzieren und `flex-wrap: nowrap`
   setzen; die drei Buttons als `flex: 1` gleich breit. 44 px Mindesthöhe bleibt Pflicht.
-- [ ] **Schritt 3:** Screenshot auf 390 px: eine Zeile, alle drei Labels vollständig
+- [x] **Schritt 3:** Screenshot auf 390 px: eine Zeile, alle drei Labels vollständig
   lesbar (nicht abgeschnitten), Tap-Ziele ≥ 44 px.
-- [ ] **Schritt 4:** Commit.
+- [x] **Schritt 4:** Commit.
 
 ## Task 6: Sortierung und Wording der Einstiegs-Bewertung
 

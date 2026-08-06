@@ -1045,7 +1045,7 @@ biased-but-working path with a loud warning rather than trading nothing.
 > timedelta(minutes=5)` — long enough to ride out a slow fetch, short enough that a dead
 > cron is caught inside one opening range.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_run_shortterm_alpaca.py`:
 
@@ -1140,12 +1140,12 @@ def test_a_stale_run_manages_positions_but_opens_nothing(tmp_path, monkeypatch):
 Both accessors exist as written: `shortterm_storage.get_lane_state:205` and
 `set_lane_state:214`, each taking `(db_path, lane, key[, value])`.
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `uv run pytest tests/test_run_shortterm_alpaca.py -v`
 Expected: FAIL — `AttributeError: module 'run_shortterm' has no attribute 'alpaca_fetch_bars'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Add the imports at the top of `scripts/run_shortterm.py` (aliased so tests can monkeypatch
 them on the module):
@@ -1327,17 +1327,17 @@ instead of `sell` directly — otherwise the nightly sweep would flatten the boo
 leaving the broker holding the position, which is precisely the divergence this design
 exists to prevent.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `uv run pytest tests/test_run_shortterm_alpaca.py tests/test_run_shortterm.py -v`
 Expected: all passed — the existing session tests must stay green on the yfinance path.
 
-- [ ] **Step 5: Run the full gate**
+- [x] **Step 5: Run the full gate**
 
 Run: `uv run pytest -q && uv run ruff check .`
 Expected: green, clean
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add scripts/run_shortterm.py tests/test_run_shortterm_alpaca.py
@@ -1363,7 +1363,7 @@ the kind of reference material that decision moved to the dashboard. The rule fr
 session applies — nothing leaves Telegram that the dashboard does not show — and here the
 dashboard shows it, so Telegram does not need to.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/test_api_shortterm.py` (match the file's existing client fixture and
 `shortterm.db` monkeypatching — read the top of the file first):
@@ -1390,12 +1390,12 @@ def test_lanes_without_the_marker_report_none(tmp_path, monkeypatch) -> None:
     assert all(lane["execution_regime"] is None for lane in payload["lanes"])
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `uv run pytest tests/test_api_shortterm.py -k regime -v`
 Expected: FAIL — `KeyError: 'execution_regime'`
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `scripts/run_shortterm.py`, next to `LAST_RUN_KEY`:
 
@@ -1432,12 +1432,12 @@ render, under the session lane's heading only when the field is set:
 `note` is the existing muted-text class in this codebase; confirm the class name against a
 neighbouring component rather than adding a new style.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `uv run pytest tests/test_api_shortterm.py -v && npm run typecheck --prefix frontend && npm run build --prefix frontend`
 Expected: passed, exit 0, build ok
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A
@@ -1504,14 +1504,14 @@ happened** (a fill, an order placed, a rejection, an error, or the session's fir
 run of the day). A run that looks at bars and decides nothing writes nothing. Add a test
 that asserts the quiet path produces no output.
 
-- [ ] **Step 2: Split the script**
+- [x] **Step 2: Split the script**
 
 `scripts/session_lane.sh` runs only the session lane, with its own lock file
 (`/tmp/equity-scout-session.lock`) so it can never be blocked by — or block — the slower
 chain. `scripts/intraday_copilot.sh` keeps radar, evidence and notify and loses the
 `st_session` step.
 
-- [ ] **Step 3: Cron**
+- [x] **Step 3: Cron**
 
 ```cron
 * * * * 1-5 flock -n /tmp/equity-scout-session.lock  <repo>/scripts/session_lane.sh  >> <repo>/session.log 2>&1
@@ -1523,13 +1523,13 @@ stacked. The `within_market_window` guard already keeps out-of-hours runs from d
 verify that it exits before any network call, otherwise the lane fetches bars 1,440 times a
 day for nothing.
 
-- [ ] **Step 4: Watchdog**
+- [x] **Step 4: Watchdog**
 
 `run_watchdog.py` was written against a 15-minute cadence. Update its expected gap for the
 session lane and confirm it does not alarm on ordinary skipped minutes — one missed minute
 is normal, ten in a row is not.
 
-- [ ] **Step 5: Verify on a live session, then commit**
+- [x] **Step 5: Verify on a live session, then commit**
 
 The day after: confirm from `session.log` that runs happened every minute inside the window
 and that the log is still readable. Record the measured entry latency — the gap between the
@@ -1570,8 +1570,73 @@ is the whole point of this plan; "it felt fast" is not a record.
    decision 1) is what keeps that honest.
 
 ## Outcome
+### Build round 2 — 2026-08-06, Tasks 6 + 7 + 9 and five defects only the live run showed
 
-_(to be filled after execution)_
+Precondition closed first: the density check had been **mismeasuring** the feed. It divided by
+the 60-minute window even when most of it lay before the opening bell, so a run 15 minutes
+after the open reported 25 % for a feed printing every single minute and sent a failure alert.
+Density is now measured against the session slots inside the window, and a window with fewer
+than 20 session minutes reports "not yet measurable" (exit 2, no marker) instead of condemning
+the feed. The 16:00 CEST cron slot then passed on its own: 1-minute ages 1.4-1.8 min, density
+green, order probes accepted and cancelled — `.state/alpaca_verified` written 16:00:13.
+
+Tasks 6, 7 and 9 are implemented. The lane now runs **every minute Mon-Fri** from its own
+script (`scripts/session_lane.sh`), its own lock and its own log (`session.log`); the copilot
+chain lost its `st_session` step. A run that decides nothing prints nothing — including the
+CLI header and the disclaimer, which alone would have added ~3,000 lines a day.
+
+**Five defects the live runs exposed, in the order they appeared:**
+
+1. **An exit was routed for a position that was never opened.** `decide` emits buy AND sell
+   for an entry bar that trades through its own stop. With entries blocked (run gap) only the
+   buy was dropped, so the lane asked the broker to close a position it did not hold
+   (`404 position not found: SPY`). An exit now requires the holding.
+2. **`pending_new` is the ONLY answer POST /v2/orders ever gives.** The "filled" branch was
+   therefore never reached in production: the first live run placed four bracket orders and
+   booked none of them — four positions the book knew nothing about, unmanaged by design. The
+   fill is now read back (`settle_or_cancel`), and an order that does not fill is CANCELLED
+   rather than left resting, because an unbooked resting order is the same problem one minute
+   later.
+3. **The book re-derived the quantity after the fill.** Alpaca rounds a bracket down to whole
+   shares, so the book held 4.59188 TSLA against the broker's 4. `buy(..., qty=)` now books
+   the quantity that actually filled.
+4. **Every exit would have failed.** A resting take-profit leg HOLDS the shares
+   (`403 … held_for_orders: 4`), and `close_position` did not cancel it first despite its
+   docstring — the fallback would then have booked the book flat while the broker kept the
+   position, the exact divergence this design exists to prevent. Legs are cancelled first now.
+   The exit price is also read back (`await_fill`, which never cancels — a flatten must go
+   through); before that, five exits were booked at their own entry price.
+5. **A partial fill split the two sides.** MSFT filled 1 of 2 shares first and the book took
+   the 1 while the broker went on to hold 2. The wait is now for a COMPLETE fill; a partial one
+   has its remainder cancelled and is re-read, so both sides end on the same quantity.
+
+**First measured slippage in this project's history** (entries 2026-08-06 10:34 ET):
+TSLA −17.4 bps, AMD −14.9 bps, QQQ −8.6 bps, AVGO −26.0 bps. All negative because the signal
+was 10:34 and the hand-run placed the order at 10:37 — the market fell in between. This is a
+latency artefact of a manual run, NOT evidence of good execution; the minute cron closes that
+gap to ~1 minute. The number is only meaningful from the first cron-placed entry onwards.
+
+**State touched deliberately, both documented:**
+- A cold-start guard was written to `last_session_run` before the first live run so
+  `may_open_new_position` was False and a breakout from before the switchover could not be
+  traded at the current price. `last_run=None` (a genuinely first run) still may open — that
+  is Task 5's decision and was left standing.
+- The five positions booked with wrong quantities were closed on both sides
+  (backup: `data/backup-2026-08-06-pre-qty-cleanup-shortterm.db`). Their exits are recorded at
+  their entry price because defect 4 was still open at that moment; the resulting book P&L for
+  them is 0 and the broker's real round-trip cost 2.63 USD is not in the lane's track. Both
+  sides verified empty and consistent afterwards.
+
+**Task 9 Step 4 (watchdog) is deliberately empty.** `watchdog.CHAIN_SLAS` only covers chains
+that write a heartbeat (daily, nightly, crypto); the session lane writes none, and a purely
+time-based SLA would alarm every weekend and holiday. Doing it properly needs the trading
+calendar — noted, not faked.
+
+**Still open:** Task 8 (README/PLAN.md/.env.example), and the verification the day after: read
+`session.log` for a full session and record the entry latency of a cron-placed fill (the gap
+between the triggering 1-minute bar and the order timestamp). Nico has to look at the phone
+cockpit once — the regime label is rendered but never seen on a real device.
+
 
 ### Precondition run 1 — 2026-08-05 20:50 UTC, market CLOSED
 
