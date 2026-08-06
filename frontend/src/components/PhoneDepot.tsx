@@ -11,8 +11,10 @@ import {
   type ShortTermTrade,
 } from "../api";
 import { ETF_NOTES, rowName } from "../etfs";
+import { closedLabel, LANE_NOTES, laneName, runningLabel } from "../lanes";
 import { StockLogo } from "./StockLogo";
 import { Chevron } from "./ui/Chevron";
+import { InfoIcon } from "./ui/InfoIcon";
 
 // The phone's answer to "what did my traders do?" — one switch at the top between the two
 // books, because they answer different questions and stacking both turned the screen into
@@ -28,6 +30,10 @@ import { Chevron } from "./ui/Chevron";
 
 // MUST stay equal to digest.MATERIAL_DELTA_WEIGHT (src/equity_scout/digest.py:34).
 const MATERIAL_DELTA_WEIGHT = 0.01;
+
+/** How many closed trades a lane lists. The heading counts all of them, so whenever this cuts
+ *  the list the row below says so — a count that disagrees with the list reads as a bug. */
+const CLOSED_TRADES_SHOWN = 6;
 
 type Book = "long" | "day";
 
@@ -317,51 +323,89 @@ function RebalanceList({ trades }: { trades: AutodepotTrade[] }) {
 
 /** One day-trading lane, split the way the question is actually asked (Nico 2026-08-06):
  *  what is still running and how it stands, then what is finished and what it made. */
+/** One lane as its own card. Three lanes with two sub-groups each produced six identical
+ *  headings on one screen (Nico 2026-08-06: "die sind noch nicht klar abgetrennt. Da steht
+ *  läuft noch, läuft noch zweimal"), so each lane now sits on its own surface, is named by
+ *  what it does, and explains its rules behind an ⓘ. */
 function LaneCard({ lane }: { lane: ShortTermLane }) {
+  const [explained, setExplained] = useState(false);
   const closed = (lane.recent_trades ?? []).filter(
     (t) => t.realized_pnl !== null && t.realized_pnl !== undefined,
   );
   const realised = closed.reduce((sum, t) => sum + (t.realized_pnl ?? 0), 0);
+  const note = LANE_NOTES[lane.lane];
 
   return (
-    <div className="pd-lane">
+    <section className="pd-lane">
+      {/* Name and figures on separate lines: with all four on one line the lane name pushed
+          the equity into a wrapped second row anyway, at an unpredictable position. */}
       <div className="pd-lane-head">
-        <b>{lane.lane}</b>
+        <b className="pd-lane-name">{laneName(lane.lane)}</b>
+        <button
+          className="pd-lane-info"
+          onClick={() => setExplained((o) => !o)}
+          aria-expanded={explained}
+          aria-label={`Erklären: ${laneName(lane.lane)}`}
+        >
+          <InfoIcon />
+        </button>
+      </div>
+      <div className="pd-lane-figures">
         <span className={`${toneOf(lane.total_return)} num`}>{pct(lane.total_return)}</span>
-        <span className="brief-muted num">{money(lane.equity)}</span>
+        <span className="brief-muted">seit Start</span>
+        <span className="brief-muted num pd-lane-equity">{money(lane.equity)}</span>
         {lane.promoted && <span className="pd-badge">handelt ein echtes Sleeve</span>}
       </div>
+      {explained && (
+        <p className="pd-lane-note">
+          {note ? (
+            <>
+              {note.what} <span className="brief-muted">Kurzname: {note.label}.</span>
+            </>
+          ) : (
+            "Für diese Lane ist keine Erklärung hinterlegt."
+          )}
+        </p>
+      )}
 
-      <h5 className="pd-group">Läuft noch</h5>
-      {lane.open_positions.length > 0 ? (
+      <h5 className="pd-group">{runningLabel(lane.open_positions.length)}</h5>
+      {lane.open_positions.length > 0 && (
         <ul className="pd-positions">
           {lane.open_positions.map((p) => (
             <OpenPosition key={p.ticker} position={p} />
           ))}
         </ul>
-      ) : (
-        <p className="brief-muted">keine offene Position</p>
       )}
 
       <h5 className="pd-group">
-        Abgeschlossen
+        {closedLabel(closed.length)}
         {closed.length > 0 && (
-          <span className={`${toneOf(realised)} pd-group-sum`}>
-            {realised >= 0 ? "+" : "−"}
-            {money(Math.abs(realised))}
+          <span className="pd-group-tail">
+            <span className={`${toneOf(realised)} pd-group-sum`}>
+              {realised >= 0 ? "+" : "−"}
+              {money(Math.abs(realised))}
+            </span>{" "}
+            realisiert
           </span>
         )}
       </h5>
-      {closed.length > 0 ? (
-        <ul className="pd-trades">
-          {closed.slice(0, 6).map((t, i) => (
-            <ClosedTrade key={`${t.executed_at}-${t.ticker}-${i}`} trade={t} />
-          ))}
-        </ul>
-      ) : (
-        <p className="brief-muted">noch nichts realisiert</p>
+      {closed.length > 0 && (
+        <>
+          <ul className="pd-trades">
+            {closed.slice(0, CLOSED_TRADES_SHOWN).map((t, i) => (
+              <ClosedTrade key={`${t.executed_at}-${t.ticker}-${i}`} trade={t} />
+            ))}
+          </ul>
+          {/* Never let the count and the list disagree in silence: the sum above covers all
+              of them, the list shows the newest few. */}
+          {closed.length > CLOSED_TRADES_SHOWN && (
+            <p className="brief-muted pd-trim">
+              die {CLOSED_TRADES_SHOWN} jüngsten von {closed.length} gezeigt
+            </p>
+          )}
+        </>
       )}
-    </div>
+    </section>
   );
 }
 

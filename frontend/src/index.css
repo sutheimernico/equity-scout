@@ -2624,16 +2624,61 @@ code {
   margin: var(--space-3) 0 var(--space-1);
   font-size: 0.82rem;
 }
+/* Own surface per lane, not a hairline: with a divider only, three lanes and their six
+   sub-headings read as one long list (2026-08-06 "die sind noch nicht klar abgetrennt"). */
 .pd-lane {
-  border-top: 1px solid var(--border-soft);
-  padding-top: var(--space-2);
-  margin-top: var(--space-2);
+  display: block;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-top: var(--space-3);
 }
 .pd-lane-head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  /* No wrap: the ⓘ belongs beside the name, and a wrapped icon left a stray line under it.
+     min-width:0 lets a long name wrap inside its own column instead. */
+  flex-wrap: nowrap;
+}
+.pd-lane-name {
+  min-width: 0;
+  font-size: 0.95rem;
+}
+.pd-lane-figures {
+  display: flex;
+  align-items: baseline;
   flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  font-size: 0.8rem;
+}
+.pd-lane-equity {
+  margin-left: auto;
+}
+.pd-lane-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 44 px tap target on a 16 px glyph: the icon is small, the reachable area is not. */
+  width: 44px;
+  height: 44px;
+  margin: -14px 0 -14px -10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.info-icon {
+  width: 1.05em;
+  height: 1.05em;
+}
+.pd-lane-note {
+  margin: var(--space-2) 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
 }
 .pd-badge {
   font-size: 0.66rem;
@@ -2933,6 +2978,18 @@ li.pd-alloc-row {
   text-transform: none;
   font-size: 0.82rem;
   font-weight: 600;
+}
+/* "+8" alone was a riddle; the word says what the number is. */
+.pd-group-tail {
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.pd-trim {
+  margin: var(--space-1) 0 0;
+  font-size: 0.72rem;
 }
 .pd-position {
   display: block;
