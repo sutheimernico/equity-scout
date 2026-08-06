@@ -20,7 +20,7 @@ Network code lives in `fetch_bars` alone and is faked in tests — same structur
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 import pandas as pd
 
@@ -29,6 +29,12 @@ from equity_scout.alpaca_broker import DATA_BASE, auth_headers
 RANGE_BAR_MINUTES = 15  # opening range
 TRIGGER_BAR_MINUTES = 1  # breakout trigger
 FEED = "iex"  # Basic plan: the API default (sip) answers 403
+
+# US regular session in New York wall-clock. The lane trades this window only, and — unlike
+# yfinance, which handed the other feed a regular-session-only frame for free — Alpaca
+# returns every print in the requested window, pre- and after-hours included.
+SESSION_OPEN = time(9, 30)
+SESSION_CLOSE = time(16, 0)
 
 
 class AlpacaDataError(RuntimeError):
@@ -72,6 +78,28 @@ def complete_bars(bars: pd.DataFrame, now: datetime, *, bar_minutes: int) -> pd.
         return bars
     ends = bars.index + pd.Timedelta(minutes=bar_minutes)
     return bars.loc[ends <= pd.Timestamp(now)]
+
+
+def regular_session_bars(
+    bars: pd.DataFrame, *, session_date: date | None = None
+) -> pd.DataFrame:
+    """Bars of ONE regular session (09:30-16:00 ET) — by default the newest day present.
+
+    This gate is what keeps `st_session.opening_range` meaningful: it takes the FIRST TWO
+    BARS of the frame it is handed, so on a raw Alpaca frame the "opening range" would be a
+    07:xx pre-market range on thin volume — and the lane's stop, target and position size all
+    derive from that number. Restricting to one day matters for the same reason: an 8-hour
+    window opened before the bell still reaches into yesterday's session.
+    """
+    if bars.empty:
+        return bars
+    times = bars.index.time
+    within = (times >= SESSION_OPEN) & (times < SESSION_CLOSE)
+    session_only = bars.loc[within]
+    if session_only.empty:
+        return session_only
+    day = session_date or session_only.index[-1].date()
+    return session_only.loc[session_only.index.date == day]
 
 
 def fetch_bars(

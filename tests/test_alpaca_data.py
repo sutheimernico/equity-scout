@@ -3,9 +3,10 @@ tz-aware America/New_York index, lowercase open/high/low/close columns. st_sessi
 must not be able to tell the two feeds apart."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
+import pandas as pd
 import pytest
 
 from equity_scout.alpaca_data import (
@@ -14,6 +15,7 @@ from equity_scout.alpaca_data import (
     AlpacaDataError,
     complete_bars,
     parse_bars,
+    regular_session_bars,
 )
 
 
@@ -80,3 +82,46 @@ def test_complete_bars_on_an_empty_frame_is_empty_not_an_error() -> None:
     empty = frames["AAPL"].iloc[:0]
     now = datetime(2026, 8, 4, 10, 0, tzinfo=ZoneInfo("America/New_York"))
     assert complete_bars(empty, now, bar_minutes=TRIGGER_BAR_MINUTES).empty
+
+
+NY = ZoneInfo("America/New_York")
+
+
+def _frame(*stamps: str) -> pd.DataFrame:
+    """Bars at the given New-York wall-clock times, one minute apart in intent."""
+    index = pd.DatetimeIndex([pd.Timestamp(s, tz=NY) for s in stamps])
+    return pd.DataFrame(
+        {"open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "volume": 1},
+        index=index,
+    )
+
+
+def test_regular_session_drops_the_premarket_prints() -> None:
+    """The gate that keeps `opening_range` meaningful.
+
+    yfinance handed the other feed a regular-session-only frame for free (period="1d",
+    prepost off). Alpaca returns every print in the requested window, and `st_session
+    .opening_range` takes the FIRST TWO BARS it is given — on a raw Alpaca frame that would
+    be a 07:xx pre-market range, and every stop and target derives from it.
+    """
+    bars = _frame("2026-08-04 07:15", "2026-08-04 09:29", "2026-08-04 09:30",
+                  "2026-08-04 09:31", "2026-08-04 16:00", "2026-08-04 18:30")
+    kept = regular_session_bars(bars)
+    assert [str(t.time()) for t in kept.index] == ["09:30:00", "09:31:00"]
+
+
+def test_regular_session_keeps_one_day_only() -> None:
+    """A multi-day window must not splice yesterday's tail onto today's opening range."""
+    bars = _frame("2026-08-03 15:55", "2026-08-04 09:30", "2026-08-04 09:31")
+    kept = regular_session_bars(bars)
+    assert [str(t.date()) for t in kept.index] == ["2026-08-04", "2026-08-04"]
+
+
+def test_regular_session_can_be_pinned_to_a_given_day() -> None:
+    bars = _frame("2026-08-03 09:30", "2026-08-04 09:30")
+    kept = regular_session_bars(bars, session_date=date(2026, 8, 3))
+    assert [str(t.date()) for t in kept.index] == ["2026-08-03"]
+
+
+def test_regular_session_on_an_empty_frame_is_empty_not_an_error() -> None:
+    assert regular_session_bars(pd.DataFrame()).empty

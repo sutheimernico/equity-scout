@@ -6,7 +6,13 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+import pandas as pd
+import pytest
+
 import scripts.run_shortterm as runner
+from equity_scout.alpaca_broker import BrokerOrder, BrokerPosition
+from equity_scout.alpaca_data import RANGE_BAR_MINUTES, TRIGGER_BAR_MINUTES
+from equity_scout.shortterm_storage import init_shortterm_db, load_executions, set_lane_state
 
 NY = ZoneInfo("America/New_York")
 may_open_new_position = runner.may_open_new_position
@@ -80,3 +86,153 @@ def test_the_first_run_of_the_day_is_reported_even_without_fills() -> None:
     """One anchor line per session proves the lane ran at all — otherwise a lane that died
     at 09:30 and a lane that simply found no setup look identical in the log."""
     assert runner.session_report_due(fills=[], first_run_of_day=True) is True
+
+
+# --- Task 6: the broker path inside run_session -------------------------------------------
+# Two resolutions, two roles (design decision 5): 15-minute bars build the opening range,
+# 1-minute bars carry the breakout trigger. The fakes below answer per resolution, exactly
+# as alpaca_data.fetch_bars does.
+
+
+def _range_bars() -> pd.DataFrame:
+    """09:30 + 09:45 -> opening range high 102, low 100."""
+    index = pd.date_range("2026-08-04 09:30", periods=2, freq="15min", tz=NY)
+    return pd.DataFrame(
+        {"open": [100.0, 101.0], "high": [102.0, 102.0], "low": [100.0, 100.5],
+         "close": [101.0, 101.5], "volume": [1000, 1000]},
+        index=index,
+    )
+
+
+def _trigger_bars() -> pd.DataFrame:
+    """The 10:02 bar closes at 103 — above the range high — and the 10:03 bar opens at 103,
+    which is the fill. Two bars lead in because `decide` treats the first two as the range."""
+    index = pd.date_range("2026-08-04 10:00", periods=4, freq="1min", tz=NY)
+    return pd.DataFrame(
+        {"open": [101.5, 101.8, 102.2, 103.0], "high": [101.9, 102.0, 103.2, 103.4],
+         "low": [101.4, 101.6, 102.1, 102.9], "close": [101.8, 102.0, 103.0, 103.2],
+         "volume": [500] * 4},
+        index=index,
+    )
+
+
+def _fake_feed(tickers, *, now, bar_minutes, **_kwargs):
+    frame = _range_bars() if bar_minutes == RANGE_BAR_MINUTES else _trigger_bars()
+    assert bar_minutes in (RANGE_BAR_MINUTES, TRIGGER_BAR_MINUTES)
+    return {"AAPL": frame}
+
+
+def test_a_breakout_places_a_bracket_order_and_books_the_broker_fill(tmp_path, monkeypatch):
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    placed: dict = {}
+
+    def fake_place(ticker, *, qty, stop_price, target_price):
+        placed.update(ticker=ticker, qty=qty, stop=stop_price, target=target_price)
+        return BrokerOrder(order_id="o1", status="filled", filled_qty=float(int(qty)),
+                           filled_avg_price=103.12)
+
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)
+    monkeypatch.setattr(runner, "place_bracket", fake_place)
+
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+
+    assert placed["ticker"] == "AAPL"
+    # entry 103.0, range 2.0 -> stop 102.0, target 105.0
+    assert placed["stop"] == pytest.approx(102.0)
+    assert placed["target"] == pytest.approx(105.0)
+    rows = load_executions(db_path, lane="session")
+    assert rows[0]["expected_price"] == pytest.approx(103.0)
+    # The MEASURED price is the broker's, not the signal's — this is the whole point.
+    assert rows[0]["actual_price"] == pytest.approx(103.12)
+
+
+def test_the_book_records_the_broker_price_not_the_signal_price(tmp_path, monkeypatch):
+    """Slippage is not modelled on top of a real fill: the broker price already contains it."""
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)
+    monkeypatch.setattr(runner, "place_bracket",
+                        lambda t, **k: BrokerOrder("o9", "filled", 1.0, 103.5))
+
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+
+    from equity_scout.shortterm_storage import load_book
+
+    book = load_book(db_path, "session")
+    assert book is not None
+    assert book.positions["AAPL"].entry_price == pytest.approx(103.5)
+
+
+def test_a_divergence_is_reported_and_does_not_silently_merge(tmp_path, monkeypatch, capsys):
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(
+        runner, "fetch_broker_positions",
+        lambda: {"TSLA": BrokerPosition("TSLA", 4.0, 330.0)},
+    )
+    monkeypatch.setattr(runner, "place_bracket",
+                        lambda t, **k: BrokerOrder("o2", "filled", 1.0, 103.0))
+
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+    captured = capsys.readouterr()
+    assert "ABWEICHUNG" in captured.err and "TSLA" in captured.err
+
+
+def test_a_stale_run_manages_positions_but_opens_nothing(tmp_path, monkeypatch):
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    set_lane_state(db_path, "session", runner.LAST_RUN_KEY,
+                   datetime(2026, 8, 4, 9, 0, tzinfo=NY).isoformat())
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("no entry may be placed after a run gap")
+
+    monkeypatch.setattr(runner, "place_bracket", refuse)
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+
+
+def test_a_rejected_order_leaves_the_book_flat(tmp_path, monkeypatch, capsys):
+    """A refused order must not leave a position the broker does not hold."""
+    from equity_scout.alpaca_broker import AlpacaBrokerError
+    from equity_scout.shortterm_storage import load_book
+
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)
+
+    def reject(*args, **kwargs):
+        raise AlpacaBrokerError("insufficient buying power")
+
+    monkeypatch.setattr(runner, "place_bracket", reject)
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+
+    book = load_book(db_path, "session")
+    assert book is None or book.positions == {}
+    assert "abgelehnt" in capsys.readouterr().err.lower()
+
+
+def test_missing_keys_fall_back_to_yfinance_loudly(tmp_path, monkeypatch, capsys):
+    """A broken key must degrade to the old path, not stop the lane silently."""
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    monkeypatch.delenv("ALPACA_API_KEY_ID", raising=False)
+    monkeypatch.setattr(runner, "fetch_bars", lambda tickers: {})
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("the Alpaca feed must not be called without keys")
+
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", forbidden)
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+    assert "yfinance" in capsys.readouterr().err

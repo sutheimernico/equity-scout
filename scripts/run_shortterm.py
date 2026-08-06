@@ -15,8 +15,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 from datetime import datetime, timedelta, timezone
 
+from equity_scout.alpaca_broker import (
+    AlpacaBrokerError,
+    close_position,
+)
+from equity_scout.alpaca_broker import fetch_positions as fetch_broker_positions
+from equity_scout.alpaca_broker import place_bracket
+from equity_scout.alpaca_data import (
+    RANGE_BAR_MINUTES,
+    TRIGGER_BAR_MINUTES,
+    complete_bars,
+    regular_session_bars,
+)
+from equity_scout.alpaca_data import fetch_bars as alpaca_fetch_bars
 from equity_scout.constants import DEFAULT_DB_PATH, DISCLAIMER
 from equity_scout.data.etf_panel import load_price_history
 from equity_scout.evidence.event_storage import load_classified_events
@@ -30,17 +45,25 @@ from equity_scout.shortterm_book import (
     sell,
     valuation,
 )
+from equity_scout.session_reconcile import reconcile
 from equity_scout.shortterm_storage import (
     DEFAULT_SHORTTERM_DB_PATH,
     get_lane_state,
     load_book,
     persist_lane_step,
+    record_execution,
 )
 from equity_scout.state_storage import record_heartbeat
 from equity_scout.st_crypto import ENTRY_FRACTION as CRYPTO_FRACTION
 from equity_scout.st_crypto import decide_pair
 from equity_scout.st_session import ENTRY_FRACTION as SESSION_FRACTION
-from equity_scout.st_session import decide, opening_range
+from equity_scout.st_session import (
+    STOP_RANGE_MULT,
+    TARGET_RANGE_MULT,
+    SessionAction,
+    decide,
+    opening_range,
+)
 from equity_scout.st_swing import ENTRY_FRACTION as SWING_FRACTION
 from equity_scout.st_swing import MAX_POSITIONS, check_exits, pick_entries
 
@@ -157,23 +180,138 @@ def may_open_new_position(
     return timedelta(0) <= now - datetime.fromisoformat(last_run) <= max_gap
 
 
-def _session_overnight_sweep(db: str, book: LaneBook, *, now: datetime) -> None:
+def _session_bars(tickers: list[str], *, now: datetime, feed: str) -> tuple[dict, dict, object]:
+    """(trigger bars, range bars, gate) for the requested feed.
+
+    Alpaca answers two resolutions — 1-minute bars carry the breakout trigger, 15-minute bars
+    build the opening range (design decision 5) — and BOTH are cut down to the current regular
+    session first: `opening_range` reads the first two bars it is handed, so an unfiltered
+    Alpaca frame would hand it a thin pre-market range and every stop and target would follow
+    from that. yfinance gets this for free (period="1d", prepost off) and keeps one resolution.
+    """
+    if feed != "alpaca":
+        bars = fetch_bars(tickers)
+        return bars, bars, lambda frame: settled_bars(frame, now)
+    trigger = {
+        ticker: regular_session_bars(frame)
+        for ticker, frame in alpaca_fetch_bars(
+            tickers, now=now, bar_minutes=TRIGGER_BAR_MINUTES
+        ).items()
+    }
+    ranges = {
+        ticker: regular_session_bars(frame)
+        for ticker, frame in alpaca_fetch_bars(
+            tickers, now=now, bar_minutes=RANGE_BAR_MINUTES
+        ).items()
+    }
+    return (
+        {ticker: frame for ticker, frame in trigger.items() if not frame.empty},
+        ranges,
+        lambda frame: complete_bars(frame, now, bar_minutes=TRIGGER_BAR_MINUTES),
+    )
+
+
+def _opening_range_of(bars, *, now: datetime, feed: str) -> tuple[float, float] | None:
+    """The opening range from the resolution that owns it, gated by that resolution's own
+    completeness rule (a 15-minute bar is complete 15 minutes after it started, not 1)."""
+    if bars is None or bars.empty:
+        return None
+    gated = (
+        complete_bars(bars, now, bar_minutes=RANGE_BAR_MINUTES)
+        if feed == "alpaca"
+        else settled_bars(bars, now)
+    )
+    return opening_range(gated)
+
+
+def _open_position(db: str, book: LaneBook, action, *, or_range: tuple[float, float],
+                   feed: str) -> tuple[LaneBook, object]:
+    """Size locally, then either route the order to the broker or book it simulated.
+
+    On the Alpaca path the fill price comes from the BROKER and no slippage is modelled on
+    top of it — the broker price already contains the real thing, and booking the estimate as
+    well would charge the lane twice for the same cost.
+    """
+    if feed != "alpaca":
+        return buy(book, action.ticker, action.price, action.at,
+                   fraction=SESSION_FRACTION, reason=action.reason)
+
+    or_high, or_low = or_range
+    range_size = or_high - or_low
+    # Size against a probe book, so a rejected order leaves the real book untouched.
+    probe, _ = buy(book, action.ticker, action.price, action.at,
+                   fraction=SESSION_FRACTION, reason=action.reason)
+    intended = probe.positions.get(action.ticker)
+    if intended is None:
+        return book, None
+    try:
+        order = place_bracket(
+            action.ticker,
+            qty=intended.qty,
+            stop_price=action.price - STOP_RANGE_MULT * range_size,
+            target_price=action.price + TARGET_RANGE_MULT * range_size,
+        )
+    except AlpacaBrokerError as error:
+        print(f"Order abgelehnt ({action.ticker}): {error}", file=sys.stderr)
+        return book, None
+    if not order.filled_qty or order.filled_avg_price is None:
+        print(f"Order {order.order_id} ({action.ticker}) noch nicht ausgefuehrt "
+              f"(status={order.status}) — Buchung erfolgt im naechsten Lauf.", file=sys.stderr)
+        return book, None
+    record_execution(db, lane="session", ticker=action.ticker, side="buy",
+                     signalled_at=action.at, expected_price=action.price,
+                     actual_price=order.filled_avg_price, qty=order.filled_qty,
+                     order_id=order.order_id)
+    return buy(book, action.ticker, order.filled_avg_price, action.at,
+               fraction=SESSION_FRACTION, reason=action.reason, slippage_bps=0.0)
+
+
+def _close_position(db: str, book: LaneBook, action, *, feed: str) -> tuple[LaneBook, object]:
+    """Exits on the Alpaca path may already have happened in the market — the bracket legs
+    fire without us. Closing is therefore best-effort: a 'position not found' is the normal
+    case after a stop or target triggered, not an error."""
+    if feed != "alpaca":
+        return sell(book, action.ticker, action.price, action.at, reason=action.reason)
+    price = action.price
+    try:
+        order = close_position(action.ticker)
+        price = order.filled_avg_price or action.price
+        record_execution(db, lane="session", ticker=action.ticker, side="sell",
+                         signalled_at=action.at, expected_price=action.price,
+                         actual_price=order.filled_avg_price, qty=order.filled_qty,
+                         order_id=order.order_id)
+    except AlpacaBrokerError as error:
+        print(f"Schliessen ueber Broker fehlgeschlagen ({action.ticker}): {error} — "
+              f"Buch wird zum Signalpreis geschlossen, Abweichung im naechsten Abgleich.",
+              file=sys.stderr)
+    return sell(book, action.ticker, price, action.at, reason=action.reason, slippage_bps=0.0)
+
+
+def _session_overnight_sweep(db: str, book: LaneBook, *, now: datetime,
+                             feed: str = "yfinance") -> None:
     """Flatten anything still open once the session is over. The last session bar (15:45 ET)
     is not yet 'settled' when the final intraday run fires, so a position entered late can
     slip past the in-session force-flat — this sweep (called by the nightly chain) closes it
-    at the last settled close. The lane must NEVER hold overnight."""
-    all_bars = fetch_bars(list(book.positions))
+    at the last settled close. The lane must NEVER hold overnight.
+
+    Goes through the broker on the Alpaca path: flattening the book while the broker keeps the
+    position is exactly the divergence this design exists to prevent."""
+    all_bars, _, gate = _session_bars(list(book.positions), now=now, feed=feed)
     fills = []
     prices: dict[str, float] = {}
     for ticker in list(book.positions):
         bars = all_bars.get(ticker)
-        settled = settled_bars(bars, now) if bars is not None else None
+        settled = gate(bars) if bars is not None else None
         if settled is None or settled.empty:
             continue  # no price, no trade — retried on the next sweep
         price = float(settled["close"].iloc[-1])
         prices[ticker] = price
-        book, fill = sell(book, ticker, price, settled.index[-1].isoformat(),
-                          reason="Session-Ende (Nachlauf)")
+        book, fill = _close_position(
+            db, book,
+            SessionAction("sell", ticker, price, settled.index[-1].isoformat(),
+                          "Session-Ende (Nachlauf)"),
+            feed=feed,
+        )
         if fill:
             fills.append(fill)
     if not fills:
@@ -187,19 +325,20 @@ def _session_overnight_sweep(db: str, book: LaneBook, *, now: datetime) -> None:
 
 
 def _flatten_stale_positions(
-    book: LaneBook, all_bars: dict, session_date: str, now: datetime,
+    book: LaneBook, all_bars: dict, session_date: str, now: datetime, gate=None,
 ) -> tuple[LaneBook, list]:
     """Close any position carried over from a previous day BEFORE decide() runs (P0,
     review 2026-07-20): after an outage the overnight sweep may never have fired, and
     decide() would otherwise manage the stale position with TODAY's opening range —
     stop/target become arbitrary. Fill = open of today's first settled bar (the first
     knowable price of the session); no bars yet -> left for a later run / the sweep."""
+    gate = gate or (lambda frame: settled_bars(frame, now))
     fills = []
     for ticker, position in list(book.positions.items()):
         if position.opened_at[:10] == session_date:
             continue
         bars = all_bars.get(ticker)
-        settled = settled_bars(bars, now) if bars is not None else None
+        settled = gate(bars) if bars is not None else None
         if settled is None or settled.empty:
             continue
         book, fill = sell(book, ticker, float(settled["open"].iloc[0]),
@@ -209,35 +348,61 @@ def _flatten_stale_positions(
     return book, fills
 
 
-def run_session(db: str, *, now: datetime) -> None:
+def run_session(db: str, *, now: datetime, feed: str = "alpaca") -> None:
+    """One session-lane step. `feed="alpaca"` routes real bracket orders on the paper account
+    and books the BROKER's fill price; `feed="yfinance"` is the old, delayed, simulated path,
+    kept reachable so a broken key degrades the lane loudly instead of stopping it."""
+    if feed == "alpaca" and not os.getenv("ALPACA_API_KEY_ID"):
+        print("WARN Alpaca-Keys fehlen — Session-Lane faellt auf yfinance zurueck "
+              "(verzoegerte Bars, Executability-Bias).", file=sys.stderr)
+        feed = "yfinance"
+
     if not within_market_window(now):
         book = load_book(db, "session")
         if book is not None and book.positions:
-            _session_overnight_sweep(db, book, now=now)
+            _session_overnight_sweep(db, book, now=now, feed=feed)
         # Silent otherwise: outside the window with a flat book is the normal state for
         # most of the day, and on a one-minute cron it would be ~1,380 lines of it.
         return
     book = load_book(db, "session") or LaneBook.fresh("session", benchmark_ticker="SPY")
     state = json.loads(get_lane_state(db, "session", SESSION_STATE_KEY) or "{}")
     # include held tickers: a stale position must be flattenable even if it left the universe
-    all_bars = fetch_bars(sorted({*SESSION_UNIVERSE, *book.positions}))
+    tickers = sorted({*SESSION_UNIVERSE, *book.positions})
+    all_bars, range_bars, gate = _session_bars(tickers, now=now, feed=feed)
+    if feed == "alpaca":
+        # The broker is the truth. A divergence is reported, never silently merged — a
+        # position the book does not know about would be managed by nobody.
+        for divergence in reconcile(book, fetch_broker_positions()):
+            print(f"ABWEICHUNG {divergence.describe()} — Buch und Broker laufen auseinander.",
+                  file=sys.stderr)
     if not all_bars:
         print("Keine Intraday-Bars verfügbar — Lauf übersprungen.")
         return
+
+    may_open = may_open_new_position(
+        last_run=get_lane_state(db, "session", LAST_RUN_KEY), now=now
+    )
+    if not may_open:
+        print("Lücke seit dem letzten Lauf — nur Bestandsführung, keine neuen Einstiege.",
+              file=sys.stderr)
 
     session_date = next(iter(all_bars.values())).index[0].date().isoformat()
     first_run_of_day = state.get("date") != session_date
     if first_run_of_day:
         state = {"date": session_date, "last_bar": {}, "ranges": {}, "traded": []}
 
-    book, fills = _flatten_stale_positions(book, all_bars, session_date, now)
+    book, fills = _flatten_stale_positions(book, all_bars, session_date, now, gate=gate)
     prices: dict[str, float] = {}
     for ticker, bars in all_bars.items():
-        settled = settled_bars(bars, now)
+        settled = gate(bars)
         if settled.empty:
             continue
         prices[ticker] = float(settled["close"].iloc[-1])
-        or_range = state["ranges"].get(ticker) or opening_range(settled)
+        # The range comes from the 15-minute bars on the Alpaca path, the trigger from the
+        # 1-minute bars above — mixing them up would build the range from one minute of trade.
+        or_range = state["ranges"].get(ticker) or _opening_range_of(
+            range_bars.get(ticker), now=now, feed=feed
+        )
         if or_range is None:
             continue
         state["ranges"][ticker] = list(or_range)
@@ -249,12 +414,14 @@ def run_session(db: str, *, now: datetime) -> None:
         )
         for action in actions:
             if action.kind == "buy":
-                book, fill = buy(book, ticker, action.price, action.at,
-                                 fraction=SESSION_FRACTION, reason=action.reason)
+                if not may_open:
+                    continue
+                book, fill = _open_position(db, book, action, or_range=tuple(or_range),
+                                            feed=feed)
                 if fill:
                     state["traded"].append(ticker)
             else:
-                book, fill = sell(book, ticker, action.price, action.at, reason=action.reason)
+                book, fill = _close_position(db, book, action, feed=feed)
             if fill:
                 fills.append(fill)
         if new_marker:
@@ -264,7 +431,8 @@ def run_session(db: str, *, now: datetime) -> None:
     snap = valuation(book, prices, prices.get("SPY"), _hour_stamp(now))
     persist_lane_step(db, book, updated_at=now.isoformat(timespec="seconds"),
                       trades=fills, valuation=snap,
-                      state=[(SESSION_STATE_KEY, json.dumps(state))])
+                      state=[(SESSION_STATE_KEY, json.dumps(state)),
+                             (LAST_RUN_KEY, now.isoformat())])
     if session_report_due(fills=fills, first_run_of_day=first_run_of_day):
         print(f"Session {session_date}: Equity {snap.equity:,.2f} ({snap.total_return:+.2%}), "
               f"{len(book.positions)} offen, {len(fills)} Fills")
