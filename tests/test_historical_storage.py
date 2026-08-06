@@ -166,6 +166,13 @@ def test_mark_resolved_is_per_column_one_way(tmp_path):
     assert row["r_6m"] is None
 
     later = "2026-09-10T00:00:00+00:00"
+    # A write MIXING an already-filled column with a genuinely new one is refused WHOLE —
+    # the new column must not sneak in while the conflicting one blocks the call.
+    assert not mark_resolved(db, event_id, {"r_1w": -0.9, "r_1m": 0.5}, now=later)
+    row = unresolved_events(db)[0]
+    assert row["r_1w"] == 0.11  # untouched by the refused call
+    assert row["r_1m"] is None  # NOT written despite being a fresh column in that call
+
     assert mark_resolved(db, event_id, {"r_1m": 0.02, "r_3m": 0.03, "r_6m": 0.04}, now=later)
     assert unresolved_events(db) == []  # all five now filled -> fully resolved
 

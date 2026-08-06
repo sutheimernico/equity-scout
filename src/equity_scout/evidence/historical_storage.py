@@ -10,11 +10,15 @@ elapsed, so returns are resolved in place as nullable columns on the event row.
 Resolution is PER-COLUMN one-way, not row-level: each r_* horizon column may be written
 exactly once via `mark_resolved` (a call touching an already-filled column is refused
 whole — nothing is written), because young events only have some windows elapsed yet
-(Task 5 fills the rest once later runs catch up). `resolved_at` means FULLY resolved when
-set by `mark_resolved` — only once all five r_* columns are non-NULL, never on a partial
-write. `mark_unresolvable` is the parallel terminal transition for rows that can never be
-resolved (delisted ticker, panel gap, ...); once a row is unresolvable, `mark_resolved`
-refuses any further write to it.
+(Task 5 fills the rest once later runs catch up). `resolved_at` is set by EITHER terminal
+transition: `mark_resolved` sets it only once all five r_* columns are non-NULL (never on
+a partial write), `mark_unresolvable` sets it immediately as its own terminal timestamp.
+Consumers therefore never read `resolved_at` alone as "fully measured" — always combined
+with `unresolvable = 0` (as `unresolved_events` already does), the same guard that lets
+`mark_unresolvable` fire on a row with some r_* values already written and keep them: a
+partially-measured event later found to be delisted stays partially measured, by design —
+its existing horizons are real, only the remaining ones are now unreachable. Once a row is
+unresolvable, `mark_resolved` refuses any further write to it.
 
 Connections go through equity_scout.db.connect (WAL + 30s busy timeout), not a bare
 sqlite3.connect: this table lives in equity_scout.db, which a minutely writer (session
@@ -204,6 +208,13 @@ def mark_resolved(
 
 def mark_unresolvable(db_path: str, event_id: int, reason: str, *, now: str) -> bool:
     """One guarded open->unresolvable transition (ticker delisted, panel gap, ...).
+
+    Also writes `resolved_at = now` as this row's terminal timestamp — same column
+    `mark_resolved` uses for "fully resolved", so callers must never read `resolved_at`
+    alone to mean that; always combine it with `unresolvable = 0` (Decision 3). Any r_*
+    values already written by earlier `mark_resolved` calls are left untouched: a
+    partially-measured event that later turns out to be delisted stays partially
+    measured, by design.
 
     Returns False (no-op) if the row is already resolved or already marked unresolvable —
     the first transition stands. Raises ValueError for an unknown event id.
