@@ -1505,6 +1505,11 @@ code {
 .pitch-actions {
   display: flex;
   gap: var(--space-2);
+  /* Measured at 360 px (Nico's phone) on 2026-08-06: the three buttons DID share one line,
+     but flex shrank them below their label width and `.view * { overflow-wrap: anywhere }`
+     broke the words — "Kaufe/n", "Ablehn/en", "Spät/er". That is what "fängt jedes Mal eine
+     neue Zeile an" was. So: never wrap the row, never wrap a label, share the width evenly. */
+  flex-wrap: nowrap;
 }
 .pitch-btn {
   appearance: none;
@@ -1513,6 +1518,9 @@ code {
   font-size: var(--text-sm);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-pill);
+  flex: 1;
+  min-height: 44px;
+  white-space: nowrap;
   border: 1px solid var(--border-strong);
   background: transparent;
   color: var(--text-secondary);
@@ -3044,6 +3052,13 @@ li.pd-alloc-row {
 
 /* Rounder corners across the phone surfaces (2026-08-06). The old 8–14 px mix read as
    several different components stacked; one scale ties them together. */
+@media (max-width: 720px) {
+  /* Narrow phones: buy back the side padding so three labels fit without shrinking. */
+  .pitch-btn {
+    padding: var(--space-2) var(--space-2);
+  }
+}
+
 @media (max-width: 720px) {
   .panel,
   .strat-block,
