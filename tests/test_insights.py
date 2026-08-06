@@ -177,3 +177,57 @@ def test_downsample_drops_the_date_of_a_dropped_nan_close():
     out = downsample_closes(dates, [10.0, float("nan"), 12.0], points=60)
     assert out["closes"] == [10.0, 12.0]
     assert out["dates"] == ["2025-08-05", "2026-08-05"]
+
+
+# --- German headline bullets (2026-08-06) ----------------------------------------
+
+def test_headline_question_asks_for_one_german_line_per_item():
+    from equity_scout.insights import HEADLINES_QUESTION
+
+    assert "deutsch" in HEADLINES_QUESTION.lower()
+    # One line per headline, numbered, so the mapping back to the source stays checkable.
+    assert "zeile" in HEADLINES_QUESTION.lower()
+
+
+def test_split_bullets_returns_one_entry_per_line():
+    from equity_scout.insights import split_bullets
+
+    raw = "1. Gewinnwarnung belastet die Aktie\n2. Analysten senken das Kursziel"
+    assert split_bullets(raw, 2) == [
+        "Gewinnwarnung belastet die Aktie",
+        "Analysten senken das Kursziel",
+    ]
+
+
+def test_split_bullets_strips_dashes_and_markdown():
+    from equity_scout.insights import split_bullets
+
+    raw = "- **Erstes Thema**\n* Zweites Thema"
+    assert split_bullets(raw, 2) == ["Erstes Thema", "Zweites Thema"]
+
+
+def test_split_bullets_never_returns_more_than_the_source_count():
+    """The model sometimes invents an extra line; a bullet without a source headline
+    would be an unattributable claim on a finance card."""
+    from equity_scout.insights import split_bullets
+
+    raw = "1. Eins\n2. Zwei\n3. Drei erfunden"
+    assert len(split_bullets(raw, 2)) == 2
+
+
+def test_split_bullets_returns_empty_for_junk():
+    from equity_scout.insights import split_bullets
+
+    assert split_bullets("", 3) == []
+    assert split_bullets("   \n  ", 3) == []
+
+
+def test_split_bullets_drops_a_line_that_fell_back_to_another_script():
+    """qwen2.5 answered the translation prompt in Chinese ("Yamato Holdings第一财季收益改善
+    有限股价延续下滑", measured 2026-08-06) — a Chinese-trained model reverting to its
+    training language. The prompt now forbids it, but a card must never be able to show
+    CJK text, so the line is dropped and the English original shows instead."""
+    from equity_scout.insights import split_bullets
+
+    raw = "1. Gewinnwarnung belastet die Aktie\n2. Yamato Holdings第一财季收益改善有限"
+    assert split_bullets(raw, 2) == ["Gewinnwarnung belastet die Aktie"]

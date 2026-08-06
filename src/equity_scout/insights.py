@@ -41,6 +41,15 @@ NEWS_QUESTION = (
     "Antworte nur mit der Zusammenfassung selbst, ohne Einleitung."
 )
 
+HEADLINES_QUESTION = (
+    "Uebersetze und kuerze jede der unten numerierten Schlagzeilen in EINE knappe Zeile in "
+    "DEUTSCHER Sprache (maximal 12 Woerter). Antworte AUSSCHLIESSLICH auf Deutsch mit "
+    "lateinischen Buchstaben - niemals auf Englisch, Chinesisch oder in einer anderen "
+    "Sprache. Gib genau so viele Zeilen aus, wie unten Schlagzeilen stehen, in derselben "
+    "Reihenfolge, jede mit ihrer Nummer. Keine Prognose, kein Kursziel, keine Empfehlung, "
+    "keine Einleitung."
+)
+
 # A 7B model announces itself before answering. These are the openers observed in
 # practice; the pattern is anchored at the start and only fires when a colon follows,
 # so a legitimate sentence containing "Zusammenfassung" survives.
@@ -151,3 +160,28 @@ def downsample_closes(
         "dates": [d.date().isoformat() for d, _ in pairs],
         "closes": [c for _, c in pairs],
     }
+
+
+# Leading list markers a model emits: "1.", "1)", "-", "*", "•".
+_BULLET_PREFIX = re.compile(r"^\s*(?:\d+[.)]\s*|[-*•–]\s*)+")
+
+# CJK ranges. qwen2.5 is Chinese-trained and answered the German translation prompt in
+# Chinese (measured 2026-08-06); the prompt now forbids it, but a belt-and-braces filter
+# is cheap and a phone card must never be able to show text the reader cannot read.
+_CJK = re.compile(r"[\u3000-\u9fff\uff00-\uffef]")
+
+
+def split_bullets(raw: str, max_items: int) -> list[str]:
+    """One cleaned line per source headline, capped at `max_items`.
+
+    The cap is load-bearing: a 7B model happily adds a line that no headline supports, and
+    an unattributable claim on a finance card is worse than one bullet fewer. Order is the
+    model's, which the prompt pins to the source order, so bullet N still traces to
+    headline N.
+    """
+    lines: list[str] = []
+    for line in (raw or "").splitlines():
+        cleaned = _MARKDOWN.sub("", _BULLET_PREFIX.sub("", line)).strip()
+        if cleaned and not _CJK.search(cleaned):
+            lines.append(cleaned)
+    return lines[:max_items]

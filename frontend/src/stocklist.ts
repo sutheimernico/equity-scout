@@ -22,7 +22,15 @@ export interface Sections {
 }
 
 export function splitSections(briefs: StockBrief[]): Sections {
-  const inZone = briefs.filter((b) => b.in_zone).sort((a, b) => b.score - a.score);
+  // Sorted by POTENTIAL, not by our score (2026-08-06). Sorting by score put Yamato at
+  // −7 % in row one and Nico's reaction was the right one: "dann ist ja scheiße, warum
+  // sollte ich die Aktie dann kaufen?" Being in the entry zone says the timing is fine, it
+  // does not say the stock is worth buying — so a title the analysts see no room in
+  // belongs at the bottom of the section, not at the top. It stays visible because our own
+  // signal did flag it and hiding a disagreement would be dishonest.
+  const inZone = briefs
+    .filter((b) => b.in_zone)
+    .sort((a, b) => (b.analyst_upside_pct ?? -999) - (a.analyst_upside_pct ?? -999));
 
   const potential = briefs
     .filter((b) => !b.in_zone)

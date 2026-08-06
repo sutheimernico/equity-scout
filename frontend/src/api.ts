@@ -997,6 +997,9 @@ export interface StockInsight {
   business: string | null;
   news_summary: string | null;
   headlines: string[];
+  /** One short German line per headline. Empty for rows generated before this existed —
+   *  the card then falls back to the English originals. */
+  headlines_de: string[];
   model: string | null;
 }
 

@@ -15,13 +15,31 @@ function brief(over: Partial<StockBrief>): StockBrief {
 }
 
 describe("splitSections", () => {
-  it("puts in-zone stocks in the entry section, best score first", () => {
+  it("puts in-zone stocks in the entry section, best potential first", () => {
     const { inZone } = splitSections([
-      brief({ ticker: "LOW", in_zone: true, score: 30 }),
-      brief({ ticker: "HIGH", in_zone: true, score: 60 }),
-      brief({ ticker: "OUT", in_zone: false, score: 90 }),
+      brief({ ticker: "LOW", in_zone: true, analyst_upside_pct: 5 }),
+      brief({ ticker: "HIGH", in_zone: true, analyst_upside_pct: 20 }),
+      brief({ ticker: "OUT", in_zone: false, analyst_upside_pct: 90 }),
     ]);
     expect(inZone.map((b) => b.ticker)).toEqual(["HIGH", "LOW"]);
+  });
+
+  it("sinks an in-zone stock the analysts see no room in", () => {
+    // Being in the zone is a timing statement, not a reason to buy — so a negative
+    // potential goes last instead of leading the section.
+    const { inZone } = splitSections([
+      brief({ ticker: "NEG", in_zone: true, analyst_upside_pct: -7 }),
+      brief({ ticker: "POS", in_zone: true, analyst_upside_pct: 15 }),
+    ]);
+    expect(inZone.map((b) => b.ticker)).toEqual(["POS", "NEG"]);
+  });
+
+  it("puts an in-zone stock without coverage last, not first", () => {
+    const { inZone } = splitSections([
+      brief({ ticker: "NONE", in_zone: true, analyst_upside_pct: null }),
+      brief({ ticker: "SOME", in_zone: true, analyst_upside_pct: 2 }),
+    ]);
+    expect(inZone.map((b) => b.ticker)).toEqual(["SOME", "NONE"]);
   });
 
   it("ranks the potential section by upside, highest first", () => {

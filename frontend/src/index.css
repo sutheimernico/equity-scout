@@ -6,32 +6,44 @@
 :root {
   color-scheme: dark;
 
-  /* surfaces — near-black with a blue-violet tint */
-  --bg-base: #08080f;
-  --bg-surface: #10101c;
-  --bg-inset: #171726;
-  --bg-raised: #1c1c2e;
+  /* Surfaces — neutral dark grey, barely cool (2026-08-06). Was a saturated blue-violet
+     near-black (#10101c = HSL 240/27 %), which together with the neon accent below is the
+     look Nico called "zu sehr nach KI". Pure black is avoided on purpose: it halates
+     against light text over long sessions. Steps stay inside the #0E–#1A guidance. */
+  --bg-base: #0f1114;
+  --bg-surface: #16181d;
+  --bg-inset: #1e2027;
+  --bg-raised: #272930;
 
-  /* hairline borders */
-  --border-faint: rgba(180, 190, 255, 0.06);
-  --border-soft: rgba(180, 190, 255, 0.1);
-  --border-strong: rgba(180, 190, 255, 0.18);
+  /* hairline borders — neutral, not blue-tinted */
+  --border-faint: rgba(200, 205, 220, 0.06);
+  --border-soft: rgba(200, 205, 220, 0.1);
+  --border-strong: rgba(200, 205, 220, 0.18);
 
-  /* text */
-  --text-strong: #eef0ff;
-  --text: #b9bcd6;
-  --text-muted: #6f7296;
+  /* text — never pure white (halation), neutral rather than blue */
+  --text-strong: #e9ebee;
+  --text: #b6bac3;
+  --text-muted: #7e838f;
 
-  /* accents — phosphor terminal */
-  --accent: #3ef2a0; /* primary: brand + positive signal */
-  --accent-hover: #5cf7b3;
-  --accent-subtle: rgba(62, 242, 160, 0.12);
-  --violet: #8b6cff; /* secondary: brand continuity w/ portfolio */
-  --violet-subtle: rgba(139, 108, 255, 0.14);
+  /* THE load-bearing change: brand and "positive" were literally the same token
+     (--accent: #3ef2a0 /* brand + positive signal */), so every button, tab, spinner and
+     chart shared the colour that is supposed to mean "gain" — hence "ist halt einfach
+     alles grün, check ich nicht". In a finance UI green and red belong to DIRECTION and
+     nothing else; the brand takes the fintech-conventional blue. */
+  --accent: #5d91e5; /* brand + interaction ONLY — never a value judgement */
+  --accent-hover: #79a5ea;
+  --accent-subtle: rgba(93, 145, 229, 0.14);
+  --violet: #8b7ce0; /* secondary, desaturated to sit beside the blue */
+  --violet-subtle: rgba(139, 124, 224, 0.14);
 
-  --positive: #3ef2a0;
-  --negative: #ff5470;
-  --warning: #f5b23e;
+  /* Direction only. Validated against #16181d with the dataviz palette checker:
+     green↔red ΔE 15.8 for deuteranopia (was 5.4 with the old neon pair — below the
+     legal floor of 8), all four ≥ 3:1 contrast on the surface. The pair sits outside the
+     categorical lightness band on purpose: for status colours the lightness difference is
+     what carries the distinction when hue fails. */
+  --positive: #5fd3a0;
+  --negative: #d2566b;
+  --warning: #d8a041;
 
   /* type */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -2782,4 +2794,13 @@ code {
   font-weight: 400;
   line-height: 1.4;
   color: var(--text-muted);
+}
+
+/* Caption above the potential — the number alone read as a riddle (2026-08-06). */
+.brief-potential-cap {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1;
 }

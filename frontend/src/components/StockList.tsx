@@ -40,14 +40,19 @@ function PotentialBlock({ brief }: { brief: StockBrief }) {
   if (brief.analyst_upside_pct === null || brief.analyst_target === null) {
     return (
       <span className="brief-potential brief-potential-none">
+        <span className="brief-potential-cap">Potenzial</span>
         <span className="brief-potential-num">—</span>
-        <span className="brief-potential-label">keine Analystenschätzung</span>
+        <span className="brief-potential-label">keine Schätzung</span>
       </span>
     );
   }
   const up = brief.analyst_upside_pct >= 0;
   return (
     <span className={up ? "brief-potential brief-good" : "brief-potential brief-warn"}>
+      {/* The number was unlabelled and read as a riddle: "ich kann nichts mit diesen minus
+          sieben Prozent anfangen. Was meint das jetzt?" (Nico 2026-08-06). The caption says
+          what it is, the footer says whose opinion it is. */}
+      <span className="brief-potential-cap">Potenzial</span>
       <span className="brief-potential-num">{signedPct(brief.analyst_upside_pct)}</span>
       <span className="brief-potential-label">
         laut {brief.analyst_count ?? "?"} Analysten
@@ -81,6 +86,11 @@ function BriefInsight({ brief }: { brief: StockBrief }) {
     day: "2-digit",
     month: "2-digit",
   });
+  // German one-liners when the generator produced them; the English wire titles are the
+  // fallback for rows from before that existed (Nico 2026-08-06: "ich kann nichts mit
+  // 'Yamato Holding Stock Faces Profit Strain Behind A Premium PE' anfangen").
+  const headlines =
+    insight.headlines_de.length > 0 ? insight.headlines_de : insight.headlines;
   return (
     <div className="brief-insight">
       {insight.business && <p className="brief-insight-business">{insight.business}</p>}
@@ -89,11 +99,11 @@ function BriefInsight({ brief }: { brief: StockBrief }) {
       ) : (
         <p className="brief-muted">Keine aktuellen Schlagzeilen gefunden.</p>
       )}
-      {insight.headlines.length > 0 && (
+      {headlines.length > 0 && (
         <>
           <p className="brief-headlines-head">Schlagzeilen</p>
           <ul className="brief-headlines">
-            {insight.headlines.map((title) => (
+            {headlines.map((title) => (
               <li key={title}>{title}</li>
             ))}
           </ul>

@@ -29,12 +29,14 @@ from equity_scout.fundamentals import fetch_fundamentals_cached
 from equity_scout.insights import (
     BUSINESS_MAX_CHARS,
     BUSINESS_QUESTION,
+    HEADLINES_QUESTION,
     NEWS_MAX_CHARS,
     NEWS_QUESTION,
     clean_llm_text,
     downsample_closes,
     fact_context,
     news_context,
+    split_bullets,
 )
 from equity_scout.insights_storage import save_insight, save_price_series
 from equity_scout.press import fetch_press_lines
@@ -98,9 +100,21 @@ def main() -> int:
             else None
         )
 
+        # One short German line per headline. The English wire titles stay stored as the
+        # source of record, but the card shows these — "Yamato Holdings Stock Faces Profit
+        # Strain Behind A Premium P E" is not something to read on a phone at breakfast.
+        headlines_de: list[str] = []
+        if headlines:
+            try:
+                raw = ask_ollama(HEADLINES_QUESTION, news_context(headlines))
+                headlines_de = split_bullets(raw, len(headlines))
+            except ChatError as exc:
+                print(f"    Schlagzeilen nicht übersetzt: {exc}", file=sys.stderr)
+
         save_insight(
             args.db, ticker=ticker, generated_at=now, business=business,
             news_summary=news_summary, headlines=headlines, model=OLLAMA_MODEL,
+            headlines_de=headlines_de,
         )
 
         try:

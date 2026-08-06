@@ -28,9 +28,16 @@ def init_insights_db(db_path: str = DEFAULT_DB_PATH) -> None:
                 business TEXT,
                 news_summary TEXT,
                 headlines TEXT NOT NULL DEFAULT '[]',
-                model TEXT
+                model TEXT,
+                headlines_de TEXT
             )"""
         )
+        # German one-liners per headline (2026-08-06): the raw titles are English wire
+        # copy ("Yamato Holdings Stock Faces Profit Strain Behind A Premium P E"), which
+        # Nico could not use. Pre-migration rows keep NULL and fall back to the originals.
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(stock_insights)")]
+        if "headlines_de" not in cols:
+            conn.execute("ALTER TABLE stock_insights ADD COLUMN headlines_de TEXT")
         conn.execute(
             """CREATE TABLE IF NOT EXISTS price_series (
                 ticker TEXT PRIMARY KEY,
@@ -58,21 +65,23 @@ def save_insight(
     news_summary: str | None,
     headlines: list[str],
     model: str | None,
+    headlines_de: list[str] | None = None,
 ) -> None:
     """Upsert one stock's AI texts. A None text is stored as SQL NULL, never "None"."""
     init_insights_db(db_path)
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             "INSERT INTO stock_insights"
-            " (ticker, generated_at, business, news_summary, headlines, model)"
-            " VALUES (?, ?, ?, ?, ?, ?)"
+            " (ticker, generated_at, business, news_summary, headlines, model, headlines_de)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)"
             " ON CONFLICT(ticker) DO UPDATE SET"
             "  generated_at=excluded.generated_at, business=excluded.business,"
             "  news_summary=excluded.news_summary, headlines=excluded.headlines,"
-            "  model=excluded.model",
+            "  model=excluded.model, headlines_de=excluded.headlines_de",
             (
                 ticker, generated_at, business, news_summary,
                 json.dumps(headlines, ensure_ascii=False), model,
+                json.dumps(headlines_de or [], ensure_ascii=False),
             ),
         )
 
@@ -118,8 +127,8 @@ def load_insights(db_path: str = DEFAULT_DB_PATH) -> dict[str, dict]:
     init_insights_db(db_path)
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute(
-            "SELECT ticker, generated_at, business, news_summary, headlines, model"
-            " FROM stock_insights"
+            "SELECT ticker, generated_at, business, news_summary, headlines, model,"
+            " headlines_de FROM stock_insights"
         ).fetchall()
     return {
         row[0]: {
@@ -128,6 +137,8 @@ def load_insights(db_path: str = DEFAULT_DB_PATH) -> dict[str, dict]:
             "news_summary": row[3],
             "headlines": json.loads(row[4] or "[]"),
             "model": row[5],
+            # Falls back to [] for pre-migration rows; the card then shows the originals.
+            "headlines_de": json.loads(row[6] or "[]"),
         }
         for row in rows
     }
