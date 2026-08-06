@@ -71,10 +71,12 @@ def run_resolve_predictions(
     fetch_prices: Callable[[list[str], str], PricePanel],
 ) -> dict:
     """Resolve every due prediction against its realized forward relative return. Returns
-    {resolved, still_open}. still_open counts all predictions left open after this run — those not
-    yet due, plus any due one whose forward window is not yet fully observable."""
+    {resolved, due, not_observable, still_open}. still_open counts all predictions left
+    open after this run — those not yet due, plus any due one whose forward window is not
+    yet fully observable."""
     due = due_predictions(db_path, now)
     resolved = 0
+    not_observable = 0
     if due:
         tickers = sorted({d["ticker"] for d in due} | {BENCHMARK})
         oldest = min(_as_of_timestamp(d["created_at"]) for d in due)
@@ -85,12 +87,18 @@ def run_resolve_predictions(
                 panel, pred["ticker"], pred["created_at"], pred["horizon_days"]
             )
             if rel is None:
+                not_observable += 1
                 continue  # forward window not yet fully observable — resolve honestly later
             if resolve_prediction(
                 db_path, pred["id"], realized_relative_return=rel, resolved_at=now
             ):
                 resolved += 1
-    return {"resolved": resolved, "still_open": resolved_stats(db_path)["n_open"]}
+    return {
+        "resolved": resolved,
+        "due": len(due),
+        "not_observable": not_observable,
+        "still_open": resolved_stats(db_path)["n_open"],
+    }
 
 
 def _fetch_price_panel(tickers: list[str], start: str) -> PricePanel:
@@ -110,7 +118,11 @@ def main() -> int:
     args = parser.parse_args()
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     result = run_resolve_predictions(args.db, now=now, fetch_prices=_fetch_price_panel)
-    print(f"Aufgelöst: {result['resolved']} Vorhersage(n); noch offen: {result['still_open']}.")
+    print(
+        f"Aufgelöst: {result['resolved']} von {result['due']} fälligen Vorhersage(n)"
+        f" ({result['not_observable']} ohne volles Vorwärtsfenster);"
+        f" noch offen: {result['still_open']}."
+    )
     return 0
 
 

@@ -61,7 +61,7 @@ def test_resolve_cli_no_due_predictions_is_a_noop(tmp_path):
     result = run_resolve_predictions(
         db, now="2026-05-02T00:00:00+00:00", fetch_prices=_fetch(_panel())
     )
-    assert result == {"resolved": 0, "still_open": 1}
+    assert result == {"resolved": 0, "due": 0, "not_observable": 0, "still_open": 1}
 
 
 def test_resolve_main_happy_path_exits_zero(tmp_path, monkeypatch, capsys):
@@ -104,3 +104,28 @@ def test_price_panel_loader_is_column_wise(monkeypatch):
     resolve_mod._fetch_price_panel(["AAA", "SPY"], "2026-01-01")
     assert seen["snapshot"] == resolve_mod.RESOLVE_SNAPSHOT
     assert seen["refresh"] is True
+
+
+def _windowed_fetch(panel: PricePanel, *, last_session: str):
+    """Production-faithful seam: the real loader returns [start … last completed session].
+    The original `_fetch` fake ignored both bounds and hid the 2026-08-05 bug."""
+    def fetch(tickers: list[str], start: str) -> PricePanel:
+        return PricePanel(panel.closes.loc[pd.Timestamp(start):pd.Timestamp(last_session)])
+    return fetch
+
+
+def test_due_prediction_without_full_forward_window_is_counted_not_swallowed(tmp_path):
+    db = str(tmp_path / "led.db")
+    log_predictions(
+        db, model_version=1, scored=[("AAA", 80, {"mkt_vol": 0.1})],
+        now="2026-01-05T00:00:00+00:00", horizon_days=20,
+    )
+    # resolve_after (trading-day stamp) = 2026-02-06; due at 2026-02-09, but the panel
+    # ends 2026-01-30 — only 20 rows from Jan 5, forward_return needs pos+20 < len.
+    result = run_resolve_predictions(
+        db, now="2026-02-09T00:00:00+00:00",
+        fetch_prices=_windowed_fetch(_panel(), last_session="2026-01-30"),
+    )
+    assert result["resolved"] == 0
+    assert result["due"] == 1
+    assert result["not_observable"] == 1
