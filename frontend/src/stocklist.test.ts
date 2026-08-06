@@ -24,22 +24,23 @@ describe("splitSections", () => {
     expect(inZone.map((b) => b.ticker)).toEqual(["HIGH", "LOW"]);
   });
 
-  it("sinks an in-zone stock the analysts see no room in", () => {
-    // Being in the zone is a timing statement, not a reason to buy — so a negative
-    // potential goes last instead of leading the section.
-    const { inZone } = splitSections([
+  it("takes an in-zone stock the analysts see no room in out of the list", () => {
+    // Nico asked twice why a −7 % potential was on a "what should I look at" list.
+    const { inZone, contested } = splitSections([
       brief({ ticker: "NEG", in_zone: true, analyst_upside_pct: -7 }),
       brief({ ticker: "POS", in_zone: true, analyst_upside_pct: 15 }),
     ]);
-    expect(inZone.map((b) => b.ticker)).toEqual(["POS", "NEG"]);
+    expect(inZone.map((b) => b.ticker)).toEqual(["POS"]);
+    expect(contested.map((b) => b.ticker)).toEqual(["NEG"]);
   });
 
-  it("puts an in-zone stock without coverage last, not first", () => {
-    const { inZone } = splitSections([
+  it("counts a contested stock instead of hiding it", () => {
+    // The disagreement between our signal and the analysts is information; it is reported
+    // as a count, just not as a row competing for attention.
+    const { contested } = splitSections([
       brief({ ticker: "NONE", in_zone: true, analyst_upside_pct: null }),
-      brief({ ticker: "SOME", in_zone: true, analyst_upside_pct: 2 }),
     ]);
-    expect(inZone.map((b) => b.ticker)).toEqual(["SOME", "NONE"]);
+    expect(contested).toHaveLength(1);
   });
 
   it("ranks the potential section by upside, highest first", () => {

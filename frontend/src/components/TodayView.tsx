@@ -129,25 +129,31 @@ export function TodayView({ onNavigate }: { onNavigate: (view: string) => void }
         </p>
       </section>
 
-      <section className="strat-block">
-        <h3 className="block-title">Direkt weiter</h3>
-        <div className="tabbar wrap">
-          <button className="tab" onClick={() => onNavigate("inbox")}>
-            → Inbox {openPitches.length > 0 ? `(${openPitches.length})` : ""}
-          </button>
-          <button className="tab" onClick={() => onNavigate("radar")}>
-            → Radar
-          </button>
-          <button className="tab" onClick={() => onNavigate("depots")}>
-            → Depots
-          </button>
-          <button className="tab" onClick={() => onNavigate("learning")}>
-            → Lernkurven
-          </button>
-        </div>
-      </section>
+      {/* "Direkt weiter" and the disclaimer bar are desktop-only (2026-08-06): the phone
+          has the bottom tab bar for navigation, so a second set of jump links is a
+          duplicate, and a paragraph of legal prose is not what a daily glance is for.
+          Both stay on desktop, where there is room and no tab bar. */}
+      <div className="only-desktop">
+        <section className="strat-block">
+          <h3 className="block-title">Direkt weiter</h3>
+          <div className="tabbar wrap">
+            <button className="tab" onClick={() => onNavigate("inbox")}>
+              → Inbox {openPitches.length > 0 ? `(${openPitches.length})` : ""}
+            </button>
+            <button className="tab" onClick={() => onNavigate("radar")}>
+              → Radar
+            </button>
+            <button className="tab" onClick={() => onNavigate("depots")}>
+              → Depots
+            </button>
+            <button className="tab" onClick={() => onNavigate("learning")}>
+              → Lernkurven
+            </button>
+          </div>
+        </section>
 
-      {evidence && <DisclaimerBar text={evidence.disclaimer} />}
+        {evidence && <DisclaimerBar text={evidence.disclaimer} />}
+      </div>
     </>
   );
 }

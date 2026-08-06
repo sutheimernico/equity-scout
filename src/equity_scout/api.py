@@ -24,6 +24,7 @@ from equity_scout.constants import (
     MODEL_CAVEATS,
 )
 from equity_scout.promotion import lane_promotion_status
+from equity_scout.shortterm_book import position_targets
 from equity_scout.proof import CONVICTION_THRESHOLDS, collect_proof_books
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
 from equity_scout.evidence.event_reactions import aggregate_reactions
@@ -512,6 +513,46 @@ def create_app(
             "disclaimer": DISCLAIMER,
         })
 
+    def _lane_last_prices(lane: str) -> dict[str, float]:
+        """Last stored close per ticker for a lane, from the runner's OWN local snapshot.
+
+        Read-only and offline: `refresh=False` reads the CSV the lane runner already wrote,
+        so the phone's depot card costs no network call. Only the swing lane keeps such a
+        snapshot — session trades intraday bars and crypto pulls Kraken, neither of which
+        leaves a panel behind. Those lanes therefore report no live mark, and the card says
+        so instead of showing a price it does not have.
+        """
+        if lane != "swing":
+            return {}
+        try:
+            from equity_scout.data.etf_panel import load_snapshot
+
+            closes = load_snapshot("data/prices/st_swing_panel.csv").closes
+            return {
+                str(col): float(closes[col].dropna().iloc[-1])
+                for col in closes.columns
+                if not closes[col].dropna().empty
+            }
+        except Exception:  # noqa: BLE001 - a missing snapshot is an honest absence
+            return {}
+
+    def _open_position(lane: str, ticker: str, pos) -> dict:  # noqa: ANN001
+        """One open position plus what the card needs to judge it: where it stands now and
+        the rules that will close it."""
+        last = _lane_last_prices(lane).get(ticker)
+        targets = position_targets(lane, entry_price=pos.entry_price)
+        return {
+            "ticker": ticker,
+            "qty": pos.qty,
+            "entry_price": pos.entry_price,
+            "opened_at": pos.opened_at,
+            "last_price": last,
+            "unrealized_pct": (
+                last / pos.entry_price - 1.0 if last and pos.entry_price > 0 else None
+            ),
+            **targets,
+        }
+
     @app.get("/api/shortterm")
     def shortterm() -> JSONResponse:
         # No cache: reflects the arena lanes as their runners write to the DB (v11).
@@ -541,9 +582,8 @@ def create_app(
                 "benchmark_return": latest["benchmark_return"] if latest else None,
                 "max_drawdown": max_dd,
                 "open_positions": [
-                    {"ticker": t, "qty": p.qty, "entry_price": p.entry_price,
-                     "opened_at": p.opened_at}
-                    for t, p in sorted(book.positions.items())
+                    _open_position(lane, ticker, pos)
+                    for ticker, pos in sorted(book.positions.items())
                 ],
                 "equity_curve": [[v["created_at"], v["equity"]] for v in vals],
                 "stats": shortterm_stats(trades),

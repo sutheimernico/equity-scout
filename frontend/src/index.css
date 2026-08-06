@@ -25,11 +25,15 @@
   --text: #b6bac3;
   --text-muted: #7e838f;
 
-  /* THE load-bearing change: brand and "positive" were literally the same token
-     (--accent: #3ef2a0 /* brand + positive signal */), so every button, tab, spinner and
-     chart shared the colour that is supposed to mean "gain" — hence "ist halt einfach
-     alles grün, check ich nicht". In a finance UI green and red belong to DIRECTION and
-     nothing else; the brand takes the fintech-conventional blue. */
+  /* THE load-bearing change: brand and "positive" used to be literally the same token —
+     --accent was #3ef2a0 and its own comment called it "brand + positive signal" — so
+     every button, tab, spinner and chart shared the colour that is supposed to mean
+     "gain", hence "ist halt einfach alles grün, check ich nicht". In a finance UI green
+     and red belong to DIRECTION and nothing else; the brand takes the conventional blue.
+     (No nested comment markers here: CSS comments do not nest, and quoting the old
+     declaration verbatim ended this comment mid-sentence — the rest parsed as garbage and
+     tore the block apart, which is why the donut segments and the allocation bars, both
+     of which resolve var(--accent), rendered with no colour at all.) */
   --accent: #5d91e5; /* brand + interaction ONLY — never a value judgement */
   --accent-hover: #79a5ea;
   --accent-subtle: rgba(93, 145, 229, 0.14);
@@ -1932,8 +1936,14 @@ code {
     cursor: pointer;
   }
   .bottom-nav-icon {
-    font-size: var(--text-lg);
-    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+  }
+  .tab-icon {
+    width: 21px;
+    height: 21px;
   }
   .bottom-nav-label {
     font-size: 0.65rem;
@@ -2803,4 +2813,153 @@ code {
   text-transform: uppercase;
   color: var(--text-muted);
   line-height: 1;
+}
+
+/* Counted, not listed: in-zone titles the analysts see no room in. */
+.brief-contested {
+  margin: var(--space-2) 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+/* ===== Depot: switch, donut, grouped positions (2026-08-06) ===== */
+/* Segmented control. English labels at Nico's request; the rest of the UI stays German. */
+.pd-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: var(--space-3);
+  background: var(--bg-inset);
+  border-radius: 10px;
+}
+.pd-switch-btn {
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.pd-switch-btn.active {
+  background: var(--bg-raised);
+  color: var(--text-strong);
+}
+.pd-donut {
+  display: block;
+  width: 132px;
+  height: 132px;
+  margin: var(--space-2) auto var(--space-3);
+}
+.pd-donut-seg {
+  stroke: var(--accent);
+}
+.pd-donut-cash {
+  stroke: var(--text-muted);
+}
+.pd-alloc-row {
+  display: block;
+  padding: 0;
+}
+.pd-alloc-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 3px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+  font-size: 0.8rem;
+}
+.pd-alloc-note {
+  margin: 2px 0 var(--space-2);
+  padding-left: 3.4em;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.pd-group {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.pd-group-sum {
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.pd-position {
+  display: block;
+  padding: 0;
+}
+.pd-position-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-1) 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+}
+.pd-position-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.pd-position-sub {
+  font-size: 0.7rem;
+}
+.pd-position-pnl {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.pd-position-detail {
+  padding: var(--space-2) 0 var(--space-2) 3.4em;
+}
+.pd-position-detail dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--space-3);
+  margin: 0;
+  font-size: 0.78rem;
+}
+.pd-position-detail dt {
+  color: var(--text-muted);
+}
+.pd-position-detail dd {
+  margin: 0;
+}
+.pd-rule {
+  margin: var(--space-2) 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+/* Rounder corners across the phone surfaces (2026-08-06). The old 8–14 px mix read as
+   several different components stacked; one scale ties them together. */
+@media (max-width: 720px) {
+  .panel,
+  .strat-block,
+  .kpi-row .tile {
+    border-radius: 16px;
+  }
+  .brief-chip {
+    border-radius: 999px;
+  }
+  .sheet {
+    border-radius: 18px 18px 0 0;
+  }
 }

@@ -208,7 +208,7 @@ export function StockList({ limit = 12, onOpen }: { limit?: number; onOpen?: () 
     return <p className="brief-muted">Noch keine Watchlist — der Screener lief noch nicht.</p>;
   }
 
-  const { inZone, potential } = splitSections(briefs);
+  const { inZone, potential, contested } = splitSections(briefs);
 
   return (
     <>
@@ -237,6 +237,15 @@ export function StockList({ limit = 12, onOpen }: { limit?: number; onOpen?: () 
             ))}
           </ul>
         </>
+      )}
+
+      {contested.length > 0 && (
+        <p className="brief-muted brief-contested">
+          {contested.length === 1
+            ? "1 weiterer Titel liegt in seiner Einstiegszone, aber die Analysten sehen dort kein Potenzial"
+            : `${contested.length} weitere Titel liegen in ihrer Einstiegszone, aber die Analysten sehen dort kein Potenzial`}{" "}
+          ({contested.map((b) => b.ticker).join(" · ")}).
+        </p>
       )}
 
       {onOpen && (

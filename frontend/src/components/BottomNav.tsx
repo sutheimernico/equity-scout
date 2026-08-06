@@ -1,14 +1,17 @@
 import { Fragment, useState } from "react";
 
 import { GROUP_LABELS, MOBILE_FOCUSES, MOBILE_LABELS, NAV, type View } from "../views";
+import { TabIcon, type TabIconName } from "./ui/TabIcon";
 
-// Emoji glyphs, not an icon library: the project has no icon set anywhere else, and
-// pulling in a dependency to draw four tab glyphs is not worth it.
-const FOCUS_ICONS: Record<string, string> = {
-  today: "🏠",
-  depots: "🤖",
-  inbox: "📬",
-  proof: "🧾",
+// Stroke icons, not emoji (2026-08-06). Emoji render in the OS font, so their weight,
+// colour and optical size are outside our control and never match the label beneath them —
+// which is exactly what made the row look unfinished ("die Symbole sehen noch nicht
+// wirklich clean aus"). Still no dependency: five hand-drawn paths, see ui/TabIcon.tsx.
+const FOCUS_ICONS: Record<string, TabIconName> = {
+  today: "today",
+  depots: "depots",
+  inbox: "inbox",
+  proof: "proof",
 };
 
 // Everything that isn't one of the four phone focuses lives in the "Mehr" sheet,
@@ -40,7 +43,7 @@ export function BottomNav({ view, onNavigate }: { view: View; onNavigate: (view:
               aria-current={active ? "page" : undefined}
             >
               <span className="bottom-nav-icon" aria-hidden="true">
-                {FOCUS_ICONS[key]}
+                <TabIcon name={FOCUS_ICONS[key]} />
               </span>
               <span className="bottom-nav-label">{MOBILE_LABELS[key]}</span>
             </button>
@@ -53,7 +56,7 @@ export function BottomNav({ view, onNavigate }: { view: View; onNavigate: (view:
           aria-expanded={sheetOpen}
         >
           <span className="bottom-nav-icon" aria-hidden="true">
-            ⋯
+            <TabIcon name="more" />
           </span>
           <span className="bottom-nav-label">Mehr</span>
         </button>

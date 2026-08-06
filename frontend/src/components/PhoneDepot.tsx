@@ -6,60 +6,65 @@ import {
   type AutodepotResponse,
   type AutodepotTrade,
   type ShortTermLane,
+  type ShortTermPosition,
   type ShortTermResponse,
+  type ShortTermTrade,
 } from "../api";
+import { ETF_NOTES } from "../etfs";
 import { StockLogo } from "./StockLogo";
 
-// The phone's answer to "what did my traders do?" (Nico 2026-08-05): what each trader
-// holds right now and which trades got it there — long-term auto-depot and the short-term
-// lanes on one screen. The desktop DepotsView keeps its seven tabs; six panels of
-// paper-depot detail is a laptop layout, and hunting one number across tabs defeats a
-// daily glance.
+// The phone's answer to "what did my traders do?" — one switch at the top between the two
+// books, because they answer different questions and stacking both turned the screen into
+// a scroll (Nico 2026-08-06: "bei Depot sollst Du irgendwie oben einen Switch haben
+// zwischen Long Term und Day Trader").
 //
-// The two traders are NOT symmetric and are not drawn as if they were: the auto-depot
-// holds an ETF allocation and rebalances weights, the lanes hold single stocks with a
-// quantity and an entry price. All of it is paper money.
+// English names at Nico's request ("das kannst Du gern auf Englisch schreiben … Langfrist
+// klingt scheiße"); the rest of the UI stays German.
 //
-// MUST stay equal to digest.MATERIAL_DELTA_WEIGHT (src/equity_scout/digest.py:34). A
-// weight change below this is a rounding rebalance — live example GLD at 1.4e-05 = 1.40 $.
-// The small ones stay reachable behind a toggle, because the digest's rule is that nothing
-// leaves Telegram which the dashboard does not show.
+// The two books are NOT symmetric and are not drawn as if they were: Long Term holds an
+// ETF allocation and rebalances weights; Day Trader holds single stocks with an entry
+// price and exit rules. All of it is paper money.
+
+// MUST stay equal to digest.MATERIAL_DELTA_WEIGHT (src/equity_scout/digest.py:34).
 const MATERIAL_DELTA_WEIGHT = 0.01;
+
+type Book = "long" | "day";
 
 function pct(value: number | null | undefined, digits = 1): string {
   if (value === null || value === undefined) return "—";
   const p = value * 100;
-  // de-DE, not toFixed: "+10.0 %" sat next to "10.065" (money's German thousands dot) in
-  // the same row, so the two dots meant different things and neither was readable.
   const magnitude = Math.abs(p).toLocaleString("de-DE", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
-  return `${p > 0 ? "+" : p < 0 ? "−" : ""}${magnitude}\u202F%`;
+  return `${p > 0 ? "+" : p < 0 ? "−" : ""}${magnitude} %`;
 }
 
-function money(value: number): string {
-  return value.toLocaleString("de-DE", { maximumFractionDigits: 0 });
+function money(value: number, digits = 0): string {
+  return value.toLocaleString("de-DE", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
 }
 
-/** Share/coin quantity, readable at phone width.
- *
- * The books store exact fractional quantities, and printed raw they are 16-digit floats
- * ("BUSE 32.19510896380651", "BTC 0.038163611924095855") that push the price off the row
- * and force mid-token line breaks. Significant digits rather than a fixed number of
- * decimals, because one row can hold 2297 XRP and 0.038 BTC and both must stay compact.
- */
+/** Significant digits: one list can hold 2297 XRP and 0.038 BTC, and the raw book values
+ *  are 16-digit floats that push the price out of the row. */
 function qty(value: number): string {
   return value.toLocaleString("de-DE", { maximumSignificantDigits: 4 });
 }
 
-/** DD.MM. — on a phone row the day is what orients you, the year never changes mid-list. */
 function dayOf(iso: string): string {
   const [, month, day] = iso.slice(0, 10).split("-");
   return month && day ? `${day}.${month}.` : "—";
 }
 
+function toneOf(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  return value >= 0 ? "brief-good" : "brief-warn";
+}
+
 export function PhoneDepot() {
+  const [book, setBook] = useState<Book>("long");
   const [auto, setAuto] = useState<AutodepotResponse | null>(null);
   const [short, setShort] = useState<ShortTermResponse | null>(null);
   const [failed, setFailed] = useState(false);
@@ -84,65 +89,85 @@ export function PhoneDepot() {
   if (failed) return <p className="brief-muted">Depot-Daten nicht erreichbar.</p>;
   if (!auto || !short) return <p className="brief-muted">lädt …</p>;
 
-  const account = auto.available ? auto.account : undefined;
-  const lanes = short.available ? short.lanes : [];
-
   return (
     <div className="phone-depot">
-      <h3 className="brief-section-head">Langfrist · Auto-Depot</h3>
-      {account ? (
-        <>
-          <div className="pd-kpis">
-            <span>
-              <b className="num">{money(account.equity)}</b>
-              <small>Depotwert</small>
-            </span>
-            <span>
-              <b className={account.total_return >= 0 ? "brief-good num" : "brief-warn num"}>
-                {pct(account.total_return)}
-              </b>
-              <small>seit Start</small>
-            </span>
-            <span>
-              <b className="num">{pct(account.benchmark_return)}</b>
-              <small>{account.benchmark_ticker}</small>
-            </span>
-          </div>
-          <p className="brief-muted pd-stamp">
-            Stand {account.last_as_of ?? "—"}
-            {auto.fill_convention ? ` · Fills ${auto.fill_convention}` : ""}
-          </p>
+      <div className="pd-switch" role="tablist" aria-label="Depot">
+        <button
+          role="tab"
+          aria-selected={book === "long"}
+          className={book === "long" ? "pd-switch-btn active" : "pd-switch-btn"}
+          onClick={() => setBook("long")}
+        >
+          Long Term
+        </button>
+        <button
+          role="tab"
+          aria-selected={book === "day"}
+          className={book === "day" ? "pd-switch-btn active" : "pd-switch-btn"}
+          onClick={() => setBook("day")}
+        >
+          Day Trader
+        </button>
+      </div>
 
-          <h4 className="pd-sub">Aktuelle Aufteilung</h4>
-          <Allocation weights={account.weights} equity={account.equity} />
-
-          <h4 className="pd-sub">Letzte Umschichtungen</h4>
-          <RebalanceList trades={auto.trades ?? []} />
-        </>
-      ) : (
-        <p className="brief-muted">
-          Noch kein Auto-Depot — der nächtliche Lauf hat es noch nicht angelegt.
-        </p>
-      )}
-
-      <h3 className="brief-section-head">Kurzfrist · Arena-Lanes</h3>
-      {lanes.length > 0 ? (
-        lanes.map((lane) => <LaneCard key={lane.lane} lane={lane} />)
-      ) : (
-        <p className="brief-muted">Noch keine Lane-Bücher angelegt.</p>
-      )}
+      {book === "long" ? <LongTerm auto={auto} /> : <DayTrader lanes={short.lanes ?? []} />}
     </div>
   );
 }
 
-/** The ETF allocation as a weight bar per holding — this IS the long-term "depot". */
-function Allocation({
-  weights,
-  equity,
-}: {
-  weights: Record<string, number>;
-  equity: number;
-}) {
+function LongTerm({ auto }: { auto: AutodepotResponse }) {
+  const account = auto.available ? auto.account : undefined;
+  if (!account) {
+    return (
+      <p className="brief-muted">
+        Noch kein Long-Term-Depot — der nächtliche Lauf hat es noch nicht angelegt.
+      </p>
+    );
+  }
+  return (
+    <>
+      <div className="pd-kpis">
+        <span>
+          <b>{money(account.equity)}</b>
+          <small>Depotwert</small>
+        </span>
+        <span>
+          <b className={toneOf(account.total_return)}>{pct(account.total_return)}</b>
+          <small>seit Start</small>
+        </span>
+        <span>
+          <b>{pct(account.benchmark_return)}</b>
+          <small>{account.benchmark_ticker}</small>
+        </span>
+      </div>
+      <p className="brief-muted pd-stamp">
+        Stand {account.last_as_of ?? "—"}
+        {auto.fill_convention ? ` · Fills ${auto.fill_convention}` : ""}
+      </p>
+
+      <h4 className="pd-sub">Aufteilung</h4>
+      <Allocation weights={account.weights} equity={account.equity} />
+
+      <h4 className="pd-sub">Letzte Umschichtungen</h4>
+      <RebalanceList trades={auto.trades ?? []} />
+    </>
+  );
+}
+
+function DayTrader({ lanes }: { lanes: ShortTermLane[] }) {
+  if (lanes.length === 0) return <p className="brief-muted">Noch keine Lane-Bücher angelegt.</p>;
+  return (
+    <>
+      {lanes.map((lane) => (
+        <LaneCard key={lane.lane} lane={lane} />
+      ))}
+    </>
+  );
+}
+
+/** The ETF allocation — the long-term book's "positions". Each holding is tappable,
+ *  because a ticker like IEF says nothing about what is actually held. */
+function Allocation({ weights, equity }: { weights: Record<string, number>; equity: number }) {
   const rows = Object.entries(weights)
     .filter(([, weight]) => Math.abs(weight) > 0)
     .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
@@ -152,22 +177,91 @@ function Allocation({
 
   return (
     <>
+      <DonutChart rows={rows} cash={Math.max(0, 1 - invested)} />
       <ul className="pd-alloc">
         {rows.map(([ticker, weight]) => (
-          <li key={ticker}>
-            <span className="pd-alloc-ticker">{ticker}</span>
-            {/* Bars are scaled to the LARGEST holding, not to 100 %: at a 10 % maximum
-                every bar would otherwise be a sliver and comparing them impossible. */}
-            <span className="pd-alloc-bar" aria-hidden="true">
-              <span style={{ width: `${(Math.abs(weight) / largest) * 100}%` }} />
-            </span>
-            <span className="num pd-alloc-num">{pct(weight)}</span>
-            <span className="num brief-muted">{money(weight * equity)}</span>
-          </li>
+          <EtfRow key={ticker} ticker={ticker} weight={weight} equity={equity} largest={largest} />
         ))}
       </ul>
       <p className="brief-muted pd-stamp">{pct(invested)} investiert · Rest Kasse</p>
     </>
+  );
+}
+
+function EtfRow({
+  ticker,
+  weight,
+  equity,
+  largest,
+}: {
+  ticker: string;
+  weight: number;
+  equity: number;
+  largest: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const note = ETF_NOTES[ticker];
+  return (
+    <li className="pd-alloc-row">
+      <button className="pd-alloc-main" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span className="pd-alloc-ticker">{ticker}</span>
+        <span className="pd-alloc-bar" aria-hidden="true">
+          <span style={{ width: `${(Math.abs(weight) / largest) * 100}%` }} />
+        </span>
+        <span className="num pd-alloc-num">{pct(weight)}</span>
+        <span className="num brief-muted">{money(weight * equity)}</span>
+      </button>
+      {open && (
+        <p className="pd-alloc-note">
+          {note ? (
+            <>
+              <b>{note.name}</b> — {note.what}
+            </>
+          ) : (
+            "Für diesen Ticker ist keine Kurzbeschreibung hinterlegt."
+          )}
+        </p>
+      )}
+    </li>
+  );
+}
+
+/** Allocation as a donut: "how is the whole divided" is what a ring answers at a glance,
+ *  which a bar list does not. The list stays below — it carries the exact numbers. */
+function DonutChart({ rows, cash }: { rows: [string, number][]; cash: number }) {
+  const segments: [string, number][] = cash > 0.001 ? [...rows, ["Kasse", cash]] : rows;
+  const total = segments.reduce((sum, [, w]) => sum + Math.abs(w), 0);
+  if (total <= 0) return null;
+
+  const R = 42;
+  const C = 2 * Math.PI * R;
+  let offset = 0;
+  return (
+    <svg className="pd-donut" viewBox="0 0 100 100" aria-hidden="true">
+      {segments.map(([ticker, weight], i) => {
+        const share = Math.abs(weight) / total;
+        // A gap in the surface colour separates neighbours — never a stroke border.
+        const dash = Math.max(0, share * C - 1.5);
+        const element = (
+          <circle
+            key={ticker}
+            className={ticker === "Kasse" ? "pd-donut-cash" : "pd-donut-seg"}
+            cx="50"
+            cy="50"
+            r={R}
+            fill="none"
+            strokeWidth="11"
+            strokeDasharray={`${dash} ${C - dash}`}
+            strokeDashoffset={-offset}
+            // One hue, stepped down the ring: eleven categorical colours would fight the
+            // status palette, and the ordering here is by size, so a ramp is honest.
+            style={{ opacity: ticker === "Kasse" ? 0.35 : 1 - Math.min(i, 9) * 0.07 }}
+          />
+        );
+        offset += share * C;
+        return element;
+      })}
+    </svg>
   );
 }
 
@@ -202,9 +296,7 @@ function RebalanceList({ trades }: { trades: AutodepotTrade[] }) {
           ))}
         </ul>
       ) : (
-        <p className="brief-muted">
-          Keine wesentliche Umschichtung — nur Rundungs-Rebalances.
-        </p>
+        <p className="brief-muted">Keine wesentliche Umschichtung — nur Rundungs-Rebalances.</p>
       )}
       {small > 0 && (
         <button className="pd-toggle" onClick={() => setShowSmall((s) => !s)}>
@@ -215,63 +307,126 @@ function RebalanceList({ trades }: { trades: AutodepotTrade[] }) {
   );
 }
 
-/** One short-term lane: return, the single stocks it holds, and its last trades. */
+/** One day-trading lane, split the way the question is actually asked (Nico 2026-08-06):
+ *  what is still running and how it stands, then what is finished and what it made. */
 function LaneCard({ lane }: { lane: ShortTermLane }) {
+  const closed = (lane.recent_trades ?? []).filter(
+    (t) => t.realized_pnl !== null && t.realized_pnl !== undefined,
+  );
+  const realised = closed.reduce((sum, t) => sum + (t.realized_pnl ?? 0), 0);
+
   return (
     <div className="pd-lane">
       <div className="pd-lane-head">
         <b>{lane.lane}</b>
-        <span className={lane.total_return >= 0 ? "brief-good num" : "brief-warn num"}>
-          {pct(lane.total_return)}
-        </span>
+        <span className={`${toneOf(lane.total_return)} num`}>{pct(lane.total_return)}</span>
         <span className="brief-muted num">{money(lane.equity)}</span>
         {lane.promoted && <span className="pd-badge">handelt ein echtes Sleeve</span>}
       </div>
+
+      <h5 className="pd-group">Läuft noch</h5>
       {lane.open_positions.length > 0 ? (
         <ul className="pd-positions">
           {lane.open_positions.map((p) => (
-            <li key={p.ticker}>
-              <StockLogo ticker={p.ticker} name={p.ticker} />
-              <span className="pd-trade-ticker">{p.ticker}</span>
-              <span className="num">
-                {qty(p.qty)} @ {p.entry_price.toFixed(2)}
-              </span>
-            </li>
+            <OpenPosition key={p.ticker} position={p} />
           ))}
         </ul>
       ) : (
         <p className="brief-muted">keine offene Position</p>
       )}
-      {lane.recent_trades.length > 0 ? (
+
+      <h5 className="pd-group">
+        Abgeschlossen
+        {closed.length > 0 && (
+          <span className={`${toneOf(realised)} pd-group-sum`}>
+            {realised >= 0 ? "+" : "−"}
+            {money(Math.abs(realised))}
+          </span>
+        )}
+      </h5>
+      {closed.length > 0 ? (
         <ul className="pd-trades">
-          {lane.recent_trades.slice(0, 5).map((t, i) => (
-            <li key={`${t.executed_at}-${t.ticker}-${i}`}>
-              <span className="pd-trade-day">{dayOf(t.executed_at)}</span>
-              <span
-                className={
-                  t.side.toLowerCase().startsWith("b")
-                    ? "pd-trade-side brief-good"
-                    : "pd-trade-side brief-warn"
-                }
-              >
-                {t.side}
-              </span>
-              <span className="pd-trade-ticker">{t.ticker}</span>
-              <span className="num">
-                {qty(t.qty)} @ {t.price.toFixed(2)}
-              </span>
-              {t.realized_pnl !== null && (
-                <span className={t.realized_pnl >= 0 ? "brief-good num" : "brief-warn num"}>
-                  {t.realized_pnl >= 0 ? "+" : "−"}
-                  {Math.abs(t.realized_pnl).toFixed(0)}
-                </span>
-              )}
-            </li>
+          {closed.slice(0, 6).map((t, i) => (
+            <ClosedTrade key={`${t.executed_at}-${t.ticker}-${i}`} trade={t} />
           ))}
         </ul>
       ) : (
-        <p className="brief-muted">noch keine Trades</p>
+        <p className="brief-muted">noch nichts realisiert</p>
       )}
     </div>
+  );
+}
+
+/** An open position: where it stands now, and one tap for the rules that will close it. */
+function OpenPosition({ position }: { position: ShortTermPosition }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <li className="pd-position">
+      <button
+        className="pd-position-main"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <StockLogo ticker={position.ticker} name={position.ticker} />
+        <span className="pd-position-body">
+          <span className="pd-trade-ticker">{position.ticker}</span>
+          <span className="brief-muted pd-position-sub">
+            {qty(position.qty)} seit {dayOf(position.opened_at)} @{" "}
+            {money(position.entry_price, 2)}
+          </span>
+        </span>
+        <span className={`${toneOf(position.unrealized_pct)} num pd-position-pnl`}>
+          {position.unrealized_pct === null ? "—" : pct(position.unrealized_pct)}
+        </span>
+      </button>
+      {open && (
+        <div className="pd-position-detail">
+          <dl>
+            <dt>Aktueller Kurs</dt>
+            <dd className="num">
+              {position.last_price === null
+                ? "— kein Stand gespeichert"
+                : money(position.last_price, 2)}
+            </dd>
+            <dt>Verkauf bei</dt>
+            <dd className="num">
+              {position.target_price === null
+                ? "— kein fester Zielkurs"
+                : money(position.target_price, 2)}
+            </dd>
+            <dt>Verlust ab</dt>
+            <dd className="num">
+              {position.stop_price === null
+                ? "— kein fester Stopkurs"
+                : money(position.stop_price, 2)}
+            </dd>
+            {position.max_hold_days !== null && (
+              <>
+                <dt>Spätestens nach</dt>
+                <dd>{position.max_hold_days} Tagen</dd>
+              </>
+            )}
+          </dl>
+          <p className="brief-muted pd-rule">{position.rule}</p>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function ClosedTrade({ trade }: { trade: ShortTermTrade }) {
+  const pnl = trade.realized_pnl ?? 0;
+  return (
+    <li>
+      <span className="pd-trade-day">{dayOf(trade.executed_at)}</span>
+      <span className="pd-trade-ticker">{trade.ticker}</span>
+      <span className="num brief-muted">
+        {qty(trade.qty)} @ {money(trade.price, 2)}
+      </span>
+      <span className={`${toneOf(pnl)} num pd-position-pnl`}>
+        {pnl >= 0 ? "+" : "−"}
+        {money(Math.abs(pnl))}
+      </span>
+    </li>
   );
 }

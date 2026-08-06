@@ -470,6 +470,15 @@ export interface ShortTermPosition {
   qty: number;
   entry_price: number;
   opened_at: string;
+  /** Last close from the lane runner's own local snapshot; null when the lane keeps none
+   *  (session trades intraday bars, crypto pulls Kraken — neither leaves a panel). */
+  last_price: number | null;
+  unrealized_pct: number | null;
+  /** Exit levels per that lane's rules; null where the level is not a fixed price. */
+  target_price: number | null;
+  stop_price: number | null;
+  max_hold_days: number | null;
+  rule: string;
 }
 
 export interface ShortTermTrade {

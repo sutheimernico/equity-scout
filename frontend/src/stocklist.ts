@@ -15,22 +15,26 @@ const POTENTIAL_ROWS = 4;
 const MIN_POTENTIAL_PCT = 30;
 
 export interface Sections {
-  /** Our own signal: the price sits inside the support-derived entry zone. */
+  /** Our own signal: in the entry zone AND the analysts see room. */
   inZone: StockBrief[];
   /** Highest analyst upside among the stocks NOT already shown above. */
   potential: StockBrief[];
+  /** In the zone, but the analysts see no upside — counted, not listed. */
+  contested: StockBrief[];
 }
 
 export function splitSections(briefs: StockBrief[]): Sections {
-  // Sorted by POTENTIAL, not by our score (2026-08-06). Sorting by score put Yamato at
-  // −7 % in row one and Nico's reaction was the right one: "dann ist ja scheiße, warum
-  // sollte ich die Aktie dann kaufen?" Being in the entry zone says the timing is fine, it
-  // does not say the stock is worth buying — so a title the analysts see no room in
-  // belongs at the bottom of the section, not at the top. It stays visible because our own
-  // signal did flag it and hiding a disagreement would be dishonest.
-  const inZone = briefs
-    .filter((b) => b.in_zone)
-    .sort((a, b) => (b.analyst_upside_pct ?? -999) - (a.analyst_upside_pct ?? -999));
+  // A stock the analysts see NO room in does not belong in a list whose job is "what
+  // should I look at" — Nico asked twice why Yamato at −7 % was there at all, which is the
+  // right question. Being in the entry zone is a timing statement; it does not make a
+  // stock worth looking at on its own. Such titles move out of the list but are COUNTED,
+  // because silently dropping a disagreement between our signal and the analysts would
+  // hide exactly the thing that makes it interesting. Sorted by potential within.
+  const zoned = briefs.filter((b) => b.in_zone);
+  const inZone = zoned
+    .filter((b) => (b.analyst_upside_pct ?? -1) > 0)
+    .sort((a, b) => (b.analyst_upside_pct ?? 0) - (a.analyst_upside_pct ?? 0));
+  const contested = zoned.filter((b) => (b.analyst_upside_pct ?? -1) <= 0);
 
   const potential = briefs
     .filter((b) => !b.in_zone)
@@ -40,7 +44,7 @@ export function splitSections(briefs: StockBrief[]): Sections {
     .sort((a, b) => (b.analyst_upside_pct ?? 0) - (a.analyst_upside_pct ?? 0))
     .slice(0, POTENTIAL_ROWS);
 
-  return { inZone, potential };
+  return { inZone, potential, contested };
 }
 
 /** The entry state in as few words as a list row can carry.

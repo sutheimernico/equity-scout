@@ -186,3 +186,55 @@ def stats(trades: list[TradeFill | dict]) -> dict:
         "realized_pnl": sum(_get(t, "realized_pnl") for t in sells) if sells else 0.0,
         "fees_paid": fees,
     }
+
+
+def position_targets(lane: str, *, entry_price: float) -> dict:
+    """Exit levels for one open position, per that lane's own rules.
+
+    The phone card answers "ab wann verkaufst du, ab wann realisierst du Verlust" (Nico
+    2026-08-06). Each lane exits differently, and two of the three cannot state a fixed
+    target price honestly:
+
+    - swing:   fixed +5 % / −3 % / 7 calendar days (st_swing).
+    - crypto:  fixed −2 % stop, but the exit is a 10-day Donchian low — a moving level,
+               so there is no target PRICE to print (st_crypto).
+    - session: stop and target are sized off that morning's opening range (st_session),
+               which the book does not persist. Saying so beats inventing a number.
+
+    Imports are local: this module is the pure book, and the lane runners import IT.
+    """
+    from equity_scout import st_crypto, st_swing
+
+    if lane == "swing":
+        return {
+            "target_price": entry_price * (1.0 + st_swing.PROFIT_TARGET),
+            "stop_price": entry_price * (1.0 - st_swing.STOP_LOSS),
+            "max_hold_days": st_swing.MAX_HOLDING_CALENDAR_DAYS,
+            "rule": (
+                f"Verkauf bei +{st_swing.PROFIT_TARGET:.0%} Gewinn, "
+                f"Stop bei −{st_swing.STOP_LOSS:.0%}, spätestens nach "
+                f"{st_swing.MAX_HOLDING_CALENDAR_DAYS} Tagen."
+            ),
+        }
+    if lane == "crypto":
+        return {
+            "target_price": None,
+            "stop_price": entry_price * (1.0 - st_crypto.STOP_PCT),
+            "max_hold_days": None,
+            "rule": (
+                f"Stop bei −{st_crypto.STOP_PCT:.0%}. Kein fester Zielkurs — verkauft wird "
+                f"beim Bruch des {st_crypto.EXIT_LOOKBACK}-Tage-Tiefs."
+            ),
+        }
+    if lane == "session":
+        return {
+            "target_price": None,
+            "stop_price": None,
+            "max_hold_days": None,
+            "rule": (
+                "Stop und Ziel richten sich nach der Eröffnungsspanne des jeweiligen "
+                "Handelstages; sie stehen nicht als fester Kurs im Buch. Spätestens zum "
+                "Handelsschluss wird glattgestellt."
+            ),
+        }
+    return {"target_price": None, "stop_price": None, "max_hold_days": None, "rule": ""}
