@@ -25,7 +25,11 @@ from equity_scout.constants import (
 )
 from equity_scout.promotion import lane_promotion_status
 from equity_scout.shortterm_book import position_targets
-from equity_scout.proof import CONVICTION_THRESHOLDS, collect_proof_books
+from equity_scout.proof import (
+    CONVICTION_THRESHOLDS,
+    MIN_DAYS_FOR_RATES,
+    collect_proof_books,
+)
 from equity_scout.data.etf_panel import DEFAULT_SNAPSHOT, load_snapshot
 from equity_scout.evidence.event_reactions import aggregate_reactions
 from equity_scout.evidence.ledger import stats_by_source
@@ -717,6 +721,9 @@ def create_app(
             "available": len(books) > 0,
             "books": books,
             "conviction": CONVICTION_THRESHOLDS,
+            # The 60-day gate rides along so the frontend can render "Urteil ab Tag N"
+            # progress without hardcoding a second copy of proof.MIN_DAYS_FOR_RATES.
+            "min_judge_days": MIN_DAYS_FOR_RATES,
             "disclaimer": DISCLAIMER,
         })
 

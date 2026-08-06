@@ -592,6 +592,9 @@ export interface ProofResponse {
     min_sharpe_after_costs: number;
     max_drawdown_pct: number;
   };
+  // proof.MIN_DAYS_FOR_RATES, joined on by the endpoint so the "Urteil ab Tag N"
+  // progress never hardcodes a second copy of the threshold.
+  min_judge_days?: number;
   disclaimer: string;
 }
 
