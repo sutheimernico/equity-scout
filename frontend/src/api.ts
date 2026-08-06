@@ -954,6 +954,8 @@ export interface PersonScore {
 
 export interface EvidenceAlert {
   ticker: string;
+  /** Company name joined server-side from the watchlist / last run; null when unknown. */
+  name: string | null;
   created_at: string;
   reasons: string[];
   text: string;

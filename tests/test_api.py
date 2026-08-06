@@ -688,3 +688,51 @@ def test_health_endpoint_is_behind_the_dash_token_gate(tmp_path):
     client = TestClient(create_app(str(db), dash_token="s3cret"))
     assert client.get("/api/health").status_code == 401
     assert client.get("/api/health", headers={"x-dash-token": "s3cret"}).json()["ok"] is True
+
+
+def test_evidence_alerts_carry_the_company_name_or_null(tmp_path):
+    """A ticker is not information for a beginner (Nico 2026-08-06: "Da steht V — 2
+    Kongressmitglieder haben gekauft … Was ist V?").
+
+    The name comes from what the run already knows — the watchlist snapshot and the last
+    run's ranking. An alert on a ticker neither of them covers gets `null`, and the UI shows
+    the ticker: an invented name would be worse than no name.
+    """
+    from equity_scout.evidence.storage import record_alert
+    from equity_scout.radar import Watchlist, WatchlistEntry
+    from equity_scout.radar_storage import save_watchlist
+    from equity_scout.signals import SignalReading
+
+    db = tmp_path / "names.db"
+    init_db(db)
+    now_iso = "2026-08-06T10:00:00+00:00"
+
+    # Name source 1: the watchlist snapshot.
+    entry = WatchlistEntry(
+        ticker="V", name="Visa Inc.", bucket="core", price=100.0,
+        entry_zone_low=95.0, entry_zone_high=105.0, proximity=-0.05, in_zone=True,
+        composite=0.7, readings=[SignalReading("dip_quality", 0.5, "Grund.")],
+        zone_note="Kurs in der Entry-Zone (95.00-105.00).",
+        breakdown={"value": 0.5, "quality": 0.5, "momentum": 0.5, "growth": 0.5},
+    )
+    save_watchlist(str(db), Watchlist(created_at=now_iso, entries=[entry]))
+
+    # Name source 2: the persisted ranking of the latest run.
+    from equity_scout.storage import save_run_scores
+
+    inst = Instrument("UNH", "UnitedHealth Group Inc.", "NYSE", "US", "USD", "Healthcare")
+    pick = Pick(inst, "balanced", 1, 0.7,
+                {"value": 0.6, "quality": 0.7, "momentum": 0.5, "growth": 0.5}, thesis="ok")
+    run_id = save_run(db, RunResult(now_iso, 10, {}, {"balanced": [pick]}))
+    save_run_scores(db, run_id, {"balanced": [pick]})
+
+    for ticker in ("V", "UNH", "ZZZZ"):
+        record_alert(str(db), ticker=ticker, reasons=["2 Kongress-Mitglieder haben gekauft"],
+                     text="t", telegram_message_id=None, now=now_iso)
+
+    client = TestClient(create_app(str(db)))
+    alerts = {a["ticker"]: a for a in client.get("/api/evidence").json()["recent_alerts"]}
+
+    assert alerts["V"]["name"] == "Visa Inc."
+    assert alerts["UNH"]["name"] == "UnitedHealth Group Inc."
+    assert alerts["ZZZZ"]["name"] is None

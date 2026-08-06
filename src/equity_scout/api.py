@@ -129,6 +129,28 @@ def _filtered_buckets(
     return {"filters": echo, "filter_matches": len(rows), "buckets": buckets}
 
 
+def _known_company_names(db_path: str) -> dict[str, str]:
+    """{ticker: name} from what this machine already knows — the newest watchlist snapshot
+    and the latest run's persisted ranking.
+
+    Deliberately no yfinance lookup: a request must never wait on the network for a label
+    (the 6 h cache in fundamentals.py exists for exactly this reason). A ticker missing here
+    stays nameless rather than guessed.
+    """
+    names: dict[str, str] = {}
+    run_id = latest_run_id(db_path)
+    if run_id is not None and run_has_scores(db_path, run_id):
+        for row in load_run_scores(db_path, run_id):
+            if row.get("name"):
+                names[row["ticker"]] = row["name"]
+    watchlist = load_latest_watchlist(db_path)
+    # Watchlist last: it is the fresher of the two for the tickers it covers.
+    for entry in (watchlist or {}).get("entries", []):
+        if entry.get("name"):
+            names[entry["ticker"]] = entry["name"]
+    return names
+
+
 def create_app(
     db_path: str = DEFAULT_DB_PATH,
     snapshot: str = DEFAULT_SNAPSHOT,
@@ -836,10 +858,17 @@ def create_app(
         # and the honest event-reaction study (Strang B4: is our latency worth
         # anything on beat/miss/guidance events — 1h always marked not measurable).
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        # "V — 2 Kongressmitglieder haben gekauft" is unreadable without the company; the
+        # alert rows carry only a ticker, so the name is joined on here (null when unknown).
+        names = _known_company_names(db_path)
+        alerts = [
+            {**alert, "name": names.get(alert["ticker"])}
+            for alert in load_alerts(db_path, limit=20)
+        ]
         return JSONResponse(
             {
                 "events_by_ticker": events_in_window(db_path, window_days=30, now=now),
-                "recent_alerts": load_alerts(db_path, limit=20),
+                "recent_alerts": alerts,
                 "stats_by_source": stats_by_source(db_path),
                 "person_scores": load_person_scores(db_path),
                 "event_reactions": aggregate_reactions(db_path),

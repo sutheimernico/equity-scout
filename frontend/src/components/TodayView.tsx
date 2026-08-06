@@ -12,6 +12,8 @@ import {
   type RadarResponse,
   type RunSummary,
 } from "../api";
+import { alertClaim } from "../alerts";
+import { shortCompanyName } from "../company";
 import { pct } from "../format";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
 import { RegimeCard } from "./RegimeCard";
@@ -115,9 +117,21 @@ export function TodayView({ onNavigate }: { onNavigate: (view: string) => void }
         {alerts.length === 0 ? (
           <p className="muted">Keine Evidenz-Alarme in letzter Zeit.</p>
         ) : (
+          // Company first, ticker small behind it — same identity as the stock list, so the
+          // same company looks the same everywhere. Without a name on file the ticker stands
+          // alone; nothing is invented (Nico 2026-08-06: "Was ist V? Du musst da schon die
+          // Aktien hinschreiben").
           alerts.map((alert, i) => (
             <p className="muted" key={i}>
-              <span className="ticker">{alert.ticker}</span> — {alert.reasons?.[0] ?? "Alarm"}{" "}
+              {alert.name ? (
+                <>
+                  <span className="alert-name">{shortCompanyName(alert.name)}</span>{" "}
+                  <span className="ticker">{alert.ticker}</span>
+                </>
+              ) : (
+                <span className="ticker">{alert.ticker}</span>
+              )}{" "}
+              — {alertClaim(alert.reasons?.[0] ?? "Alarm")}{" "}
               <span className="tnum">({String(alert.created_at ?? "").slice(0, 10)})</span>
             </p>
           ))

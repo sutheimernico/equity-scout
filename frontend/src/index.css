@@ -3057,3 +3057,11 @@ li.pd-alloc-row {
     border-radius: 18px 18px 0 0;
   }
 }
+
+/* Evidence alerts name the company first, like the stock list does — the ticker beside it
+   stays small (2026-08-06: "V — 2 Kongressmitglieder haben gekauft. Ich kann damit nichts
+   anfangen"). */
+.alert-name {
+  color: var(--text-primary);
+  font-weight: 600;
+}
