@@ -16,6 +16,12 @@
 
 **Tech Stack:** Python 3 (uv), pandas, sqlite3, httpx (per-collector, as in congress.py), yfinance via `equity_scout.data.etf_panel.load_price_history` + `data/fetch.with_retry`. Gate: `uv run pytest -q` green + `uv run ruff check .` clean before every commit.
 
+**Controller decisions during execution (binding for later tasks):**
+1. *Resolution semantics (resolves a Task-1-vs-Task-5 wording conflict found in review):* `mark_resolved` is **per-column one-way** — each `r_*` column is individually write-once; `resolved_at` is set only when all five horizons are non-NULL, so young events stay in `unresolved_events` (which also returns the `r_*` columns) until every window has elapsed. "Second call refused" applies per column, not per row.
+2. *`person` convention for cluster events (Task 3):* Form-4 cluster events have no single person — store `person = ""` (insider names live in `details`). Task 6 aggregates per person only where `person != ""`.
+3. *Query hygiene (Task 6):* `resolved_at` is also set by `mark_unresolvable` — never read `resolved_at IS NOT NULL` alone as "has usable r_* data"; always add `AND unresolvable = 0`.
+4. *Aggregation semantics (Task 6, binding):* under per-column resolution, `unresolvable = 1` rows CAN carry measured `r_*` values (e.g. delisted after 1 month: real `r_1w`/`r_1m`, then `no_price_history` for the rest). Task 6 therefore aggregates each horizon over `r_X IS NOT NULL` — dropping `unresolvable` rows from base rates would discard exactly the delisted names the survivorship disclaimer exists for. `unresolvable` feeds only the coverage/survivorship counters; `resolved_at` feeds no published number at all.
+
 **Coordination:** A parallel autopilot session owns `st_session.py`, `alpaca_*.py`, `scripts/run_shortterm.py`, `PLAN.md`, `frontend/` — this plan touches NONE of those. Commit only explicit paths (`git add <paths>`, never `-A`); working tree currently carries that session's uncommitted frontend changes. Do NOT edit PLAN.md.
 
 **Hard constraints (inherited):** free data only; `EDGAR_USER_AGENT` for anything sec.gov (degrade to `STATUS_UNCONFIGURED` like `form4.py:250-259` when unset); GDELT is OUT (BigQuery = cloud, conflicts with the private hard line — Needs Nico, see spec); LLM never scores/ranks anything; determinism in tests (canned payloads via injected closures, no network).
@@ -26,9 +32,9 @@
 
 **Files:** Create `src/equity_scout/evidence/historical_storage.py`, `tests/test_historical_storage.py`.
 
-- [ ] **Step 1:** Failing tests: `init_historical_db` creates `historical_events(id, source, person, ticker, event_key, t0, details_json, created_at, r_1w REAL, r_1m REAL, r_3m REAL, r_6m REAL, r_12m REAL, resolved_at TEXT, unresolvable INTEGER DEFAULT 0, unresolvable_reason TEXT, UNIQUE(source, ticker, event_key))`; `record_historical_events(db, events, *, now)` inserts with INSERT OR IGNORE and returns only new rows (copy the `storage.py:34-61` contract); `unresolved_events(db, limit=None)` returns rows with `resolved_at IS NULL AND unresolvable = 0`; `mark_resolved(db, event_id, returns: dict, *, now)` writes the r_* columns once (second call refused, first stands — same one-way convention as `evidence/ledger.py`); `mark_unresolvable(db, event_id, reason, *, now)`.
-- [ ] **Step 2:** Run tests → fail. Implement. Run module tests → pass.
-- [ ] **Step 3:** Full gate; commit `feat(history): historical_events storage with one-way resolution`.
+- [x] **Step 1:** Failing tests: `init_historical_db` creates `historical_events(id, source, person, ticker, event_key, t0, details_json, created_at, r_1w REAL, r_1m REAL, r_3m REAL, r_6m REAL, r_12m REAL, resolved_at TEXT, unresolvable INTEGER DEFAULT 0, unresolvable_reason TEXT, UNIQUE(source, ticker, event_key))`; `record_historical_events(db, events, *, now)` inserts with INSERT OR IGNORE and returns only new rows (copy the `storage.py:34-61` contract); `unresolved_events(db, limit=None)` returns rows with `resolved_at IS NULL AND unresolvable = 0`; `mark_resolved(db, event_id, returns: dict, *, now)` writes the r_* columns once (second call refused, first stands — same one-way convention as `evidence/ledger.py`); `mark_unresolvable(db, event_id, reason, *, now)`.
+- [x] **Step 2:** Run tests → fail. Implement. Run module tests → pass.
+- [x] **Step 3:** Full gate; commit `feat(history): historical_events storage with one-way resolution`. *(Done: 69c3d99 + c969c70 + 3dbd09a, then review-driven 7bac472 per-column resolution + central db.connect, 6c3c06e refuse-whole test. Two-stage review passed.)*
 
 ### Task 2: Congress backfill collector (kadoa per-filer JSONs, 2012→)
 
