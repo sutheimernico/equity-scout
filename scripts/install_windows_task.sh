@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # v9/v10.1: registers the Windows Task Scheduler tasks that start WSL and run the
 # guarded chains — equity-scout-daily (18:00 Mon-Fri) and equity-scout-nightly
-# (02:40 Tue-Sat; wakes the auto-depot/training chain even when WSL is down).
+# (02:40 Tue-Sat; wakes the auto-depot/training chain even when WSL is down) and
+# equity-scout-session (every 10 min 14:20-22:20 Mon-Fri; wakes the box for the US session so
+# the session lane's MINUTE cron inside WSL can fire at all).
 # NEEDS NICO: run this script once yourself — task registration on the Windows
 # side is deliberately not automated.
 # schtasks reads the XML from the Windows filesystem, so it is staged into the
@@ -31,3 +33,6 @@ PY
 
 install_task equity-scout-daily
 install_task equity-scout-nightly
+# The session lane's minute cron can only fire while WSL is up — this is the only layer that
+# can wake the machine before the opening bell (added 2026-08-06 with the per-minute cadence).
+install_task equity-scout-session

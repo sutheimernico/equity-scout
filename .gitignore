@@ -17,3 +17,4 @@ data/logos/
 .claude/settings.local.json
 frontend/node_modules/
 frontend/dist/
+keepalive.log
