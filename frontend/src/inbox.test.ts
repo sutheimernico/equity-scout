@@ -56,6 +56,7 @@ describe("groupKey", () => {
     expect(groupKey({ status: "open", verdict: "green" })).toBe("green");
     expect(groupKey({ status: "open", verdict: null })).toBe("unrated");
     expect(groupKey({ status: "buy", verdict: "green" })).toBe("decided");
+    expect(groupKey({ status: "expired", verdict: "green" })).toBe("decided");
   });
 
   it("has a heading for every group", () => {

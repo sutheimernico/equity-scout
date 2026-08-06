@@ -100,6 +100,29 @@ def decide_pitch(db_path: str, pitch_id: int, action: str, *, decided_at: str) -
         return cursor.rowcount == 1
 
 
+def expire_offlist_pitches(db_path: str, active_tickers: list[str], *, expired_at: str) -> int:
+    """Expire open pitches whose ticker is no longer on the current watchlist.
+
+    The system withdraws its own stale offer — this is NOT a decision on Nico's behalf
+    (that would be "pass"); the funnel simply no longer watches the name, so the pitch's
+    basis is gone (Nico 2026-08-06: "nichts Veraltetes"). Returns the number expired.
+
+    An EMPTY ticker list is a no-op by design: a broken radar run must never wipe the
+    whole inbox in one sweep.
+    """
+    if not active_tickers:
+        return 0
+    init_inbox_db(db_path)
+    placeholders = ",".join("?" for _ in active_tickers)
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.execute(
+            f"UPDATE pitches SET status = 'expired', decided_at = ?"
+            f" WHERE status = 'open' AND ticker NOT IN ({placeholders})",
+            (expired_at, *active_tickers),
+        )
+        return cursor.rowcount
+
+
 def set_message_id(db_path: str, pitch_id: int, message_id: int) -> None:
     init_inbox_db(db_path)
     with sqlite3.connect(db_path) as conn:

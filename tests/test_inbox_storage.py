@@ -4,6 +4,7 @@ from __future__ import annotations
 from equity_scout.inbox_storage import (
     create_pitch,
     decide_pitch,
+    expire_offlist_pitches,
     get_pitch,
     init_inbox_db,
     last_pitch_at,
@@ -42,6 +43,31 @@ def test_create_and_load_open_pitch(tmp_path):
     assert p["zone_high"] == 103.01
     assert p["price"] == 90.72
     assert p["composite"] == 0.592
+
+
+def test_expire_offlist_pitches_withdraws_only_open_offlist_rows(tmp_path):
+    db = str(tmp_path / "inbox.db")
+    on_list = _pitch_row(db, ticker="AAA")
+    off_open = _pitch_row(db, ticker="GONE")
+    off_decided = _pitch_row(db, ticker="OLD")
+    decide_pitch(db, off_decided, "pass", decided_at=T0)
+
+    expired = expire_offlist_pitches(db, ["AAA", "BBB"], expired_at=T1)
+    assert expired == 1
+
+    rows = {p["id"]: p for p in load_pitches(db)}
+    assert rows[on_list]["status"] == "open"  # still watched -> stays open
+    assert rows[off_open]["status"] == "expired"
+    assert rows[off_open]["decided_at"] == T1  # timestamp of the withdrawal
+    assert rows[off_decided]["status"] == "pass"  # a made decision is never rewritten
+
+
+def test_expire_offlist_pitches_empty_watchlist_is_a_no_op(tmp_path):
+    # A broken radar run (no entries) must never wipe the whole inbox in one sweep.
+    db = str(tmp_path / "inbox.db")
+    _pitch_row(db, ticker="AAA")
+    assert expire_offlist_pitches(db, [], expired_at=T1) == 0
+    assert load_pitches(db)[0]["status"] == "open"
 
 
 def test_decide_pitch_transitions_only_from_open(tmp_path):

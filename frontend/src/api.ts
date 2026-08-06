@@ -730,7 +730,9 @@ export async function fetchRadar(): Promise<RadarResponse> {
 }
 
 // --- Inbox (src/equity_scout/api.py → /api/inbox + decision POST) ---
-export type PitchStatus = "open" | "buy" | "pass" | "later";
+// "expired": the system withdrew its own offer because the ticker left the watchlist
+// (inbox_storage.expire_offlist_pitches) — never a decision made on the user's behalf.
+export type PitchStatus = "open" | "buy" | "pass" | "later" | "expired";
 
 export interface Pitch {
   id: number;

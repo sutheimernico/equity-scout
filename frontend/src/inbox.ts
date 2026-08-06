@@ -38,8 +38,8 @@ export const GROUP_HEADINGS: Record<InboxGroupKey, { title: string; sub: string 
     sub: "Für diese Titel fehlt ein Einstiegs-Score — ältere Pitches von vor der Bewertung.",
   },
   decided: {
-    title: "Bereits entschieden",
-    sub: "Deine bisherigen Entscheidungen — nur Notizen, kein realer Handel.",
+    title: "Bereits entschieden oder verfallen",
+    sub: "Deine bisherigen Entscheidungen und Pitches, deren Titel nicht mehr beobachtet wird — nur Notizen, kein realer Handel.",
   },
 };
 

@@ -29,11 +29,12 @@ function pitchName(pitch: Pitch): string | null {
   return parsed === null ? null : shortCompanyName(parsed);
 }
 
-// Decided-outcome badge: label + color class (buy=grün, pass=rot, later=grau).
+// Decided-outcome badge: label + color class (buy=grün, pass=rot, later/expired=grau).
 const OUTCOME: Record<Exclude<Pitch["status"], "open">, { label: string; cls: string }> = {
   buy: { label: "Gekauft", cls: "pitch-badge--buy" },
   pass: { label: "Abgelehnt", cls: "pitch-badge--pass" },
   later: { label: "Später", cls: "pitch-badge--later" },
+  expired: { label: "Verfallen", cls: "pitch-badge--later" },
 };
 
 /** Today's entry state, same chip as the Heute list (StockList.ZoneChip) so the same
@@ -260,7 +261,11 @@ export function InboxPanel() {
                   </div>
                 ) : (
                   p.decided_at && (
-                    <p className="pitch-decided">Entschieden am {pitchDate(p.decided_at)}</p>
+                    <p className="pitch-decided">
+                      {p.status === "expired"
+                        ? `Verfallen am ${pitchDate(p.decided_at)} — der Titel steht nicht mehr auf der Beobachtungsliste.`
+                        : `Entschieden am ${pitchDate(p.decided_at)}`}
+                    </p>
                   )
                 )}
 
