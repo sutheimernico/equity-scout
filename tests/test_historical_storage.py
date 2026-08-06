@@ -96,6 +96,17 @@ def test_mark_resolved_is_single_transition(tmp_path):
         mark_resolved(db, 999, {"r_1w": 0.0}, now=NOW)
 
 
+def test_mark_resolved_refuses_empty_returns(tmp_path):
+    db = str(tmp_path / "test.db")
+    record_historical_events(db, [_event()], now=NOW)
+    event_id = unresolved_events(db)[0]["id"]
+
+    with pytest.raises(ValueError):
+        mark_resolved(db, event_id, {}, now=NOW)
+    # Refused before any write — the row is still open.
+    assert unresolved_events(db) != []
+
+
 def test_mark_resolved_accepts_partial_horizons(tmp_path):
     """Young events: only the elapsed windows are resolvable yet."""
     db = str(tmp_path / "test.db")

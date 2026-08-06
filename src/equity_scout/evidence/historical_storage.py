@@ -128,9 +128,12 @@ def mark_resolved(
     never revisit an already-resolved row (one-way, same as evidence/ledger.py).
 
     Returns False (no-op) if the row is already resolved or already marked unresolvable —
-    the first transition stands. Raises ValueError for an unknown event id or an unknown
-    horizon key.
+    the first transition stands. Raises ValueError for an unknown event id, an unknown
+    horizon key, or an empty `returns` (a no-op the caller almost certainly didn't intend,
+    and one that would otherwise reach the database as malformed SQL).
     """
+    if not returns:
+        raise ValueError("returns must not be empty")
     unknown = set(returns) - set(RETURN_HORIZONS)
     if unknown:
         raise ValueError(f"unknown return horizon(s): {sorted(unknown)}")
