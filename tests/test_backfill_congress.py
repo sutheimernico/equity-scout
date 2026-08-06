@@ -22,8 +22,8 @@ def _counts(**overrides) -> dict:
     """Full shape of backfill_congress's return value, zeroed except for overrides."""
     base = {
         "filers": 0, "filers_failed": 0, "events_new": 0, "events_seen": 0,
-        "index_fallback": 0, "no_ticker": 0, "not_stock": 0, "no_date": 0,
-        "malformed": 0, "duplicate": 0,
+        "index_fallback": 0, "seed_empty": 0, "rows": 0, "no_ticker": 0, "not_stock": 0,
+        "no_date": 0, "malformed": 0, "duplicate": 0,
     }
     base.update(overrides)
     return base
@@ -223,6 +223,15 @@ def test_events_from_filer_payload_survives_malformed_rows():
     assert counters["malformed"] == 3
 
 
+def test_events_from_filer_payload_survives_non_list_trades_field():
+    """"trades": 5 -- a bare `payload.get("trades") or []` would still try to iterate
+    the int and raise TypeError; the whole payload is malformed, no rows are counted."""
+    events, counters = events_from_filer_payload({"filer": {}, "trades": 5}, person="Jane Doe")
+    assert events == []
+    assert counters["malformed"] == 1
+    assert counters["rows"] == 0
+
+
 def test_events_from_filer_payload_coerces_non_string_type_fields_instead_of_crashing():
     payload = _filer_payload([_filer_trade(asset_type=7), _filer_trade(transaction_type=1)])
     events, counters = events_from_filer_payload(payload, person="Jane Doe")
@@ -272,7 +281,7 @@ def test_backfill_congress_records_events_and_reports_counts(tmp_path):
     counts = backfill_congress(
         db, now=NOW, http_get=http_get, filer_ids=["senate_jane_doe", "house_max_roe"]
     )
-    assert counts == _counts(filers=2, events_new=2, events_seen=2)
+    assert counts == _counts(filers=2, events_new=2, events_seen=2, rows=2)
     assert {r["ticker"] for r in unresolved_events(db)} == {"NVDA", "MSFT"}
 
 
@@ -284,10 +293,10 @@ def test_backfill_congress_dedupes_on_rerun(tmp_path):
         return json.dumps(filer_a)
 
     first = backfill_congress(db, now=NOW, http_get=http_get, filer_ids=["senate_jane_doe"])
-    assert first == _counts(filers=1, events_new=1, events_seen=1)
+    assert first == _counts(filers=1, events_new=1, events_seen=1, rows=1)
 
     second = backfill_congress(db, now=NOW, http_get=http_get, filer_ids=["senate_jane_doe"])
-    assert second == _counts(filers=1, events_new=0, events_seen=1)
+    assert second == _counts(filers=1, events_new=0, events_seen=1, rows=1)
 
 
 def test_backfill_congress_skips_broken_filer_without_aborting(tmp_path):
@@ -306,7 +315,7 @@ def test_backfill_congress_skips_broken_filer_without_aborting(tmp_path):
     )
     # The broken filer is still counted as attempted (and now as failed) -- but
     # contributes zero events, and the working filer right after it is unaffected.
-    assert counts == _counts(filers=2, filers_failed=1, events_new=1, events_seen=1)
+    assert counts == _counts(filers=2, filers_failed=1, events_new=1, events_seen=1, rows=1)
     assert {r["ticker"] for r in unresolved_events(db)} == {"MSFT"}
 
 
@@ -359,7 +368,7 @@ def test_backfill_congress_seeds_from_full_filer_index_by_default(tmp_path):
         raise AssertionError(f"unexpected url: {url}")
 
     counts = backfill_congress(db, now=NOW, http_get=http_get)
-    assert counts == _counts(filers=1, events_new=1, events_seen=1, index_fallback=0)
+    assert counts == _counts(filers=1, events_new=1, events_seen=1, index_fallback=0, rows=1)
 
 
 def test_backfill_congress_falls_back_to_trades_json_when_index_fetch_fails(tmp_path):
@@ -377,4 +386,66 @@ def test_backfill_congress_falls_back_to_trades_json_when_index_fetch_fails(tmp_
         raise AssertionError(f"unexpected url: {url}")
 
     counts = backfill_congress(db, now=NOW, http_get=http_get)
-    assert counts == _counts(filers=1, events_new=1, events_seen=1, index_fallback=1)
+    assert counts == _counts(filers=1, events_new=1, events_seen=1, index_fallback=1, rows=1)
+
+
+def test_backfill_congress_falls_back_when_index_is_valid_but_empty(tmp_path):
+    """A valid-but-renamed-key filers.json parses to [] -- without this fallback the run
+    would look like a successful no-op instead of a degraded one."""
+    db = str(tmp_path / "test.db")
+    trades_payload = json.dumps([_trades_row(filer_id="senate_jane_doe")])
+    filer_payload = _filer_payload([_filer_trade()])
+
+    def http_get(url: str) -> str:
+        if url == FILERS_URL:
+            return json.dumps([])
+        if url == TRADES_URL:
+            return trades_payload
+        if url == FILER_URL_TEMPLATE.format(filer_id="senate_jane_doe"):
+            return json.dumps(filer_payload)
+        raise AssertionError(f"unexpected url: {url}")
+
+    counts = backfill_congress(db, now=NOW, http_get=http_get)
+    assert counts == _counts(filers=1, events_new=1, events_seen=1, index_fallback=1, rows=1)
+
+
+def test_backfill_congress_counts_seed_empty_when_both_seeds_are_empty(tmp_path):
+    """Neither seed yields a single filer -- the run must be loud about it, never a
+    silent, filer-less "success" indistinguishable from "nothing new to backfill"."""
+    db = str(tmp_path / "test.db")
+
+    def http_get(url: str) -> str:
+        if url == FILERS_URL:
+            return json.dumps([])
+        if url == TRADES_URL:
+            return json.dumps([])
+        raise AssertionError(f"unexpected url: {url}")
+
+    counts = backfill_congress(db, now=NOW, http_get=http_get)
+    assert counts == _counts(index_fallback=1, seed_empty=1)
+
+
+def test_backfill_congress_surfaces_aggregated_skip_counters(tmp_path):
+    """One filer whose payload hits every skip reason at least once -- deleting the
+    aggregation loop that folds events_from_filer_payload's per-payload counters into
+    backfill_congress's return value must break this test."""
+    db = str(tmp_path / "test.db")
+    payload = _filer_payload(
+        [
+            None,  # malformed
+            _filer_trade(ticker=None),  # no_ticker
+            _filer_trade(asset_type="Stock Option"),  # not_stock
+            _filer_trade(filing_date=None, notification_date=None),  # no_date
+            _filer_trade(),  # kept
+            _filer_trade(),  # duplicate of the row above
+        ]
+    )
+
+    def http_get(url: str) -> str:
+        return json.dumps(payload)
+
+    counts = backfill_congress(db, now=NOW, http_get=http_get, filer_ids=["senate_jane_doe"])
+    assert counts == _counts(
+        filers=1, events_new=1, events_seen=1, rows=6,
+        no_ticker=1, not_stock=1, no_date=1, malformed=1, duplicate=1,
+    )

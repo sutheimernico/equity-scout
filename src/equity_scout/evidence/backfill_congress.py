@@ -10,7 +10,9 @@ recent. Event identity mirrors congress.py's live collapse rule (`congress.py:10
 politician's same-day, same-ticker purchase collapses into one fact here too — except
 the surviving T0 is the EARLIEST filing date across the collapsed rows, never whichever
 row happened to land first in mirror-refresh order (a later-filed duplicate must not
-push a fact's public date later than it really was).
+push a fact's public date later than it really was). This guarantee holds only WITHIN
+ONE RUN: a duplicate row that only shows up in a later mirror refresh cannot lower an
+already-recorded t0 — `record_historical_events`' INSERT OR IGNORE never corrects it.
 
 Seeding: the correct filer list for a 2012-> backfill is the mirror's FULL filer index
 (`FILERS_URL`, 440 filers as of 2026-08-06), not the capped `trades.json` (only ~95
@@ -40,10 +42,12 @@ FILERS_URL = (
     "/main/public/data/filers.json"
 )
 
-# Skip counters aggregated into backfill_congress's return value -- every one of these
-# indicates something worth watching across a multi-hundred-filer run, unlike the far
-# more common (and harmless) "not_purchase" (sales, the majority of any filer's history).
-_AGGREGATE_SKIP_KEYS = ("no_ticker", "not_stock", "no_date", "malformed", "duplicate")
+# Per-filer counters aggregated into backfill_congress's return value. "rows" is the
+# denominator every other count needs -- "1203 no_ticker" is meaningless in the Task-7
+# report without it. The rest each flag a failure mode worth watching across a
+# multi-hundred-filer run, unlike the far more common (and harmless) "not_purchase"
+# (sales, the majority of any filer's history).
+_AGGREGATE_COUNT_KEYS = ("rows", "no_ticker", "not_stock", "no_date", "malformed", "duplicate")
 
 
 def _distinct_ids(rows: list, id_key: str) -> list[str]:
@@ -95,7 +99,10 @@ def events_from_filer_payload(
     date (falling back to the notification date, same as person_track) -- the day the
     trade became publicly knowable, never the trade day itself. Rows collapsing onto the
     same (ticker, event_key) keep the EARLIEST t0 among them, regardless of payload
-    order. `filer_id` should be the caller's authoritative id (from the URL that fetched
+    order, but only WITHIN this one call. A duplicate row that only shows up in a later
+    mirror refresh (a separate call) cannot lower an already-recorded t0 --
+    `record_historical_events`' INSERT OR IGNORE never revisits an existing row.
+    `filer_id` should be the caller's authoritative id (from the URL that fetched
     this very payload) whenever known -- the per-row `filer_id` fallback exists only for
     standalone calls, and must never be trusted to disambiguate BETWEEN filers (two
     different filers' rows missing filer_id would otherwise collide on the same
@@ -112,7 +119,15 @@ def events_from_filer_payload(
                 "no_date": 0, "malformed": 0, "duplicate": 0}
     groups: dict[tuple[str, str], dict] = {}
     order: list[tuple[str, str]] = []
-    for row in payload.get("trades") or []:
+    trades = payload.get("trades")
+    if trades is None:
+        trades = []
+    elif not isinstance(trades, list):
+        # e.g. "trades": 5 -- a bare `or []` would still try (and fail) to iterate a
+        # non-list truthy value; the whole payload is malformed, not any one row.
+        counters["malformed"] += 1
+        trades = []
+    for row in trades:
         counters["rows"] += 1
         if not isinstance(row, dict):
             counters["malformed"] += 1
@@ -185,27 +200,34 @@ def backfill_congress(
     """Full purchase history per filer -> `historical_events`.
 
     `filer_ids` defaults to the mirror's FULL filer index (`FILERS_URL`) -- the
-    survivorship-free seed for a 2012-> backfill; if the index itself can't be fetched,
-    falls back to trades.json's ~95 currently-active filers (counted via
-    `index_fallback`, never silent). Pass an explicit list to backfill or re-run a
-    subset without refetching either seed list. A filer whose history file fails to
-    fetch/parse (`fetch_filer_history` degrades any such failure to None) is still
-    counted in `filers`/`filers_failed` but contributes no events -- the run continues
-    with the next filer.
+    survivorship-free seed for a 2012-> backfill; if the index itself can't be fetched
+    OR PARSES BUT IS EMPTY (e.g. a valid-but-renamed-key filers.json -- an empty result
+    must never look like a quiet successful no-op), falls back to trades.json's ~95
+    currently-active filers (counted via `index_fallback`, never silent). If THAT is
+    also empty, the run is loud about it via `seed_empty` rather than returning a
+    silent, filer-less "success". Pass an explicit list to backfill or re-run a subset
+    without refetching either seed list. A filer whose history file fails to fetch/parse
+    (`fetch_filer_history` degrades any such failure to None) is still counted in
+    `filers`/`filers_failed` but contributes no events -- the run continues with the
+    next filer.
     """
     counts = {
         "filers": 0, "filers_failed": 0, "events_new": 0, "events_seen": 0,
-        "index_fallback": 0,
-        **{key: 0 for key in _AGGREGATE_SKIP_KEYS},
+        "index_fallback": 0, "seed_empty": 0,
+        **{key: 0 for key in _AGGREGATE_COUNT_KEYS},
     }
     ids = filer_ids
     if ids is None:
         get = http_get if http_get is not None else _http_get_default
         try:
             ids = filer_ids_from_index(get(FILERS_URL))
-        except Exception:  # noqa: BLE001 -- a dead/renamed index degrades to the fallback seed
+        except Exception:  # noqa: BLE001 -- transport/parse failure degrades to the fallback seed
+            ids = []
+        if not ids:
             counts["index_fallback"] = 1
             ids = filer_ids_from_trades(get(TRADES_URL))
+        if not ids:
+            counts["seed_empty"] = 1
     for filer_id in ids:
         counts["filers"] += 1
         payload = fetch_filer_history(filer_id, http_get)
@@ -217,6 +239,6 @@ def backfill_congress(
         events, skip_counters = events_from_filer_payload(payload, person=person, filer_id=filer_id)
         counts["events_seen"] += len(events)
         counts["events_new"] += len(record_historical_events(db_path, events, now=now))
-        for key in _AGGREGATE_SKIP_KEYS:
+        for key in _AGGREGATE_COUNT_KEYS:
             counts[key] += skip_counters[key]
     return counts
