@@ -176,7 +176,9 @@ def await_fill(
     signal price instead made the cleanup of 2026-08-06 record five exits at their entry price.
     """
     for attempt in range(attempts):
-        if order.filled_qty and order.filled_avg_price is not None:
+        # FULLY filled, not "something filled": MSFT filled 1 of 2 shares first on 2026-08-06
+        # and the caller booked 1 while the broker went on to hold 2.
+        if order.status == "filled" and order.filled_avg_price is not None:
             return order
         if order.status in TERMINAL_STATUSES:
             return order
@@ -206,21 +208,16 @@ def settle_or_cancel(
     the book has not booked is exactly the same problem, one minute later. If the cancel is
     refused the order filled in the meantime, so it is read back once more and returned.
     """
-    for attempt in range(attempts):
-        if order.filled_qty and order.filled_avg_price is not None:
-            return order
-        if order.status in TERMINAL_STATUSES:
-            return order
-        if attempt:
-            sleep(delay)
-        order = fetch(order.order_id)
-    if order.filled_qty and order.filled_avg_price is not None:
-        return order
+    order = await_fill(order, fetch=fetch, sleep=sleep, attempts=attempts, delay=delay)
+    if order.status == "filled" or order.status in TERMINAL_STATUSES:
+        return order  # nothing left pending — a rejection has nothing to cancel either
     try:
         cancel(order.order_id)
     except AlpacaBrokerError:
-        return fetch(order.order_id)  # refused = it filled while we were cancelling
-    return order
+        pass  # refused = it completed while we were cancelling
+    # The FINAL state after the cancel: whatever actually filled and nothing still pending, so
+    # the book and the broker end up holding the same quantity even after a partial fill.
+    return fetch(order.order_id)
 
 
 def open_order_ids(rows: list[dict]) -> list[str]:

@@ -181,3 +181,20 @@ def test_await_fill_gives_up_after_its_attempts_without_pretending() -> None:
     order = await_fill(_order("pending_new"), fetch=lambda _id: _order("new"),
                        sleep=lambda _s: None, attempts=2)
     assert order.filled_avg_price is None and order.status == "new"
+
+
+def test_a_partial_fill_is_cancelled_down_to_what_really_filled() -> None:
+    """MSFT, live 2026-08-06: 1 of 2 shares filled first. Booking that 1 while the rest went
+    on to fill left the book at 1 against the broker's 2. The remainder is cancelled and the
+    order re-read, so both sides end on the same quantity."""
+    cancelled: list[str] = []
+    reads = [BrokerOrder("o8", "partially_filled", 1.0, 497.90),
+             BrokerOrder("o8", "partially_filled", 1.0, 497.90),
+             BrokerOrder("o8", "canceled", 1.0, 497.90)]
+    settled = settle_or_cancel(
+        BrokerOrder("o8", "pending_new", 0.0, None),
+        fetch=lambda _id: reads.pop(0), sleep=lambda _s: None,
+        cancel=cancelled.append, attempts=2,
+    )
+    assert cancelled == ["o8"]
+    assert settled.filled_qty == 1.0 and settled.filled_avg_price == 497.90
