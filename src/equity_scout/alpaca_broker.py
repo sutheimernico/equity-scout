@@ -160,6 +160,32 @@ def cancel_order(order_id: str) -> None:
         )
 
 
+def await_fill(
+    order: BrokerOrder,
+    *,
+    fetch: Callable[[str], BrokerOrder] = fetch_order,
+    sleep: Callable[[float], None] = time.sleep,
+    attempts: int = FILL_POLL_ATTEMPTS,
+    delay: float = FILL_POLL_SECONDS,
+) -> BrokerOrder:
+    """Read an order back until it has filled or reached a terminal status. NEVER cancels.
+
+    Used for exits: a flatten that gets cancelled leaves the position open, whereas an entry
+    may be abandoned (see settle_or_cancel). Both DELETE /v2/positions and POST /v2/orders
+    answer `pending_new` before the fill lands, so the price has to be read back — booking the
+    signal price instead made the cleanup of 2026-08-06 record five exits at their entry price.
+    """
+    for attempt in range(attempts):
+        if order.filled_qty and order.filled_avg_price is not None:
+            return order
+        if order.status in TERMINAL_STATUSES:
+            return order
+        if attempt:
+            sleep(delay)
+        order = fetch(order.order_id)
+    return order
+
+
 def settle_or_cancel(
     order: BrokerOrder,
     *,
@@ -197,8 +223,30 @@ def settle_or_cancel(
     return order
 
 
-def close_position(ticker: str) -> BrokerOrder:
-    """Flatten one position at market and cancel its resting bracket legs (network)."""
+def open_order_ids(rows: list[dict]) -> list[str]:
+    """Order ids from an /v2/orders listing."""
+    return [row["id"] for row in rows]
+
+
+def cancel_open_orders(ticker: str) -> None:
+    """Cancel every resting order of one symbol (network), best effort.
+
+    An order that finished between listing and cancelling answers 422 — that is the desired
+    end state, so it is not an error here.
+    """
+    with _client() as client:
+        listing = client.get(
+            f"{PAPER_BASE}/orders", params={"status": "open", "symbols": ticker, "limit": 100}
+        )
+        if listing.status_code != 200:
+            raise AlpacaBrokerError(
+                f"GET /v2/orders ({ticker}) -> {listing.status_code}: {listing.text[:200]}"
+            )
+        for order_id in open_order_ids(listing.json()):
+            client.delete(f"{PAPER_BASE}/orders/{order_id}")
+
+
+def _flatten(ticker: str) -> BrokerOrder:
     with _client() as client:
         response = client.delete(f"{PAPER_BASE}/positions/{ticker}")
     if response.status_code not in (200, 207):
@@ -206,3 +254,21 @@ def close_position(ticker: str) -> BrokerOrder:
             f"DELETE /v2/positions/{ticker} -> {response.status_code}: {response.text[:300]}"
         )
     return parse_order(response.json())
+
+
+def close_position(
+    ticker: str,
+    *,
+    cancel_open: Callable[[str], None] = cancel_open_orders,
+    flatten: Callable[[str], BrokerOrder] = _flatten,
+) -> BrokerOrder:
+    """Flatten one position at market — cancelling its resting bracket legs FIRST.
+
+    Alpaca does not release the shares a resting take-profit leg holds: the flatten answers
+    `403 insufficient qty available for order … held_for_orders: 4`. Measured live on
+    2026-08-06, and it made every exit of the session lane fail — whereupon the caller's
+    fallback booked the book flat while the broker still held the position, which is the exact
+    divergence the broker-is-truth design exists to prevent.
+    """
+    cancel_open(ticker)
+    return flatten(ticker)

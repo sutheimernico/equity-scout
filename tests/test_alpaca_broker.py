@@ -7,8 +7,11 @@ import pytest
 from equity_scout.alpaca_broker import (
     AlpacaBrokerError,
     BrokerOrder,
+    await_fill,
     BrokerPosition,
     bracket_payload,
+    close_position,
+    open_order_ids,
     parse_order,
     parse_positions,
     settle_or_cancel,
@@ -137,3 +140,44 @@ def test_a_rejected_order_stops_the_polling_at_once() -> None:
     )
     assert settled.status == "rejected"
     assert len(looks) == 1, "a terminal status must not be polled again"
+
+
+# --- Exits must cancel the resting legs first (found live 2026-08-06) ----------------------
+
+def test_open_order_ids_reads_the_ids_of_a_symbols_resting_orders() -> None:
+    rows = [{"id": "a", "symbol": "TSLA"}, {"id": "b", "symbol": "TSLA"}]
+    assert open_order_ids(rows) == ["a", "b"]
+
+
+def test_closing_cancels_the_resting_legs_before_flattening() -> None:
+    """Alpaca answers DELETE /v2/positions/TSLA with 403 `held_for_orders` while the bracket's
+    take-profit leg still holds the shares. Without cancelling first EVERY exit of the lane
+    failed — and the fallback booked the book flat while the broker kept the position.
+    """
+    calls: list[str] = []
+
+    def fake_cancel(ticker: str) -> None:
+        calls.append(f"cancel:{ticker}")
+
+    def fake_flatten(ticker: str) -> BrokerOrder:
+        calls.append(f"flatten:{ticker}")
+        return _order("filled", 4.0, 321.5)
+
+    order = close_position("TSLA", cancel_open=fake_cancel, flatten=fake_flatten)
+    assert calls == ["cancel:TSLA", "flatten:TSLA"]
+    assert order.filled_avg_price == 321.5
+
+
+def test_await_fill_waits_without_ever_cancelling() -> None:
+    """An exit must go through: a flatten that is cancelled leaves the position open. So the
+    exit path polls but never cancels — unlike an entry, which may be abandoned."""
+    answers = [_order("pending_new"), _order("filled", 4.0, 321.5)]
+    order = await_fill(_order("pending_new"), fetch=lambda _id: answers.pop(0),
+                       sleep=lambda _s: None)
+    assert order.filled_avg_price == 321.5
+
+
+def test_await_fill_gives_up_after_its_attempts_without_pretending() -> None:
+    order = await_fill(_order("pending_new"), fetch=lambda _id: _order("new"),
+                       sleep=lambda _s: None, attempts=2)
+    assert order.filled_avg_price is None and order.status == "new"

@@ -23,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 
 from equity_scout.alpaca_broker import (
     AlpacaBrokerError,
+    await_fill,
     close_position,
 )
 from equity_scout.alpaca_broker import fetch_positions as fetch_broker_positions
@@ -289,7 +290,10 @@ def _close_position(db: str, book: LaneBook, action, *, feed: str) -> tuple[Lane
         return sell(book, action.ticker, action.price, action.at, reason=action.reason)
     price = action.price
     try:
-        order = close_position(action.ticker)
+        # The flatten answers `pending_new` too — read the real exit price back rather than
+        # booking the signal price (which is how the 2026-08-06 cleanup recorded five exits at
+        # their own entry price). No cancel on this path: an exit has to go through.
+        order = await_fill(close_position(action.ticker))
         price = order.filled_avg_price or action.price
         record_execution(db, lane="session", ticker=action.ticker, side="sell",
                          signalled_at=action.at, expected_price=action.price,
