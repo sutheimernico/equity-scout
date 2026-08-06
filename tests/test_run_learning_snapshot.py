@@ -45,7 +45,8 @@ def test_snapshot_reflects_champion_n_train_and_resolved_window(tmp_path):
         db, model_version=version, horizon_days=5, now="2026-06-01T00:00:00+00:00",
         scored=[("AAA", 80, {"f": 1.0}), ("BBB", 20, {"f": 2.0})],
     )
-    due = due_predictions(db, "2026-06-10T00:00:00+00:00")
+    # trading-day stamp: resolve_after = 2026-06-01 + ceil(5*7/5)+4 = 2026-06-12
+    due = due_predictions(db, "2026-06-15T00:00:00+00:00")
     resolve_prediction(db, due[0]["id"], realized_relative_return=0.05, resolved_at="2026-06-08T00:00:00+00:00")
 
     snapshot = run_learning_snapshot(db, now="2026-07-01T00:00:00+00:00", window_days=30)

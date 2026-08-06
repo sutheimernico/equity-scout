@@ -52,6 +52,18 @@ def init_ledger_db(db_path: str = DEFAULT_DB_PATH) -> None:
         )
 
 
+# `horizon_days` counts TRADING days (forward_return counts index positions). 20 trading
+# days span ~28 calendar days; the buffer covers holidays and the one-session lag of
+# trim_to_completed_sessions (the running session is never in the panel).
+RESOLVE_BUFFER_DAYS = 4
+
+
+def _resolve_after(now: str, horizon_days: int) -> str:
+    """The TRADING-day horizon as a calendar date — deliberately late, never early."""
+    calendar_days = math.ceil(horizon_days * 7 / 5) + RESOLVE_BUFFER_DAYS
+    return (datetime.fromisoformat(now) + timedelta(days=calendar_days)).isoformat()
+
+
 def log_predictions(
     db_path: str,
     *,
@@ -60,11 +72,11 @@ def log_predictions(
     now: str,
     horizon_days: int,
 ) -> None:
-    """Append one open prediction per scored entry. `resolve_after = now + horizon_days` CALENDAR
-    days — a deliberate over-estimate of the trading-day horizon, so a prediction is never resolved
-    before its full forward window has actually elapsed. `now` is injected (no wall clock here)."""
+    """Append one open prediction per scored entry. `resolve_after` converts the TRADING-day
+    horizon to calendar days (~1.4x) plus a buffer, so `due` can never fire before the forward
+    window is observable. `now` is injected (no wall clock here)."""
     init_ledger_db(db_path)
-    resolve_after = (datetime.fromisoformat(now) + timedelta(days=horizon_days)).isoformat()
+    resolve_after = _resolve_after(now, horizon_days)
     with sqlite3.connect(db_path) as conn:
         conn.executemany(
             "INSERT INTO entry_predictions"

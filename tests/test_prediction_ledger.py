@@ -15,7 +15,9 @@ from equity_scout.ml.prediction_ledger import (
 
 NOW = "2026-01-01T00:00:00+00:00"
 BEFORE = "2026-01-15T00:00:00+00:00"  # < NOW + 20 calendar days (2026-01-21)
-AFTER = "2026-02-01T00:00:00+00:00"  # > resolve_after
+# 20 trading days after 2026-01-01 is 2026-01-29; resolve_after over-estimates that as
+# NOW + ceil(20*7/5)+4 = 32 calendar days = 2026-02-02. AFTER must lie beyond it.
+AFTER = "2026-02-10T00:00:00+00:00"
 HORIZON = 20
 
 
@@ -59,12 +61,13 @@ def test_due_predictions_after_resolve_after(tmp_path):
 def test_due_check_compares_real_time_not_lexical_string(tmp_path):
     db = str(tmp_path / "led.db")
     log_predictions(db, model_version=1, scored=_scored(), now=NOW, horizon_days=HORIZON)
-    # resolve_after = 2026-01-21T00:00:00+00:00. A +02:00 clock reading 01:00 is 2026-01-20T23:00Z,
-    # i.e. BEFORE resolve_after in real time — but it sorts AFTER lexically. It must NOT be due.
-    not_yet_due = "2026-01-21T01:00:00+02:00"
+    # resolve_after = NOW + 32 days = 2026-02-02T00:00:00+00:00 (trading-day stamp). A +02:00
+    # clock reading 01:00 is 2026-02-01T23:00Z, i.e. BEFORE resolve_after in real time — but it
+    # sorts AFTER lexically. It must NOT be due.
+    not_yet_due = "2026-02-02T01:00:00+02:00"
     assert due_predictions(db, not_yet_due) == []
-    # a +02:00 reading of 03:00 is 2026-01-21T01:00Z — genuinely past resolve_after → due
-    genuinely_due = "2026-01-21T03:00:00+02:00"
+    # a +02:00 reading of 03:00 is 2026-02-02T01:00Z — genuinely past resolve_after → due
+    genuinely_due = "2026-02-02T03:00:00+02:00"
     assert len(due_predictions(db, genuinely_due)) == 3
 
 
@@ -207,3 +210,14 @@ def test_recent_prediction_features_returns_latest_dicts(tmp_path):
     )
     features = recent_prediction_features(db, limit=1)
     assert features == [{"f": 2.0}]
+
+
+def test_due_gate_waits_for_the_trading_day_horizon_not_calendar_days(tmp_path):
+    """Regression 2026-08-05: resolve_after was created_at + horizon CALENDAR days, but
+    resolution measures horizon TRADING days (~1.4x longer). 299 rows were 'due' and
+    physically unmeasurable for 26 days while the resolver mutely printed 'Aufgelöst: 0'."""
+    db = str(tmp_path / "led.db")
+    log_predictions(db, model_version=1, scored=_scored(), now=NOW, horizon_days=HORIZON)
+    # Old semantics made these due at NOW + 20 calendar days (2026-01-21).
+    assert due_predictions(db, "2026-01-22T00:00:00+00:00") == []
+    assert len(due_predictions(db, "2026-02-10T00:00:00+00:00")) == len(_scored())
