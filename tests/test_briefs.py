@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from equity_scout.briefs import build_brief, rank_entries, score_band, zone_gap
+from equity_scout.briefs import (
+    build_brief,
+    pitch_market_context,
+    rank_entries,
+    score_band,
+    zone_gap,
+)
 from equity_scout.fundamentals import Fundamentals
 from equity_scout.radar import Watchlist, WatchlistEntry
 from equity_scout.radar_storage import save_watchlist
@@ -126,6 +132,38 @@ def test_build_brief_analyst_upside_null_when_price_is_zero():
     assert brief["analyst_upside_pct"] is None
 
 
+# --- pitch_market_context (inbox enrichment, 2026-08-06) ------------------------------
+
+def test_pitch_market_context_off_watchlist_degrades_to_none():
+    # A ticker that dropped off the watchlist has no current price — every field is an
+    # honest None, never the stale pitch-time numbers presented as today's view.
+    context = pitch_market_context(None, None)
+    assert all(value is None for value in context.values())
+
+
+def test_pitch_market_context_builds_todays_view():
+    fund = Fundamentals(trailing_pe=15.0, analyst_target=130.0, analyst_count=11,
+                         currency="USD")
+    entry = _entry(ticker="AAA", price=100.0, zone_low=90.0, zone_high=110.0,
+                    in_zone=True, composite=0.5)
+    context = pitch_market_context(entry, fund)
+    assert context["current_price"] == 100.0
+    assert context["in_zone"] is True
+    assert context["zone_verdict"] == "im Einstiegsbereich"
+    assert context["analyst_upside_pct"] == 30.0
+    assert context["analyst_count"] == 11
+    assert "Wert" in context["entry_note"]
+
+
+def test_pitch_market_context_without_fundamentals_keeps_zone_fields():
+    entry = _entry(ticker="AAA", price=150.0, zone_low=90.0, zone_high=110.0,
+                    in_zone=False, composite=0.5)
+    context = pitch_market_context(entry, None)
+    assert context["zone_verdict"] == "36 % über der Einstiegszone"
+    assert context["analyst_upside_pct"] is None
+    assert context["entry_note"]  # relates zone to the missing analyst view
+
+
 # --- endpoint ------------------------------------------------------------------------
 
 def _watchlist_entry(**kwargs) -> WatchlistEntry:
@@ -211,6 +249,55 @@ def test_briefs_endpoint_limit_is_capped(tmp_path, monkeypatch):
     client = TestClient(api_mod.create_app(str(db)))
     body = client.get("/api/briefs?limit=999").json()
     assert len(body["briefs"]) == 20  # hard-capped, never all 25
+
+
+def test_inbox_endpoint_enriches_open_pitches_with_todays_context(tmp_path, monkeypatch):
+    import equity_scout.api as api_mod
+    from equity_scout.inbox_storage import create_pitch
+
+    db = str(tmp_path / "inbox-context.db")
+    wl = Watchlist(
+        created_at="2026-08-06T09:00:00",
+        entries=[_watchlist_entry(ticker="AAA", name="AAA Inc.", price=100.0,
+                                    in_zone=True, composite=0.5)],
+    )
+    save_watchlist(db, wl)
+    # ON the current watchlist -> gets today's zone/potential context
+    on_list = create_pitch(
+        db, ticker="AAA", watchlist_id=1, price=95.0, composite=0.5,
+        zone_low=90.0, zone_high=110.0, pitch="P", created_at="2026-07-16T10:00:00+00:00",
+    )
+    # OFF the watchlist -> every context field is an honest None
+    off_list = create_pitch(
+        db, ticker="ZZZ", watchlist_id=1, price=50.0, composite=0.4,
+        zone_low=40.0, zone_high=60.0, pitch="P", created_at="2026-07-16T10:00:00+00:00",
+    )
+    monkeypatch.setattr(
+        api_mod, "fetch_fundamentals_cached",
+        lambda t: Fundamentals(trailing_pe=None, analyst_target=130.0,
+                                analyst_count=11, currency="USD"),
+    )
+
+    client = TestClient(api_mod.create_app(db))
+    rows = {p["id"]: p for p in client.get("/api/inbox").json()["pitches"]}
+
+    enriched = rows[on_list]
+    assert enriched["name"] == "AAA Inc."
+    assert enriched["current_price"] == 100.0  # today's price, not the 95.0 pitch price
+    assert enriched["zone_verdict"] == "im Einstiegsbereich"
+    assert enriched["analyst_upside_pct"] == 30.0
+    assert enriched["entry_note"]
+
+    bare = rows[off_list]
+    assert bare["current_price"] is None
+    assert bare["zone_verdict"] is None
+    assert bare["analyst_upside_pct"] is None
+
+    # A decided pitch needs no buying context — fields stay None after the decision.
+    assert client.post(f"/api/inbox/{on_list}/decision", json={"action": "later"}).status_code == 200
+    decided = {p["id"]: p for p in client.get("/api/inbox").json()["pitches"]}[on_list]
+    assert decided["status"] == "later"
+    assert decided["current_price"] is None
 
 
 # ===== Fundamentals TTL cache (2026-08-04) =====

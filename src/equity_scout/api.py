@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from equity_scout.briefs import build_brief, rank_entries
+from equity_scout.briefs import build_brief, pitch_market_context, rank_entries
 from equity_scout.buckets import BUCKET_WEIGHTS
 from equity_scout.constants import (
     DEFAULT_DB_PATH,
@@ -851,7 +851,38 @@ def create_app(
 
     @app.get("/api/inbox")
     def inbox() -> JSONResponse:
-        return JSONResponse({"pitches": load_pitches(db_path), "disclaimer": DISCLAIMER})
+        # Each pitch carries its PITCH-TIME price/zone; the decision needs TODAY's picture
+        # (Nico 2026-08-06: "ist grad guter Einstiegspreis oder nicht? Was wäre Potenzial?").
+        # Context comes from the current watchlist + the cached fundamentals — same sources
+        # and the same bounded pool as /api/briefs, and only for OPEN pitches (decided rows
+        # need no buying context, and fetching for up to 100 of them would be a fetch storm).
+        pitches = load_pitches(db_path)
+        watchlist = load_latest_watchlist(db_path)
+        by_ticker = {e["ticker"]: e for e in (watchlist or {}).get("entries", [])}
+        open_tickers = sorted(
+            {p["ticker"] for p in pitches if p["status"] == "open" and p["ticker"] in by_ticker}
+        )
+
+        def _fundamentals(ticker: str):
+            try:
+                return fetch_fundamentals_cached(ticker)
+            except Exception:  # noqa: BLE001 - one bad ticker must never break the inbox
+                return None
+
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            fundamentals = dict(zip(open_tickers, pool.map(_fundamentals, open_tickers)))
+
+        # Company names also for off-watchlist tickers (run_scores fallback) — a bare
+        # "9064.T" identifies nothing; None when truly unknown, never an invented name.
+        names = _known_company_names(db_path)
+        enriched = []
+        for p in pitches:
+            entry = by_ticker.get(p["ticker"]) if p["status"] == "open" else None
+            context = pitch_market_context(entry, fundamentals.get(p["ticker"]))
+            if context["name"] is None:
+                context["name"] = names.get(p["ticker"])
+            enriched.append({**p, **context})
+        return JSONResponse({"pitches": enriched, "disclaimer": DISCLAIMER})
 
     @app.get("/api/evidence")
     def evidence() -> JSONResponse:

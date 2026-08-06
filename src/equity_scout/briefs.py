@@ -16,7 +16,14 @@ from __future__ import annotations
 from equity_scout.fundamentals import Fundamentals
 from equity_scout.pitch import score_band  # single source of the niedrig/mittel/hoch scale
 
-__all__ = ["score_band", "zone_gap", "entry_note", "rank_entries", "build_brief"]
+__all__ = [
+    "score_band",
+    "zone_gap",
+    "entry_note",
+    "rank_entries",
+    "build_brief",
+    "pitch_market_context",
+]
 
 
 def zone_gap(price: float, zone_low: float, zone_high: float) -> tuple[float | None, str]:
@@ -88,6 +95,48 @@ def entry_note(*, in_zone: bool, gap_pct: float | None, upside_pct: float | None
     if has_upside:
         return f"Kurs {distance} (Zeitpunkt), und die Analysten sehen keine Luft (Wert)."
     return f"Kurs {distance} (Zeitpunkt); keine Analystenschätzung zum Wert."
+
+
+_EMPTY_PITCH_CONTEXT: dict = {
+    "name": None,
+    "current_price": None,
+    "currency": None,
+    "in_zone": None,
+    "zone_gap_pct": None,
+    "zone_verdict": None,
+    "analyst_target": None,
+    "analyst_count": None,
+    "analyst_upside_pct": None,
+    "entry_note": None,
+}
+
+
+def pitch_market_context(entry: dict | None, fundamentals: Fundamentals | None) -> dict:
+    """Today's market context for one inbox pitch, from the CURRENT watchlist entry.
+
+    The pitch row stores price and zone AT PITCH TIME; the decision Nico makes is about
+    TODAY ("ist gerade ein guter Einstiegspreis?", 2026-08-06). entry=None — the ticker
+    has dropped off the watchlist — degrades every field to None so the card shows an
+    honest gap instead of presenting the stale pitch-time numbers as current.
+    """
+    if entry is None:
+        return dict(_EMPTY_PITCH_CONTEXT)
+    price = entry["price"]
+    gap_pct, verdict = zone_gap(price, entry["entry_zone_low"], entry["entry_zone_high"])
+    target = fundamentals.analyst_target if fundamentals else None
+    upside = round((target / price - 1.0) * 100, 1) if target is not None and price > 0 else None
+    return {
+        "name": entry["name"],
+        "current_price": price,
+        "currency": fundamentals.currency if fundamentals else None,
+        "in_zone": entry["in_zone"],
+        "zone_gap_pct": gap_pct,
+        "zone_verdict": verdict,
+        "analyst_target": target,
+        "analyst_count": fundamentals.analyst_count if fundamentals else None,
+        "analyst_upside_pct": upside,
+        "entry_note": entry_note(in_zone=entry["in_zone"], gap_pct=gap_pct, upside_pct=upside),
+    }
 
 
 def rank_entries(entries: list[dict]) -> list[dict]:
