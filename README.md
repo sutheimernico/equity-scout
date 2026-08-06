@@ -250,11 +250,23 @@ short-term trading is that none do, and the arena will say so either way:
   Runs nightly. Benchmark SPY. Events older than 3 trading days are never bought (after an
   outage the reaction is long priced in — the lane skips them instead of buying stale news
   at today's price); the outage day's entries are simply missed, not backfilled.
-- **`session`** — Intraday-Session (ORB): Opening-Range-Breakout on 15-minute bars that are
-  ~15 min DELAYED (free yfinance) — the settled-bar honesty gate only lets the engine see
-  bars whose end is ≥ 20 min old, and fills happen at the NEXT settled bar's open, so no
-  fill can use a price before it was knowable. Always flat by the close. Runs every 15 min
-  inside the market window. Benchmark SPY.
+- **`session`** — Intraday-Session (ORB), **the one lane that routes real orders** (Alpaca
+  PAPER, since 2026-08-06): the opening range comes from 15-minute IEX bars, the breakout
+  trigger from **1-minute** bars, and entries go out as BRACKET orders — entry, stop and
+  target in one instruction — so a position is protected in the market itself even when this
+  machine is not running (the 2026-07-21 outage held five positions with no reachable stop).
+  Runs **every minute** Mon–Fri inside the market window (`scripts/session_lane.sh`, own lock,
+  own `session.log`); a run that decides nothing prints nothing. Fill prices come from the
+  BROKER, not from a model, and the difference to the signal price is this project's only
+  MEASURED slippage (`st_executions`, `/api/shortterm`). Always flat by the close.
+  Benchmark SPY.
+  The book holds exactly what the broker filled: Alpaca rounds a bracket down to whole shares
+  and answers every order with `pending_new`, so the fill is read back before it is booked and
+  an order that does not fill is cancelled rather than left resting. **The track record has a
+  break**: everything before 2026-08-06 used delayed yfinance bars with simulated fills and is
+  therefore too favourable — the dashboard labels it (`execution_regime`) and the two periods
+  must not be read as one series. `--feed yfinance` still reaches the old path, so a broken key
+  degrades the lane loudly instead of stopping it.
 - **`crypto`** — Crypto-Daytrader: Donchian 20/10 breakout on Kraken's free, keyless,
   REAL-TIME 15-minute bars (BTC/ETH/SOL/XRP vs USD), 24/7 cron. Benchmark: BTC
   buy-and-hold — the honest bar, not cash.

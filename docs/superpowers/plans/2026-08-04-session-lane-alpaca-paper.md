@@ -1451,7 +1451,7 @@ git commit -m "feat(session): label the execution-regime break on the dashboard"
 **Files:**
 - Modify: `README.md` (Kurzfrist-Arena section), `.env.example`, `PLAN.md`, this file
 
-- [ ] **Step 1: Add the keys to `.env.example`**
+- [x] **Step 1: Add the keys to `.env.example`**
 
 ```bash
 # Alpaca PAPER keys for the session lane (free, no KYC — app.alpaca.markets, Paper Trading).
@@ -1460,17 +1460,17 @@ ALPACA_API_KEY_ID=
 ALPACA_API_SECRET_KEY=
 ```
 
-- [ ] **Step 2: README** — in the Kurzfrist-Arena section, replace the session lane's
+- [x] **Step 2: README** — in the Kurzfrist-Arena section, replace the session lane's
 "~15-min DELAYED bars" description with the real-time/bracket-order reality, and state the
 executability bias that the old track carried, with the date of the break.
 
-- [ ] **Step 3: PLAN.md** — add a phase block for this work, check off the v11 backlog line
+- [x] **Step 3: PLAN.md** — add a phase block for this work, check off the v11 backlog line
 "Session-Lane auf Alpaca-IEX-Echtzeit umstellbar" with the completion date.
 
-- [ ] **Step 4: This file** — write the outcome section: measured bar ages from the
+- [x] **Step 4: This file** — write the outcome section: measured bar ages from the
 verification run, what deviated from the plan, what is still open.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A

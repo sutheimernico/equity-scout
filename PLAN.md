@@ -441,6 +441,25 @@ verfälschen (v15-Kandidat: Übernahme als neue Sleeve-Identität mit frischem T
 Live-Smoke 2026-07-24: 5 Trials gegen das echte Panel (Hürde 0.000→0.005), Dash-Service
 neu gestartet, `/api/research` liefert den Block live.
 
+## Phase: Session-Lane auf Alpaca Paper, minütlicher Takt (2026-08-04/06) — DONE 2026-08-06
+Spec/Plan: `docs/superpowers/{specs,plans}/2026-08-04-session-lane-*`. Die Lane handelt jetzt
+über ein PAPER-Broker-Konto (`PA3SIKMAPF0N`) statt simuliert: Opening Range aus 15-Min-,
+Trigger aus 1-Min-IEX-Bars, Entries als Bracket-Orders (Stop/Target liegen im Markt und
+triggern auch bei totem Rechner — die 21.07.-Ausfallmechanik), Reconciliation gegen den Broker,
+erste MESSBARE Slippage in `st_executions`. Takt `*/15` → **jede Minute Mo–Fr** aus eigenem
+Script/Lock/Log (`scripts/session_lane.sh`, `session.log`); stille No-Op-Läufe sind Pflicht,
+sonst wäre das Log bei 390 Läufen/Tag unlesbar. Windows-Task `equity-scout-session` weckt die
+Maschine vor der Eröffnung (der Minuten-Cron in WSL kann sonst gar nicht feuern) und heilt den
+Fall „WSL läuft, cron tot" im 10-Minuten-Notbetrieb.
+**Ehrlichkeitsgrenze:** der Track VOR dem 06.08. entstand auf verzögerten Bars mit simulierten
+Fills und ist strukturell zu gut — `execution_regime` markiert den Bruch auf Desktop UND Handy,
+die beiden Zeiträume sind keine Serie. Fünf Defekte fand erst der Live-Betrieb (alle mit
+Regressionstest gefixt): Exit für nie eröffnete Position; `pending_new` ist die EINZIGE
+Order-Antwort (der „filled"-Zweig war unerreichbar, 4 Orders liefen ungebucht); Menge nach dem
+Fill neu abgeleitet statt gebucht; jeder Exit wäre an `held_for_orders` gescheitert; Teilfüllung
+spaltete Buch und Broker. Offen: Verify einer vollen Session (Entry-Latenz eines
+cron-platzierten Fills), und ein „Session-Ende (flat)"-Exit ist live weiterhin unbelegt.
+
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
   `./scripts/install_dash_service.sh` erneut ausführen (Unit ist gestaged, aktiviert sich nur mit
