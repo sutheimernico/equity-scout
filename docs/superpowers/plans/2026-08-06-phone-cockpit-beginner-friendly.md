@@ -225,16 +225,16 @@ Die Ansicht zeigt, ob die Paper-Depots nach Kosten tatsächlich etwas geliefert 
   bleibt `proof`: die Telegram-Deeplinks zeigen auf `?view=proof`, ein Umbenennen hätte
   jeden bereits verschickten Link gebrochen. **Es bleibt also nur die inhaltliche Arbeit
   unten.**
-- [ ] **Schritt 2:** Ansicht neu aufbauen mit **einer Leitfrage pro Block**, in
+- [x] **Schritt 2:** Ansicht neu aufbauen mit **einer Leitfrage pro Block**, in
   Alltagssprache: „Hat es mehr gebracht als einfach den Markt zu kaufen?" · „Wie viel ist
   zwischenzeitlich verloren gegangen?" · „Wie viel davon frisst die Gebühr?" · „Reicht die
   Datenmenge überhaupt für ein Urteil?"
-- [ ] **Schritt 3:** Fachbegriffe erklären, wo sie nötig sind (Sharpe, Drawdown,
+- [x] **Schritt 3:** Fachbegriffe erklären, wo sie nötig sind (Sharpe, Drawdown,
   Kostenanteil): kurzer Klartext hinter einem ⓘ, nicht im Fließtext.
-- [ ] **Schritt 4:** Das bestehende Ehrlichkeits-Verhalten NICHT abschwächen: unter 60
+- [x] **Schritt 4:** Das bestehende Ehrlichkeits-Verhalten NICHT abschwächen: unter 60
   Tagen liefert `proof.book_report` bewusst kein Sharpe/CAGR. Diese Lücke muss sichtbar
   bleiben („zu wenig Historie für ein Urteil").
-- [ ] **Schritt 5:** Gate, Screenshot, Commit.
+- [x] **Schritt 5:** Gate, Screenshot, Commit.
 
 ## Task 8: Assistent prüfen — beantwortet er Aktienfragen?
 
@@ -344,3 +344,54 @@ das Wort „realisiert" statt nur „+8" zu behaupten.
 („Ergebnisse" inhaltlich), Task 8 (Assistent messen), Task 9 (der große Durchgang über die acht
 „Mehr"-Ansichten). Gate am Ende dieser Runde: **1381 Python-Tests, 75 vitest, ruff clean,
 tsc exit 0, Build ok.**
+
+---
+
+## Outcome-Nachtrag 2026-08-06, Abendrunde (Nicos Feedback „Entscheiden ist weird")
+
+Nicos Runde-2-Feedback nach Tasks 1–6: Entscheiden wirkt unsortiert, unten „Sachen die
+anders aussehen", externe Signale fehlen wortlos, kein Potenzial/Einstiegspreis-Urteil wie
+auf Heute, „Marktlage risk on check ich nicht", Depot resetten, Ergebnisse leer.
+
+**Umgesetzt (Commits `686be81`…`a53ec0e`):**
+
+1. **Depot „Du" komplett resettet** (Nicos Test-Klick vom 05.07.): `lane_trades`/
+   `lane_valuations`/`lane_portfolios` für lane `nico` geleert, Pitch #2 (EQT) zurück auf
+   `open` — sonst hätte der nächste `run_lanes`-Lauf EQT sofort wieder gekauft. Autopilot-
+   Lane unangetastet (Vergleichsmaßstab). Heute-Kachel zeigt jetzt ehrlich „Depot Du — leer".
+2. **Task 6 nachgeschärft:** Innerhalb der Bänder sortiert jetzt der Score absteigend
+   (vorher Datum → 50/60/61/47 las sich als Zufall), und jede Band-Gruppe hat eine sichtbare
+   Überschrift mit Erklärung (inkl. WARUM ein 61er „schwach" sein kann: Penalty-Regel).
+   Entschiedene Pitches bilden eine eigene Gruppe am Ende („Bereits entschieden") — vorher
+   mischte `sortByVerdict` sie zwischen die offenen.
+3. **Heute-Prinzip auf den Pitch-Karten:** `/api/inbox` reichert offene Pitches serverseitig
+   mit dem HEUTE-Kontext an (aktueller Watchlist-Kurs, Zonen-Urteil via `briefs.zone_gap`,
+   Analysten-Potenzial aus dem Fundamentals-Cache, `entry_note`, Firmenname). Karte zeigt
+   Zone-Chip + Potenzial-Block wie die Heute-Liste (`PotentialBlock` in eigene Komponente
+   extrahiert, damit nichts driftet), „Score X/100" gelabelt, „Kurs heute" + „Pitch vom D".
+   Off-Watchlist-Pitches (EQT, EXE) sagen ehrlich „kein aktueller Kurs".
+4. **Externe Signale:** `pitch.py` schreibt bei leerem Befund jetzt „Externe Signale: keine
+   gemeldet — …" statt die Sektion wegzulassen (Alt-Test kodierte das alte Weglassen und
+   wurde umgedreht). Alt-Pitches ohne Sektion bekommen dieselbe Zeile im Frontend ergänzt —
+   per Konstruktion ehrlich, weil die Sektion genau dann existierte, wenn Signale da waren.
+5. **Duplikat-Befund (neu, erst der Screenshot zeigte ihn):** Ein Ticker kann mehrere offene
+   Pitches mit VERSCHIEDENEN Verdicts tragen (Yamato 16.07. „neutral" + 04.08. „schwach").
+   Ältere Karten sagen jetzt „Es gibt eine neuere Einschätzung — Stand vom D". Nichts wird
+   automatisch entschieden (wäre ein Funnel-Eingriff).
+6. **Marktlage:** Klartext-Headline pro Level („Der Markt trägt gerade" / „gemischt" /
+   „unter Druck"), „Risk-on" bleibt als zitiertes Fachwort sichtbar (Telegram nutzt es).
+7. **Task 7 Schritte 2–5:** Ergebnisse-Seite neu — Klartext, was jedes Buch IST (Arena-Lanes
+   zitieren `lanes.ts`, kein Drift), Messfortschritt „Messtag 20 von 60, Urteil ab ~15.09."
+   als Balken (die 60 kommt als `min_judge_days` vom Server, `proof.MIN_DAYS_FOR_RATES`),
+   dann eine Leitfrage pro Block mit Antwort im Satz und ⓘ-Erklärungen. Die 7-Spalten-Tabelle
+   ist weg — sie wurde am Handy nach Spalte 3 abgeschnitten, sichtbar blieben genau die
+   „—"-Spalten („da checkt man auch gar nix"). Ehrlichkeits-Gate unverändert.
+
+**Gate:** 1396 Python-Tests, 83 vitest, ruff clean, tsc exit 0, Build ok, Service deployed,
+alle vier Tabs auf 390 px gescreenshottet.
+
+**Befund für Nico (nicht gefixt, nur benannt):** „Letzter Scout-Lauf: 2026-07-14 über 7499
+Titel" — der Voll-Screener lief seit drei Wochen nicht; Radar/Kurse sind aktuell, aber die
+Universum-Auswahl altert. Prüfen, ob der Wochen-Lauf (Task/Cron) noch feuert.
+
+**Weiter offen:** Task 8 (Assistent messen), Task 9 (acht „Mehr"-Ansichten).
