@@ -8,7 +8,18 @@ function signalDot(signal: RegimeSignal): string {
   return signal.green ? "🟢" : "🔴";
 }
 
-/** What "Risk-on" means in one plain sentence per level.
+/** Plain-German headline per level. The server's `label` ("Risk-on") stays visible as the
+ * quoted jargon term — Telegram messages and finance news use it, so it must remain
+ * findable — but it is no longer the thing a reader has to decode (Nico 2026-08-06,
+ * round two: "Marktlage risk on, ich check das nicht. Also wofür ist das da?").
+ */
+const HEADLINE: Record<string, string> = {
+  green: "Der Markt trägt gerade",
+  yellow: "Der Markt ist gemischt",
+  red: "Der Markt ist unter Druck",
+};
+
+/** What the state means in one plain sentence per level.
  *
  * Nico 2026-08-06: "diese Marktlage risk on, ich check gar nicht, was Du damit willst.
  * Also ist halt einfach alles grün, check ich nicht." The label was jargon plus a score
@@ -42,9 +53,9 @@ export function RegimeCard() {
       <Disclosure
         summary={
           <>
-            {regime.emoji} Marktlage: <strong>{regime.label}</strong>{" "}
+            {regime.emoji} Marktlage: <strong>{HEADLINE[regime.level] ?? regime.label}</strong>{" "}
             <span className="nobr">
-              ({regime.green_count}/{regime.available} Signale grün)
+              ({regime.green_count}/{regime.available} Signale grün · Fachwort „{regime.label}“)
             </span>
             {MEANING[regime.level] && (
               <span className="regime-meaning">{MEANING[regime.level]}</span>
