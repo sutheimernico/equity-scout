@@ -104,7 +104,7 @@ def _row_to_dict(row: tuple) -> dict:
     }
 
 
-def unresolved_events(db_path: str = DEFAULT_DB_PATH, limit: int | None = None) -> list[dict]:
+def unresolved_events(db_path: str, limit: int | None = None) -> list[dict]:
     """Rows still awaiting a terminal transition, oldest first."""
     init_historical_db(db_path)
     query = (
