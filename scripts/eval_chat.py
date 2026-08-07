@@ -38,8 +38,10 @@ CASES: list[tuple[str, list[str], list[str]]] = [
     ("Vergleiche Micron und Intel nach ihren Kennzahlen.",
      ["Micron", "Intel"], ["die bessere Wahl", "würde ich empfehlen"]),
     # --- Personen (Teil B) ---
+    # Die Antwort auf "welche Mitglieder" sind NAMEN — nicht das Wort "Kongress". Der
+    # Meldeverzug wird separat im Kontext geprüft (tests/test_api.py).
     ("Welche Mitglieder haben Intel gekauft?",
-     ["gemeldet", "Kongress", "keine gemeldeten"], ["ratsam"]),
+     ["Tuberville", "Trump", "keine gemeldeten"], ["ratsam"]),
     ("Was hat Warren Buffett zuletzt gekauft?",
      ["Buffett", "nicht im Datenbestand"], ["ratsam"]),
     # --- Depots, Ergebnisse, Marktlage, Inbox ---

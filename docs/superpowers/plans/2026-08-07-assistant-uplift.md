@@ -1009,7 +1009,7 @@ wiederholbares Skript — nicht als einmalige Hand-Messung.
 - Create: `scripts/eval_chat.py`
 - Modify: `docs/research/2026-08-07-assistant-measurement.md` (Nachher-Sektion)
 
-- [ ] **Step 1: Skript schreiben** (Live-Skript, bewusst OHNE pytest — es braucht Ollama;
+- [x] **Step 1: Skript schreiben** (Live-Skript, bewusst OHNE pytest — es braucht Ollama;
   die CI-freie Zone ist hier korrekt, gleiche Klasse wie `verify_alpaca_paper.py`)
 
 ```python
@@ -1066,19 +1066,19 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 2: Live ausführen** (Service deployed, Ollama läuft)
+- [x] **Step 2: Live ausführen** (Service deployed, Ollama läuft)
 
 Run: `systemctl --user restart equity-scout-dash.service && sleep 3 && .venv/bin/python scripts/eval_chat.py`
 Expected: mindestens 6/7 PASS; die Micron-Frage MUSS PASS sein (fester Satz).
 Jede FAIL-Zeile wird gefixt, bevor der Task abgehakt wird — typische Stellschrauben:
 Steckbrief-Wortlaut (Task 4), Routing-Keywords (Task 5), GLOSSAR-Formulierung (Task 2).
 
-- [ ] **Step 3: Nachher-Sektion in die Mess-Doku** — an
+- [x] **Step 3: Nachher-Sektion in die Mess-Doku** — an
   `docs/research/2026-08-07-assistant-measurement.md` anhängen: Datum, `eval_chat.py`-
   Output wörtlich, Latenz-Vergleich (vorher 37–90 s total, nachher: Zeit bis erster
   Token + Gesamtzeit), was offen bleibt.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add scripts/eval_chat.py docs/research/2026-08-07-assistant-measurement.md
@@ -1087,7 +1087,7 @@ git commit -m "feat(eval): repeatable assistant eval suite with before/after pro
 
 ## Task 11: Abschluss-Gate + Doku
 
-- [ ] **Step 1: Volles Gate**
+- [x] **Step 1: Volles Gate**
 
 Run: `.venv/bin/python -m pytest -p no:warnings -q | tail -1 && .venv/bin/python -m ruff check . && cd frontend && npx tsc --noEmit && npm test && npm run build`
 Expected: alles grün
@@ -1096,12 +1096,12 @@ Expected: alles grün
   stellen und das Streamen beobachten (Screenshot-Setup aus dem Cockpit-Plan; für den
   Stream reicht der Log-Beweis + `eval_chat.py`).
 
-- [ ] **Step 3: Doku nachziehen** — Outcome-Abschnitt an DIESEN Plan (was umgesetzt,
+- [x] **Step 3: Doku nachziehen** — Outcome-Abschnitt an DIESEN Plan (was umgesetzt,
   Abweichungen, offene Punkte), eine Zeile in `AUTOPILOT_LOG.md`, README-Absatz zum
   Assistenten aktualisieren (Fähigkeiten + Grenzen), ChatPanel-Intro-Text prüfen
   (beschreibt er noch, was der Assistent kann?).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/superpowers/plans/2026-08-07-assistant-uplift.md AUTOPILOT_LOG.md README.md
@@ -1305,14 +1305,14 @@ was ist ein 13F, warum meldet ein Senator 820 Tage später.
 
 **Files:** `scripts/eval_chat.py`
 
-- [ ] **Step 1:** Fälle ergänzen (jeder mit deterministischer Erwartung):
+- [x] **Step 1:** Fälle ergänzen (jeder mit deterministischer Erwartung):
   „Wie hoch ist das KGV von Micron?" → Zahl + „Stand"; „Welche Mitglieder haben Intel gekauft?"
   → Politiker-Name + Meldedatum; „Vergleiche Micron und Intel nach Kennzahlen" → beide Ticker,
   kein Sieger-Satz; „Was hat Tuberville zuletzt gekauft?" → Ticker + Betragsspanne;
   „Was ist ein KGV?" → Erklärung ohne Empfehlung; „Wie steht Rheinmetall?" → entweder Daten
   oder wörtlich „liegen keine Daten vor".
-- [ ] **Step 2:** Live ausführen, Ziel **≥ 11/13 PASS**, die Ablehnungs-Frage MUSS PASS sein.
-- [ ] **Step 3/4:** Protokoll in die Mess-Doku, Commit.
+- [x] **Step 2:** Live ausführen, Ziel **≥ 11/13 PASS**, die Ablehnungs-Frage MUSS PASS sein.
+- [x] **Step 3/4:** Protokoll in die Mess-Doku, Commit.
 
 ---
 
