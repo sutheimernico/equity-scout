@@ -442,6 +442,18 @@ def test_rows_from_twitter_csv_does_not_truncate_text_at_unicode_line_separator(
     assert rows[0]["text"] == "Part one Part two"
     assert counts == {"malformed": 0, "no_text": 0}
 
+def test_rows_from_twitter_csv_unescapes_html_entities():
+    """Symmetric with the Truth Social parser: measured on 2,589 real Twitter archive
+    rows carrying HTML entities (e.g. "Tariffs &amp;amp; Trade")."""
+    csv_text = (
+        f"{TWITTER_CSV_HEADER}\n"
+        '@realDonaldTrump, 2009-05-04 13:54,'
+        ' https://twitter.com/realDonaldTrump/status/1,'
+        ' "Tariffs &amp; Trade with Apple Technology"\n'
+    )
+    rows, _ = _rows_from_twitter_csv(csv_text)
+    assert rows[0]["text"] == "Tariffs & Trade with Apple Technology"
+
 
 # --- _rows_from_truth_social_csv ---------------------------------------------------
 

@@ -78,13 +78,34 @@ MEASURED, 2026-08-07, full real corpus (both Twitter files + the Truth Social ar
 78,728 total parsed statement rows (media-only Truth Social posts already excluded as
 `no_text`) -> 14,019 retweets filtered -> 1,554 exact-text duplicates filtered ->
 63,023 rows with no resolvable name+direction-phrase combination at all -> 132
-candidate rows -> after full strict ticker resolution: **10 raw "events"**.
+candidate rows -> after full strict ticker resolution: **10 raw "events"**. Of the
+63,155 rows surviving the retweet/dedupe filters (before the name+phrase cut), 11,009
+(17.4%) still carry the OLDER, unprefixed "'@handle: quoted text'" manual-citation
+style Twitter used before the native-retweet feature -- structurally identical to an
+RT in that the quoted span is someone else's words, but NOT caught by
+`_RETWEET_PREFIXES` (see below); this is the source of several of the 10 survivors.
 
-A manual spot-check of ALL 10 survivors (not a sample) found ZERO genuine investment
-calls -- the honest yield of this entire 2009-2026 corpus, under strict + RT-filter +
-dedupe, is effectively **ZERO**, matching the plan's own "expect ~0; that is a valid
-result." Two residual false-positive classes explain the 10, both OUTSIDE the approved
-fix package's scope (named here, not silently patched):
+A manual spot-check of ALL 10 survivors (not a sample; the exact (ticker, post_id,
+matched_phrase) triples are recorded at the end of this docstring for audit without a
+corpus rerun) found ZERO genuine investment calls. Reporting this honestly requires
+one qualification, not just the raw "10": `strict`'s full-name-only channel makes
+every SINGLE-TOKEN-named company (2,440 of the universe's 7,499 names, 32.5% --
+"Apple", "Amazon", "Tesla", ...) structurally unmatchable by this module, by design
+(the whole point of dropping that channel). That blind spot could in principle be
+hiding real calls the pipeline never even sees. Measured defense: of the 132 candidate
+rows, only 4 literally name a strict-invisible (single-token) company at all --
+Amazon (x2), Walmart, Boeing -- and all 4 were manually checked (a fan asking whether
+Trump ties are "sold at Walmart", "bought a poster frame from my Wal-Mart store",
+"The Fake News Washington Post, Amazon's 'chief lobbyist'...", and a Boeing-China trade
+dispute mention with no directional verb attached to Boeing). None is an investment
+call. So the zero survives its own blind spot for this corpus -- not merely "unmatched
+because invisible", but "checked anyway, via the visible-company overlap, and still
+not a call." This is corpus-specific evidence, not a proof that no single-token company
+could ever appear in a genuine future statement; Task 6/7 inherits the same blind spot
+for any live run and should know it exists.
+
+Two residual false-positive classes explain the 10 real matches, both OUTSIDE the
+approved fix package's scope (named here, not silently patched):
   * 9 of 10 resolve to ticker M (Macy's Inc): every one is about Trump-BRANDED
     MERCHANDISE (ties, cologne) being sold AT the retailer Macy's ("Selling like
     hotcakes", "buys some DJT ties... at Macy's"), never a stock opinion about Macy's
@@ -94,8 +115,8 @@ fix package's scope (named here, not silently patched):
     direction verb from a QUOTED FAN's reply text embedded in Trump's own tweet
     ("' @KSofen: ... I bought one of your ties at Macy's ...'" -- @KSofen bought the
     tie, not Trump), the same "someone else's verb becomes a Trump call" failure mode
-    named for the RT case, but via an unprefixed quote-in-single-quotes citation style
-    (pre-official-retweet-era Twitter) the `_RETWEET_PREFIXES` check does not catch.
+    named for the RT case, but via the unprefixed quote-citation style above (17.4% of
+    the corpus) that `_RETWEET_PREFIXES` does not catch.
   * 1 of 10 resolves to ticker DB (Deutsche Bank AG): a Truth Social repost of CNN
     courtroom coverage where "Kise added" ("Chris Kise, [Trump's] attorney,
     ADDED [a further remark]" -- ordinary reporting-verb English) collides with
@@ -107,6 +128,13 @@ homograph-prone phrases from voices.py's SHARED closed list -- all out of this t
 approved scope). Task 6/7 should treat the "statement" class as n approx 0 for the
 2009-2026 window and decide separately whether it is worth a manual-review gate before
 ever publishing a base rate from it.
+
+--- The 10 surviving events, 2026-08-07 strict run (ticker, post_id, matched_phrase) --
+    M   243424423628128256  selling      M   258674180550184960  selling
+    M   317229945413857281  sold         M   322142799233445890  buys
+    M   326311569581547521  sold         M   328672794453876736  bought
+    M   334829809404350465  buying       M   363141282006175745  selling
+    M   413656854657769472  bought       DB  111495119533737993  added
 """
 from __future__ import annotations
 
@@ -168,8 +196,11 @@ _OVERLAY_COUNT_KEYS = ("kept",)
 # A retweet/repost is NOT the person's own statement -- SOURCE_STATEMENT's whole
 # contract is "this person said this", and an RT attributes someone ELSE's words
 # (live P2a fabrication: an RT of a third party's NYT-bullish tweet became a
-# Trump-bullish-on-NYT call). Checked on the LSTRIPPED text so a leading blank/quote
-# character never defeats the prefix match.
+# Trump-bullish-on-NYT call). Checked on the LSTRIPPED text so leading WHITESPACE never
+# defeats the prefix match -- `lstrip()` strips whitespace only, not quote characters,
+# so a hypothetical '"RT @...' would still slip through (measured impact 0 on the real
+# corpus; the older unprefixed "'@handle: ...'" quote-citation style, 17.4% of the
+# corpus, is a separate, uncaught pattern -- see the module docstring).
 _RETWEET_PREFIXES = ("RT @", "RT:")
 
 
@@ -213,11 +244,16 @@ def _rows_from_twitter_csv(csv_text: str) -> tuple[list[dict], dict]:
     the latter also breaks on Unicode line-separator characters (U+2028/U+2029/...),
     any of which can legitimately appear INSIDE a tweet's text -- `splitlines()` would
     silently truncate such a tweet at the separator instead of treating it as content.
+
+    `Tweet Text` also carries HTML entities (e.g. "Tariffs &amp;amp; Trade", measured on
+    2,589 real rows) -- `html.unescape`d here, symmetric with
+    `_rows_from_truth_social_csv`, before the text ever reaches `classify_mention`.
     """
     counts = {"malformed": 0, "no_text": 0}
     rows: list[dict] = []
     lines = csv_text.lstrip("\ufeff").split("\n")
-    header = lines[0].rstrip("\r").strip() if lines else ""
+    # `"".split("\n")` returns `[""]`, never `[]` -- `lines` is never empty here.
+    header = lines[0].rstrip("\r").strip()
     if header != _TWITTER_EXPECTED_HEADER:
         raise ValueError(f"unexpected Twitter archive header: {header!r}")
     for raw_line in lines[1:]:  # skip header
@@ -244,7 +280,7 @@ def _rows_from_twitter_csv(csv_text: str) -> tuple[list[dict], dict]:
             {
                 "platform": "twitter",
                 "post_id": match.group(1),
-                "text": text,
+                "text": html.unescape(text),
                 "published": published,
             }
         )
