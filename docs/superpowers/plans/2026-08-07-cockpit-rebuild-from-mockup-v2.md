@@ -80,4 +80,69 @@ Bottom-Bar: **Heute · Aktien · Entscheiden · Depot · Mehr**
   `Outcome: DONE` als eigene Zeile setzen (schaltet den SessionStart-Hook stumm).
 
 ## Outcome
-(offen — nach Umsetzung ausfüllen; DONE-Zeile nicht vergessen)
+
+Outcome: DONE
+
+**Umgesetzt 2026-08-08 (9 Commits, c130f88..e65f495), deployt auf :8420, live per
+Playwright-Smoke auf dem Phone-Viewport verifiziert (Screenshots aller Kern-Views).**
+
+- **Backend-Reste:** `/api/stack` liefert das echte `breakdown`-Feld (der `factors`-Read
+  war seit v6 P6 immer None) + jetzt auch `news` (Original-Quellen) im Screener-Block.
+  `/api/briefs` trägt `bucket` (= Risikoprofil) und ein provenance-getaggtes Scout-Ziel
+  (`model_target`/`model_stop`/`target_source`) via `resolve_target_stop` über die
+  nächtlich gecachte Kursreihe — null zusätzliche Netz-Calls; neuer `?ticker=`-Param für
+  den Profil-Deep-Link. `/api/company` additiv um Kennzahlen aus dem Quote-Cache
+  (`metrics` + `metrics_fetched_on`). `pitch_market_context` trägt `bucket`.
+- **Neue IA (v7):** 5 Tabs Heute · Aktien · Entscheiden · Depot · Mehr; Aktienprofil als
+  eigene Route (`?view=profil&ticker=X`); Mehr-Sheet mit Icon+Beschreibung (Ergebnisse /
+  Wer kauft? / Wie funktioniert das? / Labor / Assistent); Assistent-FAB auf jedem Screen,
+  Chat als Vollbild-Overlay (`?chat=1`, Back-Geste schließt). Legacy-Deep-Link-Map: jeder
+  alte `?view=`-Key (Telegram!) landet am neuen Ort.
+- **Aktien:** EINE Liste (Briefs) mit Segmenten Kaufbereit/Fast/Alle (near = bis 5 % über
+  Zonen-Oberkante; unter der Zone nie „fast") + Stil-Chips; Risiko-Chip (violett für
+  aggressiv) auf jeder Karte inkl. Pitch-Karten.
+- **Profil (Herzstück):** Kopf + Risikozeile, Jahres-Chart + Zonen-Balken, Analysten- vs.
+  Scout-Ziel (Provenance-Label), Stop als Absicherung, Earnings-Termin, 3 Klartext-Balken
+  (Qualität/Kurs-Timing/KI-Zweitmeinung) mit Im-Detail-Disclosures (5 Faktor-Perzentile,
+  3 Timing-Signale mit Begründung, Modell-Erklärung mit Live-Trefferquote),
+  EntryPlanBlock-Disclosure, Wer-kauft (30-Tage-Events + Meldeverzug), News (KI-Summary +
+  Original-Quellen), Zahlen im Klartext (KGV/Wachstum/Marge/ROE/KBV + Piotroski
+  „N von 9" mit Kriterien-Disclosure).
+- **Heute:** 3-Minuten-Briefing in Mockup-Reihenfolge (Marktlage-Klartext, Top-3-Karten →
+  Profil, Zu-entscheiden-Teaser, Autopilot-Dreizeiler aus /api/proof + Arena, Was
+  passiert ist).
+- **Depot:** 7 Tabs → 3 Sichten mit „Funktioniert es?"-Kopf (Messtag N/60 + Verdict aus
+  /api/proof); Forschungs-Depots → Labor; Gesamt-Überblick als Disclosure.
+- **Mehr:** Labor bündelt Strategien/Entry-Modell/Signal-Filter/Lernkurven + Screener-
+  und Radar-Rohsichten + Forschungs-Depots (volle Monitoring-Tiefe). Wer kauft? =
+  Personen + Stimmen gestapelt. Wie funktioniert das? NEU mit Trichter aus ECHTEN
+  Zahlen des letzten Laufs (7.499 → 6.105 → 30).
+
+**Abweichungen vom Mockup (begründet):**
+- Keine Kaufen/Beobachten-Actionbar im Profil: es existiert kein Endpoint für freie
+  Käufe (nur `decidePitch` für Inbox-Pitches), und Mock-Aktionen sind verboten (Regel 9).
+  Stattdessen Teaser-Karte → Entscheiden, wenn ein offener Pitch existiert — deckt sich
+  mit der Mockup-Rationale („Kaufen/Später/Ablehnen bleibt die einzige Stelle mit
+  Pflicht-Charakter").
+- Kein Tagesdelta (+1,8 %) auf Karten/Profil: kein Endpoint liefert eine Tagesänderung —
+  weggelassen statt erfunden.
+- „Alle 30": /api/briefs cappt den Fundamentals-Fan-out bei 20; die Liste nennt ehrlich
+  ihre echte Anzahl.
+- `brief.model_target` nicht im Nightly berechnet, sondern request-seitig aus der
+  nightly gecachten Serie (gleiches Ergebnis, kein neuer Nightly-Schritt; Titel ohne
+  gecachte Serie bleiben ehrlich null).
+
+**Zusatzbefund gefixt:** `zone_gap` lieferte auf BEIDEN Seiten der Zone positive Werte,
+`entry_note`s Below-Zone-Zweig (`gap_pct < 0`) feuerte nie — Support-gebrochen-Titel
+lasen sich als „über dem letzten Support". Vorzeichen trägt jetzt die Richtung
+(Regressionstest; kein anderer Konsument liest das Vorzeichen).
+
+**Gates:** ruff sauber, 1739 Backend-Tests, tsc, 110 Frontend-Tests, vite build.
+
+**Offen / Needs Nico:**
+- Insider-Events (Form 4) weiterhin nicht in der DB (SEC-Rate-Limit vom 07.08.) — der
+  Nightly sollte nachholen; morgen prüfen.
+- DASH_TOKEN ist während des Playwright-Smoke im Session-Transcript gelandet
+  (Tailscale-only erreichbar, trotzdem Rotation empfohlen).
+- Desktop-Sidebar nutzt die neue IA (8 Einträge + Assistent) — Desktop-Feinschliff war
+  nicht Teil des Mockups und blieb bewusst minimal.
