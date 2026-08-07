@@ -2351,10 +2351,15 @@ code {
 }
 .brief-detail dt {
   color: var(--text-muted);
+  /* The auto column must not squeeze a label into one letter per line when the value
+     beside it is long (profile rows like "Guter Einstieg · 270,46–320,04 INR"). */
+  white-space: nowrap;
 }
 .brief-detail dd {
   margin: 0;
   color: var(--text-strong);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* ===== Entry-zone bullet bar (2026-08-04) =====
