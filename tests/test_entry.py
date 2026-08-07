@@ -4,11 +4,13 @@ import statistics
 import pytest
 
 from equity_scout.entry import (
+    HEURISTIC_BARRIER_V1,
     atr,
     compute_entry_plan,
     compute_target_stop,
     fib_levels,
     recent_swing_low,
+    resolve_target_stop,
     sma,
 )
 
@@ -198,3 +200,39 @@ def test_compute_target_stop_uses_last_clean_price_as_current_price():
     # last CLEAN price is 108.0, not the trailing NaN row.
     assert result["target"] > 108.0
     assert result["stop"] < 108.0
+
+
+def test_resolve_target_stop_tags_champion_config_as_model():
+    closes = [100 + math.sin(i) * 3 for i in range(60)]
+    config = {"k_pt": 1.0, "k_sl": 0.5, "vol_window": 30, "horizon_days": 10}
+
+    result = resolve_target_stop(closes, config)
+
+    assert result == {**compute_target_stop(closes, config), "source": "model"}
+
+
+def test_resolve_target_stop_falls_back_to_heuristic_without_config():
+    closes = [100 + math.sin(i) * 3 for i in range(60)]
+
+    result = resolve_target_stop(closes, None)
+
+    assert result == {
+        **compute_target_stop(closes, HEURISTIC_BARRIER_V1),
+        "source": "heuristic_v1",
+    }
+    assert result["stop"] < closes[-1] < result["target"]
+
+
+def test_resolve_target_stop_heuristic_rescues_short_history_champion():
+    # 30 closes: enough for the heuristic's 20-day window, too short for the champion's 60.
+    closes = [100 + math.sin(i) * 3 for i in range(30)]
+    config = {"k_pt": 1.0, "k_sl": 0.5, "vol_window": 60, "horizon_days": 10}
+
+    result = resolve_target_stop(closes, config)
+
+    assert result is not None
+    assert result["source"] == "heuristic_v1"
+
+
+def test_resolve_target_stop_none_when_even_heuristic_lacks_history():
+    assert resolve_target_stop([100.0] * 10, None) is None

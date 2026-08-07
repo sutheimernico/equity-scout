@@ -233,6 +233,30 @@ def compute_target_stop(closes: list[float], barrier_config: dict) -> dict | Non
     }
 
 
+# Fallback barrier when no entry_tb champion is registered yet: 2.0σ target vs 1.5σ stop
+# over a 20-day window — a 1.33 reward/risk floor, deliberately conservative. Uses the exact
+# vol-scaled formula the champion path uses, so a later champion changes the numbers but
+# never their meaning.
+HEURISTIC_BARRIER_V1 = {"k_pt": 2.0, "k_sl": 1.5, "vol_window": 20, "horizon_days": 20}
+
+
+def resolve_target_stop(closes: list[float], barrier_config: dict | None) -> dict | None:
+    """Target/stop for the UI, tagged with its provenance: the entry_tb champion's own
+    barrier config when one exists (``source="model"``), otherwise ``HEURISTIC_BARRIER_V1``
+    (``source="heuristic_v1"``) so the Scout-Ziel is populated until a champion is promoted.
+    The heuristic also rescues a champion whose ``vol_window`` exceeds the available history.
+    None only when even the heuristic's 20-day window cannot be computed (short history or
+    degenerate sigma)."""
+    if barrier_config:
+        result = compute_target_stop(closes, barrier_config)
+        if result is not None:
+            return {**result, "source": "model"}
+    result = compute_target_stop(closes, HEURISTIC_BARRIER_V1)
+    if result is not None:
+        return {**result, "source": "heuristic_v1"}
+    return None
+
+
 def fetch_entry_history(ticker: str) -> tuple[list[float], list[float], list[float]]:
     """Fetch 1y of daily Close/High/Low for `ticker`. Lazy yfinance import + retry, like
     YFinanceProvider.fetch_quote. Returns ([], [], []) on persistent failure (caller handles)."""
