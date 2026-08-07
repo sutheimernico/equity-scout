@@ -28,6 +28,7 @@ from scripts.run_history_resolve import (
     BUCKET_NO_PRICE_HISTORY,
     BUCKET_PANEL_GAP,
     BUCKET_PARTIAL,
+    BUCKET_RECHECK_CAPPED,
     BUCKET_RESOLVED,
     BUCKET_RESOLVED_THEN_BURIED,
     BUCKET_STILL_OPEN,
@@ -183,8 +184,8 @@ def test_resolve_batch_does_not_bury_a_ticker_that_is_merely_a_few_sessions_stal
     NOT delisted — burial is irreversible, so the staleness margin has to absorb this."""
     from equity_scout.data.etf_panel import clean_columns
 
-    # Last close 5 sessions before the panel end, with the 12m window not yet elapsed.
-    panel = clean_columns(_raw_delisting(last_row=250, periods=255), mask_stale_tail=True).closes
+    # Last close 15 sessions before the panel end (a 3-week halt), 12m window not elapsed.
+    panel = clean_columns(_raw_delisting(last_row=250, periods=265), mask_stale_tail=True).closes
 
     (resolution,) = resolve_batch([_event(ticker="DEAD")], panel, now=NOW).resolutions
     assert resolution.bucket == BUCKET_PARTIAL  # open, not buried
@@ -515,6 +516,54 @@ def test_run_history_resolve_delisted_event_keeps_measured_horizons_and_buries_t
     assert row[0] is not None and row[1] is not None  # measured windows survive the burial
     assert row[2] is None and row[3] is None  # unreachable windows stay NULL, never invented
     assert row[4] == 1 and row[5] == "no_price_history" and row[6] == NOW
+
+
+def test_run_history_resolve_still_reports_a_delisting_of_an_earlier_measured_row_as_measured(
+    tmp_path,
+):
+    """Run-log symmetry across runs: a row whose horizons were measured LAST run and that is
+    buried this run is still partially measured — reporting it as a pure survivorship gap
+    would understate the study's real coverage (the DB state is right either way)."""
+    db = str(tmp_path / "h.db")
+    _seed(db, [("DEAD", "2024-01-02")])
+    from equity_scout.data.etf_panel import clean_columns
+
+    alive = clean_columns(_raw_delisting(last_row=30, periods=30), mask_stale_tail=True).closes
+    first = run_history_resolve(db, now=NOW, fetch_prices=_fetch(alive), apply=True)
+    assert first["counts"][BUCKET_PARTIAL] == 1  # r_1w + r_1m elapsed, nothing else
+
+    # Same price history, but the panel has since run a year past DEAD's last close.
+    delisted = clean_columns(_raw_delisting(last_row=30, periods=400), mask_stale_tail=True).closes
+    second = run_history_resolve(db, now=NOW, fetch_prices=_fetch(delisted), apply=True)
+
+    assert second["counts"][BUCKET_RESOLVED_THEN_BURIED] == 1
+    assert second["counts"][BUCKET_NO_PRICE_HISTORY] == 0
+    assert second["written"] == 1  # nothing new to measure — only the burial
+    row = sqlite3.connect(db).execute(
+        "SELECT r_1w, r_1m, r_3m, unresolvable, unresolvable_reason FROM historical_events"
+    ).fetchone()
+    assert row[0] is not None and row[1] is not None and row[2] is None
+    assert row[3] == 1 and row[4] == "no_price_history"
+
+
+def test_run_history_resolve_caps_rechecks_and_leaves_the_rest_open(tmp_path):
+    """Serial single-ticker re-checks cost 30-60s each under a throttle; past the cap the
+    events wait for the next run rather than stretching the batch by hours."""
+    db = str(tmp_path / "h.db")
+    tickers = [f"T{i:02d}" for i in range(10)]
+    _seed(db, [(t, "2024-01-02") for t in tickers])
+    present = tickers[:7]  # 3 of 10 missing == exactly MAX_MISSING_SHARE, no throttle verdict
+    seen: list = []
+
+    result = run_history_resolve(
+        db, now=NOW, fetch_prices=_fetch(_panel_with(*present), seen), apply=True, max_rechecks=2
+    )
+
+    assert len(seen) == 3  # one batch fetch + exactly two re-checks
+    assert result["counts"][BUCKET_NO_PRICE_HISTORY] == 2  # re-checked, then buried
+    assert result["counts"][BUCKET_RECHECK_CAPPED] == 1
+    assert [row["ticker"] for row in unresolved_events(db)] == ["T09"]  # capped, still open
+    assert sum(result["counts"].values()) == result["events"] == 10
 
 
 def test_run_history_resolve_completes_a_partial_row_on_a_later_run(tmp_path):

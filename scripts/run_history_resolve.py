@@ -76,15 +76,22 @@ assert set(HISTORY_HORIZONS) <= set(RETURN_HORIZONS), "HISTORY_HORIZONS must be 
 TICKER_CHUNK = 50  # yfinance batches: big enough to be fast, small enough to stay under throttling
 PANEL_LEAD_IN_DAYS = 10  # so the panel reaches back to t0 itself (weekend/holiday filings)
 # A ticker is treated as DEAD only once the panel has run this many sessions past its last
-# real close. A foreign listing simply idle over a local holiday (or a provider lagging one
-# session behind the US close) must not be buried as delisted — burial is irreversible, and
-# a genuinely delisted name clears this margin by months on the very next run anyway.
-STALE_TAIL_SESSIONS = 10
+# real close (~1 trading month). Below that, the tail is indistinguishable from a trading
+# HALT (takeover review, regulatory investigation, foreign listing idle over a local
+# holiday, provider lagging the US close) — and burial is irreversible. The margin is free
+# here: this is a backfill over events that are years old, so a genuinely delisted name
+# clears a month by miles, while a halted one gets resolved once it trades again.
+STALE_TAIL_SESSIONS = 21
 # Above this share of requested tickers coming back column-less, the whole chunk is suspect
 # (throttling), not the tickers. Only applied to chunks big enough for the share to mean
 # something; smaller chunks go straight to the per-ticker re-check.
 MAX_MISSING_SHARE = 0.30
 MIN_CHUNK_FOR_SHARE_GUARD = 4
+# Re-checks are serial single-ticker fetches, each up to 3 attempts with a 30-60s rate-limit
+# backoff. A moderate throttle (just under MAX_MISSING_SHARE) across ~900 chunks would
+# otherwise add hours of wall clock, so the tail beyond this cap is left OPEN and counted —
+# the next run retries it. Unverified absence is never a burial.
+MAX_RECHECKS_PER_CHUNK = 8
 # Dots mean two different things: a US share class (BRK.B -> BRK-B, Yahoo's convention) and
 # an exchange suffix (BMW.DE, PETR4.SA), which `yf_symbol` would mangle into a symbol that
 # exists nowhere. Only the share-class shape is mapped; the rest is reported, never buried.
@@ -104,10 +111,11 @@ BUCKET_BENCHMARK_SELF = "unresolvable_benchmark_self"
 BUCKET_UNMAPPABLE_SYMBOL = "unmappable_symbol"
 BUCKET_BAD_T0 = "bad_t0"
 BUCKET_FETCH_FAILED = "fetch_failed"
+BUCKET_RECHECK_CAPPED = "recheck_capped"
 BUCKETS = (
     BUCKET_RESOLVED, BUCKET_PARTIAL, BUCKET_RESOLVED_THEN_BURIED, BUCKET_STILL_OPEN,
     BUCKET_NO_PRICE_HISTORY, BUCKET_PANEL_GAP, BUCKET_BENCHMARK_SELF,
-    BUCKET_UNMAPPABLE_SYMBOL, BUCKET_BAD_T0, BUCKET_FETCH_FAILED,
+    BUCKET_UNMAPPABLE_SYMBOL, BUCKET_BAD_T0, BUCKET_FETCH_FAILED, BUCKET_RECHECK_CAPPED,
 )
 
 
@@ -202,7 +210,10 @@ def _resolve_one(event: dict, panel: pd.DataFrame) -> Resolution:
     if dead:
         # The ticker stopped trading: the open windows can never be measured. Keep what IS
         # measured and bury only the rest — the per-column store supports exactly this.
-        bucket = BUCKET_RESOLVED_THEN_BURIED if measured else BUCKET_NO_PRICE_HISTORY
+        # `stored` counts too: a row whose horizons were measured in an EARLIER run is just
+        # as partially-measured as one measured now, and must not be reported as a pure
+        # survivorship gap only because this run happened to add nothing.
+        bucket = BUCKET_RESOLVED_THEN_BURIED if (measured or stored) else BUCKET_NO_PRICE_HISTORY
         return Resolution(event_id, bucket, measured, REASON_NO_PRICE_HISTORY)
     if not measured:
         return Resolution(event_id, BUCKET_STILL_OPEN, {}, None)
@@ -274,6 +285,7 @@ def run_history_resolve(
     limit: int | None = None,
     apply: bool = False,
     chunk_size: int = TICKER_CHUNK,
+    max_rechecks: int = MAX_RECHECKS_PER_CHUNK,
 ) -> dict:
     """Resolve the open history queue in ticker chunks. Returns the run's full accounting.
 
@@ -330,7 +342,14 @@ def run_history_resolve(
             print(f"{head}, {len(chunk_events)} Events: {len(missing)} Ticker ohne Spalte"
                   f" (>{MAX_MISSING_SHARE:.0%}) — Drosselung vermutet, offen.")
             continue
-        for symbol in missing:
+        for symbol in missing[max_rechecks:]:
+            # Beyond the cap: absence unverified, so the events wait for the next run.
+            active.remove(symbol)
+            counts[BUCKET_RECHECK_CAPPED] += len(by_symbol[symbol])
+        if len(missing) > max_rechecks:
+            print(f"{head}: {len(missing) - max_rechecks} fehlende Ticker über dem"
+                  f" Nachprüf-Limit ({max_rechecks}) — offen für den nächsten Lauf.")
+        for symbol in missing[:max_rechecks]:
             # One targeted retry before an irreversible burial: a single-ticker fetch that
             # also comes back empty is real absence, not a batch hiccup.
             try:
@@ -399,7 +418,8 @@ def format_summary(result: dict) -> str:
         f"Ereignisse in diesem Lauf: {result['events']} — ohne neues Fenster:"
         f" {counts[BUCKET_STILL_OPEN]}, Fetch fehlgeschlagen: {counts[BUCKET_FETCH_FAILED]},"
         f" ungültiges t0: {counts[BUCKET_BAD_T0]},"
-        f" Symbol nicht abbildbar: {counts[BUCKET_UNMAPPABLE_SYMBOL]};"
+        f" Symbol nicht abbildbar: {counts[BUCKET_UNMAPPABLE_SYMBOL]},"
+        f" Nachprüfung gedeckelt: {counts[BUCKET_RECHECK_CAPPED]};"
         f" geschrieben: {result['written']}, abgelehnt: {result['refused']}.",
     ]
     if not result["applied"]:
