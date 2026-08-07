@@ -21,6 +21,7 @@ def test_advice_questions_are_detected():
         "Würdest du Yamato verkaufen?",
         "Lohnt es sich, Petrobras zu kaufen?",
         "Was soll ich kaufen?",
+        "Was empfiehlst du mir heute?",  # Empfehlungs-Frame ohne Handelsverb
     ]:
         assert is_advice_question(q), q
 

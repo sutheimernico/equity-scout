@@ -12,16 +12,20 @@ import re
 # "Soll ich X kaufen?" in its German variants. Questions about THIRD-PARTY buys
 # ("Wer hat Intel gekauft?") must NOT match — the pattern requires an advice frame
 # (soll/würdest/lohnt/kann ich) before the trade verb, not the verb alone.
+# "empfiehlst du / was empfiehlst du mir" is an advice frame on its own.
 _ADVICE_RE = re.compile(
     r"(soll(te)?\s+ich|w[üu]rdest\s+du|lohnt\s+(es\s+)?sich|kann\s+ich)"
-    r".{0,60}?(kaufen|verkaufen|einsteigen|aussteigen|investieren)",
+    r".{0,60}?(kaufen|verkaufen|einsteigen|aussteigen|investieren)"
+    r"|empfiehlst\s+du|empfehlung\s+f[üu]r\s+mich",
     re.IGNORECASE | re.DOTALL,
 )
 
 
 def is_advice_question(question: str) -> bool:
-    """True when the question asks for buy/sell advice — answered by a fixed sentence
-    WITHOUT the LLM (see chat.REFUSAL_ANSWER); a 7B model cannot be trusted to refuse."""
+    """True when the question asks for buy/sell advice. Used to route into the
+    recommendation brief (chat.ADVICE_BRIEF + open pitches in the context) — until
+    2026-08-08 this served a fixed refusal; Nico's private app now answers with a
+    grounded recommendation instead."""
     return bool(_ADVICE_RE.search(question))
 
 

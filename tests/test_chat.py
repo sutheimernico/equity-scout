@@ -5,8 +5,9 @@ import pytest
 
 from equity_scout.chat import (
     glossary_for,
+    ADVICE_BRIEF,
     GLOSSARY,
-    REFUSAL_ANSWER,
+    KNOWLEDGE_STRATEGIES,
     SYSTEM_PROMPT,
     build_dashboard_context,
 )
@@ -48,21 +49,35 @@ def test_context_empty_when_no_data() -> None:
     assert build_dashboard_context(strategies=[], ml=None, research=None, forward=[]) == "Keine Daten verfügbar."
 
 
-def test_refusal_answer_is_a_hard_no_without_numbers() -> None:
-    assert "keine Anlageberatung" in REFUSAL_ANSWER
-    assert "kaufen" in REFUSAL_ANSWER.lower()
-    # Der feste Satz darf keine Platzhalter tragen, die je Frage variieren müssten.
-    assert "{" not in REFUSAL_ANSWER
+def test_advice_brief_demands_a_grounded_recommendation() -> None:
+    # Seit 2026-08-08 (Nicos Direktive: private App, Empfehlungen erwünscht) gibt es
+    # keine feste Ablehnung mehr — der Auftrag verlangt Urteil MIT Begründung + Risiko.
+    for required in ("Einschätzung", "Risiko", "Kontext", "Papier"):
+        assert required in ADVICE_BRIEF, required
+    # Der feste Block darf keine Platzhalter tragen, die je Frage variieren müssten.
+    assert "{" not in ADVICE_BRIEF
 
 
-def test_system_prompt_forbids_guessing_and_advice() -> None:
+def test_system_prompt_allows_grounded_recommendations_but_forbids_guessing() -> None:
     for required in (
         "nicht im Datenbestand",      # fehlende Daten benennen statt raten
-        "keine Anlageberatung",
-        "keine Kursprognosen",
         "erfinde",                     # "erfinde nichts"
+        "Empfehlungen",                # ... aussprechen ist jetzt erlaubt
+        "Kursprognosen",               # ... ohne Kontext-Zahlen bleiben verboten
+        "Favoriten",                   # Vergleiche dürfen einen Sieger benennen
     ):
         assert required in SYSTEM_PROMPT, required
+    # Das alte Pauschalverbot ist bewusst weg (Nico 2026-08-08).
+    assert "Keine Empfehlungen" not in SYSTEM_PROMPT
+
+
+def test_strategy_knowledge_carries_the_yardstick_and_every_rule_set() -> None:
+    for required in (
+        "Sharpe", "Drawdown", "Forward-Track",
+        "60/40", "Permanent Portfolio", "Volatility Targeting", "Dual Momentum",
+        "Defensive Asset Allocation", "Sektor-Rotation", "Multi-Strategie-Mix", "DCA",
+    ):
+        assert required in KNOWLEDGE_STRATEGIES, required
 
 
 def test_glossary_defines_the_house_terms() -> None:
@@ -78,9 +93,11 @@ def test_glossary_explains_the_key_figures_and_filings() -> None:
     assert "kein Kaufgrund" in GLOSSARY
 
 
-def test_system_prompt_rules_comparisons_without_a_winner() -> None:
+def test_system_prompt_rules_comparisons_with_a_reasoned_favourite() -> None:
+    # Vergleiche bleiben Kennzahl für Kennzahl — aber seit 2026-08-08 DARF am Ende ein
+    # begründeter Favorit stehen (Nicos Direktive), statt des alten Sieger-Verbots.
     assert "Kennzahl für Kennzahl" in SYSTEM_PROMPT
-    assert "Sieger" in SYSTEM_PROMPT
+    assert "Favoriten" in SYSTEM_PROMPT
 
 
 def test_ask_ollama_keeps_the_model_warm_and_caps_length(monkeypatch) -> None:

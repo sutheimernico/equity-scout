@@ -24,28 +24,68 @@ REQUEST_TIMEOUT_SECONDS = 240.0
 # system prompt with the guardrails. Set explicitly; qwen2.5:7b itself allows 32 768.
 NUM_CTX = 8192
 
+# Policy turn 2026-08-08 (Nico): this is HIS private app, and he explicitly asked for
+# recommendations — the assistant may now judge and recommend, but every judgement must
+# be grounded in the retrieved context. The old hard refusal (REFUSAL_ANSWER) is gone;
+# the honesty rails moved into rule 2 and ADVICE_BRIEF below.
 SYSTEM_PROMPT = (
-    "Du bist der Assistent von equity-scout, einem lokalen Recherche-Tool (Paper-Trading, "
-    "keine Anlageberatung). Regeln, ohne Ausnahme:\n"
+    "Du bist Nicos persönlicher Analyse-Assistent in equity-scout, seinem privaten "
+    "Recherche-Tool (Paper-Trading, nur für ihn). Regeln, ohne Ausnahme:\n"
     "1. Antworte NUR aus dem DATEN-Kontext unten. Steht etwas nicht darin, sage wörtlich, "
     "dass es nicht im Datenbestand ist — erfinde nichts, auch keine Ticker oder Gründe.\n"
-    "2. Keine Empfehlungen, keine Ratschläge, keine Kursprognosen. Formulierungen wie "
-    "'es wäre ratsam' sind verboten.\n"
+    "2. Du DARFST klare Einschätzungen und Empfehlungen aussprechen — aber nur aus dem "
+    "Kontext begründet: nenne die 2-3 tragenden Fakten, das wichtigste Gegenargument oder "
+    "Risiko, und woran die Einschätzung kippen würde. Trägt der Kontext kein Urteil, sage "
+    "das ehrlich, statt zu raten. Keine Kursprognosen mit Zahlen, die nicht im Kontext "
+    "stehen.\n"
     "3. Zahlen immer mit ihrer Quelle aus dem Kontext benennen (z.B. 'laut Watchlist', "
     "'laut Analysten-Konsens').\n"
     "4. Hausbegriffe bedeuten exakt das, was das GLOSSAR sagt — keine Lehrbuch-Definitionen.\n"
-    "5. Werden mehrere Aktien genannt, stelle sie Kennzahl für Kennzahl gegenüber und "
-    "benenne fehlende Werte. Kein Sieger, keine Rangliste, keine Kauf-Andeutung.\n"
+    "5. Werden mehrere Aktien oder Strategien verglichen, stelle sie Kennzahl für Kennzahl "
+    "gegenüber und benenne fehlende Werte — und benenne dann deinen Favoriten mit "
+    "Begründung.\n"
     "Antworte knapp und auf Deutsch."
 )
 
-# Fixed answer for advice questions — served BEFORE the LLM (api.py), so the refusal can
-# never be watered down by a 7B model's helpfulness.
-REFUSAL_ANSWER = (
-    "Das entscheide ich nicht für dich: equity-scout gibt keine Anlageberatung und sagt "
-    "dir nie, ob du kaufen oder verkaufen sollst. Ich kann dir aber die Fakten zeigen — "
-    "frag z.B. »Wie bewertet das Modell den Einstieg bei X?« oder »Was sagen die "
-    "Analysten zu X?«."
+# Prepended to the context of advice questions ("Soll ich X kaufen?") — the detector
+# (chat_retrieval.is_advice_question) used to serve a fixed refusal; it now routes into
+# this explicit brief instead.
+ADVICE_BRIEF = (
+    "EMPFEHLUNGS-AUFTRAG: Nico fragt nach einer Kauf-/Verkaufsentscheidung. Gib eine "
+    "klare persönliche Einschätzung (z.B. 'kaufenswert', 'abwarten', 'Finger weg') und "
+    "stütze sie ausschließlich auf den Kontext: 2-3 tragende Fakten, das wichtigste "
+    "Risiko, und die Marke oder Bedingung, ab der die Einschätzung kippt (Stop, Zone, "
+    "Termin). Fehlen die Daten dafür, sage das offen. Schließe mit EINEM kurzen Satz, "
+    "dass alles Papier-Recherche ist und er selbst entscheidet."
+)
+
+# Curated strategy knowledge for "welche Strategie ist die beste?" — the live numbers
+# come from the strategies block; this carries the WHY behind each rule set and the
+# yardstick for "best". Static domain knowledge, curated 2026-08-08.
+KNOWLEDGE_STRATEGIES = (
+    "STRATEGIE-WISSEN (Einordnung zusätzlich zu den Live-Zahlen):\n"
+    "- Maßstab für 'beste': risikoadjustierte Rendite NACH Kosten (Sharpe), maximaler "
+    "Drawdown und Robustheit über verschiedene Marktphasen — nicht die höchste CAGR. "
+    "Ein Backtest ist eine Hypothese; der Forward-Track (Papiergeld, echte Kurse) wiegt "
+    "schwerer, ist hier aber noch jung — unter 60 Messtagen ist kein Urteil seriös.\n"
+    "- 60/40: Klassiker aus Aktien und Anleihen. Lebt von Diversifikation; schwach, wenn "
+    "beide gleichzeitig fallen (Zinsschock wie 2022).\n"
+    "- DCA (12-Monats-Einstieg): gestaffelter Einstieg — senkt das Timing-Risiko, kostet "
+    "im Schnitt Rendite gegenüber Sofort-Investieren, weil der Markt meistens steigt.\n"
+    "- Permanent Portfolio: je ein Viertel Aktien/Anleihen/Gold/Cash — auf Stabilität "
+    "gebaut, nicht auf Wachstum; historisch kleine Drawdowns, moderate Rendite.\n"
+    "- Volatility Targeting: hält das RISIKO konstant statt der Aktienquote (baut bei "
+    "Unruhe ab) — dämpft Drawdowns, verpasst aber V-förmige Erholungen.\n"
+    "- Dual Momentum (GEM): investiert nur, wenn Aktien absolut UND relativ vorn liegen, "
+    "sonst Anleihen — stark in langen Trends, verliert in Seitwärtsmärkten durch "
+    "Fehlsignale (Whipsaw).\n"
+    "- Defensive Asset Allocation (DAA): nutzt die Marktbreite als Frühwarnung und geht "
+    "schnell defensiv — guter Krisenschutz, aber viele Parameter (Überanpassungs-Risiko).\n"
+    "- Sektor-Rotation (Top 3): kauft die drei stärksten US-Sektoren nach 6/12-Monats-"
+    "Momentum — im Backtest die höchste CAGR, aber Momentum bricht in Crashs abrupt "
+    "(tiefer Drawdown).\n"
+    "- Multi-Strategie-Mix: gewichtet die Regelwerke nach bisheriger Güte — Diversifikation "
+    "über Strategien ist oft robuster als jede Einzelstrategie."
 )
 
 # The house terms, defined ONCE — the measurement showed the model explaining

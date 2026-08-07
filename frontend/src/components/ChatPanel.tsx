@@ -9,10 +9,10 @@ interface Msg {
 }
 
 const EXAMPLES = [
+  "Was empfiehlst du mir heute?",
+  "Welche Strategie ist die beste?",
   "Wie hoch ist das KGV von Micron?",
   "Welche Mitglieder haben Intel gekauft?",
-  "Wie steht mein Depot im Vergleich zum Markt?",
-  "Was bedeutet die Einstiegszone?",
 ];
 
 // `overlay` renders the compact header with a close button instead of the full
@@ -70,9 +70,10 @@ export function ChatPanel({
           <p className="section-sub">
             Ein lokaler Chatbot (über <strong>Ollama</strong>) beantwortet Fragen zu jeder Aktie
             im Bestand — Kennzahlen wie KGV und Marge, wer gekauft hat (Kongress, Fonds,
-            Stimmen), Einstiegs-Score, Pitches, Depots, Marktlage und Ergebnisse. Läuft komplett
-            lokal, nichts verlässt den Rechner. Keine Anlageberatung — Kauf-/Verkaufsfragen
-            beantwortet er nicht.
+            Stimmen), Einstiegs-Score, Pitches, Depots, Marktlage und Ergebnisse. Auf Wunsch
+            gibt er dir eine klare, aus deinen Daten begründete Einschätzung — samt Risiko und
+            der Bedingung, ab der sie kippt. Läuft komplett lokal, nichts verlässt den Rechner;
+            alles Papier-Recherche, entscheiden tust du.
           </p>
         </header>
       )}

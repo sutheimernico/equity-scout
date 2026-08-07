@@ -1311,18 +1311,26 @@ def create_app(
             strategies=strategies, ml=ml, research=research, forward=forward, screener=screener
         )
 
-    def _chat_context(question: str) -> str:
+    def _chat_context(question: str, *, advice: bool = False) -> str:
         """Glossary + the blocks this question actually needs + a dossier per mentioned
         stock. Routing keeps the prompt short: the measurement showed a 7B model losing
-        the thread when handed the whole dashboard for a single-stock question."""
-        from equity_scout.chat import glossary_for
+        the thread when handed the whole dashboard for a single-stock question.
+
+        ``advice`` prepends the ADVICE_BRIEF (Nico 2026-08-08: his private app SHOULD
+        recommend) and pulls the open pitches in — "was soll ich kaufen?" without a
+        named stock is answered from the scout's own candidates, never from thin air.
+        """
+        from equity_scout.chat import ADVICE_BRIEF, glossary_for
         from equity_scout.chat_retrieval import find_persons, route_topics
 
         topics = route_topics(question)
+        if advice and "inbox" not in topics:
+            topics.append("inbox")
         dossiers = _chat_dossier_blocks(question)
-        # Glossary first and topic-trimmed: it is the prompt's stable prefix (Ollama caches
+        blocks: list[str] = [ADVICE_BRIEF] if advice else []
+        # Glossary early and topic-trimmed: it is the prompt's stable prefix (Ollama caches
         # that across questions) and every unused section costs seconds of CPU prompt eval.
-        blocks: list[str] = [glossary_for(topics, has_dossier=bool(dossiers))]
+        blocks.append(glossary_for(topics, has_dossier=bool(dossiers)))
         blocks.extend(dossiers)
         overview = "ueberblick" in topics
         if "depots" in topics or overview:
@@ -1347,23 +1355,28 @@ def create_app(
         if "inbox" in topics or overview:
             blocks.append(_chat_inbox_block(load_pitches(db_path)))
         if "strategien" in topics or overview:
+            from equity_scout.chat import KNOWLEDGE_STRATEGIES
+
+            # Numbers + the curated WHY behind each rule set: "welche Strategie ist die
+            # beste?" needs a yardstick, not just a metrics table.
             blocks.append(_chat_strategies_block())
+            blocks.append(KNOWLEDGE_STRATEGIES)
         return "\n\n".join(b for b in blocks if b)
 
     @app.post("/api/chat")
     def chat(body: dict) -> JSONResponse:
         import equity_scout.chat as chat_mod
-        from equity_scout.chat import REFUSAL_ANSWER, ChatError
+        from equity_scout.chat import ChatError
         from equity_scout.chat_retrieval import is_advice_question
 
         question = str((body or {}).get("question", "")).strip()
         if not question:
             return JSONResponse({"error": "Keine Frage übergeben."}, status_code=400)
-        if is_advice_question(question):
-            # Fixed sentence, zero LLM involvement — the refusal must be unconditional.
-            return JSONResponse({"answer": REFUSAL_ANSWER, "disclaimer": DISCLAIMER})
+        # Advice questions no longer short-circuit into a refusal (Nico 2026-08-08):
+        # they run through the LLM WITH the advice brief and the open pitches on board.
+        context = _chat_context(question, advice=is_advice_question(question))
         try:
-            answer = chat_mod.ask_ollama(question, _chat_context(question))
+            answer = chat_mod.ask_ollama(question, context)
         except ChatError as exc:
             return JSONResponse({"error": str(exc)}, status_code=503)
         return JSONResponse({"answer": answer, "disclaimer": DISCLAIMER})
@@ -1373,15 +1386,12 @@ def create_app(
         import equity_scout.chat as chat_mod
         from fastapi.responses import StreamingResponse
 
-        from equity_scout.chat import REFUSAL_ANSWER
         from equity_scout.chat_retrieval import is_advice_question
 
         question = str((body or {}).get("question", "")).strip()
         if not question:
             return JSONResponse({"error": "Keine Frage übergeben."}, status_code=400)
-        if is_advice_question(question):
-            return StreamingResponse(iter([REFUSAL_ANSWER]), media_type="text/plain")
-        context = _chat_context(question)
+        context = _chat_context(question, advice=is_advice_question(question))
 
         def _gen():  # noqa: ANN202
             try:

@@ -779,16 +779,24 @@ def test_evidence_alerts_carry_the_company_name_or_null(tmp_path):
     assert alerts["ZZZZ"]["name"] is None
 
 
-def test_chat_advice_question_refuses_without_llm(tmp_path, monkeypatch):
+def test_chat_advice_question_runs_the_llm_with_the_advice_brief(tmp_path, monkeypatch):
+    """Seit 2026-08-08 (Nicos Direktive) werden Ratschlagsfragen NICHT mehr abgelehnt:
+    sie laufen durch das LLM, mit dem EMPFEHLUNGS-AUFTRAG vorn im Kontext und den
+    offenen Pitches an Bord."""
     db = str(tmp_path / "chat.db")
     client = TestClient(create_app(db))
 
-    def boom(*a, **k):  # das LLM DARF bei Ratschlagsfragen nie aufgerufen werden
-        raise AssertionError("ask_ollama must not be called for advice questions")
+    captured: dict = {}
 
-    monkeypatch.setattr("equity_scout.chat.ask_ollama", boom)
+    def fake_ask(question, context, **kwargs):
+        captured["context"] = context
+        return "Einschätzung."
+
+    monkeypatch.setattr("equity_scout.chat.ask_ollama", fake_ask)
     body = client.post("/api/chat", json={"question": "Soll ich Micron kaufen?"}).json()
-    assert "keine Anlageberatung" in body["answer"]
+    assert body["answer"] == "Einschätzung."
+    assert captured["context"].startswith("EMPFEHLUNGS-AUFTRAG")
+    assert "PITCHES" in captured["context"] or "Pitch" in captured["context"]
 
 
 def _capture_chat_context(monkeypatch) -> dict:
@@ -891,16 +899,20 @@ def test_chat_stream_endpoint_streams_text(tmp_path, monkeypatch):
     assert resp.text == "Hallo"
 
 
-def test_chat_stream_refuses_advice_without_the_llm(tmp_path, monkeypatch):
+def test_chat_stream_advice_question_streams_with_the_advice_brief(tmp_path, monkeypatch):
     db = str(tmp_path / "chat7.db")
     client = TestClient(create_app(db))
 
-    def boom(*a, **k):
-        raise AssertionError("stream_ollama must not run for advice questions")
+    captured: dict = {}
 
-    monkeypatch.setattr("equity_scout.chat.stream_ollama", boom)
+    def fake_stream(question, context, **kwargs):
+        captured["context"] = context
+        yield "Einschätzung."
+
+    monkeypatch.setattr("equity_scout.chat.stream_ollama", fake_stream)
     resp = client.post("/api/chat/stream", json={"question": "Soll ich Micron kaufen?"})
-    assert "keine Anlageberatung" in resp.text
+    assert resp.text == "Einschätzung."
+    assert captured["context"].startswith("EMPFEHLUNGS-AUFTRAG")
 
 
 def test_chat_stream_reports_an_unreachable_model_in_band(tmp_path, monkeypatch):

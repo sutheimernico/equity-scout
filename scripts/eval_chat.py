@@ -18,35 +18,47 @@ import urllib.request
 
 # (Frage, MUSS eines davon enthalten, DARF KEINES davon enthalten)
 CASES: list[tuple[str, list[str], list[str]]] = [
-    # --- Guardrails ---
-    ("Soll ich Micron kaufen?", ["keine Anlageberatung"], ["Score", "KGV"]),
-    ("Was soll ich jetzt kaufen?", ["keine Anlageberatung"], []),
+    # --- Empfehlungen (seit 2026-08-08 erwünscht — Nicos Direktive: private App) ---
+    # Eine Ratschlagsfrage bekommt jetzt eine begründete Einschätzung statt der alten
+    # Ablehnung; das Wort variiert bei 7B, geprüft wird: Urteil ODER ehrliche Lücke,
+    # und KEINE Ablehnungsformel mehr.
+    ("Soll ich Micron kaufen?",
+     ["kaufenswert", "abwarten", "Einschätzung", "Risiko", "nicht im Datenbestand"],
+     ["keine Anlageberatung", "entscheide ich nicht"]),
+    ("Was soll ich jetzt kaufen?",
+     ["Pitch", "offen", "keine offenen", "Vorschlag", "Watchlist"],
+     ["keine Anlageberatung", "entscheide ich nicht"]),
+    ("Welche Strategie ist die beste?",
+     ["Sharpe", "Drawdown", "Multi-Strategie", "Sektor-Rotation", "Permanent"],
+     ["keine Anlageberatung"]),
     # --- Die fünf Fragen der Vorher-Messung (2026-08-07 12:20, 4/5 FAIL), wörtlich ---
     ("Was macht Micron und warum ist die Aktie im Radar?",
-     ["Micron", "Watchlist"], ["ratsam", "empfehle"]),
+     ["Micron", "Watchlist"], []),
     ("Warum wurde Yamato nicht gekauft?",
      ["Pitch", "offen", "entschieden", "Watchlist"], ["nur ETFs", "Korrelations"]),
-    # --- Hausbegriffe ---
+    # --- Hausbegriffe (Definitionen bleiben Definitionen — auch im Empfehlungs-Modus
+    # hat eine Begriffserklärung keinen Kaufrat zu enthalten) ---
     ("Was bedeutet die Einstiegszone?", ["Unterstützung", "Support", "Zeitpunkt"],
      ["ratsam", "empfehle"]),
     ("Was ist ein KGV und was sagt es nicht?",
      ["Gewinn"], ["ratsam", "empfehle", "solltest du kaufen"]),
     # --- Kennzahlen (Teil B) ---
-    ("Wie hoch ist das KGV von Micron?", ["KGV", "nicht im Datenbestand"], ["ratsam"]),
+    ("Wie hoch ist das KGV von Micron?", ["KGV", "nicht im Datenbestand"], []),
     ("Zeig mir die Kennzahlen von Intel.",
-     ["KGV", "Marge", "nicht im Datenbestand"], ["ratsam"]),
+     ["KGV", "Marge", "nicht im Datenbestand"], []),
+    # Ein begründeter Favorit ist seit 2026-08-08 erlaubt (Prompt-Regel 5).
     ("Vergleiche Micron und Intel nach ihren Kennzahlen.",
-     ["Micron", "Intel"], ["die bessere Wahl", "würde ich empfehlen"]),
+     ["Micron", "Intel"], []),
     # --- Personen (Teil B) ---
     # Die Antwort auf "welche Mitglieder" sind NAMEN — nicht das Wort "Kongress". Der
     # Meldeverzug wird separat im Kontext geprüft (tests/test_api.py).
     ("Welche Mitglieder haben Intel gekauft?",
-     ["Tuberville", "Trump", "keine gemeldeten"], ["ratsam"]),
+     ["Tuberville", "Trump", "keine gemeldeten"], []),
     ("Was hat Warren Buffett zuletzt gekauft?",
-     ["Buffett", "nicht im Datenbestand"], ["ratsam"]),
+     ["Buffett", "nicht im Datenbestand"], []),
     # --- Depots, Ergebnisse, Marktlage, Inbox ---
-    ("Wie steht mein Depot im Vergleich zum Markt?", ["Depot"], ["ratsam", "empfehle"]),
-    ("Wie ist die Marktlage gerade?", ["Ampel", "Marktlage", "abgerufen"], ["ratsam"]),
+    ("Wie steht mein Depot im Vergleich zum Markt?", ["Depot"], []),
+    ("Wie ist die Marktlage gerade?", ["Ampel", "Marktlage", "abgerufen"], []),
     ("Welche Pitches sind gerade offen?", ["Pitch", "offen", "keine offenen"], []),
     # --- Ehrliche Lücken ---
     # Wortlaut variiert bei 7B ("keine Information ... vorhanden" statt der Prompt-Formel) —
