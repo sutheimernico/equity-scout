@@ -64,3 +64,22 @@ def earnings_within(db_path: str | Path, *, today: str, days: int) -> list[dict]
         except sqlite3.OperationalError:
             return []
     return [{"ticker": t, "earnings_date": d} for t, d in rows]
+
+
+def next_earnings(db_path: str | Path, *, ticker: str, today: str) -> str | None:
+    """Next known earnings date on/after ``today`` for one ticker (ISO date), or None.
+
+    Same not-yet-initialised honesty as ``earnings_within``: a missing table means "no
+    run_earnings.py run yet", not an error.
+    """
+    with sqlite3.connect(db_path) as con:
+        try:
+            row = con.execute(
+                "SELECT earnings_date FROM earnings_dates "
+                "WHERE ticker = ? AND earnings_date >= ? "
+                "ORDER BY earnings_date ASC LIMIT 1",
+                (ticker, today),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            return None
+    return row[0] if row else None

@@ -6,6 +6,7 @@ import sqlite3
 from equity_scout.earnings_storage import (
     earnings_within,
     init_earnings_db,
+    next_earnings,
     save_earnings_dates,
 )
 
@@ -90,3 +91,31 @@ def test_init_earnings_db_is_idempotent(tmp_path):
     init_earnings_db(db)
     init_earnings_db(db)  # must not raise on a second call
     assert earnings_within(db, today="2026-07-15", days=7) == []
+
+
+def test_next_earnings_returns_earliest_upcoming_for_ticker(tmp_path):
+    db = str(tmp_path / "earnings.db")
+    save_earnings_dates(db, "MU", ["2026-12-18", "2026-09-25"], fetched_on="2026-08-07T06:00:00+00:00")
+    save_earnings_dates(db, "ASML", ["2026-08-20"], fetched_on="2026-08-07T06:00:00+00:00")
+
+    assert next_earnings(db, ticker="MU", today="2026-08-07") == "2026-09-25"
+
+
+def test_next_earnings_skips_past_dates_and_includes_today(tmp_path):
+    db = str(tmp_path / "earnings.db")
+    save_earnings_dates(db, "MU", ["2026-09-25", "2026-12-18"], fetched_on="2026-08-07T06:00:00+00:00")
+
+    assert next_earnings(db, ticker="MU", today="2026-10-01") == "2026-12-18"
+    assert next_earnings(db, ticker="MU", today="2026-09-25") == "2026-09-25"
+
+
+def test_next_earnings_none_for_unknown_ticker(tmp_path):
+    db = str(tmp_path / "earnings.db")
+    save_earnings_dates(db, "MU", ["2026-09-25"], fetched_on="2026-08-07T06:00:00+00:00")
+
+    assert next_earnings(db, ticker="NVDA", today="2026-08-07") is None
+
+
+def test_next_earnings_none_when_table_not_created_yet(tmp_path):
+    db = str(tmp_path / "fresh.db")
+    assert next_earnings(db, ticker="MU", today="2026-08-07") is None
