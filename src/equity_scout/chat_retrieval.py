@@ -158,3 +158,68 @@ def find_tickers(
         else:
             position += 1
     return hits
+
+
+_STATUS_DE = {"open": "offen", "buy": "Gekauft", "pass": "Abgelehnt",
+              "later": "Später", "expired": "Verfallen"}
+
+
+def _de(value: float, digits: int = 1) -> str:
+    """German decimal comma — the assistant answers in German, so its numbers do too."""
+    return f"{value:.{digits}f}".replace(".", ",")
+
+
+def _pct(value: float, *, signed: bool = False, digits: int = 1) -> str:
+    text = _de(value * 100, digits)
+    return f"+{text}" if signed and value > 0 else text
+
+
+def stock_dossier(
+    *,
+    ticker: str,
+    name: str | None,
+    watchlist_entry: dict | None,
+    fundamentals,  # Fundamentals | None
+    insight: dict | None,
+    pitches: list[dict],
+    evidence_events: list[dict],
+    held_by: dict[str, float],
+) -> str:
+    """Everything the app knows about one ticker, as prompt lines. Absences are SAID
+    ("nicht auf der aktuellen Watchlist") — the measurement showed the model inventing
+    reasons exactly where the context was silent."""
+    lines = [f"AKTIE {name or ticker} ({ticker}):"]
+    if watchlist_entry is not None:
+        score = round(watchlist_entry["composite"] * 100)
+        lines.append(
+            f"- Watchlist: Einstiegs-Score {score}/100, Kurs {watchlist_entry['price']}, "
+            f"Zone {watchlist_entry['entry_zone_low']}–{watchlist_entry['entry_zone_high']} "
+            f"({watchlist_entry['zone_note']})"
+        )
+    else:
+        lines.append("- Steht NICHT auf der aktuellen Watchlist (wird gerade nicht beobachtet).")
+    if fundamentals is not None and fundamentals.analyst_target is not None:
+        lines.append(
+            f"- Analysten-Konsens: Ø-Kursziel {fundamentals.analyst_target} "
+            f"({fundamentals.analyst_count or '?'} Schätzungen) — Meinung Dritter."
+        )
+    else:
+        lines.append("- Keine Analysten-Daten im Cache.")
+    if insight is not None:
+        if insight.get("business"):
+            lines.append(f"- Profil: {insight['business']}")
+        if insight.get("news_summary"):
+            lines.append(f"- News-Zusammenfassung: {insight['news_summary']}")
+    for p in pitches[:3]:
+        status = _STATUS_DE.get(p["status"], p["status"])
+        lines.append(
+            f"- Pitch vom {p['created_at'][:10]}: Score {round(p['composite'] * 100)}/100, "
+            f"Status {status}."
+        )
+    for e in evidence_events[:3]:
+        lines.append(f"- Externes Signal ({e['source']}, {e['event_date']}).")
+    for lane, shares in held_by.items():
+        if shares > 0:
+            label = "Dein Depot" if lane == "nico" else "Autopilot-Depot"
+            lines.append(f"- {label} hält {shares} Anteile.")
+    return "\n".join(lines)

@@ -5,6 +5,7 @@ from equity_scout.chat_retrieval import (
     find_tickers,
     is_advice_question,
     short_company_name,
+    stock_dossier,
 )
 
 
@@ -107,3 +108,37 @@ def test_german_question_words_never_resolve_to_a_stock():
     assert find_tickers("Was ist der Kurs von Micron?", lex) == ["MU"]
     # Live gegen das echte 6 197-Titel-Lexikon gefunden: "was sagt die Marktlage" ergab SAGT.
     assert find_tickers("Wie laufen die Depots und was sagt die Marktlage?", lex) == []
+
+
+def test_stock_dossier_renders_every_known_fact():
+    text = stock_dossier(
+        ticker="ITC.NS",
+        name="ITC",
+        watchlist_entry={
+            "composite": 0.71, "in_zone": True, "price": 286.95,
+            "entry_zone_low": 276.11, "entry_zone_high": 319.50,
+            "zone_note": "Kurs in der Einstiegszone (276.11–319.50).",
+        },
+        fundamentals=None,
+        insight={"business": "ITC ist ein indischer Mischkonzern.",
+                 "news_summary": "Quartalszahlen über Erwartung."},
+        pitches=[{"status": "buy", "created_at": "2026-08-06T22:16:24+00:00",
+                  "verdict": "green", "composite": 0.71}],
+        evidence_events=[],
+        held_by={"nico": 0.0, "autopilot": 12.5},
+    )
+    assert "ITC (ITC.NS)" in text
+    assert "Einstiegs-Score 71/100" in text
+    assert "in der Einstiegszone" in text
+    assert "Mischkonzern" in text
+    assert "Pitch vom 2026-08-06" in text and "Gekauft" in text
+    assert "Autopilot-Depot" in text  # hält 12.5 Anteile
+
+
+def test_stock_dossier_says_whats_missing_instead_of_omitting():
+    text = stock_dossier(
+        ticker="MU", name="Micron Technology", watchlist_entry=None,
+        fundamentals=None, insight=None, pitches=[], evidence_events=[], held_by={},
+    )
+    assert "NICHT auf der aktuellen Watchlist" in text
+    assert "Keine Analysten-Daten im Cache" in text
