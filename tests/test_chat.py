@@ -221,3 +221,28 @@ def test_ask_ollama_sets_the_context_window_explicitly(monkeypatch) -> None:
     # Ollamas Default (4096) würde bei einem Vier-Aktien-Vergleich still abschneiden —
     # und zwar am Anfang, wo der System-Prompt mit den Guardrails steht.
     assert captured["options"]["num_ctx"] == NUM_CTX >= 8192
+
+
+def test_warmup_uses_the_same_model_options_as_a_real_call(monkeypatch) -> None:
+    """Ollama reloads the model when the options change — a warmup with a different
+    num_ctx costs TWO cold starts instead of saving one (gemessen: 241 s Timeout)."""
+    seen: list[dict] = []
+
+    class _Resp:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict:
+            return {"message": {"content": "ok"}}
+
+    import httpx
+
+    monkeypatch.setattr(httpx, "post", lambda url, json=None, timeout=None: (
+        seen.append(json), _Resp())[1])
+    from equity_scout.chat import ask_ollama, warm_model
+
+    warm_model()
+    ask_ollama("Frage?", "Kontext")
+    warm_options, real_options = seen[0]["options"], seen[1]["options"]
+    assert warm_options["num_ctx"] == real_options["num_ctx"]
+    assert seen[0]["keep_alive"] == seen[1]["keep_alive"]

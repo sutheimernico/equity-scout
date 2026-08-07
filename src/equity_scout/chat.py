@@ -300,7 +300,11 @@ def warm_model(*, model: str = OLLAMA_MODEL, host: str = OLLAMA_HOST) -> bool:
                 "model": model,
                 "stream": False,
                 "keep_alive": KEEP_ALIVE,
-                "options": {"num_predict": 1},
+                # num_ctx MUST match what ask_ollama/stream_ollama send: Ollama reloads the
+                # model whenever these options change, so warming with a different window
+                # made the first real question pay TWO cold starts (measured 241 s — worse
+                # than no warmup at all).
+                "options": {"num_predict": 1, "num_ctx": NUM_CTX},
                 "messages": [{"role": "user", "content": "ok"}],
             },
             timeout=REQUEST_TIMEOUT_SECONDS,
