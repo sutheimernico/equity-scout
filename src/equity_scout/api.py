@@ -829,6 +829,9 @@ def create_app(
                             # The Pick field is named `breakdown`; the old `factors` read
                             # returned None on every request since v6 P6.
                             "breakdown": pick_dict.get("breakdown"),
+                            # Original news sources (title/publisher/link) from the scout
+                            # run — the profile links them next to the LLM summary.
+                            "news": pick_dict.get("news"),
                             "run_created_at": run.created_at,
                         }
                         break

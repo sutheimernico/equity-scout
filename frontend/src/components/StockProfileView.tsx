@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 import { riskMeta } from "../aktien";
 import {
@@ -273,13 +273,13 @@ export function StockProfileView({
           {screener?.breakdown ? (
             <dl className="brief-detail">
               {Object.entries(screener.breakdown).map(([key, value]) => (
-                <div key={key} className="brief-detail-pair">
+                <Fragment key={key}>
                   <dt>{FACTOR_LABELS[key] ?? key}</dt>
                   <dd className="num">
                     {Math.round(value * 100)}. Perzentil · besser als {Math.round(value * 100)} %
                     der geprüften Aktien
                   </dd>
-                </div>
+                </Fragment>
               ))}
             </dl>
           ) : (
@@ -301,12 +301,12 @@ export function StockProfileView({
           {radar && radar.readings.length > 0 ? (
             <dl className="brief-detail">
               {radar.readings.map((r) => (
-                <div key={r.name} className="brief-detail-pair">
+                <Fragment key={r.name}>
                   <dt>{READING_LABELS[r.name] ?? r.name}</dt>
                   <dd>
                     <span className="num">{Math.round(r.score * 100)}/100</span> — {r.reason}
                   </dd>
-                </div>
+                </Fragment>
               ))}
             </dl>
           ) : (
@@ -368,10 +368,10 @@ export function StockProfileView({
         </ul>
       )}
 
-      {brief?.insight && (
+      {(brief?.insight || screener?.news?.length) && (
         <>
           <h2 className="brief-section-head">News</h2>
-          <InsightBlock insight={brief.insight} />
+          <InsightBlock insight={brief?.insight} news={screener?.news} />
         </>
       )}
 
@@ -380,16 +380,16 @@ export function StockProfileView({
           <h2 className="brief-section-head">Zahlen im Klartext</h2>
           <dl className="brief-detail">
             {figureRows.map((row) => (
-              <div key={row.label} className="brief-detail-pair">
+              <Fragment key={row.label}>
                 <dt>{row.label}</dt>
                 <dd className="num">{row.value}</dd>
-              </div>
+              </Fragment>
             ))}
             {company?.f_score && (
-              <div className="brief-detail-pair">
+              <>
                 <dt>Bilanz-Check</dt>
                 <dd className="num">{fscoreSummary(company.f_score)}</dd>
-              </div>
+              </>
             )}
           </dl>
           {company?.f_score && (

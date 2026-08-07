@@ -98,11 +98,15 @@ function BriefRow({ brief }: { brief: StockBrief }) {
             <dd className="num">
               {brief.trailing_pe === null ? "—" : brief.trailing_pe.toFixed(1)}
             </dd>
-            <dt>Modell-Kursziel</dt>
+            <dt>Scout-Ziel</dt>
             <dd>
               {brief.model_target === null
-                ? "— kein trainiertes Modell"
-                : money(brief.model_target, brief.currency)}
+                ? "— noch keine Berechnung"
+                : `${money(brief.model_target, brief.currency)} (${
+                    brief.target_source === "model"
+                      ? "trainiertes Modell"
+                      : "konservative Faustformel"
+                  })`}
             </dd>
           </dl>
         </div>

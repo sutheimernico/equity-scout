@@ -798,6 +798,8 @@ export interface Pitch {
   // dropped off the watchlist — the card then says the live view is missing instead
   // of passing off the pitch-time numbers as current.
   name: string | null;
+  /** Risk-profile chip on every stock card (mockup v2) — pitches included. */
+  bucket: "defensive" | "balanced" | "aggressive" | null;
   current_price: number | null;
   currency: string | null;
   in_zone: boolean | null;
@@ -1053,6 +1055,8 @@ export interface StackResponse {
     /** Factor percentiles (0–1) per family — was named `factors` and always null
      *  until the 2026-08-07 backend fix. */
     breakdown: Record<string, number> | null;
+    /** Original news sources from the scout run, for the profile's news card. */
+    news: NewsItem[] | null;
     run_created_at: string | null;
   } | null;
   radar: WatchlistEntry | null;

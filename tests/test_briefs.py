@@ -160,6 +160,7 @@ def test_pitch_market_context_builds_todays_view():
     entry = _entry(ticker="AAA", price=100.0, zone_low=90.0, zone_high=110.0,
                     in_zone=True, composite=0.5)
     context = pitch_market_context(entry, fund)
+    assert context["bucket"] == "balanced"  # risk chip on the pitch card
     assert context["current_price"] == 100.0
     assert context["in_zone"] is True
     assert context["zone_verdict"] == "im Einstiegsbereich"

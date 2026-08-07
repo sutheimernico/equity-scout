@@ -109,6 +109,7 @@ def entry_note(*, in_zone: bool, gap_pct: float | None, upside_pct: float | None
 
 _EMPTY_PITCH_CONTEXT: dict = {
     "name": None,
+    "bucket": None,
     "current_price": None,
     "currency": None,
     "in_zone": None,
@@ -137,6 +138,8 @@ def pitch_market_context(entry: dict | None, fundamentals: Fundamentals | None) 
     upside = analyst_upside_pct(target, price)
     return {
         "name": entry["name"],
+        # Risk-profile chip on every stock card (mockup v2) — pitches included.
+        "bucket": entry.get("bucket"),
         "current_price": price,
         "currency": fundamentals.currency if fundamentals else None,
         "in_zone": entry["in_zone"],

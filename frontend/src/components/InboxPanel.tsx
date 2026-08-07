@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 
+import { riskMeta } from "../aktien";
 import { decidePitch, fetchInbox, type InboxResponse, type Pitch } from "../api";
 import { companyNameFromPitch, shortCompanyName } from "../company";
 import { GROUP_HEADINGS, groupKey, sortByVerdict } from "../inbox";
@@ -182,7 +183,12 @@ export function InboxPanel({ onOpenStock }: { onOpenStock?: (ticker: string) => 
                         lookup key. Both, name first — a bare 9064.T means nothing. */}
                     <span className="pitch-company">{pitchName(p) ?? p.ticker}</span>
                     <span className="ticker">{p.ticker}</span>
-                    <TodayZoneChip pitch={p} />
+                    <span className="stock-chiprow">
+                      <TodayZoneChip pitch={p} />
+                      {riskMeta(p.bucket) && (
+                        <span className={riskMeta(p.bucket)!.chip}>{riskMeta(p.bucket)!.label}</span>
+                      )}
+                    </span>
                   </span>
                   {p.status === "open" ? (
                     <PotentialBlock upsidePct={p.analyst_upside_pct} analystCount={p.analyst_count} />
