@@ -60,7 +60,13 @@ function hasEvidenceSection(pitch: Pitch): boolean {
   return pitch.pitch.includes("Externe Signale:");
 }
 
-export function InboxPanel({ onOpenStock }: { onOpenStock?: (ticker: string) => void }) {
+export function InboxPanel({
+  onOpenStock,
+  onNavigate,
+}: {
+  onOpenStock?: (ticker: string) => void;
+  onNavigate?: (view: string) => void;
+}) {
   const [data, setData] = useState<InboxResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Pitch ids with an in-flight decision → all three buttons disabled while pending.
@@ -154,9 +160,29 @@ export function InboxPanel({ onOpenStock }: { onOpenStock?: (ticker: string) => 
         </p>
       </header>
 
+      {/* No OPEN pitch is a state the user lands in daily — without this card the
+          page opens straight on "Bereits entschieden" and reads as "buttons broken"
+          (Nico 2026-08-08: "kann nichts kaufen bzw ablehnen"). */}
+      {pitches.length > 0 && !pitches.some((p) => p.status === "open") && (
+        <article className="wie-card">
+          <h2>Gerade nichts zu entscheiden</h2>
+          <p>
+            Der Scout pitcht nur, wenn ein Titel seine Qualitätshürden schafft — beim letzten
+            Lauf (täglich 18:00) war das nicht der Fall. Keine Idee ist ehrlicher als eine
+            schwache. Neue Vorschläge landen automatisch hier und per Telegram; Kaufen,
+            Später und Ablehnen gibt es nur bei offenen Vorschlägen.
+          </p>
+          {onNavigate && (
+            <button className="stock-more" onClick={() => onNavigate("aktien")}>
+              Bis dahin: im Aktien-Tab stöbern →
+            </button>
+          )}
+        </article>
+      )}
+
       {pitches.length === 0 ? (
         <p className="state">
-          Keine Pitches — <code>run_radar.py</code> erzeugt neue.
+          Noch keine Vorschläge — der Scout erzeugt sie nach seinem nächsten Lauf.
         </p>
       ) : (
         <div className="inbox-grid">

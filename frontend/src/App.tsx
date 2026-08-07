@@ -204,7 +204,9 @@ export default function App() {
             {view === "profil" && ticker && (
               <StockProfileView ticker={ticker} onBack={back} onNavigate={navigate} />
             )}
-            {view === "entscheiden" && <InboxPanel onOpenStock={openStock} />}
+            {view === "entscheiden" && (
+              <InboxPanel onOpenStock={openStock} onNavigate={navigate} />
+            )}
             {view === "depot" && <DepotsView onNavigate={navigate} />}
             {view === "ergebnisse" && <ProofView />}
             {view === "werkauft" && <WerKauftView />}

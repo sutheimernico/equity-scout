@@ -121,6 +121,17 @@ export function DepotsView({ onNavigate }: { onNavigate: (view: string) => void 
         <>
           <FunktioniertEs books={langBooks} minDays={minDays} />
           <PhoneDepot fixedBook="long" />
+          {/* "Wonach kauft der?" spelled out per Sicht (Nico 2026-08-08: three things
+              called Autopilot next to each other read as one confusing thing). */}
+          <article className="wie-card">
+            <h2>Wonach kauft der Langfrist-Autopilot?</h2>
+            <p>
+              Er verteilt das Geld nach festen Regeln auf ETFs — mehrere Regelwerke,
+              gewichtet nach ihrer bisherigen Güte — schichtet regelmäßig um und fährt bei
+              Marktstress automatisch das Risiko herunter. Einzelaktien kauft er nie: Die
+              Vorschläge aus „Aktien" und „Entscheiden" fließen hier nicht ein.
+            </p>
+          </article>
           <Disclosure summary="Alle Details: Gewichte, Trades, Schutzmechanismen">
             <AutoDepotPanel />
           </Disclosure>
@@ -130,12 +141,37 @@ export function DepotsView({ onNavigate }: { onNavigate: (view: string) => void 
         <>
           <FunktioniertEs books={kurzBooks} minDays={minDays} />
           <PhoneDepot fixedBook="day" />
+          <article className="wie-card">
+            <h2>Wonach handeln die Kurzfrist-Taktiken?</h2>
+            <p>
+              Drei feste Regelwerke mit je eigenem Spielgeld: <b>Ereignis-Trades</b> kaufen
+              nach überraschend guten Quartalszahlen und halten Tage. <b>Tages-Handel</b>{" "}
+              handelt Ausbrüche nach US-Börsenstart über ein echtes Broker-Testkonto —
+              abends wird alles verkauft. <b>Krypto</b> folgt Ausbrüchen bei Bitcoin &amp;
+              Co., rund um die Uhr. Auch hier: keine Scout-Vorschläge, eigene Regeln.
+            </p>
+          </article>
           <Disclosure summary="Alle Details: Lanes, Statistiken, Promotion-Messlatte">
             <KurzfristArenaPanel />
           </Disclosure>
         </>
       )}
-      {sicht === "du" && <ArenaPanel embedded />}
+      {sicht === "du" && (
+        <>
+          <article className="wie-card">
+            <h2>Du gegen den Vergleichs-Autopiloten</h2>
+            <p>
+              Dein Gegner hier heißt auch „Autopilot" — ist aber <b>nicht</b> der
+              ETF-Autopilot aus „Langfrist". Er ist dein automatischer Zwilling: Er kauft
+              selbstständig jeden Scout-Vorschlag, der in der Einstiegszone liegt und gut
+              genug bewertet ist. Du entscheidest dieselben Vorschläge von Hand unter
+              „Entscheiden". Gleiches Startkapital, gleiche Regeln — der Vergleich misst,
+              ob deine Auswahl die Automatik schlägt.
+            </p>
+          </article>
+          <ArenaPanel embedded />
+        </>
+      )}
 
       <Disclosure summary="Alle Depots im Überblick (inkl. Forschungs-Depots)">
         <OverviewPanel />

@@ -81,13 +81,17 @@ export function WieView() {
       </article>
 
       <article className="wie-card">
-        <h2>Was macht der Autopilot?</h2>
+        <h2>Was macht der Autopilot? (Es gibt drei.)</h2>
         <p>
           <b>Langfrist:</b> verteilt Geld nach festen Regeln auf ETFs und schichtet regelmäßig
-          um. Bei Marktstress reduziert er automatisch das Risiko.
+          um. Bei Marktstress reduziert er automatisch das Risiko. Kauft nie Einzelaktien.
           <br />
-          <b>Kurzfrist:</b> schnelle Handels-Taktiken mit Spielgeld — ein Experiment, das sich
-          erst beweisen muss. Wie es läuft, steht unter „Mehr → Ergebnisse".
+          <b>Kurzfrist:</b> drei schnelle Handels-Taktiken mit Spielgeld — ein Experiment, das
+          sich erst beweisen muss. Wie es läuft, steht unter „Mehr → Ergebnisse".
+          <br />
+          <b>Der Vergleichs-Autopilot im Depot „Du":</b> kauft automatisch jeden
+          Scout-Vorschlag in der Einstiegszone — dein automatischer Zwilling, gegen den deine
+          Hand-Entscheidungen gemessen werden.
         </p>
       </article>
 
