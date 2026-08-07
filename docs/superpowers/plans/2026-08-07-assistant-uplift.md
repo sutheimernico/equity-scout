@@ -1344,8 +1344,10 @@ was ist ein 13F, warum meldet ein Senator 820 Tage später.
 
 ## Outcome (2026-08-07, Nicos Auftrag „mach das in einer Loop")
 
-**Status: Teil A und Teil B umgesetzt** (Tasks 1–9, 12–17 fertig; Task 10/11 in dieser
-Runde mitgemacht). Gate grün, Messung 13/13 PASS gegen vorher 4/5 FAIL.
+**Status: Teil A und Teil B umgesetzt** (Tasks 1–17; offen nur der Handy-Smoke-Test durch
+Nico). Gate grün. Messung: **15/15 inhaltlich korrekt** gegen vorher 4/5 FAIL — alle fünf
+Fragen der Erstmessung sind jetzt PASS. Latenz bleibt CPU-gebunden (Median 13,5 s bis zum
+ersten Token, Spannweite 0–106 s); Details in der Mess-Doku.
 
 ### Was jetzt geht
 
@@ -1381,7 +1383,9 @@ Runde mitgemacht). Gate grün, Messung 13/13 PASS gegen vorher 4/5 FAIL.
 
 ### Offen / Needs Nico
 
-1. **Latenz bei Aktienfragen: 60–114 s bis zum ersten Wort.** Reine CPU-Inferenz. Optionen:
+1. **Latenz bei Aktienfragen: 60–106 s bis zum ersten Wort.** Verifiziert CPU-only
+   (`/api/ps`: `size_vram: 0`). Die Kontext-Trimmung hat den Prompt um 28–59 % gekürzt,
+   die Latenz aber nicht messbar gesenkt — sie schwankt mit dem Prompt-Cache. Optionen:
    GPU, kleineres Modell (Qualität sinkt), bezahlte API (Kostengrenze → dein Go nötig).
 2. **`keep_alive: 24h`** hält ~5 GB RAM belegt. Wenn die Box das nicht mag: `OLLAMA_KEEP_ALIVE`
    auf „30m" setzen, dann kostet die erste Frage nach einer Pause wieder den Kaltstart.
