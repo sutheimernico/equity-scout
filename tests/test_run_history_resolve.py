@@ -566,6 +566,97 @@ def test_run_history_resolve_caps_rechecks_and_leaves_the_rest_open(tmp_path):
     assert sum(result["counts"].values()) == result["events"] == 10
 
 
+def test_dead_heavy_chunk_drains_when_the_share_guard_is_disabled(tmp_path):
+    """P0 from Task 7's first real run: a 20-year universe is alphabetically clustered by
+    death, so 32-94 % of a chunk is GENUINELY delisted. The share heuristic read that as
+    throttling and skipped the chunk — and it diverges, because every live name that
+    resolves out raises the dead share of the remainder (pass 1: 4/180 chunks measured,
+    pass 2: 0/177, final coverage 2.9 %). With the guard off, the per-ticker probe decides."""
+    db = str(tmp_path / "h.db")
+    tickers = [f"T{i:02d}" for i in range(10)]
+    _seed(db, [(t, "2024-01-02") for t in tickers])
+    alive = tickers[:2]  # 8 of 10 dead — far past the default threshold
+
+    result = run_history_resolve(
+        db, now=NOW, fetch_prices=_fetch(_panel_with(*alive)), apply=True,
+        max_missing_share=1.0, max_rechecks=50,
+    )
+
+    assert result["counts"][BUCKET_FETCH_FAILED] == 0  # not mistaken for throttling
+    assert result["counts"][BUCKET_RESOLVED] == 2
+    assert result["counts"][BUCKET_NO_PRICE_HISTORY] == 8  # counted as survivorship, as they are
+    assert unresolved_events(db) == []
+
+
+def test_a_truly_throttled_chunk_still_skips_whole_even_with_the_share_guard_disabled(tmp_path):
+    """Invariant (a): the panel-defect skip is the REAL transient guard and is untouched by
+    `max_missing_share`. A response without SPY is a broken fetch, not 10 delistings."""
+    db = str(tmp_path / "h.db")
+    tickers = [f"T{i:02d}" for i in range(10)]
+    _seed(db, [(t, "2024-01-02") for t in tickers])
+
+    result = run_history_resolve(
+        db, now=NOW, fetch_prices=_fetch(_panel().drop(columns=["SPY"])), apply=True,
+        max_missing_share=1.0, max_rechecks=50,
+    )
+
+    assert result["counts"][BUCKET_FETCH_FAILED] == 10
+    assert result["counts"][BUCKET_NO_PRICE_HISTORY] == 0
+    assert len(unresolved_events(db)) == 10  # nothing buried on a broken response
+
+
+def test_dead_heavy_chunk_still_leaves_events_open_when_their_recheck_fails(tmp_path):
+    """Invariant (b): disabling the share guard must not turn an unverified absence into a
+    burial — the re-check failing is exactly the throttle case the guard used to catch."""
+    db = str(tmp_path / "h.db")
+    _seed(db, [(t, "2024-01-02") for t in ("T00", "T01", "T02", "T03")])
+
+    def fetch(tickers: list[str], start: str) -> PricePanel:
+        if tickers == ["T03", "SPY"]:
+            raise OSError("throttled")
+        return PricePanel(_panel_with("T00"))
+
+    result = run_history_resolve(
+        db, now=NOW, fetch_prices=fetch, apply=True, max_missing_share=1.0, max_rechecks=50
+    )
+
+    assert result["counts"][BUCKET_NO_PRICE_HISTORY] == 2  # T01/T02: probed, confirmed absent
+    assert result["counts"][BUCKET_FETCH_FAILED] == 1  # T03: unverified, stays open
+    assert [row["ticker"] for row in unresolved_events(db)] == ["T03"]
+
+
+def test_main_threads_the_guard_overrides_into_the_runner(monkeypatch):
+    captured: dict = {}
+    monkeypatch.setattr(
+        resolve_mod, "run_history_resolve",
+        lambda db, **kwargs: captured.update(kwargs)
+        or {"events": 0, "counts": dict.fromkeys(resolve_mod.BUCKETS, 0), "written": 0,
+            "refused": 0, "applied": True, "still_open": 0},
+    )
+    monkeypatch.setattr(sys, "argv", [
+        "run_history_resolve.py", "--apply", "--max-missing-share", "1.0", "--max-rechecks", "50",
+    ])
+
+    assert main() == 0
+    assert captured["max_missing_share"] == 1.0 and captured["max_rechecks"] == 50
+
+
+def test_main_defaults_keep_the_share_guard_on(monkeypatch):
+    """Invariant (c): only the history job opts out; every other caller is unchanged."""
+    captured: dict = {}
+    monkeypatch.setattr(
+        resolve_mod, "run_history_resolve",
+        lambda db, **kwargs: captured.update(kwargs)
+        or {"events": 0, "counts": dict.fromkeys(resolve_mod.BUCKETS, 0), "written": 0,
+            "refused": 0, "applied": False, "still_open": 0},
+    )
+    monkeypatch.setattr(sys, "argv", ["run_history_resolve.py"])
+
+    assert main() == 0
+    assert captured["max_missing_share"] == resolve_mod.MAX_MISSING_SHARE == 0.30
+    assert captured["max_rechecks"] == resolve_mod.MAX_RECHECKS_PER_CHUNK == 8
+
+
 def test_run_history_resolve_completes_a_partial_row_on_a_later_run(tmp_path):
     """Cross-run resumability: the per-column store lets a second run fill the windows that
     had not elapsed when the first run measured."""

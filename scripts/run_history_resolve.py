@@ -21,12 +21,23 @@ Honesty rules (the study's coverage numbers are built on them):
     later found delisted stays partially measured).
   * A window that reaches past the panel end stays OPEN; only the elapsed horizons are
     written (storage resolution is per-column, so a later run fills the rest).
-  * A chunk whose fetch fails, whose panel comes back without the benchmark, with a
-    duplicated index, or missing too many tickers at once is counted and skipped WHOLE.
-    Yahoo throttles per IP (see data/fetch.py, the 2026-07-14 incident) and a throttled
-    all-NaN column is indistinguishable from a delisting — burying those would manufacture
-    survivorship gaps out of a network hiccup. Below the mass-failure threshold every
-    missing ticker gets one single-ticker re-check before it is buried.
+  * A chunk whose fetch fails, whose panel comes back without the benchmark, is empty or
+    has a duplicated index is counted and skipped WHOLE — those are real transient
+    defects (Yahoo throttles per IP; see data/fetch.py and the 2026-07-14 incident) and
+    burying their tickers would manufacture survivorship gaps out of a network hiccup.
+    Every missing ticker otherwise gets one single-ticker re-check before it is buried;
+    that probe, not the batch result, is the throttle-vs-delisted discriminator.
+  * `max_missing_share` (the chunk-level "too many missing at once smells like throttling"
+    heuristic) is WRONG on a mortality-heavy queue and defaults to off for this job. A
+    20-year universe is alphabetically clustered by death: measured on the first real run,
+    32-94 % of a chunk's tickers were genuinely delisted, the guard read that as throttling
+    and skipped the chunk whole. Worse, it DIVERGES — every live name that resolves out
+    raises the dead share of what remains, so pass 1 measured 4/180 chunks and pass 2
+    measured 0/177, ending at 2.9 % coverage with the dead names parked in "never
+    evaluated" instead of the survivorship bucket. Run history with
+    `--max-missing-share 1.0 --max-rechecks 50`; the guard survives only for callers whose
+    queue is mostly-alive, and the per-ticker probe (with_retry backoff keeps it polite)
+    does the real work.
   * A malformed `t0` or an unmappable symbol is COUNTED but never buried: both are
     fixable data/normalization bugs, not measured facts, and burial is irreversible.
 
@@ -38,6 +49,8 @@ the default — `--apply` writes, per the `fix_*`/backfill script convention.
 
 Usage:
     uv run python scripts/run_history_resolve.py [--db equity_scout.db] [--limit N] [--apply]
+    # the history queue (mortality-heavy — see the missing-share note above):
+    uv run python scripts/run_history_resolve.py --apply --max-missing-share 1.0 --max-rechecks 50
 """
 from __future__ import annotations
 
@@ -84,7 +97,9 @@ PANEL_LEAD_IN_DAYS = 10  # so the panel reaches back to t0 itself (weekend/holid
 STALE_TAIL_SESSIONS = 21
 # Above this share of requested tickers coming back column-less, the whole chunk is suspect
 # (throttling), not the tickers. Only applied to chunks big enough for the share to mean
-# something; smaller chunks go straight to the per-ticker re-check.
+# something; smaller chunks go straight to the per-ticker re-check. Valid ONLY for a
+# mostly-alive queue — see the module docstring for the divergence this caused on the
+# 20-year history queue, and pass 1.0 (via --max-missing-share) to switch it off.
 MAX_MISSING_SHARE = 0.30
 MIN_CHUNK_FOR_SHARE_GUARD = 4
 # Re-checks are serial single-ticker fetches, each up to 3 attempts with a 30-60s rate-limit
@@ -286,6 +301,7 @@ def run_history_resolve(
     apply: bool = False,
     chunk_size: int = TICKER_CHUNK,
     max_rechecks: int = MAX_RECHECKS_PER_CHUNK,
+    max_missing_share: float = MAX_MISSING_SHARE,
 ) -> dict:
     """Resolve the open history queue in ticker chunks. Returns the run's full accounting.
 
@@ -293,6 +309,10 @@ def run_history_resolve(
     ticker; each chunk is fetched from the earliest t0 in it (minus a lead-in) so no event
     is measured against a panel that starts too late. Events with an unusable t0 or symbol
     never enter the chunking at all — a junk date must not skew a fetch window.
+
+    `max_missing_share = 1.0` switches off the chunk-level share heuristic so every missing
+    ticker is decided by its own re-check (what the history queue needs, see the module
+    docstring); the panel-defect skip is untouched by it and stays the transient guard.
     """
     events = unresolved_events(db_path, limit)
     counts: Counter[str] = Counter({bucket: 0 for bucket in BUCKETS})
@@ -335,12 +355,13 @@ def run_history_resolve(
         if (
             missing
             and len(chunk) >= MIN_CHUNK_FOR_SHARE_GUARD
-            and len(missing) / len(chunk) > MAX_MISSING_SHARE
+            and len(missing) / len(chunk) > max_missing_share
         ):
-            # Mass failure smells like throttling, not like 20 simultaneous delistings.
+            # Mass failure smells like throttling — unless the queue is mortality-heavy, in
+            # which case it is just an alphabetical cluster of dead names (see the docstring).
             counts[BUCKET_FETCH_FAILED] += len(chunk_events)
             print(f"{head}, {len(chunk_events)} Events: {len(missing)} Ticker ohne Spalte"
-                  f" (>{MAX_MISSING_SHARE:.0%}) — Drosselung vermutet, offen.")
+                  f" (>{max_missing_share:.0%}) — Drosselung vermutet, offen.")
             continue
         for symbol in missing[max_rechecks:]:
             # Beyond the cap: absence unverified, so the events wait for the next run.
@@ -455,10 +476,22 @@ def main() -> int:
                         help="resolve at most N open events (incremental runs)")
     parser.add_argument("--apply", action="store_true",
                         help="write the results (default: dry-run, measure and report only)")
+    parser.add_argument(
+        "--max-missing-share", type=float, default=MAX_MISSING_SHARE,
+        help="skip a chunk whole above this share of column-less tickers; 1.0 disables the"
+             " heuristic and decides every missing ticker by its own re-check (use 1.0 for"
+             f" the history queue, see the module docstring; default {MAX_MISSING_SHARE})",
+    )
+    parser.add_argument(
+        "--max-rechecks", type=int, default=MAX_RECHECKS_PER_CHUNK,
+        help="single-ticker re-checks per chunk before the rest is left open"
+             f" (default {MAX_RECHECKS_PER_CHUNK}; raise it for dead-heavy chunks)",
+    )
     args = parser.parse_args()
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     result = run_history_resolve(
-        args.db, now=now, fetch_prices=_fetch_price_panel, limit=args.limit, apply=args.apply
+        args.db, now=now, fetch_prices=_fetch_price_panel, limit=args.limit, apply=args.apply,
+        max_rechecks=args.max_rechecks, max_missing_share=args.max_missing_share,
     )
     print(format_summary(result))
     return 0
