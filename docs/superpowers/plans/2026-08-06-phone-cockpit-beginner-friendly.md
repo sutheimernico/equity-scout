@@ -395,3 +395,43 @@ Titel" — der Voll-Screener lief seit drei Wochen nicht; Radar/Kurse sind aktue
 Universum-Auswahl altert. Prüfen, ob der Wochen-Lauf (Task/Cron) noch feuert.
 
 **Weiter offen:** Task 8 (Assistent messen), Task 9 (acht „Mehr"-Ansichten).
+
+---
+
+## Outcome-Nachtrag 2026-08-07 (Runden 3+4: Frische-Pipeline, Radar, Screener, Personen)
+
+**Runde „immer aktuell":** Voll-Scout hing an KEINEM Scheduler (letzter Run 14.07.) →
+`run_weekly_guarded.sh` + systemd-Timer Mo 05:30 (Persistent) + Cron; frischer Run #7
+(7 499 Titel) + komplette Kette. **Pitch-Expiry** (`expire_stale_pitches`): offene Pitches
+verfallen, wenn der Ticker die Watchlist verlässt ODER kein Verdict existiert (Alt-Bestand)
+— „Ohne Bewertung" ist damit aus Entscheiden verschwunden; UI-Status „Verfallen".
+Leere-Watchlist-Guard gegen das Leeren der Inbox durch einen kaputten Radar-Lauf.
+
+**Radar-Umbau (Runde 3):** Karten-Kopf = Inbox-Grammatik (Logo, Firmenname, Zone-Chip,
+PotentialBlock via /api/radar-Anreicherung), Score gelabelt „unser Modell", proximity-Rätsel
+entfernt, `radar.zone_note` sagt „Einstiegszone". `analyst_upside_pct`-Helper = die eine
+Formel hinter jedem Potenzial (briefs/inbox/radar/screener).
+
+**Screener-Umbau (Runde 4, Task 9 teilweise):** Die „vertikale Schrift" war Flex-Quetschung
+(Tabs + 3 Selects in einer Zeile bei 390 px) → Tabs horizontal, Filter volle Breite.
+PickCard neu: Kopf-Grammatik wie überall, „Kurs · Analysten-Ziel" pro Karte (ehrliches
+„keine Schätzung"), TradingView-Embed raus (löste international oft nicht auf) → eigene
+`MiniYearChart`, Roh-News-Links raus → geteilter `InsightBlock` (aus StockList extrahiert).
+`run_insights` deckt jetzt auch die Screener-Picks ab; `/api/latest` joint insight/chart/
+letzten Close/Analysten-Ziel pro Pick (conftest-Fixture hält alle API-Tests offline).
+
+**Neu: Personen-Ansicht** (`people`, Signale-Gruppe): Evidence-Events nach PERSON gruppiert
+(Kongress mit Kammer/Partei, Investoren, Fonds), Klartext-Aktion je Zeile („hat gekauft
+($15,001–$50,000)", „äußert sich positiv"), Meldeverzug an jeder Zeile („erst 867 Tage
+nach dem Handel gemeldet"), Track-Record-Zeile wo gemessen. `/api/evidence` liefert dafür
+`names` (ticker→Firmenname) mit.
+
+**Stimmen:** Richtungs-Chip in Klartext („🟢 Richtung Kauf" / „🔴 Richtung Verkauf" /
+„nur Erwähnung") + ein Erklärsatz statt des Entwickler-Meta-Texts; Firmenname vor Ticker.
+
+**Task 8 (Assistent) GEMESSEN — Ergebnis: 4 von 5 Fragen FAIL/Verstoß**, Doku mit
+Diagnose und Umbau-Entscheidung: `docs/research/2026-08-07-assistant-measurement.md`.
+Kontext fehlt Watchlist/Inbox/Arena/Glossar; SYSTEM_PROMPT lehnt Kauffragen nicht hart ab.
+Umbau ist der nächste Schritt (noch nicht umgesetzt).
+
+**Heute:** Abstand Aktienliste ↔ Marktlage-Karte (`.only-phone .regime`).
