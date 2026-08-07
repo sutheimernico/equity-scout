@@ -77,6 +77,15 @@ def test_fact_context_carries_the_numbers_and_no_verdict():
     assert "Einstieg" not in ctx
 
 
+def test_fact_context_omits_the_price_line_when_no_quote_exists():
+    # Screener run picks carry no quote — the context must not invent "0.00".
+    ctx = fact_context(
+        ticker="ITC.NS", name="ITC", sector=None, industry=None, price=None, currency=None,
+    )
+    assert "Kurs" not in ctx
+    assert "ITC" in ctx
+
+
 def test_news_context_numbers_the_headlines():
     ctx = news_context(["Micron raises guidance", "Analysts lift target"])
     assert "1. Micron raises guidance" in ctx

@@ -98,19 +98,21 @@ def fact_context(
     name: str,
     sector: str | None,
     industry: str | None,
-    price: float,
+    price: float | None,
     currency: str | None,
 ) -> str:
     """Context for the business sentence: identity and classification only.
 
     Deliberately WITHOUT the entry zone or the score — this sentence must describe the
-    company, and a model handed a verdict starts arguing the verdict.
+    company, and a model handed a verdict starts arguing the verdict. price=None
+    (screener run picks carry no quote) simply omits the price line.
     """
     lines = [f"Unternehmen: {name} ({ticker})"]
     classification = " / ".join(part for part in (sector, industry) if part)
     if classification:
         lines.append(f"Branche: {classification}")
-    lines.append(f"Letzter Kurs: {price:.2f} {currency or ''}".strip())
+    if price is not None:
+        lines.append(f"Letzter Kurs: {price:.2f} {currency or ''}".strip())
     return "\n".join(lines)
 
 

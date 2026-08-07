@@ -21,6 +21,26 @@ def _no_broker_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ALPACA_API_SECRET_KEY", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _no_live_fundamentals_in_api(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No API test may reach yfinance.
+
+    /api/latest, /api/radar, /api/briefs and /api/inbox all enrich through the module
+    reference `api.fetch_fundamentals_cached`, whose cache MISS path is a live fetch.
+    This fake keeps every TestClient call offline; tests that assert real enrichment
+    values overwrite the same attribute themselves (their setattr runs after this one).
+    The original in equity_scout.fundamentals stays untouched for its own TTL tests.
+    """
+    import equity_scout.api as api_mod
+    from equity_scout.fundamentals import Fundamentals
+
+    monkeypatch.setattr(
+        api_mod, "fetch_fundamentals_cached",
+        lambda ticker: Fundamentals(trailing_pe=None, analyst_target=None,
+                                     analyst_count=None, currency=None),
+    )
+
+
 @pytest.fixture(scope="session")
 def wavy_panel() -> PricePanel:
     """~10y up-trending market with volatility waves so the primary signal turns on/off and labels

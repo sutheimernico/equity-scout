@@ -41,6 +41,7 @@ from equity_scout.insights import (
 from equity_scout.insights_storage import save_insight, save_price_series
 from equity_scout.press import fetch_press_lines
 from equity_scout.radar_storage import load_latest_watchlist
+from equity_scout.storage import load_latest_run
 
 # Headlines per stock fed to the summariser. Five is enough for "what is going on here"
 # and keeps the prompt short enough that a 7B model stays on topic.
@@ -67,14 +68,32 @@ def main() -> int:
 
     watchlist = load_latest_watchlist(args.db)
     entries = rank_entries((watchlist or {}).get("entries", []))[: args.limit]
-    if not entries:
-        print("Keine Watchlist — nichts zu erzeugen. (Lief der Radar?)")
+
+    # The screener's top picks ride along (Nico 2026-08-07: the Screener cards need the
+    # same summarised news and own chart as the Heute list). Dedupe against the watchlist
+    # — the two sets overlap heavily, so this usually adds well under 30 LLM rounds.
+    items: list[dict] = [
+        {"ticker": e["ticker"], "name": e["name"], "price": e["price"]} for e in entries
+    ]
+    seen = {item["ticker"] for item in items}
+    run = load_latest_run(args.db)
+    for picks in (run.buckets if run is not None else {}).values():
+        for pick in picks:
+            instrument = pick.instrument
+            if instrument.ticker in seen:
+                continue
+            seen.add(instrument.ticker)
+            # No price on a run pick — the business context simply omits the price line.
+            items.append({"ticker": instrument.ticker, "name": instrument.name, "price": None})
+
+    if not items:
+        print("Keine Watchlist und kein Screener-Lauf — nichts zu erzeugen.")
         return 0
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    print(f"Erzeuge Steckbrief-Texte für {len(entries)} Titel (Modell {OLLAMA_MODEL})")
+    print(f"Erzeuge Steckbrief-Texte für {len(items)} Titel (Modell {OLLAMA_MODEL})")
 
-    for entry in entries:
+    for entry in items:
         ticker, name = entry["ticker"], entry["name"]
         print(f"  {ticker} — {name}")
 

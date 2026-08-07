@@ -28,6 +28,13 @@ def test_latest_endpoint_returns_buckets(tmp_path):
     assert set(body["bucket_weights"]) == {"defensive", "balanced", "aggressive"}
     # data-quality report (fetch reliability + completeness) is surfaced for the dashboard
     assert body["data_quality"] == {"attempted": 10, "fetch_error_rate": 0.1}
+    # Screener-card context rides along per pick (2026-08-07) — honest nulls on a fresh
+    # DB with no cached insight/chart/fundamentals, never invented values.
+    pick_row = body["buckets"]["balanced"][0]
+    assert pick_row["insight"] is None
+    assert pick_row["chart"] is None
+    assert pick_row["price"] is None
+    assert pick_row["analyst_upside_pct"] is None
 
 
 def test_latest_endpoint_empty_db_still_has_disclaimer(tmp_path):

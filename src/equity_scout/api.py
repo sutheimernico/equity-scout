@@ -315,19 +315,60 @@ def create_app(
         # No cache: reflects the background research loop live as it writes to the ledger.
         return JSONResponse({**research_summary(ledger), "disclaimer": DISCLAIMER})
 
+    def _pick_extras(pick: dict, fundamentals, insights: dict, series: dict) -> dict:
+        """Screener-card context per pick (Nico 2026-08-07): the cached insight + own
+        chart (nightly run_insights covers the run picks), last close from that chart,
+        and the analyst target/upside — no live fetch beyond the shared 6 h cache."""
+        ticker = pick["instrument"]["ticker"]
+        chart = series.get(ticker)
+        closes = (chart or {}).get("closes") or []
+        last_close = closes[-1] if closes else None
+        target = fundamentals.analyst_target if fundamentals else None
+        return {
+            **pick,
+            "insight": insights.get(ticker),
+            "chart": chart,
+            "price": last_close,
+            "currency": fundamentals.currency if fundamentals else None,
+            "analyst_target": target,
+            "analyst_count": fundamentals.analyst_count if fundamentals else None,
+            "analyst_upside_pct": (
+                analyst_upside_pct(target, last_close) if last_close is not None else None
+            ),
+        }
+
     @app.get("/api/latest")
     def latest(region: str | None = None, country: str | None = None,
                sector: str | None = None) -> JSONResponse:
         run = load_latest_run(db_path)
         if run is None:
             return JSONResponse({"buckets": {}, "gated_out": {}, "disclaimer": DISCLAIMER})
+
+        def _fundamentals(ticker: str):
+            try:
+                return fetch_fundamentals_cached(ticker)
+            except Exception:  # noqa: BLE001 - one bad ticker must never break the screener
+                return None
+
+        buckets = {b: [asdict(p) for p in picks] for b, picks in run.buckets.items()}
+        tickers = sorted({p["instrument"]["ticker"] for picks in buckets.values() for p in picks})
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            by_ticker = dict(zip(tickers, pool.map(_fundamentals, tickers)))
+        insights = load_insights(db_path)
+        series = load_price_series(db_path)
         payload = {
             "created_at": run.created_at,
             "universe_size": run.universe_size,
             "gated_out": run.gated_out,
             "gate_stats": run.gate_stats,
             "data_quality": run.data_quality,
-            "buckets": {b: [asdict(p) for p in picks] for b, picks in run.buckets.items()},
+            "buckets": {
+                b: [
+                    _pick_extras(p, by_ticker.get(p["instrument"]["ticker"]), insights, series)
+                    for p in picks
+                ]
+                for b, picks in buckets.items()
+            },
             "bucket_weights": BUCKET_WEIGHTS,
             "disclaimer": DISCLAIMER,
         }
@@ -936,6 +977,9 @@ def create_app(
                 "stats_by_source": stats_by_source(db_path),
                 "person_scores": load_person_scores(db_path),
                 "event_reactions": aggregate_reactions(db_path),
+                # {ticker: company name} so the people/voices views can say "Visa"
+                # instead of "V" — same known-names source as the alerts above.
+                "names": names,
                 "disclaimer": DISCLAIMER,
             }
         )
