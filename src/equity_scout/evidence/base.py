@@ -17,6 +17,10 @@ SOURCE_NEWS = "news"  # classified beat/miss/guidance events from news headlines
 SOURCE_INSIDER = "insider"
 SOURCE_VOICE = "voice"
 SOURCE_8K = "edgar_8k"
+# Historical backfill only (evidence/backfill_statements.py): a tracked person's OWN
+# public statement (tweet/Truth Social post), not a third-party news mention about
+# them -- deliberately distinct from SOURCE_VOICE, which is third-party reporting.
+SOURCE_STATEMENT = "statement"
 
 STATUS_OK = "ok"
 STATUS_UNCONFIGURED = "unconfigured"
