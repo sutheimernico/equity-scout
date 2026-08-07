@@ -1,6 +1,8 @@
 """Print the historical catalyst base-rate study and write it to docs/research (P2a Task 6).
 
-Reads `historical_events` (nothing is written to the database), aggregates it via
+Reads `historical_events` (no event data is written — the read path does call
+`init_historical_db`, so an empty database file/table is created if none exists yet, but
+no row is ever inserted, updated or resolved here), aggregates it via
 `evidence.historical_study.aggregate_history` and emits
 `docs/research/history-study-report.json`: header with the spec's survivorship disclaimer
 verbatim, methodology, per-class base rates + coverage + honest cells, and the statement
@@ -52,14 +54,36 @@ METHODOLOGY = (
     "(ml.entry_eval.relative_forward_return, the same function the live person track and "
     "the prediction ledger measure with). hit_rate = share of events with a positive "
     "relative return, i.e. share that beat the benchmark.",
-    "Time split: fit = t0 <= split_date, validate = t0 > split_date. A cell may claim an "
-    "edge only with min_cell_n measurements on BOTH sides and an agreeing direction; "
+    "Time split: fit = t0 <= split_date, validate = t0 > split_date. A cell passes the "
+    "gate only with min_cell_n measurements on BOTH sides and an agreeing direction; "
     "everything else is reported as {measurable: false, reason}. The pooled `all` block "
-    "mixes both periods and is reporting only — it can never justify a claim.",
+    "mixes both periods (dated rows only, so all.n == fit.n + validate.n) and is "
+    "reporting only — it can never justify a claim.",
     "A row marked unresolvable can still carry measured horizons (delisted after a "
     "month). Those measurements stay in the base rates and the row is ALSO counted in the "
     "coverage gap — the two do not partition the total, by design.",
 )
+
+def _multiplicity_note(study: dict) -> str:
+    return (
+        "MULTIPLE TESTING — read this before any claim below. The gate is direction "
+        "agreement across the time split, NOT a significance test: with no effect at all, "
+        "agreeing signs are a coin flip, so the gate passes about 50% of the cells it "
+        "rules on REGARDLESS of n. This run ruled on "
+        f"{study['n_gated_cells']} cell-horizons (class overall, each split value and each "
+        "person, times five horizons) and "
+        f"{study['n_direction_agreement_cells']} of them showed agreeing direction; at a "
+        f"50% pass rate about {study['expected_spurious_at_50pct']} agreements are "
+        "expected from chance alone. An agreement count near that number is the noise "
+        "floor. The decision-grade outputs of this report are the coverage block and the "
+        "effect sizes against their stderr — never the agreement count on its own."
+    )
+
+
+def methodology(study: dict) -> list[str]:
+    """The static notes plus the run's own multiplicity numbers — the spurious-agreement
+    expectation has to be a number in the artifact, not a caveat someone remembers."""
+    return [*METHODOLOGY, _multiplicity_note(study)]
 
 
 def build_report(
@@ -71,11 +95,12 @@ def build_report(
 ) -> dict:
     """Header (disclaimer + methodology) around the aggregate. `now` is injected, so the
     report body stays a pure function of the database."""
+    study = aggregate_history(db_path, split_date=split_date, min_cell_n=min_cell_n)
     return {
         "generated_at": now,
         "survivorship_disclaimer": SURVIVORSHIP_DISCLAIMER,
-        "methodology": list(METHODOLOGY),
-        "study": aggregate_history(db_path, split_date=split_date, min_cell_n=min_cell_n),
+        "methodology": methodology(study),
+        "study": study,
     }
 
 
@@ -88,32 +113,45 @@ def write_report(report: dict, out_path: str | Path) -> Path:
     return path
 
 
+def _hit(stats: dict) -> str:
+    return "—" if stats["hit_rate"] is None else f"{stats['hit_rate']:.1%}"
+
+
 def _horizon_line(cell: dict, horizon: str) -> str:
-    stats = cell["all"][horizon]
+    """One horizon of one cell. Both per-side hit rates are printed on purpose: a pooled
+    56% can be 56.7% in fit against 3.3% in validate riding on one outlier, and a summary
+    that only shows the pooled number hides exactly the divergence a reader needs."""
+    pooled = cell["all"][horizon]
+    fit = cell["fit"][horizon]
+    validate = cell["validate"][horizon]
     verdict = cell["edge"][horizon]
-    if stats["n"] == 0:
+    if pooled["n"] == 0:
         return f"  {horizon}: keine Messung"
-    # Naming the basis matters: direction is the sign of the MEAN, so a claimable edge can
-    # sit next to a sub-50% hit rate (few large winners) without either number being wrong.
+    spread = f" ±{pooled['stderr'] * 100:.2f}pp stderr" if pooled["stderr"] is not None else ""
+    # The verdict states the TEST performed, never a conclusion — the gate is a sign
+    # comparison, and about half of all no-effect cells pass it whatever n is.
     claim = (
-        f"Edge {verdict['direction']} (Ø-Richtung, fit+validate)"
+        f"Richtung in fit und validate gleich ({verdict['direction']}) — kein Signifikanztest"
         if verdict["measurable"]
-        else f"kein Edge ({verdict['reason']})"
+        else f"kein Richtungsbefund ({verdict['reason']})"
     )
     return (
-        f"  {horizon}: n={stats['n']} (fit {cell['fit'][horizon]['n']},"
-        f" validate {cell['validate'][horizon]['n']}),"
-        f" Trefferquote {stats['hit_rate']:.1%},"
-        f" Ø rel. Rendite {stats['mean_relative_return']:+.2%} — {claim}"
+        f"  {horizon}: {pooled['n']} gemessen (fit {fit['n']} / validate {validate['n']}),"
+        f" Treffer {_hit(pooled)} (fit {_hit(fit)} / validate {_hit(validate)}),"
+        f" Ø rel. Rendite {pooled['mean_relative_return']:+.2%}{spread} — {claim}"
     )
 
 
-def _claimable_cells(cells: dict) -> int:
+def _agreeing_cells(cells: dict) -> int:
     return sum(
         1
         for cell in cells.values()
         if any(verdict["measurable"] for verdict in cell["edge"].values())
     )
+
+
+def _n_cells(count: int) -> str:
+    return f"{count} Zelle" if count == 1 else f"{count} Zellen"
 
 
 def format_summary(report: dict) -> str:
@@ -123,6 +161,10 @@ def format_summary(report: dict) -> str:
         f"Historien-Studie ({report['generated_at']}) — Zeitschnitt {study['split_date']},"
         f" min. Zellen-N {study['min_cell_n']}, {study['n_events']} Events insgesamt.",
         f"Survivorship: {report['survivorship_disclaimer']}",
+        f"Multiples Testen: {study['n_gated_cells']} Zell-Horizonte durch das Gate,"
+        f" davon {study['n_direction_agreement_cells']} mit übereinstimmender Richtung —"
+        f" bei reinem Zufall wären rund {study['expected_spurious_at_50pct']} zu erwarten."
+        " Das Gate ist ein Vorzeichenvergleich, kein Signifikanztest.",
     ]
     for source, section in study["classes"].items():
         if source == CLASS_STATEMENT:
@@ -131,9 +173,11 @@ def format_summary(report: dict) -> str:
         reasons = ", ".join(
             f"{reason}: {count}" for reason, count in coverage["unresolvable_by_reason"].items()
         )
+        # "Events fit/validate" here vs "gemessen fit/validate" per horizon below: two
+        # different denominators, so they never share a bare "fit" label.
         lines.append(
             f"\n{section['label']}: {section['n']} Events"
-            f" (fit {coverage['fit']}, validate {coverage['validate']},"
+            f" (fit {coverage['fit']} / validate {coverage['validate']} Events,"
             f" ohne brauchbares t0 {coverage['t0_unparsable']});"
             f" unresolvable {coverage['unresolvable']}"
             f"{f' ({reasons})' if reasons else ''},"
@@ -147,12 +191,12 @@ def format_summary(report: dict) -> str:
             lines.append(_horizon_line(section["overall"], horizon))
         for name, cells in section["splits"].items():
             lines.append(
-                f"  Split {name}: {len(cells)} Zellen,"
-                f" {_claimable_cells(cells)} mit belegbarem Edge"
+                f"  Split {name}: {_n_cells(len(cells))},"
+                f" {_agreeing_cells(cells)} mit übereinstimmender Richtung"
             )
         lines.append(
             f"  Personen: {len(section['persons'])},"
-            f" {_claimable_cells(section['persons'])} mit belegbarem Edge"
+            f" {_agreeing_cells(section['persons'])} mit übereinstimmender Richtung"
         )
 
     statement = study["classes"][CLASS_STATEMENT]

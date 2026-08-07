@@ -1,6 +1,15 @@
 """Base-rate study over `historical_events` (P2a Task 6): what the 10–20 years of
 backfilled catalysts actually measured, per class, per person, per deterministic split —
-with every cell that cannot honestly claim an edge saying so instead of showing a number.
+with every cell that cannot support a claim saying so instead of showing a number.
+
+WHAT THE VERDICT IS NOT: `measurable: True` means "the direction agreed across the time
+split, on enough measurements per side" — `claim: "direction_agreement_only"`. It is NOT a
+significance test. Under NO effect, agreeing signs are a coin flip, so the gate passes
+about half of all cells it rules on REGARDLESS of n; with dozens of cells (class x split
+value x horizon x person) a handful of agreements is the expected yield of noise. That is
+why the study publishes `n_gated_cells` and `expected_spurious_at_50pct` next to the
+claims: the multiplicity is a number here, not a caveat. Decision-grade outputs are the
+coverage block and the effect sizes against their `stderr`, never the agreement count.
 
 Aggregation contract (plan Decision 4, the load-bearing one):
   * every horizon is aggregated over `r_X IS NOT NULL`, NOT over `resolved_at` and NOT
@@ -15,11 +24,11 @@ Aggregation contract (plan Decision 4, the load-bearing one):
     reading it alone as "has usable data" is always wrong (Decision 3).
 
 Honesty rules for a cell (class, or class x one deterministic split value, or person):
-  * a cell claims an edge for a horizon ONLY with >= `min_cell_n` measurements on BOTH
-    sides of the time split AND an agreeing direction. Anything else is
-    `{"measurable": False, "reason": ...}` — the same refusal shape as
+  * a cell reports direction agreement for a horizon ONLY with >= `min_cell_n`
+    measurements on BOTH sides of the time split AND an agreeing direction. Anything else
+    is `{"measurable": False, "reason": ...}` — the same refusal shape as
     `event_reactions.aggregate_reactions`'s 1h window, never a bare number nor a NULL.
-  * a cell with zero coverage on either side can never claim an edge, whatever
+  * a cell with zero coverage on either side can never report agreement, whatever
     `min_cell_n` is set to: in-sample-only is not evidence.
   * splits run on DETERMINISTIC details fields only (amount band, chamber, cluster size,
     value band) — no derived, fitted or judgement-based conditioning.
@@ -35,6 +44,7 @@ report header/formatting/writing lives in `scripts/run_history_report.py`.
 from __future__ import annotations
 
 import json
+import math
 import statistics
 from collections import Counter
 from datetime import date
@@ -62,6 +72,10 @@ CLASS_LABELS = {
 }
 
 UNKNOWN = "unknown"
+
+# What a passing verdict actually asserts. Named so no consumer can read `measurable: True`
+# as "significant" — the whole gate is "both periods lean the same way".
+CLAIM_DIRECTION_AGREEMENT = "direction_agreement_only"
 
 REASON_NO_BOTH_SIDES = (
     "no coverage on both sides of the time split — an in-sample-only cell is not evidence"
@@ -167,13 +181,24 @@ def _period(t0: str | None) -> str | None:
 
 def _stats(values: list[float]) -> dict:
     """Per-horizon base rate. `hit_rate` = share of events with a POSITIVE relative
-    return (the return is already relative to SPY, so >0 means it beat the benchmark)."""
+    return (the return is already relative to SPY, so >0 means it beat the benchmark).
+
+    `stdev`/`stderr` travel with every cell so it can be judged on its own: a mean of
+    +0.9% with a stderr of 1.4% is noise no matter how the direction gate voted, and that
+    comparison must not require re-deriving the dispersion from somewhere else.
+    """
     if not values:
-        return {"n": 0, "hit_rate": None, "mean_relative_return": None}
+        return {
+            "n": 0, "hit_rate": None, "mean_relative_return": None,
+            "stdev": None, "stderr": None,
+        }
+    stdev = statistics.stdev(values) if len(values) > 1 else None
     return {
         "n": len(values),
         "hit_rate": round(sum(1 for value in values if value > 0) / len(values), 4),
         "mean_relative_return": round(statistics.mean(values), 6),
+        "stdev": round(stdev, 6) if stdev is not None else None,
+        "stderr": round(stdev / math.sqrt(len(values)), 6) if stdev is not None else None,
     }
 
 
@@ -184,17 +209,29 @@ def _horizon_stats(rows: list[dict]) -> dict:
     }
 
 
+def _reached_gate(fit: dict, validate: dict, min_cell_n: int) -> bool:
+    """Whether the direction gate actually RULED on this horizon — min-N measurements on
+    both sides of the split. The single source of the threshold: `_edge` decides with it
+    and the multiplicity counter counts with it, so the two can never drift apart."""
+    return min(fit["n"], validate["n"]) >= max(min_cell_n, 1)
+
+
 def _edge(fit: dict, validate: dict, min_cell_n: int) -> dict:
-    """Whether this horizon may claim an edge at all — the study's only verdict.
+    """The study's only verdict — and it is a DIRECTION AGREEMENT, not a significance test.
 
     Direction is the SIGN of the mean relative return; the hit rate is reported next to it
-    but does not gate the claim (two ways of asking the same question would just make the
-    gate's meaning fuzzy). Zero coverage on either side is refused independently of
+    but does not gate the verdict (two ways of asking the same question would just make
+    the gate's meaning fuzzy). Zero coverage on either side is refused independently of
     `min_cell_n` so a permissive threshold can never turn in-sample-only into a claim.
+
+    `claim: "direction_agreement_only"` rides along with every pass on purpose: a consumer
+    reading `measurable: True` alone would take it for an established edge, when under no
+    effect this gate passes ~50% of the cells it rules on at ANY n (see the module
+    docstring and `aggregate_history`'s multiplicity counters).
     """
-    if fit["n"] == 0 or validate["n"] == 0:
-        return {"measurable": False, "reason": REASON_NO_BOTH_SIDES}
-    if fit["n"] < min_cell_n or validate["n"] < min_cell_n:
+    if not _reached_gate(fit, validate, min_cell_n):
+        if fit["n"] == 0 or validate["n"] == 0:
+            return {"measurable": False, "reason": REASON_NO_BOTH_SIDES}
         return {"measurable": False, "reason": f"n<{min_cell_n}"}
     fit_mean = fit["mean_relative_return"]
     validate_mean = validate["mean_relative_return"]
@@ -202,14 +239,20 @@ def _edge(fit: dict, validate: dict, min_cell_n: int) -> dict:
         return {"measurable": False, "reason": REASON_NO_DIRECTION}
     if (fit_mean > 0) != (validate_mean > 0):
         return {"measurable": False, "reason": REASON_DIRECTION_DISAGREES}
-    return {"measurable": True, "direction": "positive" if fit_mean > 0 else "negative"}
+    return {
+        "measurable": True,
+        "direction": "positive" if fit_mean > 0 else "negative",
+        "claim": CLAIM_DIRECTION_AGREEMENT,
+    }
 
 
 def _cell(rows: list[dict], *, min_cell_n: int, split_date: str) -> dict:
     """One aggregation unit: the whole class, one split value, or one person.
 
-    `all` is the pooled base rate (reporting only — it mixes fit and validate and can
-    therefore never justify a claim); `edge` is the verdict, and it reads fit/validate.
+    `all` pools fit and validate — reporting only, it can never justify a claim — and is
+    computed over DATED rows alone, so `all[h].n == fit[h].n + validate[h].n` always holds
+    and the headline mean can never include a row no gate ever saw. Rows with an unusable
+    t0 are counted in `n_undated` here and in `coverage.t0_unparsable`.
     """
     dated = [row for row in rows if row["period"] is not None]
     fit_rows = [row for row in dated if row["period"] <= split_date]
@@ -220,7 +263,8 @@ def _cell(rows: list[dict], *, min_cell_n: int, split_date: str) -> dict:
         "n": len(rows),
         "n_fit": len(fit_rows),
         "n_validate": len(validate_rows),
-        "all": _horizon_stats(rows),
+        "n_undated": len(rows) - len(dated),
+        "all": _horizon_stats(dated),
         "fit": fit,
         "validate": validate,
         "edge": {
@@ -361,6 +405,67 @@ def _class_section(rows: list[dict], *, source: str, split_date: str, min_cell_n
     }
 
 
+def _iter_cells(classes: dict) -> list[tuple[str, str | None, str | None, dict]]:
+    """(class, split name, split value, cell) for EVERY cell the study produced.
+
+    The multiplicity surface is exactly this list x 5 horizons: a class overall, each
+    split value and each person is one more roll of the direction dice, so the counter
+    must see them all — counting only the headline cells would understate the noise floor.
+    Persons are reported with split name "person" so the flat claims index stays one shape.
+    """
+    cells: list[tuple[str, str | None, str | None, dict]] = []
+    for source, section in classes.items():
+        if "overall" not in section:  # the buried statement class has no cells
+            continue
+        cells.append((source, None, None, section["overall"]))
+        for split_name, split_cells in section["splits"].items():
+            cells.extend((source, split_name, value, cell) for value, cell in split_cells.items())
+        cells.extend(
+            (source, "person", person, cell) for person, cell in section["persons"].items()
+        )
+    return cells
+
+
+def _multiplicity(classes: dict, min_cell_n: int) -> tuple[dict, list[dict]]:
+    """How many verdicts the gate produced, how many agreed, and how many agreements pure
+    chance would yield — plus the flat claims index Task 7 reads instead of walking the
+    nested sections.
+
+    `expected_spurious_at_50pct` is the honest yardstick for the agreement count: with no
+    effect anywhere, agreeing signs are a coin flip, so about half of the gated cells
+    agree. An agreement count near that number is the noise floor, not a finding. Same
+    spirit as the DSR hurdle / `expected_max_sharpe` on the strategy side: the multiple
+    testing gets a NUMBER, not a sentence.
+    """
+    gated = 0
+    claims: list[dict] = []
+    for source, split_name, value, cell in _iter_cells(classes):
+        for horizon in RETURN_HORIZONS:
+            if not _reached_gate(cell["fit"][horizon], cell["validate"][horizon], min_cell_n):
+                continue
+            gated += 1
+            verdict = cell["edge"][horizon]
+            if verdict["measurable"]:
+                claims.append({
+                    "class": source,
+                    "split": split_name,
+                    "value": value,
+                    "horizon": horizon,
+                    "direction": verdict["direction"],
+                    "claim": verdict["claim"],
+                    "n_fit": cell["fit"][horizon]["n"],
+                    "n_validate": cell["validate"][horizon]["n"],
+                })
+    return (
+        {
+            "n_gated_cells": gated,  # cell-horizons the gate RULED on (min-N on both sides)
+            "n_direction_agreement_cells": len(claims),
+            "expected_spurious_at_50pct": round(gated * 0.5),
+        },
+        claims,
+    )
+
+
 def _statement_section(rows: list[dict]) -> dict:
     """The measured negative result (Decision 9) — "measured, found nothing" must stay
     distinguishable from "never ran", so the class is reported even with zero rows."""
@@ -387,7 +492,8 @@ def aggregate_history(
     min_cell_n: int = DEFAULT_MIN_CELL_N,
 ) -> dict:
     """Base rates per class / split / person, time-split into fit (t0 <= `split_date`) and
-    validate (t0 > `split_date`), with every un-claimable cell refusing explicitly.
+    validate (t0 > `split_date`), with every cell that cannot support a claim refusing
+    explicitly — and the multiplicity of the surviving claims quantified, not implied.
 
     An empty (or not-yet-created) database is a valid input: every class comes back with
     n = 0 and refused edges — a report that says "nothing measured yet" loudly beats an
@@ -412,11 +518,16 @@ def aggregate_history(
         for source in (CLASS_CONGRESS, CLASS_INSIDER)
     }
     classes[CLASS_STATEMENT] = _statement_section(by_source.get(CLASS_STATEMENT, []))
+    multiplicity, claims = _multiplicity(classes, min_cell_n)
 
     return {
         "split_date": split_date,
         "min_cell_n": min_cell_n,
         "n_events": len(events),
+        **multiplicity,
+        # Flat index of every passing verdict — Task 7 reads this instead of walking the
+        # nested sections, and it makes the claim count countable at a glance.
+        "claims": claims,
         "classes": classes,
         # Anything the study does not know how to read is counted, never invisible.
         "other_sources": {
