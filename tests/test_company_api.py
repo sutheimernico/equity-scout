@@ -13,7 +13,9 @@ from equity_scout.fscore import save_f_score
 def make_client(tmp_path, today: str = "2026-08-07") -> tuple[str, TestClient]:
     db = str(tmp_path / "es.db")
     app = FastAPI()
-    app.include_router(build_company_router(db, today_fn=lambda: today))
+    app.include_router(
+        build_company_router(db, cache_db=str(tmp_path / "cache.db"), today_fn=lambda: today)
+    )
     return db, TestClient(app)
 
 
@@ -50,4 +52,29 @@ def test_company_unknown_ticker_yields_honest_nulls(tmp_path):
 
     body = client.get("/api/company/NVDA").json()
 
-    assert body == {"ticker": "NVDA", "f_score": None, "next_earnings": None}
+    assert body == {
+        "ticker": "NVDA",
+        "f_score": None,
+        "next_earnings": None,
+        "metrics": None,
+        "metrics_fetched_on": None,
+    }
+
+
+def test_company_serves_key_figures_from_the_quote_cache(tmp_path):
+    """Kennzahlen come from the scout's read-through quote cache (the chat assistant's
+    source) — never a live fetch in the request path."""
+    from equity_scout.data.cache import QuoteCache
+
+    _db, client = make_client(tmp_path)
+    QuoteCache(str(tmp_path / "cache.db")).put(
+        "MU",
+        {"trailing_pe": 12.1, "profit_margins": 0.28, "revenue_growth": 0.38},
+        fetched_on="2026-08-06",
+    )
+
+    body = client.get("/api/company/MU").json()
+
+    assert body["metrics"]["trailing_pe"] == 12.1
+    assert body["metrics"]["revenue_growth"] == 0.38
+    assert body["metrics_fetched_on"] == "2026-08-06"

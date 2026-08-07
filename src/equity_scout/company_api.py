@@ -14,7 +14,8 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter
 
-from equity_scout.constants import DEFAULT_DB_PATH
+from equity_scout.constants import DEFAULT_CACHE_DB_PATH, DEFAULT_DB_PATH
+from equity_scout.data.cache import load_cached_metrics
 from equity_scout.earnings_storage import next_earnings
 from equity_scout.fscore import load_f_score
 
@@ -24,7 +25,10 @@ def _utc_today() -> str:
 
 
 def build_company_router(
-    db_path: str = DEFAULT_DB_PATH, *, today_fn: Callable[[], str] = _utc_today
+    db_path: str = DEFAULT_DB_PATH,
+    *,
+    cache_db: str = DEFAULT_CACHE_DB_PATH,
+    today_fn: Callable[[], str] = _utc_today,
 ) -> APIRouter:
     """Router factory mirroring create_app's db_path injection; ``today_fn`` is injectable
     so tests control the earnings cutoff."""
@@ -33,10 +37,16 @@ def build_company_router(
     @router.get("/api/company/{ticker}")
     def company(ticker: str) -> dict:
         t = ticker.strip().upper()
+        # Key figures from the scout's read-through quote cache (same source the chat
+        # assistant answers KGV questions from) — no live fetch in the request path.
+        # Absent ticker/cache -> honest nulls, and fetched_on says how old the row is.
+        cached = load_cached_metrics(cache_db, [t]).get(t)
         return {
             "ticker": t,
             "f_score": load_f_score(db_path, t),
             "next_earnings": next_earnings(db_path, ticker=t, today=today_fn()),
+            "metrics": cached[1] if cached else None,
+            "metrics_fetched_on": cached[0] if cached else None,
         }
 
     return router

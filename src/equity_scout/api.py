@@ -481,7 +481,7 @@ def create_app(
     # company_api.py for why it is not inline here.
     from equity_scout.company_api import build_company_router
 
-    app.include_router(build_company_router(db_path))
+    app.include_router(build_company_router(db_path, cache_db=cache_db))
 
     if warm_model:
         # Pull the chat model into RAM in the background: the first question of the day
