@@ -83,7 +83,7 @@ export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string
         <div className="drill">
           <MiniYearChart chart={pick.chart ?? null} currency={pick.currency ?? null} />
 
-          <InsightBlock insight={pick.insight} />
+          <InsightBlock insight={pick.insight} news={pick.news} />
 
           <div className="drill-head">
             <span>Faktor</span>

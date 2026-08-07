@@ -2591,6 +2591,14 @@ code {
   font-size: 0.78rem;
   color: var(--text-muted);
 }
+.brief-headlines a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.brief-headlines a:hover,
+.brief-headlines a:focus-visible {
+  text-decoration: underline;
+}
 .brief-insight-foot {
   margin: 0;
   font-size: 0.7rem;
