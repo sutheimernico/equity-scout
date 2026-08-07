@@ -1110,6 +1110,212 @@ git commit -m "docs(plan): assistant uplift outcome"
 
 ---
 
+# Teil B — Vollabdeckung (Nicos Auftrag 2026-08-07: „alles alles")
+
+> Nicos Go zum Plan kam mit einer Erweiterung: *„der sollte in der Lage sein alles zu Aktien zu
+> beantworten, KGV, Kennzahlen, welche Mitglieder gekauft haben etc, also alles alles."*
+> Teil A (Tasks 1–11) baut das Gerüst; Teil B füllt es mit dem gesamten Datenbestand.
+>
+> **Befund aus der Datensichtung (2026-08-07), der Teil B begründet:**
+> - `equity_scout_cache.db/quote_cache` hält **7778 Titel** mit KGV, KBV, ROE, Nettomarge,
+>   Umsatz-/Gewinnwachstum, 6M-Momentum, Vola und 52W-Nähe. Teil A rührt davon **nichts** an —
+>   das Dossier kennt nur Analysten-Kursziel. Eine KGV-Frage wäre weiter ein FAIL.
+> - `evidence_events` hält **890 Kongress-Käufe** mit Politiker-Namen, Partei, Kammer,
+>   Betragsspanne und Meldeverzug. Teil A liest sie mit `window_days=30` — bei einem gemessenen
+>   Meldeverzug-p99 von **261 Tagen** liefert das fast immer eine leere Liste.
+> - Das Lexikon aus Teil A speist sich aus der Watchlist (~30 Titel). Gefragt wird aber nach
+>   jeder Aktie — `run_scores` kennt **12 217 Zeilen** über 7 Runs, `instrument_meta` 5070 Titel.
+>
+> **Reihenfolge in der Loop** (Abhängigkeiten, nicht Nummern): 1 → 2 → 3 → **12** → 4 → **13** →
+> **14** → 5 → 6 → **15** → **16** → 7 → 8 → 9 → 10+**17** → 11.
+
+## Task 12: Lexikon über den gesamten Datenbestand statt nur der Watchlist
+
+`find_tickers` (Task 3) ist gut, seine Datenquelle ist es nicht. Das Lexikon kommt aus
+`run_scores` (jeder je gescreente Titel mit Namen) + `instrument_meta` + Watchlist. Bei ~7 k
+Einträgen ist der Regex-Scan aus Task 3 pro Frage zu teuer und zu falsch-positiv-freudig
+(generische Erstwörter wie „First", „Global", „Group") — deshalb ein invertierter Wort-Index.
+
+**Files:**
+- Modify: `src/equity_scout/chat_retrieval.py` (`build_lexicon`, Index-Matching in `find_tickers`)
+- Modify: `src/equity_scout/storage.py` (`load_company_names`)
+- Test: `tests/test_chat_retrieval.py`, `tests/test_storage.py`
+
+- [ ] **Step 1: Failing Tests**
+
+```python
+def test_lexicon_matching_ignores_generic_single_words():
+    lex = {"FSTR": "First Company", "GLBL": "Global Group", "MU": "Micron Technology"}
+    # "First"/"Global" allein sind Alltagswörter — sie dürfen keine Aktie treffen.
+    assert find_tickers("Was ist global gerade wichtig?", lex) == []
+    assert find_tickers("Erste Frage zuerst: First Company?", lex) == ["FSTR"]
+    assert find_tickers("Wie steht Micron?", lex) == ["MU"]
+
+
+def test_symbol_match_requires_the_symbol_spelling():
+    lex = {"ON": "ON Semiconductor", "ALL": "Allstate"}
+    # "on"/"all" in Kleinschreibung sind Sprache, keine Ticker.
+    assert find_tickers("Was ist on all das?", lex) == []
+    assert find_tickers("Was macht ON gerade?", lex) == ["ON"]
+
+
+def test_lexicon_is_built_from_runs_and_watchlist(tmp_path):
+    # load_company_names liefert ticker -> name über ALLE Runs, jüngster Name gewinnt.
+    ...
+```
+
+- [ ] **Step 2/3: `load_company_names(db_path)` in `storage.py`** — `SELECT ticker, name FROM
+  run_scores ORDER BY run_id ASC` (späterer Run überschreibt), plus die Watchlist-Ticker ohne
+  Namen als `ticker -> ticker`. Ein Modul-Cache mit 10-Minuten-TTL in `api.py` hält den Aufbau
+  aus dem Request-Pfad (das Ergebnis ändert sich nur bei einem Scout-Lauf).
+
+- [ ] **Step 4: `find_tickers` auf Index umstellen** — Vertrag bleibt exakt gleich (alle Tests
+  aus Task 3 müssen weiter grün sein), nur die Auswertung wird O(Frage) statt O(Lexikon):
+  - Namen ohne Rechtsform-Suffix normalisieren, in 1–3-Wort-N-Gramme zerlegen, Index
+    `n-gramm -> ticker` aufbauen (längster Treffer gewinnt).
+  - **Ein-Wort-Namen** matchen nur, wenn das Wort nicht in `evidence.voices._GENERIC_FIRST_WORDS`
+    steht (der 4836-Wörter-Snapshot aus v13/Q4 — genau für dieses Problem gebaut, wiederverwenden
+    statt neu erfinden).
+  - **Symbole** matchen case-sensitiv (`ON` ja, `on` nein); Ein-Zeichen-Symbole nie.
+
+- [ ] **Step 5: Gate + Commit** — `feat(chat): lexicon over the whole screened universe`
+
+## Task 13: Kennzahlen im Dossier (KGV & Co.) — der Kern von „alles alles"
+
+**Files:**
+- Modify: `src/equity_scout/chat_retrieval.py` (`metrics_lines`, in `stock_dossier` verdrahtet)
+- Test: `tests/test_chat_retrieval.py`
+
+- [ ] **Step 1: Failing Test**
+
+```python
+def test_metrics_lines_render_every_cached_number_with_its_unit():
+    text = "\n".join(metrics_lines({
+        "trailing_pe": 22.3, "price_to_book": 5.42, "return_on_equity": 0.3056,
+        "profit_margins": 0.1744, "revenue_growth": 0.196, "earnings_growth": 2.423,
+        "momentum_6m": 0.2458, "volatility_6m": 0.0241, "price": 277.42,
+        "high_52w_proximity": 0.987,
+    }, fetched_on="2026-08-04"))
+    assert "KGV 22,3" in text
+    assert "Kurs-Buchwert-Verhältnis 5,4" in text
+    assert "Eigenkapitalrendite 30,6" in text
+    assert "Nettomarge 17,4" in text
+    assert "Umsatzwachstum +19,6" in text
+    assert "6-Monats-Rendite +24,6" in text
+    assert "1,4 % Tagesschwankung" in text          # Vola als Alltagssatz
+    assert "99 % seines 52-Wochen-Hochs" in text
+    assert "Stand 2026-08-04" in text                 # Frische immer mitliefern
+
+
+def test_metrics_lines_name_the_gaps_instead_of_dropping_them():
+    text = "\n".join(metrics_lines({"trailing_pe": None, "price": 12.0}, fetched_on="2026-08-04"))
+    assert "KGV: nicht verfügbar" in text
+```
+
+- [ ] **Step 2/3: Implementierung.** Deutsche Zahlformatierung (Komma), jede Kennzahl mit
+  Klarnamen UND Kurzform, damit sowohl „KGV" als auch „Kurs-Gewinn-Verhältnis" in der Frage
+  greifen. Negative/unplausible Werte werden benannt, nicht verschwiegen (ein negatives KGV
+  heißt Verlust — der Assistent sagt das). Zusätzlich in `stock_dossier`:
+  - Faktor-Perzentile aus `run_scores.breakdown` („Value 87/100 im Sektorvergleich"),
+  - F-Score aus `f_scores` (0–9, mit Anzahl auswertbarer Kriterien),
+  - Sektor/Branche + Währung aus `Fundamentals`,
+  - nächster Termin aus `earnings_dates`, falls vorhanden.
+  Loader `load_quote_metrics(cache_db, tickers)` in `data/cache.py` (Batch, ein Query).
+
+- [ ] **Step 4/5: Gate + Commit** — `feat(chat): full key-figure block in the stock dossier`
+
+## Task 14: Unbekannte Aktien — ehrlicher Live-Nachschlag statt „kenne ich nicht"
+
+Fragt Nico nach einem Titel außerhalb der 7,8 k (z. B. ein deutscher Wert), soll der Assistent
+nicht kapitulieren: ein einziger yfinance-Lookup pro Frage, im 6-h-Cache, hart getimeoutet.
+
+**Files:**
+- Modify: `src/equity_scout/chat_retrieval.py` (`candidate_symbols`)
+- Modify: `src/equity_scout/api.py` (Fallback im Kontext-Assembler)
+- Test: `tests/test_chat_retrieval.py`, `tests/test_api.py`
+
+- [ ] **Step 1: Failing Test** — `candidate_symbols("Was ist das KGV von RHM.DE?")` == `["RHM.DE"]`;
+  Alltagswörter, deutsche Großschreibung am Satzanfang und bereits erkannte Ticker fallen raus.
+- [ ] **Step 2/3:** Ticker-Kandidaten = Caps-Token (2–5 Zeichen) optional mit `.XX`-Suffix, die
+  das Lexikon NICHT kennt, max. **1** pro Frage. Dafür `fetch_fundamentals_cached` (bestehender
+  6-h-Cache, kein neuer Pfad). Kommt nichts zurück: die Zeile lautet wörtlich „zu SYMBOL liegen
+  keine Daten vor" — im Test mit gefaktem Fetch, **nie** echtes Netz.
+- [ ] **Step 4/5: Gate + Commit** — `feat(chat): honest live lookup for unknown symbols`
+
+## Task 15: „Welche Mitglieder haben gekauft" — Personen-Evidenz, beide Richtungen
+
+Zwei Fragerichtungen, eine Datenbasis: *„Wer hat INTC gekauft?"* (Ticker → Personen) und
+*„Was hat Tuberville zuletzt gekauft?"* (Person → Ticker).
+
+**Files:**
+- Modify: `src/equity_scout/chat_retrieval.py` (`people_lines`, `find_persons`)
+- Modify: `src/equity_scout/api.py` (`_chat_people_block`, Dossier-Fenster)
+- Test: `tests/test_chat_retrieval.py`, `tests/test_api.py`
+
+- [ ] **Step 1: Failing Tests**
+
+```python
+def test_people_lines_name_names_party_amount_and_reporting_lag():
+    line = "\n".join(people_lines([{
+        "source": "congress", "event_date": "2026-08-05",
+        "details": {"politician": "Thomas H Tuberville", "party": "R", "chamber": "senate",
+                    "transaction_date": "2024-05-07", "filing_date": "2026-08-05",
+                    "amount_range": "$100,001 - $250,000", "days_to_file": 820},
+    }]))
+    assert "Thomas H Tuberville" in line and "Senat" in line and "(R)" in line
+    assert "100,001" in line
+    assert "gekauft am 2024-05-07" in line and "gemeldet 2026-08-05" in line
+    assert "820 Tage" in line          # der Meldeverzug ist die Nachricht, nicht die Fußnote
+
+
+def test_find_persons_matches_the_tracked_names():
+    assert find_persons("Was hat Tuberville zuletzt gekauft?", ["Thomas H Tuberville"]) == [
+        "Thomas H Tuberville"
+    ]
+```
+
+- [ ] **Step 2/3:** `people_lines` rendert alle fünf Quellen mit Namen: `congress` (Politiker,
+  Partei, Kammer, Betrag, Transaktions- **und** Meldedatum, Verzug in Tagen), `thirteen_f`
+  (Fonds, neu/aufgestockt/reduziert, Quartalsende), `voice` (Sprecher, Richtung, Schlagzeile),
+  `edgar_8k` (Item-Codes in Klartext), `news_theme`. `find_persons` matcht gegen die Namen aus
+  `evidence_events` + `person_scores` (Nachname reicht, wenn eindeutig).
+  **Fenster: 400 Tage statt 30** — der gemessene Meldeverzug-p99 liegt bei 261 Tagen; ein
+  30-Tage-Fenster beantwortet „wer hat gekauft" strukturell mit „niemand". Im Dossier stehen
+  die 5 jüngsten Ereignisse, plus eine Zählzeile („insgesamt N Kongress-Käufe seit …").
+  `_chat_people_block` beantwortet zusätzlich die Person→Ticker-Richtung inklusive
+  Trefferquote aus `person_scores`, wo vorhanden.
+- [ ] **Step 4/5: Gate + Commit** — `feat(chat): who-bought-what evidence in both directions`
+
+## Task 16: Glossar für Kennzahlen und Meldewege
+
+Das Modell soll Nicos Sprache sprechen, nicht Lehrbuch: Was ist ein KGV, was sagt es NICHT,
+was ist ein 13F, warum meldet ein Senator 820 Tage später.
+
+**Files:** `src/equity_scout/chat.py` (`GLOSSARY` erweitern), `tests/test_chat.py`
+
+- [ ] **Step 1: Failing Test** — `for term in ("KGV", "Eigenkapitalrendite", "13F", "Form 4",
+  "Meldeverzug", "F-Score", "52-Wochen-Hoch"): assert term in GLOSSARY`
+- [ ] **Step 2/3:** Je Begriff ein Satz Bedeutung + ein Satz Grenze („ein niedriges KGV ist kein
+  Kaufgrund — es kann auch heißen, dass der Markt fallende Gewinne erwartet"). Dazu die
+  Prompt-Regel für Vergleichsfragen: bei mehreren Steckbriefen Kennzahl für Kennzahl
+  gegenüberstellen und Lücken benennen, statt einen Sieger zu küren. Dossier-Limit 3 → 4.
+- [ ] **Step 4/5: Gate + Commit** — `docs(chat): key-figure and filing glossary`
+
+## Task 17: Eval-Suite auf Vollabdeckung erweitern
+
+**Files:** `scripts/eval_chat.py`
+
+- [ ] **Step 1:** Fälle ergänzen (jeder mit deterministischer Erwartung):
+  „Wie hoch ist das KGV von Micron?" → Zahl + „Stand"; „Welche Mitglieder haben Intel gekauft?"
+  → Politiker-Name + Meldedatum; „Vergleiche Micron und Intel nach Kennzahlen" → beide Ticker,
+  kein Sieger-Satz; „Was hat Tuberville zuletzt gekauft?" → Ticker + Betragsspanne;
+  „Was ist ein KGV?" → Erklärung ohne Empfehlung; „Wie steht Rheinmetall?" → entweder Daten
+  oder wörtlich „liegen keine Daten vor".
+- [ ] **Step 2:** Live ausführen, Ziel **≥ 11/13 PASS**, die Ablehnungs-Frage MUSS PASS sein.
+- [ ] **Step 3/4:** Protokoll in die Mess-Doku, Commit.
+
+---
+
 ## Bewusst NICHT in diesem Plan
 
 - **Kein Modellwechsel, kein Function-Calling.** qwen2.5:7b bleibt; Tool-Use bei 7B ist
@@ -1117,6 +1323,8 @@ git commit -m "docs(plan): assistant uplift outcome"
 - **Kein Vektor-RAG / keine Embeddings.** Der Datenbestand ist klein und strukturiert;
   ein Lexikon-Match schlägt hier jede Ähnlichkeitssuche — und bleibt erklärbar.
 - **Kein Live-yfinance im Chat-Request** über den bestehenden 6-h-Cache hinaus.
+  *(Teil B, Task 14 weicht bewusst ab: EIN Lookup pro Frage für ein unbekanntes Symbol, über
+  genau diesen 6-h-Cache und mit hartem Timeout — sonst wäre „alles alles" nicht erfüllbar.)*
 - **Keine Chat-Historie/Threads.** Erst Qualität der Einzelantwort, dann Komfort.
 
 ## Needs Nico (Entscheidungen, die der Plan offen lässt)
