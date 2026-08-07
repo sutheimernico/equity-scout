@@ -19,6 +19,10 @@ MAX_ANSWER_TOKENS = 400
 # into a 120 s ceiling and reported it as "server unreachable", which sent debugging in
 # entirely the wrong direction.
 REQUEST_TIMEOUT_SECONDS = 240.0
+# Ollama's runtime default is 4 096 tokens and it silently DROPS what does not fit — a
+# four-stock comparison plus glossary clears that, and the part that would fall out is the
+# system prompt with the guardrails. Set explicitly; qwen2.5:7b itself allows 32 768.
+NUM_CTX = 8192
 
 SYSTEM_PROMPT = (
     "Du bist der Assistent von equity-scout, einem lokalen Recherche-Tool (Paper-Trading, "
@@ -46,7 +50,7 @@ REFUSAL_ANSWER = (
 
 # The house terms, defined ONCE — the measurement showed the model explaining
 # "Einstiegszone" from its training data instead of our definition.
-GLOSSARY = (
+GLOSSARY_HOUSE = (
     "GLOSSAR:\n"
     "- Einstiegszone: Unterstützungs-Band aus den letzten Halte-Niveaus (Support-Levels) "
     "einer Aktie — eine ZEITPUNKT-Aussage unseres Modells, kein Kursziel.\n"
@@ -55,7 +59,13 @@ GLOSSARY = (
     "- Potenzial: Abstand vom aktuellen Kurs zum Durchschnitts-Kursziel der Bank-Analysten "
     "(Meinung Dritter, ~12 Monate) — nicht unsere Rechnung.\n"
     "- Signal-Filter: lokal trainiertes ML-Modell, sortiert dieselben Signale nach (0-100).\n"
-    "- Verfallen: Pitch wurde zurückgezogen, weil der Titel die Watchlist verlassen hat.\n"
+    "- Verfallen: Pitch wurde zurückgezogen, weil der Titel die Watchlist verlassen hat."
+)
+
+# Split from the house terms because every 1 000 prompt characters cost real seconds on
+# CPU inference (measured 2026-08-07: 82 s to the first token on a dossier question). A
+# depot question does not need the metric definitions.
+GLOSSARY_METRICS = (
     "KENNZAHLEN (jede mit ihrer Grenze — eine gute Zahl ist kein Kaufgrund):\n"
     "- KGV (Kurs-Gewinn-Verhältnis): Kurs geteilt durch Jahresgewinn je Aktie. Niedrig "
     "heißt billig ODER dass der Markt fallende Gewinne erwartet. Negativ = Verlustjahr.\n"
@@ -69,7 +79,10 @@ GLOSSARY = (
     "- F-Score (Piotroski, 0-9): wie viele Bilanz-Kriterien sich zum Vorjahr verbessert "
     "haben. Trend der Bilanz, keine Bewertung des Kurses.\n"
     "- Perzentil (0-100): Rang im Vergleich zu den anderen gescreenten Titeln derselben "
-    "Branche — 87 heißt 'günstiger als 87 % der Vergleichsgruppe', kein Prozentwert.\n"
+    "Branche — 87 heißt 'günstiger als 87 % der Vergleichsgruppe', kein Prozentwert."
+)
+
+GLOSSARY_FILINGS = (
     "MELDEWEGE (wer kauft, und wie man das erfährt):\n"
     "- Kongress-Meldung: US-Abgeordnete und Senatoren müssen eigene Wertpapiergeschäfte "
     "offenlegen (STOCK Act).\n"
@@ -82,6 +95,23 @@ GLOSSARY = (
     "- 8-K: Pflichtmitteilung eines Unternehmens über ein meldepflichtiges Ereignis.\n"
     "- Stimme: jemand wurde in einem Artikel zu dem Titel erwähnt. Presse, keine Meldung."
 )
+
+# The whole vocabulary, for callers that want everything (and for the tests that pin it).
+GLOSSARY = "\n".join((GLOSSARY_HOUSE, GLOSSARY_METRICS, GLOSSARY_FILINGS))
+
+
+def glossary_for(topics: list[str], *, has_dossier: bool) -> str:
+    """Only the glossary sections this question can possibly need.
+
+    House terms always (they appear in every dossier and depot line); metrics when a stock
+    or a key figure is on the table; filing routes when people are.
+    """
+    parts = [GLOSSARY_HOUSE]
+    if has_dossier or "kennzahlen" in topics:
+        parts.append(GLOSSARY_METRICS)
+    if "personen" in topics or has_dossier:
+        parts.append(GLOSSARY_FILINGS)
+    return "\n".join(parts)
 
 
 class ChatError(Exception):
@@ -170,7 +200,7 @@ def ask_ollama(
         # start on the first question. Costs RAM while idle, saves ~80 s per first answer.
         "keep_alive": KEEP_ALIVE,
         # A phone answer needs ~10 lines, not an essay; shorter generation = faster done.
-        "options": {"num_predict": MAX_ANSWER_TOKENS},
+        "options": {"num_predict": MAX_ANSWER_TOKENS, "num_ctx": NUM_CTX},
         "messages": [
             {"role": "system", "content": f"{SYSTEM_PROMPT}\n\nDATEN-Kontext:\n{context}"},
             {"role": "user", "content": question},
@@ -224,7 +254,7 @@ def stream_ollama(
         "model": model,
         "stream": True,
         "keep_alive": KEEP_ALIVE,
-        "options": {"num_predict": MAX_ANSWER_TOKENS},
+        "options": {"num_predict": MAX_ANSWER_TOKENS, "num_ctx": NUM_CTX},
         "messages": [
             {"role": "system", "content": f"{SYSTEM_PROMPT}\n\nDATEN-Kontext:\n{context}"},
             {"role": "user", "content": question},

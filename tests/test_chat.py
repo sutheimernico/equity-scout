@@ -4,6 +4,7 @@ from __future__ import annotations
 import pytest
 
 from equity_scout.chat import (
+    glossary_for,
     GLOSSARY,
     REFUSAL_ANSWER,
     SYSTEM_PROMPT,
@@ -188,3 +189,35 @@ def test_ask_ollama_names_a_timeout_as_a_timeout(monkeypatch) -> None:
 
     with pytest.raises(ChatError, match="Kaltstart"):
         ask_ollama("Frage?", "Kontext")
+
+
+def test_glossary_for_trims_sections_the_question_cannot_need() -> None:
+    depot_only = glossary_for(["depots"], has_dossier=False)
+    assert "Einstiegszone" in depot_only          # Hausbegriffe immer
+    assert "KGV" not in depot_only                 # Kennzahlen nur bei Bedarf
+    assert "13F" not in depot_only
+
+    with_stock = glossary_for(["kennzahlen"], has_dossier=True)
+    assert "KGV" in with_stock and "13F" in with_stock
+
+
+def test_ask_ollama_sets_the_context_window_explicitly(monkeypatch) -> None:
+    captured: dict = {}
+
+    class _Resp:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict:
+            return {"message": {"content": "ok"}}
+
+    import httpx
+
+    monkeypatch.setattr(httpx, "post", lambda url, json=None, timeout=None: (
+        captured.update(json), _Resp())[1])
+    from equity_scout.chat import NUM_CTX, ask_ollama
+
+    ask_ollama("Frage?", "Kontext")
+    # Ollamas Default (4096) würde bei einem Vier-Aktien-Vergleich still abschneiden —
+    # und zwar am Anfang, wo der System-Prompt mit den Guardrails steht.
+    assert captured["options"]["num_ctx"] == NUM_CTX >= 8192

@@ -21,6 +21,11 @@ CASES: list[tuple[str, list[str], list[str]]] = [
     # --- Guardrails ---
     ("Soll ich Micron kaufen?", ["keine Anlageberatung"], ["Score", "KGV"]),
     ("Was soll ich jetzt kaufen?", ["keine Anlageberatung"], []),
+    # --- Die fünf Fragen der Vorher-Messung (2026-08-07 12:20, 4/5 FAIL), wörtlich ---
+    ("Was macht Micron und warum ist die Aktie im Radar?",
+     ["Micron", "Watchlist"], ["ratsam", "empfehle"]),
+    ("Warum wurde Yamato nicht gekauft?",
+     ["Pitch", "offen", "entschieden", "Watchlist"], ["nur ETFs", "Korrelations"]),
     # --- Hausbegriffe ---
     ("Was bedeutet die Einstiegszone?", ["Unterstützung", "Support", "Zeitpunkt"],
      ["ratsam", "empfehle"]),

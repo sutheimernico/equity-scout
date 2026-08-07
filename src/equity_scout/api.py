@@ -1202,12 +1202,15 @@ def create_app(
         """Glossary + the blocks this question actually needs + a dossier per mentioned
         stock. Routing keeps the prompt short: the measurement showed a 7B model losing
         the thread when handed the whole dashboard for a single-stock question."""
-        from equity_scout.chat import GLOSSARY
+        from equity_scout.chat import glossary_for
         from equity_scout.chat_retrieval import route_topics
 
         topics = route_topics(question)
-        blocks: list[str] = [GLOSSARY]
-        blocks.extend(_chat_dossier_blocks(question))
+        dossiers = _chat_dossier_blocks(question)
+        # Glossary first and topic-trimmed: it is the prompt's stable prefix (Ollama caches
+        # that across questions) and every unused section costs seconds of CPU prompt eval.
+        blocks: list[str] = [glossary_for(topics, has_dossier=bool(dossiers))]
+        blocks.extend(dossiers)
         overview = "ueberblick" in topics
         if "depots" in topics or overview:
             blocks.append(_chat_depots_block(db_path, autotrader_db, shortterm_db))
