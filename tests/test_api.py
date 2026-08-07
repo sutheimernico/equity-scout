@@ -756,3 +756,105 @@ def test_evidence_alerts_carry_the_company_name_or_null(tmp_path):
     assert alerts["V"]["name"] == "Visa Inc."
     assert alerts["UNH"]["name"] == "UnitedHealth Group Inc."
     assert alerts["ZZZZ"]["name"] is None
+
+
+def test_chat_advice_question_refuses_without_llm(tmp_path, monkeypatch):
+    db = str(tmp_path / "chat.db")
+    client = TestClient(create_app(db))
+
+    def boom(*a, **k):  # das LLM DARF bei Ratschlagsfragen nie aufgerufen werden
+        raise AssertionError("ask_ollama must not be called for advice questions")
+
+    monkeypatch.setattr("equity_scout.chat.ask_ollama", boom)
+    body = client.post("/api/chat", json={"question": "Soll ich Micron kaufen?"}).json()
+    assert "keine Anlageberatung" in body["answer"]
+
+
+def _capture_chat_context(monkeypatch) -> dict:
+    captured: dict = {}
+
+    def fake_ask(question, context, **kwargs):
+        captured["question"] = question
+        captured["context"] = context
+        return "Antwort."
+
+    monkeypatch.setattr("equity_scout.chat.ask_ollama", fake_ask)
+    return captured
+
+
+def test_chat_context_carries_dossier_and_glossary_for_a_mentioned_ticker(tmp_path, monkeypatch):
+    from equity_scout.radar import build_watchlist
+    from equity_scout.radar_storage import save_watchlist
+    from tests.test_radar import _finalist
+    from tests.test_signals import downtrend_history
+
+    db = str(tmp_path / "chat2.db")
+    save_watchlist(db, build_watchlist(
+        [_finalist("DIP")], {"DIP": downtrend_history()}, created_at="2026-08-07T09:00:00",
+    ))
+    client = TestClient(create_app(db))
+    captured = _capture_chat_context(monkeypatch)
+
+    client.post("/api/chat", json={"question": "Was weißt du über DIP?"})
+    assert "AKTIE" in captured["context"] and "DIP" in captured["context"]
+    assert "GLOSSAR" in captured["context"]
+
+
+def test_chat_context_carries_cached_key_figures(tmp_path, monkeypatch):
+    from equity_scout.data.cache import QuoteCache
+    from equity_scout.models import Instrument, Pick, RunResult
+    from equity_scout.storage import init_db, save_run, save_run_scores
+
+    db = str(tmp_path / "chat3.db")
+    cache_db = str(tmp_path / "cache3.db")
+    init_db(db)
+    run_id = save_run(db, RunResult(created_at="2026-08-07T00:00:00+00:00",
+                                    universe_size=1, gated_out={}))
+    inst = Instrument("MU", "Micron Technology", "NASDAQ", "US", "USD", "Technology")
+    save_run_scores(db, run_id, {"balanced": [Pick(instrument=inst, bucket="balanced",
+                                                   rank=1, composite=0.6,
+                                                   breakdown={"value": 0.87})]})
+    QuoteCache(cache_db).put("MU", {"trailing_pe": 22.3, "price": 160.0}, "2026-08-04")
+
+    client = TestClient(create_app(db, cache_db=cache_db))
+    captured = _capture_chat_context(monkeypatch)
+    client.post("/api/chat", json={"question": "Wie hoch ist das KGV von Micron?"})
+
+    assert "KGV 22,3" in captured["context"]
+    assert "Stand 2026-08-04" in captured["context"]
+    assert "Substanz-Bewertung 87/100" in captured["context"]
+
+
+def test_chat_context_answers_who_bought_with_names(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+
+    from equity_scout.evidence.base import EvidenceEvent
+    from equity_scout.evidence.storage import record_events
+
+    db = str(tmp_path / "chat4.db")
+    today = datetime.now(timezone.utc).date().isoformat()
+    record_events(db, [EvidenceEvent(
+        source="congress", ticker="INTC", event_key="k1", event_date=today,
+        details={"politician": "Thomas H Tuberville", "party": "R", "chamber": "senate",
+                 "transaction_date": "2024-05-07", "filing_date": today,
+                 "amount_range": "$100,001 - $250,000", "days_to_file": 820},
+    )], now=today)
+
+    client = TestClient(create_app(db))
+    captured = _capture_chat_context(monkeypatch)
+    client.post("/api/chat", json={"question": "Welche Mitglieder haben Intel gekauft?"})
+
+    assert "Tuberville" in captured["context"]
+    assert "820 Tage" in captured["context"]
+
+
+def test_chat_routing_keeps_unrelated_blocks_out_of_the_prompt(tmp_path, monkeypatch):
+    db = str(tmp_path / "chat5.db")
+    client = TestClient(create_app(db))
+    captured = _capture_chat_context(monkeypatch)
+
+    client.post("/api/chat", json={"question": "Wie steht mein Depot?"})
+    assert "DEPOTS" in captured["context"]
+    # Eine Depotfrage braucht weder die Personen- noch die Ergebnis-Tafel.
+    assert "PERSONEN" not in captured["context"]
+    assert "ERGEBNISSE" not in captured["context"]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hmac
 import os
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -22,6 +23,7 @@ from equity_scout.briefs import (
 )
 from equity_scout.buckets import BUCKET_WEIGHTS
 from equity_scout.constants import (
+    DEFAULT_CACHE_DB_PATH,
     DEFAULT_DB_PATH,
     DEFAULT_FORWARD_DB_PATH,
     DISCLAIMER,
@@ -99,6 +101,15 @@ from equity_scout.strategy_service import BENCHMARK_NAME, build_ml_report, build
 
 _DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
+# Evidence window for the assistant. The dashboard shows 30 days; congress filings
+# arrive with a measured p99 lag of 261 days (v15-P2a backfill), so "wer hat gekauft"
+# needs a window that outlives the paperwork.
+_CHAT_EVIDENCE_WINDOW_DAYS = 400
+
+# Dossiers per question. Four covers "vergleiche A, B und C" without letting one
+# message drag the whole watchlist into a 7B model's context.
+_CHAT_MAX_DOSSIERS = 4
+
 
 FILTER_TOP_N = 10
 
@@ -161,6 +172,199 @@ def _known_company_names(db_path: str) -> dict[str, str]:
     return names
 
 
+# The chat lexicon spans EVERY run, not just the latest (a question about a dropped title
+# is legitimate), and rebuilding its ~20 000-key index on every message would be wasted
+# work: it only changes when a scout run writes new rows.
+_CHAT_LEXICON_TTL_SECONDS = 600
+_chat_lexicon_cache: dict[str, tuple[float, dict[str, str], dict[str, str]]] = {}
+
+
+def _chat_lexicon(db_path: str, *, now: float | None = None) -> tuple[dict, dict]:
+    """(lexicon, lookup) for ticker detection, cached per DB path for 10 minutes."""
+    from equity_scout.chat_retrieval import build_lookup
+    from equity_scout.storage import load_company_names
+
+    stamp = time.monotonic() if now is None else now
+    hit = _chat_lexicon_cache.get(db_path)
+    if hit is not None and stamp - hit[0] < _CHAT_LEXICON_TTL_SECONDS:
+        return hit[1], hit[2]
+    lexicon = load_company_names(db_path)
+    for ticker, name in _known_company_names(db_path).items():
+        lexicon[ticker] = name  # watchlist names win — they are the freshest
+    lookup = build_lookup(lexicon)
+    _chat_lexicon_cache[db_path] = (stamp, lexicon, lookup)
+    return lexicon, lookup
+
+
+def _chat_inbox_block(pitches: list[dict]) -> str:
+    """Open pitches, one line each — the block behind "Warum wurde Yamato nicht gekauft?"."""
+    from equity_scout.chat_retrieval import _STATUS_DE
+
+    open_rows = [p for p in pitches if p["status"] == "open"]
+    lines = ["INBOX (Pitches, die auf Nicos Entscheidung warten):"]
+    if not open_rows:
+        lines.append("- Keine offenen Pitches.")
+    for p in open_rows[:10]:
+        lines.append(
+            f"- {p['ticker']}: Score {round(p['composite'] * 100)}/100, "
+            f"Pitch vom {p['created_at'][:10]}, Status offen."
+        )
+    for p in [p for p in pitches if p["status"] != "open"][:5]:
+        lines.append(
+            f"- {p['ticker']}: Status {_STATUS_DE.get(p['status'], p['status'])} "
+            f"am {(p['decided_at'] or '?')[:10]}."
+        )
+    return "\n".join(lines)
+
+
+def _chat_depots_block(db_path: str, autotrader_db: str, shortterm_db: str) -> str:
+    """Both depots and the arena lanes with their positions — "was halte ich eigentlich?"."""
+    lines = ["DEPOTS (Paper-Trading, kein echtes Geld):"]
+    for lane, label in ((LANE_NICO, "Depot 'Du'"), (LANE_AUTOPILOT, "Depot 'Autopilot'")):
+        portfolio = load_lane_portfolio(db_path, lane)
+        if portfolio is None:
+            lines.append(f"- {label}: noch nicht eingerichtet.")
+            continue
+        held = [
+            f"{ticker} {round(pos.shares, 2)} Anteile"
+            for ticker, pos in sorted(portfolio.positions.items())
+        ]
+        lines.append(
+            f"- {label}: Barbestand {round(portfolio.cash, 2)}, "
+            f"{('Positionen: ' + ', '.join(held)) if held else 'keine Positionen'}."
+        )
+    account = load_autotrader_depot(autotrader_db)
+    vals = load_autotrader_valuations(autotrader_db)
+    if account is not None and vals:
+        last = vals[-1]
+        lines.append(
+            f"- Auto-Depot (automatisch, Regel- und ML-Sleeves): Wert {round(last['equity'], 2)}, "
+            f"Gesamtrendite {last['total_return'] * 100:+.1f} %, Stand {last['created_at'][:10]}."
+        )
+    else:
+        lines.append("- Auto-Depot: noch keine Bewertung im Bestand.")
+    for lane in LANES:
+        book = load_st_book(shortterm_db, lane)
+        lane_vals = load_st_valuations(shortterm_db, lane)
+        if book is None or not lane_vals:
+            continue
+        latest = lane_vals[-1]
+        positions = ", ".join(sorted(book.positions)) or "flat"
+        lines.append(
+            f"- Arena {LANE_LABELS.get(lane, lane)}: Wert {round(latest['equity'], 2)}, "
+            f"{latest['total_return'] * 100:+.1f} %, aktuell {positions}."
+        )
+    return "\n".join(lines)
+
+
+def _chat_proof_block(autotrader_db: str, shortterm_db: str, forward_db: str) -> str:
+    """The report cards — "funktioniert das überhaupt?" answered with measured numbers."""
+    books = collect_proof_books(autotrader_db, shortterm_db, forward_db)
+    if not books:
+        return "ERGEBNISSE: noch keine bewertbaren Bücher."
+    lines = [
+        f"ERGEBNISSE (gemessen, nach Kosten; ein Urteil braucht {MIN_DAYS_FOR_RATES} Tage):"
+    ]
+    for book in books:
+        report = book.get("report") or {}
+        verdict = report.get("verdict") or "noch kein Urteil"
+        parts = [f"{book.get('label', book.get('key'))}: {verdict}"]
+        for key, label in (("total_return", "Gesamtrendite"), ("sharpe", "Sharpe"),
+                           ("max_drawdown", "größter Rückgang"), ("win_rate", "Trefferquote")):
+            value = report.get(key)
+            if value is None:
+                continue
+            parts.append(
+                f"{label} {value * 100:+.1f} %" if key != "sharpe" else f"{label} {value:.2f}"
+            )
+        days = report.get("days")
+        if days is not None:
+            parts.append(f"{days} Tage Historie")
+        lines.append("- " + ", ".join(parts) + ".")
+    return "\n".join(lines)
+
+
+def _chat_people_block(db_path: str, now: str) -> str:
+    """Who has been buying across ALL tickers — the "was hat Person X gekauft" direction.
+
+    Window is 400 days, not the dashboard's 30: congress filings arrive with a measured
+    p99 lag of 261 days, so a month-long window answers "wer hat gekauft" with silence.
+    """
+    from equity_scout.chat_retrieval import _CHAMBER_DE, _PARTY_DE
+
+    grouped = events_in_window(db_path, window_days=_CHAT_EVIDENCE_WINDOW_DAYS, now=now)
+    congress: list[tuple[str, str, dict]] = []
+    voices: list[tuple[str, str, dict]] = []
+    funds: list[tuple[str, str, dict]] = []
+    for ticker, events in grouped.items():
+        for event in events:
+            bucket = {"congress": congress, "voice": voices,
+                      "thirteen_f": funds}.get(event["source"])
+            if bucket is not None:
+                bucket.append((ticker, event["event_date"], event["details"]))
+    lines = [f"PERSONEN (gemeldete Käufe und Stimmen der letzten "
+             f"{_CHAT_EVIDENCE_WINDOW_DAYS} Tage):"]
+    congress.sort(key=lambda row: row[1], reverse=True)
+    if congress:
+        lines.append(f"- Kongress: {len(congress)} gemeldete Käufe. Die jüngsten:")
+        for ticker, date, d in congress[:12]:
+            party = _PARTY_DE.get(str(d.get("party") or ""), d.get("party") or "?")
+            chamber = _CHAMBER_DE.get(str(d.get("chamber") or ""), "?")
+            lag = d.get("days_to_file")
+            lines.append(
+                f"  · {d.get('politician', 'unbekannt')} ({party}, {chamber}) kaufte "
+                f"{ticker}, gekauft {d.get('transaction_date', '?')}, gemeldet {date}"
+                f"{f' ({lag} Tage Meldeverzug)' if lag is not None else ''}, "
+                f"Volumen {d.get('amount_range', '?')}."
+            )
+    else:
+        lines.append("- Kongress: keine Käufe im Fenster.")
+    funds.sort(key=lambda row: row[1], reverse=True)
+    for ticker, date, d in funds[:5]:
+        lines.append(
+            f"- Fonds {d.get('fund', '?')}: {d.get('change', '?')} bei {ticker} "
+            f"(Quartalsende {d.get('period', '?')}, gemeldet {date})."
+        )
+    voices.sort(key=lambda row: row[1], reverse=True)
+    for ticker, date, d in voices[:5]:
+        lines.append(f"- Stimme {d.get('speaker', '?')} zu {ticker} am {date}.")
+    scores = load_person_scores(db_path)
+    scored = [s for s in scores if s.get("scoreable")]
+    if scored:
+        lines.append("- Gemessene Trefferquoten (unsere eigene Auswertung):")
+        for s in scored[:8]:
+            rate = s.get("hit_rate_short")
+            lines.append(
+                f"  · {s['person']} ({s['source']}): {s['n_calls']} Käufe, "
+                f"Trefferquote kurzfristig "
+                f"{'—' if rate is None else f'{rate * 100:.0f} %'}."
+            )
+    return "\n".join(lines)
+
+
+def _chat_regime_block(cached: object) -> str:
+    """Market traffic light from the per-day cache only.
+
+    Deliberately never computes: /api/regime pulls SPY/VIX/yields from yfinance, and a
+    chat message must not trigger three network fetches. The dashboard warms this cache
+    on every app open, so in practice it is there.
+    """
+    payload = cached.get("payload", {}) if isinstance(cached, dict) else {}
+    regime = payload.get("regime") if isinstance(payload, dict) else None
+    if not isinstance(regime, dict):
+        return "MARKTLAGE: heute noch nicht abgerufen (die Ampel lädt beim Öffnen der App)."
+    lines = [
+        f"MARKTLAGE (Ampel aus {regime.get('available', '?')} auswertbaren Signalen): "
+        f"{regime.get('label', '?')}, {regime.get('green_count', '?')} davon grün."
+    ]
+    for signal in regime.get("signals", []) or []:
+        state = {True: "grün", False: "nicht grün", None: "nicht auswertbar"}[
+            signal.get("green")
+        ]
+        lines.append(f"- {signal.get('label', '?')}: {state} ({signal.get('note', '')})")
+    return "\n".join(lines)
+
+
 def create_app(
     db_path: str = DEFAULT_DB_PATH,
     snapshot: str = DEFAULT_SNAPSHOT,
@@ -168,6 +372,7 @@ def create_app(
     forward_db: str = DEFAULT_FORWARD_DB_PATH,
     autotrader_db: str = DEFAULT_AUTOTRADER_DB_PATH,
     shortterm_db: str = DEFAULT_SHORTTERM_DB_PATH,
+    cache_db: str = DEFAULT_CACHE_DB_PATH,
     dash_token: str | None = None,
 ) -> FastAPI:
     # The read API may face a DB written before a schema migration (e.g. the
@@ -846,13 +1051,88 @@ def create_app(
         entry_cache[cache_key] = payload
         return JSONResponse(payload)
 
-    @app.post("/api/chat")
-    def chat(body: dict) -> JSONResponse:
-        from equity_scout.chat import ChatError, ask_ollama, build_dashboard_context
+    def _chat_dossier_blocks(question: str) -> list[str]:
+        """One dossier per stock the question mentions — the heart of "alles zu Aktien".
 
-        question = str((body or {}).get("question", "")).strip()
-        if not question:
-            return JSONResponse({"error": "Keine Frage übergeben."}, status_code=400)
+        Every fact comes from a local store the dashboard already serves; the only network
+        touch is the 6 h-cached fundamentals lookup, and an unknown symbol gets at most ONE
+        of those per question.
+        """
+        from equity_scout.chat_retrieval import candidate_symbols, find_tickers, stock_dossier
+        from equity_scout.data.cache import load_cached_metrics
+        from equity_scout.earnings_storage import earnings_within
+        from equity_scout.fscore import load_f_score
+
+        lexicon, lookup = _chat_lexicon(db_path)
+        tickers = find_tickers(question, lexicon, lookup=lookup)[:_CHAT_MAX_DOSSIERS]
+        unknown = [
+            s for s in candidate_symbols(question, known=set(lexicon))
+            if s not in tickers
+        ][:1]
+        tickers.extend(unknown)
+        if not tickers:
+            return []
+
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        today = now[:10]
+        watchlist = load_latest_watchlist(db_path)
+        by_ticker = {e["ticker"]: e for e in (watchlist or {}).get("entries", [])}
+        insights = load_insights(db_path)
+        all_pitches = load_pitches(db_path)
+        metrics = load_cached_metrics(cache_db, tickers)
+        events = events_in_window(
+            db_path, window_days=_CHAT_EVIDENCE_WINDOW_DAYS, now=now, tickers=tickers,
+        )
+        earnings = {
+            row["ticker"]: row["earnings_date"]
+            for row in earnings_within(db_path, today=today, days=120)
+        }
+        run_id = latest_run_id(db_path)
+        breakdowns = {
+            row["ticker"]: row["breakdown"]
+            for row in (load_run_scores(db_path, run_id) if run_id is not None else [])
+        }
+
+        blocks: list[str] = []
+        for ticker in tickers:
+            held: dict[str, float] = {}
+            for lane in (LANE_NICO, LANE_AUTOPILOT):
+                portfolio = load_lane_portfolio(db_path, lane)
+                if portfolio is not None and ticker in portfolio.positions:
+                    held[lane] = round(portfolio.positions[ticker].shares, 2)
+            try:
+                fundamentals = fetch_fundamentals_cached(ticker)
+            except Exception:  # noqa: BLE001 - a failed lookup is an honest gap, not a 500
+                fundamentals = None
+            fetched_on, cached_metrics = metrics.get(ticker, (None, None))
+            blocks.append(stock_dossier(
+                ticker=ticker,
+                name=lexicon.get(ticker),
+                watchlist_entry=by_ticker.get(ticker),
+                fundamentals=fundamentals,
+                insight=insights.get(ticker),
+                pitches=[p for p in all_pitches if p["ticker"] == ticker],
+                evidence_events=events.get(ticker, []),
+                held_by=held,
+                metrics=cached_metrics,
+                metrics_fetched_on=fetched_on,
+                factor_breakdown=breakdowns.get(ticker),
+                fscore=load_f_score(db_path, ticker),
+                next_earnings=earnings.get(ticker),
+            ))
+            people = events.get(ticker, [])
+            if people:
+                from equity_scout.chat_retrieval import people_lines
+                blocks.append(
+                    f"WER HANDELT/SPRICHT ÜBER {ticker} (letzte "
+                    f"{_CHAT_EVIDENCE_WINDOW_DAYS} Tage):\n"
+                    + "\n".join(people_lines(people))
+                )
+        return blocks
+
+    def _chat_strategies_block() -> str:
+        """The pre-2026-08-07 chat context: strategies, ML, research, forward, screener."""
+        from equity_scout.chat import build_dashboard_context
 
         reports = get_reports() or []
         strategies = [asdict(r) for r in reports]
@@ -885,14 +1165,53 @@ def create_app(
             if run is not None and run.buckets
             else None
         )
-        context = build_dashboard_context(
+        return build_dashboard_context(
             strategies=strategies, ml=ml, research=research, forward=forward, screener=screener
         )
+
+    def _chat_context(question: str) -> str:
+        """Glossary + the blocks this question actually needs + a dossier per mentioned
+        stock. Routing keeps the prompt short: the measurement showed a 7B model losing
+        the thread when handed the whole dashboard for a single-stock question."""
+        from equity_scout.chat import GLOSSARY
+        from equity_scout.chat_retrieval import route_topics
+
+        topics = route_topics(question)
+        blocks: list[str] = [GLOSSARY]
+        blocks.extend(_chat_dossier_blocks(question))
+        overview = "ueberblick" in topics
+        if "depots" in topics or overview:
+            blocks.append(_chat_depots_block(db_path, autotrader_db, shortterm_db))
+        if "ergebnisse" in topics:
+            blocks.append(_chat_proof_block(autotrader_db, shortterm_db, forward_db))
+        if "personen" in topics:
+            now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            blocks.append(_chat_people_block(db_path, now))
+        if "markt" in topics or overview:
+            blocks.append(_chat_regime_block(reports_cache.get("regime")))
+        if "inbox" in topics or overview:
+            blocks.append(_chat_inbox_block(load_pitches(db_path)))
+        if "strategien" in topics or overview:
+            blocks.append(_chat_strategies_block())
+        return "\n\n".join(b for b in blocks if b)
+
+    @app.post("/api/chat")
+    def chat(body: dict) -> JSONResponse:
+        import equity_scout.chat as chat_mod
+        from equity_scout.chat import REFUSAL_ANSWER, ChatError
+        from equity_scout.chat_retrieval import is_advice_question
+
+        question = str((body or {}).get("question", "")).strip()
+        if not question:
+            return JSONResponse({"error": "Keine Frage übergeben."}, status_code=400)
+        if is_advice_question(question):
+            # Fixed sentence, zero LLM involvement — the refusal must be unconditional.
+            return JSONResponse({"answer": REFUSAL_ANSWER, "disclaimer": DISCLAIMER})
         try:
-            answer = ask_ollama(question, context)
+            answer = chat_mod.ask_ollama(question, _chat_context(question))
         except ChatError as exc:
             return JSONResponse({"error": str(exc)}, status_code=503)
-        return JSONResponse({"answer": answer})
+        return JSONResponse({"answer": answer, "disclaimer": DISCLAIMER})
 
     @app.get("/api/health")
     def health() -> JSONResponse:

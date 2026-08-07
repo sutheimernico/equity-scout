@@ -33,6 +33,7 @@ MODEL_CAVEATS = [
 DEFAULT_DB_PATH = "equity_scout.db"
 DEFAULT_UNIVERSE_PATH = "data/universe_combined.csv"  # the full ~1200-stock global universe
 DEFAULT_FORWARD_DB_PATH = "forward_paper.db"  # forward paper-trading track record (Strang B)
+DEFAULT_CACHE_DB_PATH = "equity_scout_cache.db"  # read-through quote cache (key figures)
 
 # Frozen persistence keys: these strings live in forward/autotrader DB rows — never rename.
 ML_SLEEVE_NAMES = ("ML Long Bot", "ML Short Bot")
