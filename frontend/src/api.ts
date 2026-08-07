@@ -1050,7 +1050,9 @@ export interface StackResponse {
   screener: {
     bucket: string;
     composite: number | null;
-    factors: Record<string, number> | null;
+    /** Factor percentiles (0–1) per family — was named `factors` and always null
+     *  until the 2026-08-07 backend fix. */
+    breakdown: Record<string, number> | null;
     run_created_at: string | null;
   } | null;
   radar: WatchlistEntry | null;
@@ -1142,4 +1144,28 @@ export async function fetchBrief(ticker: string): Promise<StockBrief | null> {
   if (!response.ok) throw new Error(`/api/briefs returned ${response.status}`);
   const body: BriefsResponse = await response.json();
   return body.briefs[0] ?? null;
+}
+
+export interface FScore {
+  computed_on: string;
+  score: number;
+  evaluable: number;
+  fiscal_year: number | null;
+  /** The nine Piotroski criteria, each true/false/null (null = not evaluable). */
+  criteria: Record<string, boolean | null>;
+}
+
+export interface CompanyResponse {
+  ticker: string;
+  f_score: FScore | null;
+  next_earnings: string | null;
+  /** Key figures from the scout's read-through quote cache (ratios, not percent). */
+  metrics: Record<string, number | null> | null;
+  metrics_fetched_on: string | null;
+}
+
+export async function fetchCompany(ticker: string): Promise<CompanyResponse> {
+  const response = await fetch(`/api/company/${encodeURIComponent(ticker)}`);
+  if (!response.ok) throw new Error(`/api/company returned ${response.status}`);
+  return response.json();
 }

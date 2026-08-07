@@ -2886,6 +2886,143 @@ code {
   color: var(--text-muted);
   line-height: 1.45;
 }
+
+/* ---- Stock profile (mockup v2): the one canonical drill-down per ticker. ---- */
+.profil-back {
+  padding: var(--space-2) 0;
+}
+.profil-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.profil-ident {
+  flex: 1;
+  min-width: 0;
+}
+.profil-ident h1 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.profil-ident p {
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
+}
+.profil-price {
+  font-weight: 700;
+  font-size: var(--text-md);
+  white-space: nowrap;
+}
+.profil-risk {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2);
+  background: var(--bg-inset);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+}
+.profil-hero {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.profil-hero-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-inset);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+}
+.profil-hero-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.profil-hero-big {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+.why-row {
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-faint);
+}
+.why-row:first-child {
+  border-top: none;
+}
+.why-head {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+}
+.why-meter {
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 4px;
+  background: var(--bg-inset);
+  overflow: hidden;
+}
+.why-meter i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+}
+.why-plain {
+  margin: 6px 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.profil-buyers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.profil-buyers li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-faint);
+  font-size: var(--text-sm);
+}
+.profil-buyers li:first-child {
+  border-top: none;
+}
+.profil-fscore {
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+}
+.profil-fscore li {
+  padding: 3px 0;
+  font-size: var(--text-xs);
+}
+.profil-sect-link {
+  float: right;
+  padding: 0;
+}
+.profil-stand {
+  font-size: var(--text-xs);
+}
+.profil-pitch-teaser {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: var(--accent-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+.profil-pitch-teaser p {
+  margin: 0;
+}
 /* The potential sits right-aligned in its own column, label under the number. */
 .brief-potential {
   flex-direction: column;
