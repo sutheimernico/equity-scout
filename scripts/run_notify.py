@@ -27,7 +27,7 @@ from equity_scout.evidence.aggregate import attach_track_records
 from equity_scout.evidence.person_storage import person_score_index
 from equity_scout.evidence.storage import events_in_window
 from equity_scout.fundamentals import fetch_fundamentals
-from equity_scout.inbox_storage import expire_offlist_pitches
+from equity_scout.inbox_storage import expire_stale_pitches
 from equity_scout.ml.model_registry import entry_champion
 from equity_scout.notify import (
     DEFAULT_COOLDOWN_DAYS,
@@ -177,10 +177,10 @@ def main() -> int:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     watchlist_tickers = [entry["ticker"] for entry in watchlist.get("entries", [])]
     # Withdraw stale offers BEFORE creating new ones: an open pitch whose ticker left
-    # the watchlist has lost its basis (see inbox_storage.expire_offlist_pitches).
-    expired = expire_offlist_pitches(args.db, watchlist_tickers, expired_at=now)
+    # the watchlist has lost its basis (see inbox_storage.expire_stale_pitches).
+    expired = expire_stale_pitches(args.db, watchlist_tickers, expired_at=now)
     if expired:
-        print(f"Verfallen: {expired} offene(r) Pitch(es) — Ticker nicht mehr auf der Watchlist.")
+        print(f"Verfallen: {expired} offene(r) Pitch(es) — Ticker nicht mehr auf der Watchlist oder ohne Bewertung.")
     earnings_soon = _earnings_soon_lines(
         args.db, watchlist_tickers, today=now[:10], days=EARNINGS_LOOKAHEAD_DAYS
     )

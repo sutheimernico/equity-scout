@@ -4,7 +4,7 @@ from __future__ import annotations
 from equity_scout.inbox_storage import (
     create_pitch,
     decide_pitch,
-    expire_offlist_pitches,
+    expire_stale_pitches,
     get_pitch,
     init_inbox_db,
     last_pitch_at,
@@ -16,7 +16,9 @@ T0 = "2026-07-05T10:00:00+00:00"
 T1 = "2026-07-05T11:00:00+00:00"
 
 
-def _pitch_row(db, ticker="EXE", created_at=T0):
+def _pitch_row(db, ticker="EXE", created_at=T0, verdict="yellow"):
+    # verdict defaults to a rated pitch — every pitch since v8 carries one; pass
+    # verdict=None to model the pre-v8 legacy rows expire_stale_pitches withdraws.
     return create_pitch(
         db,
         ticker=ticker,
@@ -27,6 +29,7 @@ def _pitch_row(db, ticker="EXE", created_at=T0):
         zone_high=103.01,
         pitch="Pitch-Text",
         created_at=created_at,
+        verdict=verdict,
     )
 
 
@@ -45,14 +48,14 @@ def test_create_and_load_open_pitch(tmp_path):
     assert p["composite"] == 0.592
 
 
-def test_expire_offlist_pitches_withdraws_only_open_offlist_rows(tmp_path):
+def test_expire_stale_pitches_withdraws_only_open_offlist_rows(tmp_path):
     db = str(tmp_path / "inbox.db")
     on_list = _pitch_row(db, ticker="AAA")
     off_open = _pitch_row(db, ticker="GONE")
     off_decided = _pitch_row(db, ticker="OLD")
     decide_pitch(db, off_decided, "pass", decided_at=T0)
 
-    expired = expire_offlist_pitches(db, ["AAA", "BBB"], expired_at=T1)
+    expired = expire_stale_pitches(db, ["AAA", "BBB"], expired_at=T1)
     assert expired == 1
 
     rows = {p["id"]: p for p in load_pitches(db)}
@@ -62,12 +65,25 @@ def test_expire_offlist_pitches_withdraws_only_open_offlist_rows(tmp_path):
     assert rows[off_decided]["status"] == "pass"  # a made decision is never rewritten
 
 
-def test_expire_offlist_pitches_empty_watchlist_is_a_no_op(tmp_path):
+def test_expire_stale_pitches_empty_watchlist_skips_the_offlist_rule(tmp_path):
     # A broken radar run (no entries) must never wipe the whole inbox in one sweep.
     db = str(tmp_path / "inbox.db")
     _pitch_row(db, ticker="AAA")
-    assert expire_offlist_pitches(db, [], expired_at=T1) == 0
+    assert expire_stale_pitches(db, [], expired_at=T1) == 0
     assert load_pitches(db)[0]["status"] == "open"
+
+
+def test_expire_stale_pitches_withdraws_unrated_rows_even_on_the_watchlist(tmp_path):
+    # Pre-v8 rows carry no verdict; an unrated offer is not decidable (Nico 2026-08-07)
+    # — withdrawn regardless of watchlist membership, and independent of the empty-list
+    # guard above.
+    db = str(tmp_path / "inbox.db")
+    unrated = _pitch_row(db, ticker="AAA", verdict=None)
+    rated = _pitch_row(db, ticker="AAA")
+    assert expire_stale_pitches(db, [], expired_at=T1) == 1
+    rows = {p["id"]: p for p in load_pitches(db)}
+    assert rows[unrated]["status"] == "expired"
+    assert rows[rated]["status"] == "open"
 
 
 def test_decide_pitch_transitions_only_from_open(tmp_path):

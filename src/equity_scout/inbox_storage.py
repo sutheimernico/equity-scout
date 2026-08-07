@@ -100,27 +100,35 @@ def decide_pitch(db_path: str, pitch_id: int, action: str, *, decided_at: str) -
         return cursor.rowcount == 1
 
 
-def expire_offlist_pitches(db_path: str, active_tickers: list[str], *, expired_at: str) -> int:
-    """Expire open pitches whose ticker is no longer on the current watchlist.
+def expire_stale_pitches(db_path: str, active_tickers: list[str], *, expired_at: str) -> int:
+    """Expire open pitches the system no longer stands behind. Two stale cases:
 
-    The system withdraws its own stale offer — this is NOT a decision on Nico's behalf
-    (that would be "pass"); the funnel simply no longer watches the name, so the pitch's
-    basis is gone (Nico 2026-08-06: "nichts Veraltetes"). Returns the number expired.
+    1. The ticker left the current watchlist — the funnel no longer watches the name,
+       so the pitch's basis is gone (Nico 2026-08-06: "nichts Veraltetes").
+    2. The pitch predates the v8 verdict column (verdict IS NULL) — every pitch since
+       carries a rating, and an unrated offer is not decidable (Nico 2026-08-07: "beim
+       Entscheiden soll mir nix angezeigt werden, was keine Bewertung hat").
 
-    An EMPTY ticker list is a no-op by design: a broken radar run must never wipe the
-    whole inbox in one sweep.
+    Withdrawing is NOT a decision on Nico's behalf (that would be "pass"). Returns the
+    number expired. An EMPTY ticker list skips case 1 by design — a broken radar run
+    must never wipe the whole inbox in one sweep — while case 2 stays independent of it.
     """
-    if not active_tickers:
-        return 0
     init_inbox_db(db_path)
-    placeholders = ",".join("?" for _ in active_tickers)
+    expired = 0
     with sqlite3.connect(db_path) as conn:
-        cursor = conn.execute(
-            f"UPDATE pitches SET status = 'expired', decided_at = ?"
-            f" WHERE status = 'open' AND ticker NOT IN ({placeholders})",
-            (expired_at, *active_tickers),
-        )
-        return cursor.rowcount
+        if active_tickers:
+            placeholders = ",".join("?" for _ in active_tickers)
+            expired += conn.execute(
+                f"UPDATE pitches SET status = 'expired', decided_at = ?"
+                f" WHERE status = 'open' AND ticker NOT IN ({placeholders})",
+                (expired_at, *active_tickers),
+            ).rowcount
+        expired += conn.execute(
+            "UPDATE pitches SET status = 'expired', decided_at = ?"
+            " WHERE status = 'open' AND verdict IS NULL",
+            (expired_at,),
+        ).rowcount
+    return expired
 
 
 def set_message_id(db_path: str, pitch_id: int, message_id: int) -> None:
