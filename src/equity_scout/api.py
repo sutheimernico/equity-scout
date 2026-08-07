@@ -740,14 +740,21 @@ def create_app(
         return JSONResponse({"watchlist": watchlist, "disclaimer": DISCLAIMER})
 
     @app.get("/api/briefs")
-    def briefs(limit: int = 12) -> JSONResponse:
+    def briefs(limit: int = 12, ticker: str | None = None) -> JSONResponse:
         # Bundles the four things the phone card needs per row — what the company does
         # (sector/industry), whether the price is a good entry (zone verdict), the
         # analyst-consensus upside, KGV — so the frontend does not fan out over
         # /api/radar + /api/entry/{t} + a fundamentals call per row itself.
+        # `ticker` narrows to one watchlist stock: the profile view deep-links straight
+        # to a single card and must not pay (or wait for) the whole top-N fan-out.
         limit = max(1, min(limit, 20))
         watchlist = load_latest_watchlist(db_path)
-        top = rank_entries((watchlist or {}).get("entries", []))[:limit]
+        entries = (watchlist or {}).get("entries", [])
+        if ticker:
+            t = ticker.strip().upper()
+            top = [e for e in entries if e["ticker"] == t]
+        else:
+            top = rank_entries(entries)[:limit]
 
         def _fetch(ticker: str):
             try:
@@ -771,12 +778,28 @@ def create_app(
         insights = load_insights(db_path)
         series = load_price_series(db_path)
 
+        # Scout-Ziel per card, same provenance rules as /api/entry (champion barrier when
+        # one exists, else the conservative heuristic). Computed from the nightly-cached
+        # series, so it adds zero network calls; stocks outside the insights top-N have
+        # no cached series and honestly keep null.
+        import equity_scout.entry as entry_mod
+
+        champ = entry_champion(db_path, family="entry_tb")
+        barrier_config = champ[2].get("barrier_config") if champ is not None else None
+
+        def _target_stop(t: str) -> dict | None:
+            cached = series.get(t)
+            if not cached:
+                return None
+            return entry_mod.resolve_target_stop(cached["closes"], barrier_config)
+
         return JSONResponse({
             "briefs": [
                 build_brief(
                     e, f,
                     insight=insights.get(e["ticker"]),
                     chart=series.get(e["ticker"]),
+                    target_stop=_target_stop(e["ticker"]),
                 )
                 for e, f in zip(top, fetched)
             ],
@@ -803,7 +826,9 @@ def create_app(
                         screener = {
                             "bucket": bucket,
                             "composite": pick_dict.get("composite"),
-                            "factors": pick_dict.get("factors"),
+                            # The Pick field is named `breakdown`; the old `factors` read
+                            # returned None on every request since v6 P6.
+                            "breakdown": pick_dict.get("breakdown"),
                             "run_created_at": run.created_at,
                         }
                         break

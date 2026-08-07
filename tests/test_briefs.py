@@ -439,6 +439,77 @@ def test_briefs_endpoint_serves_a_null_insight_for_an_ungenerated_stock(tmp_path
     assert payload[0]["chart"] is None
 
 
+# --- bucket + scout target (cockpit rebuild, 2026-08-07) --------------------------
+
+def test_build_brief_carries_bucket_and_target_stop():
+    brief = build_brief(
+        _entry(), None,
+        target_stop={"target": 141.2, "stop": 99.0, "sigma": 0.02,
+                     "horizon_days": 20, "source": "heuristic_v1"},
+    )
+    assert brief["bucket"] == "balanced"
+    assert brief["model_target"] == 141.2
+    assert brief["model_stop"] == 99.0
+    assert brief["target_source"] == "heuristic_v1"
+
+
+def test_build_brief_without_target_stop_keeps_honest_nulls():
+    brief = build_brief(_entry(), None)
+    assert brief["model_target"] is None
+    assert brief["model_stop"] is None
+    assert brief["target_source"] is None
+
+
+def test_briefs_endpoint_computes_scout_target_from_cached_series(tmp_path, monkeypatch):
+    """The Scout-Ziel comes from the nightly-cached close series (no live fetch): with
+    no entry_tb champion registered the provenance must say heuristic_v1."""
+    import equity_scout.api as api_mod
+    from equity_scout.insights_storage import save_price_series
+
+    db = tmp_path / "briefs-target.db"
+    save_watchlist(str(db), Watchlist(
+        created_at="2026-08-07T09:00:00",
+        entries=[_watchlist_entry(ticker="MU", name="Micron Technology")],
+    ))
+    # 60 mildly varying closes: enough history for the heuristic's 20-day vol window.
+    closes = [100.0 + (i % 7) * 0.9 + i * 0.1 for i in range(60)]
+    save_price_series(
+        str(db), ticker="MU", as_of="2026-08-07T18:00:00+00:00",
+        first_date="2026-05-01", last_date="2026-08-06", closes=closes,
+    )
+    monkeypatch.setattr(
+        api_mod, "fetch_fundamentals_cached",
+        lambda ticker: Fundamentals(None, None, None, None),
+    )
+
+    client = TestClient(api_mod.create_app(str(db)))
+    brief = client.get("/api/briefs").json()["briefs"][0]
+    assert brief["target_source"] == "heuristic_v1"
+    assert brief["model_target"] > closes[-1] > brief["model_stop"]
+    assert brief["bucket"] == "balanced"
+
+
+def test_briefs_endpoint_single_ticker_param(tmp_path, monkeypatch):
+    """?ticker= narrows to one card (profile deep link) — and an off-watchlist ticker
+    yields an empty list, not an error."""
+    import equity_scout.api as api_mod
+
+    db = tmp_path / "briefs-one.db"
+    save_watchlist(str(db), Watchlist(
+        created_at="2026-08-07T09:00:00",
+        entries=[_watchlist_entry(ticker="MU"), _watchlist_entry(ticker="ASML")],
+    ))
+    monkeypatch.setattr(
+        api_mod, "fetch_fundamentals_cached",
+        lambda ticker: Fundamentals(None, None, None, None),
+    )
+
+    client = TestClient(api_mod.create_app(str(db)))
+    briefs = client.get("/api/briefs?ticker=mu").json()["briefs"]
+    assert [b["ticker"] for b in briefs] == ["MU"]
+    assert client.get("/api/briefs?ticker=ZZZ").json()["briefs"] == []
+
+
 # --- entry_note: value vs. timing (2026-08-06) ------------------------------------
 
 def test_zone_verdict_above_the_zone_no_longer_claims_the_stock_is_expensive():

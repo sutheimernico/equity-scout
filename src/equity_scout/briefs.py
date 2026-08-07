@@ -159,6 +159,7 @@ def build_brief(
     *,
     insight: dict | None = None,
     chart: dict | None = None,
+    target_stop: dict | None = None,
 ) -> dict:
     """Assemble one phone-card row from a watchlist entry plus optional fundamentals.
     A missing/failed fundamentals lookup degrades every fundamentals-derived field to
@@ -169,11 +170,10 @@ def build_brief(
     generator's top-N, renders an honest "noch nicht erzeugt" rather than blocking the
     card on a 5-second LLM call.
 
-    `model_target`/`model_stop` are always null here: the entry_tb champion barrier
-    computation (`entry.compute_target_stop`) needs its own price-history fetch per
-    ticker (see `/api/entry/{ticker}`), which this endpoint deliberately does not add
-    on top of the fundamentals fan-out — and no `entry_tb` champion is registered yet
-    anyway, so today it would be an honest None regardless.
+    `target_stop` is a `entry.resolve_target_stop` result (target/stop/source) the caller
+    computes from the nightly-cached close series — no per-ticker price fetch in here.
+    None (stock outside the insights top-N, or history too short for the 20-day window)
+    keeps all three model fields an honest null.
     """
     price = entry["price"]
     score = round(entry["composite"] * 100)
@@ -185,6 +185,9 @@ def build_brief(
     return {
         "ticker": entry["ticker"],
         "name": entry["name"],
+        # The factor bucket doubles as the card's risk profile (defensiv/ausgewogen/
+        # aggressiv) — same value FunnelView filters on, so the chips can never disagree.
+        "bucket": entry.get("bucket"),
         "sector": fundamentals.sector if fundamentals else None,
         "industry": fundamentals.industry if fundamentals else None,
         "currency": fundamentals.currency if fundamentals else None,
@@ -206,8 +209,9 @@ def build_brief(
         "analyst_count": fundamentals.analyst_count if fundamentals else None,
         "analyst_upside_pct": upside,
         "trailing_pe": fundamentals.trailing_pe if fundamentals else None,
-        "model_target": None,
-        "model_stop": None,
+        "model_target": target_stop["target"] if target_stop else None,
+        "model_stop": target_stop["stop"] if target_stop else None,
+        "target_source": target_stop["source"] if target_stop else None,
         # Pre-generated, never computed here: see the docstring.
         "insight": insight,
         "chart": chart,

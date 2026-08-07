@@ -570,6 +570,22 @@ def test_signal_stack_returns_honest_nulls_on_empty_db(tmp_path):
     assert client.get("/api/stack/bad ticker!").status_code == 422
 
 
+def test_signal_stack_serves_the_picks_breakdown(tmp_path):
+    """Regression: the screener block read `factors`, a field that never existed on
+    Pick — every response carried None where the factor percentiles belonged."""
+    db = tmp_path / "stack-breakdown.db"
+    init_db(db)
+    inst = Instrument("AAPL", "Apple", "NASDAQ", "US", "USD", "Tech")
+    breakdown = {"value": 0.6, "quality": 0.7, "momentum": 0.5, "growth": 0.5}
+    pick = Pick(inst, "balanced", 1, 0.7, breakdown, thesis="ok")
+    save_run(db, RunResult("2026-08-07T10:00:00", 10, {}, {"balanced": [pick]}))
+
+    client = TestClient(create_app(str(db)))
+    screener = client.get("/api/stack/AAPL").json()["screener"]
+    assert screener["breakdown"] == breakdown
+    assert screener["bucket"] == "balanced"
+
+
 def test_radar_joins_latest_ml_score(tmp_path):
     from equity_scout.ml.prediction_ledger import log_predictions
     from equity_scout.radar import Watchlist, WatchlistEntry
