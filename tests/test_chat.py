@@ -65,3 +65,16 @@ def test_system_prompt_forbids_guessing_and_advice() -> None:
 def test_glossary_defines_the_house_terms() -> None:
     for term in ("Einstiegszone", "Einstiegs-Score", "Potenzial", "Signal-Filter"):
         assert term in GLOSSARY, term
+
+
+def test_glossary_explains_the_key_figures_and_filings() -> None:
+    for term in ("KGV", "Eigenkapitalrendite", "Nettomarge", "13F", "Form 4",
+                 "Meldeverzug", "F-Score", "52-Wochen-Hoch", "Perzentil"):
+        assert term in GLOSSARY, term
+    # Jede Kennzahl kommt mit ihrer Grenze — sonst liest das Modell sie als Kaufgrund.
+    assert "kein Kaufgrund" in GLOSSARY
+
+
+def test_system_prompt_rules_comparisons_without_a_winner() -> None:
+    assert "Kennzahl für Kennzahl" in SYSTEM_PROMPT
+    assert "Sieger" in SYSTEM_PROMPT
