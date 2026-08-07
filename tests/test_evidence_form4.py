@@ -133,6 +133,28 @@ def _fake_urls(*, filing_date: str = "2026-07-01", xml: str | None = None) -> di
     }
 
 
+def test_collect_form4_strips_the_xsl_stylesheet_prefix():
+    """Regression: since 2026-08 the SEC's submissions API emits primaryDocument as
+    "xslF345X06/primarydocument.xml" — that path serves the HTML rendering, and the
+    collector failed on EVERY US ticker with "SEC lieferte kein XML". The raw XML
+    lives at the accession root, without the stylesheet prefix."""
+    urls = _fake_urls()
+    submissions = _submissions()
+    submissions["filings"]["recent"]["primaryDocument"][1] = "xslF345X06/primary_doc.xml"
+    urls["https://data.sec.gov/submissions/CIK0000320193.json"] = json.dumps(submissions)
+    # Note: only the UNPREFIXED archive URL exists in the fake transport — requesting
+    # the xsl path would KeyError and the run would degrade.
+    result = collect_form4(
+        now=NOW,
+        env={"EDGAR_USER_AGENT": "test (test@example.com)"},
+        watchlist_tickers=["AAPL"],
+        http_get=lambda url: urls[url],
+    )
+    assert result.status == STATUS_OK
+    assert len(result.events) == 1
+    assert result.events[0].ticker == "AAPL"
+
+
 def test_collect_form4_end_to_end_with_fake_transport():
     urls = _fake_urls()
     result = collect_form4(

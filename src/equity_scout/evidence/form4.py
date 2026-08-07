@@ -78,6 +78,13 @@ def _http_get_with_agent(user_agent: str) -> Callable[[str], str]:
 
 
 def _archive_url(cik: str, accession: str, filename: str) -> str:
+    # The submissions API's primaryDocument may carry an XSL-stylesheet route prefix
+    # ("xslF345X06/primarydocument.xml") — that path serves the human-readable HTML
+    # rendering, not the filing XML. Stripping the prefix yields the raw XML at the
+    # accession root. This broke EVERY US ticker for days ("SEC lieferte kein XML")
+    # once the SEC started emitting the prefixed form, 2026-08.
+    if filename.startswith("xsl") and "/" in filename:
+        filename = filename.split("/", 1)[1]
     return (
         _ARCHIVE_BASE.format(cik_int=int(cik), accession_nodash=accession.replace("-", ""))
         + f"/{filename}"
