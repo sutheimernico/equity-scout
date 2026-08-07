@@ -60,8 +60,51 @@ def _words(text: str) -> list[str]:
     return [w.strip(".-") for w in _WORD_RE.findall(text)]
 
 
+# Single words that must never resolve to a stock on their own, even when exactly one
+# company starts with them. Two sources: the curated list voices.py already uses for the
+# same problem on headlines, plus German question/finance vocabulary — this assistant is
+# asked in German ("Was ist der Kurs von …"), and the lexicon spans ~7 800 titles, so
+# ordinary words WILL collide with some company's first word. Multi-word names are never
+# blocked: "First Company" stays findable, "First" alone does not.
+_GERMAN_STOPWORDS = (
+    "was wer wie wann warum wieso wo welche welcher welches der die das den dem des ein "
+    "eine einen einem eines und oder aber auch noch nur schon nicht kein keine ist sind "
+    "war waren hat haben hatte wird werden wurde kann könnte soll sollte muss müssen mit "
+    "von vom für auf aus bei nach über unter vor zwischen seit gegen ohne durch als wenn "
+    "dass weil damit sich mein meine meinem deinen unser aktie aktien kurs kurse kaufen "
+    "verkauft verkaufen markt märkte depot geld euro dollar jahr jahre monat woche heute "
+    "gestern morgen gut gute besser beste schlecht hoch tief mehr weniger viel wenig alle "
+    "man ich du wir ihr sie es"
+)
+# English function words that survive the >=3-char rule and appear as first words in the
+# universe ("Are", "Can", "New", "One", "Two", "Big", "Top", "All", "Any", "Now").
+_ENGLISH_STOPWORDS = (
+    "the and are can new one two big top all any now for you our its his her they этот "
+    "has have was were will would could should from with into over under about more less"
+)
+
+
+def _blocked_single_words() -> frozenset[str]:
+    from equity_scout.evidence.voices import _GENERIC_FIRST_WORDS
+
+    return frozenset(
+        {w.lower() for w in _GENERIC_FIRST_WORDS}
+        | set(_GERMAN_STOPWORDS.split())
+        | set(_ENGLISH_STOPWORDS.split())
+    )
+
+
+_BLOCKED_SINGLE_WORDS = _blocked_single_words()
+
+# Purely alphabetic symbols only ever match in their own spelling. Length is no defence:
+# across 6 197 screened titles German words keep landing on real tickers ("sagt" -> SAGT,
+# "mehr" -> MEHR), and a stopword list would need endless upkeep to stay ahead of them.
+# Punctuated or digit-bearing symbols ("ITC.NS", "PETR4.SA", "9064.T") cannot be read as
+# words, so those stay case-insensitive for phone typing.
+
+
 def build_lookup(lexicon: dict[str, str]) -> dict[str, str]:
-    """key (lowercased symbol or name prefix) -> ticker.
+    """key -> ticker. Name keys are lowercased; short symbol keys keep their spelling.
 
     Built from the question side, not scanned name by name: with ~7 800 screened titles a
     per-name regex sweep would run 15 000 searches per question. Indexing name PREFIXES
@@ -73,11 +116,19 @@ def build_lookup(lexicon: dict[str, str]) -> dict[str, str]:
         # Single-letter tickers (V, F, T) are ordinary words in a German sentence — they
         # only ever resolve through their company name.
         if len(ticker) > 1:
-            lookup.setdefault(ticker.lower(), ticker)
-        parts = _words(short_company_name(name or ""))[:_MAX_NAME_WORDS]
-        for span in range(1, len(parts) + 1):
-            key = " ".join(parts[:span]).lower()
-            if len(key) >= 3:
+            symbol_key = ticker if ticker.isalpha() else ticker.lower()
+            lookup.setdefault(symbol_key, ticker)
+        # Both spellings are indexed: the full name ("first company") and the one with the
+        # legal-form tail removed ("yamato"), so either phrasing in a question resolves.
+        full = _words(name or "")[:_MAX_NAME_WORDS]
+        short = _words(short_company_name(name or ""))[:_MAX_NAME_WORDS]
+        for parts in (full, short):
+            for span in range(1, len(parts) + 1):
+                key = " ".join(parts[:span]).lower()
+                if len(key) < 3:
+                    continue
+                if span == 1 and key in _BLOCKED_SINGLE_WORDS:
+                    continue
                 lookup.setdefault(key, ticker)
     return lookup
 
@@ -95,8 +146,10 @@ def find_tickers(
     while position < len(words):
         # Longest match wins: "Alpha Beta Systems" must not resolve to "Alpha".
         for span in range(min(_MAX_NAME_WORDS, len(words) - position), 0, -1):
-            key = " ".join(words[position : position + span]).lower()
-            ticker = index.get(key)
+            key = " ".join(words[position : position + span])
+            # Exact spelling first (that is how short symbols like "ON" are indexed),
+            # then the lowercased key for names and unambiguous symbols.
+            ticker = index.get(key) or index.get(key.lower())
             if ticker is not None:
                 if ticker not in hits:
                     hits.append(ticker)

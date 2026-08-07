@@ -125,6 +125,24 @@ def load_run_scores(
     ]
 
 
+def load_company_names(db_path: str | Path) -> dict[str, str]:
+    """ticker -> company name over ALL runs, newest run wins.
+
+    The chat assistant's lexicon: questions are asked about any screened title, not just
+    the ~30 currently on the watchlist, so this spans every run ever persisted (7 runs /
+    12 217 rows as of 2026-08-07 -> ~7 800 distinct titles). A dropped title keeps its
+    name here on purpose — "was ist aus X geworden?" is a legitimate question.
+    """
+    with sqlite3.connect(db_path) as con:
+        try:
+            rows = con.execute(
+                "SELECT ticker, name FROM run_scores ORDER BY run_id ASC"
+            ).fetchall()
+        except sqlite3.OperationalError:  # pre-feature DB without the table
+            return {}
+    return {str(ticker): str(name) for ticker, name in rows if ticker and name}
+
+
 def latest_run_id(db_path: str | Path) -> int | None:
     with sqlite3.connect(db_path) as con:
         row = con.execute("SELECT id FROM runs ORDER BY id DESC LIMIT 1").fetchone()

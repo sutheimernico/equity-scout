@@ -77,3 +77,33 @@ def test_suffix_strip_only_eats_whole_words():
     assert short_company_name("Visa Inc.") == "Visa"
     assert short_company_name("Cisco Systems, Inc.") == "Cisco Systems"
     assert short_company_name("Yamato Holdings Co., Ltd.") == "Yamato"
+
+
+def test_lexicon_matching_ignores_generic_single_words():
+    lex = {"FSTR": "First Company", "GLBL": "Global Group", "MU": "Micron Technology"}
+    # "First"/"Global" allein sind Alltagswörter — sie dürfen keine Aktie treffen.
+    assert find_tickers("Was ist global gerade wichtig?", lex) == []
+    # Der VOLLE Name bleibt trotzdem auffindbar.
+    assert find_tickers("Erste Frage zuerst: First Company?", lex) == ["FSTR"]
+    assert find_tickers("Wie steht Micron?", lex) == ["MU"]
+
+
+def test_symbol_match_requires_the_symbol_spelling():
+    lex = {"ON": "ON Semiconductor", "ALL": "Allstate"}
+    # "on"/"all" in Kleinschreibung sind Sprache, keine Ticker.
+    assert find_tickers("Was ist on all das?", lex) == []
+    assert find_tickers("Was macht ON gerade?", lex) == ["ON"]
+    # Auch lange Buchstaben-Ticker treffen deutsche Wörter (SAGT, MEHR) — Kleinschreibung
+    # zählt deshalb nie als Symbol-Nennung; der Firmenname bleibt der bequeme Weg.
+    assert find_tickers("wie steht nvda?", {"NVDA": "NVIDIA"}) == []
+    assert find_tickers("wie steht NVDA?", {"NVDA": "NVIDIA"}) == ["NVDA"]
+    assert find_tickers("wie steht nvidia?", {"NVDA": "NVIDIA"}) == ["NVDA"]
+    # Punktierte Symbole kann man nicht als Wort lesen — die dürfen klein bleiben.
+    assert find_tickers("was macht itc.ns?", {"ITC.NS": "ITC"}) == ["ITC.NS"]
+
+
+def test_german_question_words_never_resolve_to_a_stock():
+    lex = {"WAS": "Wasion", "KURS": "Kurs Corp", "SAGT": "Sagtec Global", "MU": "Micron"}
+    assert find_tickers("Was ist der Kurs von Micron?", lex) == ["MU"]
+    # Live gegen das echte 6 197-Titel-Lexikon gefunden: "was sagt die Marktlage" ergab SAGT.
+    assert find_tickers("Wie laufen die Depots und was sagt die Marktlage?", lex) == []

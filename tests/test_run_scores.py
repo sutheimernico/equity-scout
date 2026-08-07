@@ -52,3 +52,35 @@ def test_load_run_scores_empty_for_unknown_run(tmp_path):
     db = tmp_path / "runs.db"
     init_db(db)
     assert load_run_scores(db, 999) == []
+
+
+def test_load_company_names_spans_all_runs_and_prefers_the_newest(tmp_path):
+    from equity_scout.models import RunResult
+    from equity_scout.storage import load_company_names
+
+    db = tmp_path / "names.db"
+    init_db(db)
+
+    def _named(ticker: str, name: str) -> Pick:
+        inst = Instrument(ticker=ticker, name=name, exchange="X", region="US",
+                          currency="USD", sector="Technology")
+        return Pick(instrument=inst, bucket="balanced", rank=1, composite=0.5,
+                    breakdown={"value": 0.5})
+
+    old = save_run(db, RunResult(created_at="2026-06-01T00:00:00+00:00",
+                                 universe_size=2, gated_out={}))
+    save_run_scores(db, old, {"balanced": [_named("MU", "Micron Technology"),
+                                           _named("DROP", "Dropped Corp")]})
+    new = save_run(db, RunResult(created_at="2026-07-01T00:00:00+00:00",
+                                 universe_size=1, gated_out={}))
+    save_run_scores(db, new, {"balanced": [_named("MU", "Micron Technology Inc")]})
+
+    names = load_company_names(db)
+    assert names["MU"] == "Micron Technology Inc"   # jüngster Lauf gewinnt
+    assert names["DROP"] == "Dropped Corp"          # gefallene Titel bleiben fragbar
+
+
+def test_load_company_names_is_empty_on_a_pre_feature_db(tmp_path):
+    from equity_scout.storage import load_company_names
+
+    assert load_company_names(tmp_path / "empty.db") == {}
