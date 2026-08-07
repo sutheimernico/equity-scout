@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import io
 import zipfile
+import zlib
 
 import pytest
 
+from equity_scout.evidence import backfill_form4
 from equity_scout.evidence.aggregate import MIN_INSIDERS
 from equity_scout.evidence.backfill_form4 import (
     HISTORY_FORM4_CURSOR_KEY,
@@ -18,6 +20,7 @@ from equity_scout.evidence.backfill_form4 import (
     QUARTER_URL_NEW_PATH,
     backfill_form4_quarter,
     cluster_events,
+    count_boundary_candidates,
     next_quarter,
     next_quarter_to_backfill,
     purchases_from_quarter_zip,
@@ -128,6 +131,7 @@ def _counts(**overrides) -> dict:
     base = {
         "rows": 0, "kept": 0, "not_purchase": 0, "no_submission": 0, "not_form4": 0,
         "no_symbol": 0, "no_owner": 0, "bad_date": 0, "discarded_pit": 0,
+        "bad_shares": 0,  # OVERLAY on kept, deliberately outside the partition sum
     }
     base.update(overrides)
     return base
@@ -199,7 +203,7 @@ def test_unusable_issuer_symbols_are_counted_never_guessed() -> None:
     class would be a guess, so it is a counted gap (260 rows of 2024q1), same philosophy
     as form4.py's unmapped tickers.
     """
-    dirty = ["[ NONE ]", "N/A", "none", "NYSE:NYCB", "GEF,GEF.B", "BBXIA/B", "-", ""]
+    dirty = ["[ NONE ]", "N/A", "none", "NYSE:NYCB", "GEF,GEF.B", "BBXIA/B", "-", "", ".OB"]
     submissions = [
         _submission(f"acc-{i}", ISSUERTRADINGSYMBOL=symbol) for i, symbol in enumerate(dirty)
     ]
@@ -274,7 +278,10 @@ def test_row_counter_is_a_complete_partition() -> None:
 
     assert len(purchases) == counts["kept"] == 1
     assert counts["rows"] == 8
-    assert counts["rows"] == sum(value for key, value in counts.items() if key != "rows")
+    partition = {
+        key: value for key, value in counts.items() if key not in ("rows", "bad_shares")
+    }
+    assert counts["rows"] == sum(partition.values())
 
 
 def test_joint_filing_uses_only_the_first_reporting_owner() -> None:
@@ -365,13 +372,16 @@ def test_three_distinct_insiders_inside_the_window_become_one_cluster_event() ->
     assert event.ticker == "FMBH"
     # T0 is the LAST filing of the cluster — only then were all three buys knowable.
     assert event.t0 == "2024-02-12"
-    assert event.event_key == "FMBH-2024-02-12-cluster3"
+    assert event.event_key == "FMBH-2024-02-12-2024-02-01-cluster3"
     assert event.details["insiders"] == ["Alpha A", "Beta B", "Gamma C"]
     assert event.details["n_insiders"] == 3
     assert event.details["n_purchases"] == 3
     assert event.details["first_transaction_date"] == "2024-02-01"
     assert event.details["last_transaction_date"] == "2024-02-08"
     assert event.details["value_band"] == "<$100k"  # 3 x 1000 x 25.0 = 75k
+    # Filing lag in TRADING days: 01->02 Feb = 1, 05->07 Feb = 2, 08->12 Feb = 2.
+    assert event.details["median_filing_lag_days"] == 2.0
+    assert event.details["max_filing_lag_days"] == 2
 
 
 def test_two_insiders_are_not_a_cluster() -> None:
@@ -425,7 +435,7 @@ def test_separate_windows_on_one_ticker_yield_separate_non_overlapping_clusters(
 
     assert [e.t0 for e in events] == ["2024-02-06", "2024-04-04"]
     assert [e.event_key for e in events] == [
-        "FMBH-2024-02-06-cluster3", "FMBH-2024-04-04-cluster3"
+        "FMBH-2024-02-06-2024-02-01-cluster3", "FMBH-2024-04-04-2024-04-01-cluster3"
     ]
 
 
@@ -595,9 +605,12 @@ def test_non_zip_payload_is_a_parse_failure_not_a_crash(tmp_path) -> None:
     assert get_state(db_path, key=HISTORY_FORM4_CURSOR_KEY) is None
 
 
-def test_colliding_event_keys_within_one_quarter_are_counted(tmp_path) -> None:
-    """Two disjoint clusters of the same size whose last filing lands on the same day
-    collide on the plan-mandated event_key — INSERT OR IGNORE would drop one silently."""
+def test_batch_late_filings_do_not_collide_on_event_key(tmp_path) -> None:
+    """Regression: two disjoint clusters on one ticker, both filed in the same batch.
+
+    Without `first_transaction_date` in the key both would be "FMBH-2024-03-20-cluster3"
+    and INSERT OR IGNORE would silently drop one (8 of 339 clusters lost on real 2006q1).
+    """
     db_path = str(tmp_path / "scout.db")
     zip_bytes = _purchases_zip([
         ("a1", "Alpha A", "01-FEB-2024", "20-MAR-2024"),
@@ -613,8 +626,8 @@ def test_colliding_event_keys_within_one_quarter_are_counted(tmp_path) -> None:
     )
 
     assert counts["clusters"] == 2
-    assert counts["duplicate_key"] == 1
-    assert counts["events_new"] == 1
+    assert counts["duplicate_key"] == 0
+    assert counts["events_new"] == 2  # both survive; neither is swallowed by the other
 
 
 def test_invalid_quarter_string_is_rejected(tmp_path) -> None:
@@ -653,3 +666,312 @@ def test_cursor_stops_at_the_last_fully_elapsed_quarter(tmp_path) -> None:
 
     set_state(db_path, key=HISTORY_FORM4_CURSOR_KEY, value="2026q2")
     assert next_quarter_to_backfill(db_path, now=NOW) is None
+
+
+def test_first_quarter_of_a_year_resumes_into_the_prior_years_q4() -> None:
+    """January..March: the last FULLY elapsed quarter is the previous year's q4."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        db_path = f"{tmp}/scout.db"
+        set_state(db_path, key=HISTORY_FORM4_CURSOR_KEY, value="2025q3")
+        assert next_quarter_to_backfill(db_path, now="2026-01-15T09:00:00+00:00") == "2025q4"
+
+        set_state(db_path, key=HISTORY_FORM4_CURSOR_KEY, value="2025q4")
+        assert next_quarter_to_backfill(db_path, now="2026-01-15T09:00:00+00:00") is None
+        # ...but by April 2026q1 has elapsed and the run continues.
+        assert next_quarter_to_backfill(db_path, now="2026-04-01T09:00:00+00:00") == "2026q1"
+
+
+# --- hardening: reader contract, corruption, schema drift -----------------------------
+
+
+def test_otc_quotation_suffixes_are_stripped_to_the_ticker_root() -> None:
+    """`.OB`/`.PK` are venue tags, not share classes — dropping them would gut the
+    OTC-heavy early years (19 of 339 clusters on real 2006q1)."""
+    submissions = [
+        _submission("acc-1", ISSUERTRADINGSYMBOL="ABCD.OB"),
+        _submission("acc-2", ISSUERTRADINGSYMBOL="efgh.pk"),
+    ]
+    owners = [_owner("acc-1", "Alpha A"), _owner("acc-2", "Beta B")]
+    transactions = [_trans("acc-1"), _trans("acc-2")]
+    purchases, counts = purchases_from_quarter_zip(
+        _quarter_zip(submissions, owners, transactions)
+    )
+
+    assert counts == _counts(rows=2, kept=2)
+    assert sorted(p.ticker for p in purchases) == ["ABCD", "EFGH"]
+
+
+def test_unbalanced_quote_does_not_swallow_the_rest_of_the_member() -> None:
+    """These are tab-separated dumps, not CSV: with default quoting a single leading `"`
+    in a name makes the reader eat every following row as one field."""
+    submissions = [_submission("acc-1"), _submission("acc-2")]
+    owners = [_owner("acc-1", '"Big Fund LP'), _owner("acc-2", "Beta B")]
+    transactions = [_trans("acc-1"), _trans("acc-2")]
+    purchases, counts = purchases_from_quarter_zip(
+        _quarter_zip(submissions, owners, transactions)
+    )
+
+    assert counts == _counts(rows=2, kept=2)
+    assert [p.insider for p in purchases] == ['"Big Fund LP', "Beta B"]
+
+
+def test_month_names_parse_without_depending_on_the_system_locale() -> None:
+    """`strptime("%b")` resolves through LC_TIME — the same ZIP would parse here and turn
+    into all-bad_date on a machine with a non-English locale."""
+    months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+              "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+    submissions = [
+        _submission(f"acc-{i}", FILING_DATE=f"15-{month}-2024", PERIOD_OF_REPORT="")
+        for i, month in enumerate(months)
+    ]
+    owners = [_owner(f"acc-{i}", f"Insider {i}") for i in range(len(months))]
+    transactions = [
+        _trans(f"acc-{i}", TRANS_DATE=f"15-{month}-2024") for i, month in enumerate(months)
+    ]
+    purchases, counts = purchases_from_quarter_zip(
+        _quarter_zip(submissions, owners, transactions)
+    )
+
+    assert counts == _counts(rows=12, kept=12)
+    assert [p.transaction_date[5:7] for p in purchases] == [
+        f"{i:02d}" for i in range(1, 13)
+    ]
+
+
+def test_unparseable_share_count_keeps_the_purchase_but_voids_its_value() -> None:
+    """The cluster rule counts PEOPLE, not dollars: a garbled size must not delete a real
+    insider from a cluster, but it must never be read as a $0 priced buy either."""
+    submissions = [_submission("acc-1"), _submission("acc-2")]
+    owners = [_owner("acc-1", "Alpha A"), _owner("acc-2", "Beta B")]
+    transactions = [
+        _trans("acc-1", TRANS_SHARES="1,000"),  # thousands separator
+        _trans("acc-2", TRANS_SHARES="abc"),
+    ]
+    purchases, counts = purchases_from_quarter_zip(
+        _quarter_zip(submissions, owners, transactions)
+    )
+
+    assert counts == _counts(rows=2, kept=2, bad_shares=2)
+    assert [p.shares for p in purchases] == [None, None]
+    assert [p.value for p in purchases] == [None, None]
+    # `bad_shares` is an overlay, NOT a partition bucket — it must not break the identity.
+    partition = {
+        key: value for key, value in counts.items() if key not in ("rows", "bad_shares")
+    }
+    assert counts["rows"] == sum(partition.values())
+
+
+def test_partially_priced_cluster_reports_no_total_and_an_unknown_band() -> None:
+    """A partial sum must never masquerade as the cluster total."""
+    submissions = [
+        _submission(acc, FILING_DATE=filed)
+        for acc, filed in (("a1", "02-FEB-2024"), ("a2", "05-FEB-2024"), ("a3", "06-FEB-2024"))
+    ]
+    owners = [_owner("a1", "Alpha A"), _owner("a2", "Beta B"), _owner("a3", "Gamma C")]
+    transactions = [
+        _trans("a1", TRANS_DATE="01-FEB-2024"),
+        _trans("a2", TRANS_DATE="01-FEB-2024"),
+        _trans("a3", TRANS_DATE="01-FEB-2024", TRANS_PRICEPERSHARE=""),  # unpriced
+    ]
+    purchases, _ = purchases_from_quarter_zip(
+        _quarter_zip(submissions, owners, transactions)
+    )
+
+    event = cluster_events(purchases)[0]
+
+    assert event.details["n_purchases"] == 3
+    assert event.details["priced_purchases"] == 2
+    assert event.details["total_value"] is None
+    assert event.details["value_band"] == "unbekannt"
+
+
+def test_filing_lag_is_recorded_per_cluster_without_any_cutoff() -> None:
+    """Lag is a study DIMENSION (Task 6 conditions on it), never a filter — a cluster
+    disclosed 8 months late is still recorded, just flagged as slow."""
+    purchases = _purchases([
+        ("a1", "Alpha A", "01-FEB-2024", "02-FEB-2024"),   # 1 trading day
+        ("a2", "Beta B", "01-FEB-2024", "08-FEB-2024"),    # 5 trading days
+        ("a3", "Gamma C", "01-FEB-2024", "01-OCT-2024"),   # ~173 trading days
+    ])
+
+    event = cluster_events(purchases)[0]
+
+    assert event.details["median_filing_lag_days"] == 5.0
+    assert event.details["max_filing_lag_days"] == 173
+    assert event.t0 == "2024-10-01"  # the slow filing still sets T0
+
+
+def test_boundary_candidates_counts_tickers_one_insider_short_at_the_file_edge() -> None:
+    """The quarter-boundary ceiling as a number: 2 insiders in the trailing window is a
+    cluster that a cross-file stitch could still promote (MIN_INSIDERS == 3)."""
+    edge = _purchases([
+        ("a1", "Alpha A", "20-MAR-2024", "21-MAR-2024"),
+        ("a2", "Beta B", "22-MAR-2024", "25-MAR-2024"),
+    ])
+    already_clustered = _purchases([
+        ("b1", "Delta D", "20-MAR-2024", "21-MAR-2024"),
+        ("b2", "Epsilon E", "21-MAR-2024", "22-MAR-2024"),
+        ("b3", "Zeta F", "22-MAR-2024", "25-MAR-2024"),
+    ], symbol="TOL")
+    old = _purchases([
+        ("c1", "Eta G", "05-JAN-2024", "08-JAN-2024"),
+        ("c2", "Theta H", "08-JAN-2024", "09-JAN-2024"),
+    ], symbol="AAPL")
+
+    # Only FMBH sits at exactly MIN_INSIDERS-1 in the trailing 10-trading-day edge:
+    # TOL already has 3, and AAPL's pair is months before the edge.
+    assert count_boundary_candidates(edge + already_clustered + old) == 1
+    assert count_boundary_candidates([]) == 0
+    assert MIN_INSIDERS == 3
+
+
+def _deflate_corrupt_zip() -> bytes:
+    """A structurally valid ZIP whose transaction member's DEFLATE stream is garbage —
+    what a bit-rotted multi-MB download looks like (raises zlib.error, not BadZipFile)."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("SUBMISSION.tsv", _tsv(SUBMISSION_COLUMNS, [_submission("acc-1")]))
+        archive.writestr("REPORTINGOWNER.tsv", _tsv(OWNER_COLUMNS, [_owner("acc-1", "A B")]))
+        archive.writestr(
+            "NONDERIV_TRANS.tsv",
+            _tsv(TRANS_COLUMNS, [_trans(f"acc-{i}") for i in range(200)]),
+        )
+    raw = bytearray(buffer.getvalue())
+    with zipfile.ZipFile(io.BytesIO(bytes(raw))) as probe:
+        info = probe.getinfo("NONDERIV_TRANS.tsv")
+    header = raw[info.header_offset:info.header_offset + 30]
+    start = (
+        info.header_offset + 30
+        + int.from_bytes(header[26:28], "little")
+        + int.from_bytes(header[28:30], "little")
+    )
+    raw[start:start + info.compress_size] = b"\x00" * info.compress_size
+    return bytes(raw)
+
+
+def test_deflate_corruption_becomes_a_value_error_not_a_raw_zlib_error(tmp_path) -> None:
+    zip_bytes = _deflate_corrupt_zip()
+
+    # The fixture really does exercise the zlib path (not the CRC/BadZipFile one).
+    with pytest.raises(zlib.error):
+        zipfile.ZipFile(io.BytesIO(zip_bytes)).read("NONDERIV_TRANS.tsv")
+
+    with pytest.raises(ValueError, match="unlesbar"):
+        purchases_from_quarter_zip(zip_bytes)
+
+    counts = backfill_form4_quarter(
+        str(tmp_path / "scout.db"), "2024q1", now=NOW, http_get_bytes=lambda _url: zip_bytes
+    )
+    assert counts["status"] == "parse_failed"
+    assert get_state(str(tmp_path / "scout.db"), key=HISTORY_FORM4_CURSOR_KEY) is None
+
+
+def test_truncated_stream_eof_becomes_a_value_error(monkeypatch, tmp_path) -> None:
+    """zipfile raises a bare EOFError when a DEFLATE stream stops before its end marker;
+    it must not fly out of a multi-hour backfill."""
+    def boom(_archive, _member):
+        raise EOFError("Compressed file ended before the end-of-stream marker was reached")
+        yield  # pragma: no cover — generator marker
+
+    monkeypatch.setattr(backfill_form4, "_tsv_rows", boom)
+
+    with pytest.raises(ValueError, match="unlesbar"):
+        purchases_from_quarter_zip(_simple_zip())
+
+    counts = backfill_form4_quarter(
+        str(tmp_path / "scout.db"), "2024q1", now=NOW, http_get_bytes=lambda _url: _simple_zip()
+    )
+    assert counts["status"] == "parse_failed"
+
+
+def test_renamed_join_column_fails_loudly_instead_of_reporting_zero(tmp_path) -> None:
+    """Silent drift is the dangerous failure: an ok/0-cluster run ALSO advances the
+    cursor, so the quarter would be skipped forever."""
+    columns = [
+        "ISSUER_TRADING_SYMBOL" if c == "ISSUERTRADINGSYMBOL" else c
+        for c in SUBMISSION_COLUMNS
+    ]
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("SUBMISSION.tsv", _tsv(columns, [_submission("acc-1")]))
+        archive.writestr("REPORTINGOWNER.tsv", _tsv(OWNER_COLUMNS, [_owner("acc-1", "A B")]))
+        archive.writestr("NONDERIV_TRANS.tsv", _tsv(TRANS_COLUMNS, [_trans("acc-1")]))
+    zip_bytes = buffer.getvalue()
+
+    with pytest.raises(ValueError, match="ISSUERTRADINGSYMBOL"):
+        purchases_from_quarter_zip(zip_bytes)
+
+    db_path = str(tmp_path / "scout.db")
+    counts = backfill_form4_quarter(
+        db_path, "2024q1", now=NOW, http_get_bytes=lambda _url: zip_bytes
+    )
+    assert counts["status"] == "parse_failed"
+    assert get_state(db_path, key=HISTORY_FORM4_CURSOR_KEY) is None
+
+
+def test_columns_absent_in_older_quarters_are_not_required() -> None:
+    """Real drift: 2006q1's SUBMISSION.tsv has 13 columns, 2024q1's has 14 (AFF10B5ONE).
+    Only the JOINED columns may be required."""
+    columns = [c for c in SUBMISSION_COLUMNS if c != "AFF10B5ONE"]
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("SUBMISSION.tsv", _tsv(columns, [_submission("acc-1")]))
+        archive.writestr("REPORTINGOWNER.tsv", _tsv(OWNER_COLUMNS, [_owner("acc-1", "A B")]))
+        archive.writestr("NONDERIV_TRANS.tsv", _tsv(TRANS_COLUMNS, [_trans("acc-1")]))
+
+    purchases, counts = purchases_from_quarter_zip(buffer.getvalue())
+
+    assert counts == _counts(rows=1, kept=1)
+    assert purchases[0].ticker == "FMBH"
+
+
+def test_byte_order_mark_does_not_break_the_join() -> None:
+    """With plain utf-8 a BOM fuses onto the first header name, so ACCESSION_NUMBER is
+    keyed "﻿ACCESSION_NUMBER", every join misses and the run reports a cheerful 0."""
+    bom = "﻿".encode()
+    members = {
+        "SUBMISSION.tsv": bom + _tsv(SUBMISSION_COLUMNS, [_submission("acc-1")]),
+        "REPORTINGOWNER.tsv": bom + _tsv(OWNER_COLUMNS, [_owner("acc-1", "TREACE JAMES T")]),
+        "NONDERIV_TRANS.tsv": bom + _tsv(TRANS_COLUMNS, [_trans("acc-1")]),
+    }
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, payload in members.items():
+            archive.writestr(name, payload)
+
+    purchases, counts = purchases_from_quarter_zip(buffer.getvalue())
+
+    assert counts == _counts(rows=1, kept=1)
+    assert purchases[0].ticker == "FMBH"
+    assert purchases[0].insider == "TREACE JAMES T"
+
+
+def test_empty_quarter_is_loud_and_holds_the_cursor(tmp_path) -> None:
+    """No real quarter has zero transactions — treating it as `ok` would advance the
+    cursor and skip that quarter permanently."""
+    db_path = str(tmp_path / "scout.db")
+    set_state(db_path, key=HISTORY_FORM4_CURSOR_KEY, value="2023q4")
+    zip_bytes = _quarter_zip([_submission("acc-1")], [_owner("acc-1", "A B")], [])
+
+    counts = backfill_form4_quarter(
+        db_path, "2024q1", now=NOW, http_get_bytes=lambda _url: zip_bytes
+    )
+
+    assert counts["status"] == "empty_quarter"
+    assert counts["rows"] == 0
+    assert counts["events_new"] == 0
+    assert get_state(db_path, key=HISTORY_FORM4_CURSOR_KEY) == "2023q4"
+
+
+def test_successful_run_reports_the_boundary_ceiling(tmp_path) -> None:
+    counts = backfill_form4_quarter(
+        str(tmp_path / "scout.db"), "2024q1", now=NOW,
+        http_get_bytes=lambda _url: _cluster_zip(),
+    )
+
+    assert counts["status"] == "ok"
+    assert counts["bad_shares"] == 0
+    # The cluster's own 3 insiders sit in the trailing window, so it is not a candidate.
+    assert counts["boundary_candidates"] == 0

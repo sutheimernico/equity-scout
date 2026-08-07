@@ -23,13 +23,21 @@ URL: https://www.sec.gov/files/structureddata/data/insider-transactions-data-set
 
 ZIP members (2024q1, 13.9 MB): DERIV_HOLDING.tsv, DERIV_TRANS.tsv, FOOTNOTES.tsv,
 NONDERIV_HOLDING.tsv, NONDERIV_TRANS.tsv, OWNER_SIGNATURE.tsv, REPORTINGOWNER.tsv,
-SUBMISSION.tsv, FORM_345_metadata.json, FORM_345_readme.htm.
+SUBMISSION.tsv, FORM_345_metadata.json, FORM_345_readme.htm. (2006q1, 17.3 MB, ships the
+same eight TSVs but NO metadata.json/readme.htm.)
 
 SURPRISE vs. the task's expectation: the owner name is NOT a column of NONDERIV_TRANS —
 it lives in a THIRD member, REPORTINGOWNER.tsv. The join is a 3-way join on
 ACCESSION_NUMBER, all inside the one ZIP (no extra request, no extra URL).
 
-  SUBMISSION.tsv (14 cols): ACCESSION_NUMBER, FILING_DATE, PERIOD_OF_REPORT,
+THE SCHEMA DRIFTS ACROSS YEARS: 2006q1's SUBMISSION.tsv has 13 columns, 2024q1's has 14
+(AFF10B5ONE was added later). So the reader validates only the columns actually JOINED
+(`_REQUIRED_COLUMNS`), never the full header — but it does validate them, because a
+renamed join column would otherwise yield a silent "ok, 0 clusters" run that also
+advances the cursor and skips that quarter forever.
+
+  SUBMISSION.tsv (14 cols in 2024q1; 2006q1 lacks the trailing AFF10B5ONE):
+    ACCESSION_NUMBER, FILING_DATE, PERIOD_OF_REPORT,
     DATE_OF_ORIG_SUB, NO_SECURITIES_OWNED, NOT_SUBJECT_SEC16, FORM3_HOLDINGS_REPORTED,
     FORM4_TRANS_REPORTED, DOCUMENT_TYPE, ISSUERCIK, ISSUERNAME, ISSUERTRADINGSYMBOL,
     REMARKS, AFF10B5ONE
@@ -55,7 +63,13 @@ Measured on 2024q1: 67,671 submissions (61,366 form "4", 1,122 "4/A", 3,884 "3",
 transaction rows, TRANS_CODE distribution F 27,522 / S 27,191 / A 25,674 / M 17,653 /
 P 5,954 / rest small. Of the 5,954 "P" rows, 40 carry TRANS_ACQUIRED_DISP_CD "D". The
 pipeline below keeps 5,240 purchases -> 179 clusters, and counts 411 not_form4,
-260 no_symbol, 3 real PIT violations (FILING_DATE < TRANS_DATE).
+260 no_symbol, 3 real PIT violations (FILING_DATE < TRANS_DATE), 0 bad_shares.
+
+Measured on 2006q1 (the oldest set, OTC-heavy): 171,549 transaction rows -> 12,454
+purchases -> 339 clusters; 1,827 not_form4, 609 no_symbol, 6 PIT violations, 0 bad_shares,
+45 boundary_candidates. Insider buying was ~2.4x more frequent then than in 2024q1, so the
+early years carry a large share of the study's n — which is why the OTC suffix rule and
+the collision-free event_key below are load-bearing, not cosmetic.
 
 --- Rules (each mirrors an existing repo decision) -------------------------------------
 * P + A only (`form4.py:209`): code "P" AND acquired-code "A"; everything else is a
@@ -70,14 +84,38 @@ pipeline below keeps 5,240 purchases -> 179 clusters, and counts 411 not_form4,
 * Unusable ISSUERTRADINGSYMBOL is a counted gap, never a guess: placeholders
   ("[ NONE ]", "N/A", "-"), exchange prefixes ("NYSE:NYCB") and dual-class listings
   ("GEF,GEF.B") cannot be resolved to one ticker — same honesty rule as
-  `form4.py`'s unmapped tickers.
-* `rows` is the denominator and every row lands in exactly ONE bucket; a malformed row is
-  counted and skipped, never raised out of a multi-hour run (Task-2 convention from
-  `backfill_congress.py`).
+  `form4.py`'s unmapped tickers. The ONE exception is the OTC quotation suffix
+  ".OB" (OTC Bulletin Board) / ".PK" (Pink Sheets): those name the same firm on the same
+  ticker root, they are a venue tag rather than a share class, and `form4.py` would
+  otherwise drop every dot-ticker as non-US. They are stripped (19 of 339 clusters in
+  2006q1 depend on it — the OTC-heavy early years would be gutted without it).
+* `rows` is the denominator and every row lands in exactly ONE PARTITION bucket; a
+  malformed row is counted and skipped, never raised out of a multi-hour run (Task-2
+  convention from `backfill_congress.py`). `bad_shares` is the one OVERLAY counter — such
+  a row IS still a real insider buy (identity and dates are intact, only the size is
+  garbled), so it stays a purchase with unknown size and is excluded from the partition
+  sum. `rows == 0` on a structurally valid ZIP is never "ok": it returns `empty_quarter`
+  and does NOT advance the cursor.
 
 Trading-day windows use `np.busday_count` — weekdays, holidays IGNORED, the same
 approximation `st_swing.py:55` already makes. The repo has no trading calendar, and a
 cluster window is heuristic grouping, not a P&L measurement.
+
+KNOWN CEILING — quarter boundaries: clustering runs per quarter FILE, and a file holds
+the filings FILED in that quarter. A cluster whose members' filings straddle a quarter
+boundary is therefore structurally invisible: neither file sees all of it, and no
+stitching pass exists. `boundary_candidates` counts the tickers sitting at exactly
+MIN_INSIDERS-1 distinct insiders in the file's trailing 10-trading-day edge, so Task 7 can
+publish that ceiling as a number instead of a footnote. This is an UNDERCOUNT of clusters,
+never an overcount — the study's n is a floor.
+
+KNOWN BIAS — greedy non-overlap: the sweep anchors on the earliest unconsumed purchase
+and takes the widest window from it, which systematically prefers the LOOSER cluster. If
+four insiders buy on days 1, 9, 10 and 11, the anchor at day 1 swallows days 9 and 10 into
+one 3-insider cluster and leaves day 11 orphaned — the tighter, arguably stronger trio of
+days 9/10/11 is never emitted. The alternative (anchoring on every purchase) inflates n
+5-fold with near-duplicates (902 vs 179 on 2024q1), which is the worse error for a base-
+rate study, so the bias is accepted and recorded here rather than tuned away.
 """
 from __future__ import annotations
 
@@ -85,10 +123,12 @@ import csv
 import io
 import os
 import re
+import statistics
 import zipfile
+import zlib
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
 import numpy as np
 
@@ -110,12 +150,26 @@ QUARTER_URL = f"https://www.sec.gov/files/structureddata/data/{_DATA_SET_PATH}"
 # Newest quarter only (live-verified 2026-08-07) — SEC moved the publishing path.
 QUARTER_URL_NEW_PATH = f"https://www.sec.gov/files/datastandardsinnovation/data/{_DATA_SET_PATH}"
 
+# No base.py status fits "the ZIP parsed but held nothing"; local to this collector.
+STATUS_EMPTY_QUARTER = "empty_quarter"
+
 FIRST_QUARTER = "2006q1"  # oldest set the SEC publishes
 HISTORY_FORM4_CURSOR_KEY = "history_form4_cursor"  # value = last COMPLETED quarter
 
 SUBMISSION_MEMBER = "SUBMISSION.tsv"
 OWNER_MEMBER = "REPORTINGOWNER.tsv"
 TRANS_MEMBER = "NONDERIV_TRANS.tsv"
+
+# ONLY the columns this module joins on. The full header drifts between years (2006q1's
+# SUBMISSION has 13 columns, 2024q1's has 14), so requiring the whole header would break
+# on valid data — but a RENAMED join column must fail loudly, not silently produce zero.
+_REQUIRED_COLUMNS = {
+    SUBMISSION_MEMBER: ("ACCESSION_NUMBER", "FILING_DATE", "DOCUMENT_TYPE",
+                        "ISSUERTRADINGSYMBOL"),
+    OWNER_MEMBER: ("ACCESSION_NUMBER", "RPTOWNERNAME"),
+    TRANS_MEMBER: ("ACCESSION_NUMBER", "TRANS_CODE", "TRANS_ACQUIRED_DISP_CD", "TRANS_DATE",
+                   "TRANS_SHARES", "TRANS_PRICEPERSHARE"),
+}
 
 DEFAULT_WINDOW_TRADING_DAYS = 10
 
@@ -124,6 +178,14 @@ _QUARTER_RE = re.compile(r"^(\d{4})q([1-4])$")
 # every real 2024q1 junk value (see the layout block above).
 _SYMBOL_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,9}$")
 _SYMBOL_PLACEHOLDERS = frozenset({"", "-", "--", "NONE"})
+# Venue tags, not share classes: same firm, same ticker root (see the rules block).
+_OTC_SUFFIXES = (".OB", ".PK")
+
+# Locale-independent (strptime's %b follows LC_TIME) and ~3x faster on millions of rows.
+_MONTHS = {
+    "JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6,
+    "JUL": 7, "AUG": 8, "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12,
+}
 
 _BUY_TRANSACTION_CODE = "P"
 _ACQUIRED_CODE = "A"
@@ -135,10 +197,13 @@ _VALUE_BANDS = ((100_000.0, "<$100k"), (1_000_000.0, "$100k-$1M"), (10_000_000.0
 _VALUE_BAND_TOP = ">$10M"
 _VALUE_BAND_UNKNOWN = "unbekannt"
 
+# Partition buckets: rows == sum of all of these except "rows" itself.
 _COUNT_KEYS = (
     "rows", "kept", "not_purchase", "no_submission", "not_form4", "no_symbol", "no_owner",
     "bad_date", "discarded_pit",
 )
+# Overlay counters: subsets of "kept", deliberately OUTSIDE the partition sum.
+_OVERLAY_COUNT_KEYS = ("bad_shares",)
 
 
 def _http_get_bytes_with_agent(user_agent: str) -> Callable[[str], bytes]:
@@ -160,15 +225,30 @@ def _http_get_bytes_with_agent(user_agent: str) -> Callable[[str], bytes]:
 
 
 def _iso_date(value: str) -> str | None:
-    """DD-MON-YYYY -> ISO, or None for anything the SEC ships malformed."""
+    """DD-MON-YYYY -> ISO, or None for anything the SEC ships malformed.
+
+    Explicit month map rather than `strptime("%d-%b-%Y")`: `%b` resolves through LC_TIME,
+    so the same ZIP would parse on one machine and silently fail on another with a
+    non-English locale — turning every row into `bad_date`.
+    """
+    parts = (value or "").strip().upper().split("-")
+    if len(parts) != 3:
+        return None
+    day, month, year = parts
+    if month not in _MONTHS:
+        return None
     try:
-        return datetime.strptime(value.strip(), "%d-%b-%Y").date().isoformat()
-    except (ValueError, AttributeError):
+        return date(int(year), _MONTHS[month], int(day)).isoformat()
+    except ValueError:  # impossible day ("31-FEB-2024"), non-numeric year/day
         return None
 
 
 def _clean_symbol(value: str) -> str | None:
     symbol = (value or "").strip().upper()
+    for suffix in _OTC_SUFFIXES:
+        if symbol.endswith(suffix):
+            symbol = symbol[: -len(suffix)]
+            break
     if symbol in _SYMBOL_PLACEHOLDERS or not _SYMBOL_RE.match(symbol):
         return None
     return symbol
@@ -181,8 +261,10 @@ def _float_or_none(value: str) -> float | None:
         return None
 
 
-def _value_band(total_value: float | None) -> str:
-    if total_value is None:
+def _value_band(total_value: float | None, *, complete: bool) -> str:
+    """`complete` is False when any purchase in the cluster has no usable value — a
+    partial sum must never masquerade as the cluster total."""
+    if total_value is None or not complete:
         return _VALUE_BAND_UNKNOWN
     for upper, label in _VALUE_BANDS:
         if total_value < upper:
@@ -196,7 +278,7 @@ class InsiderPurchase:
     insider: str
     transaction_date: str  # ISO, the trade day
     filing_date: str  # ISO, the day it became publicly knowable
-    shares: float
+    shares: float | None  # None when TRANS_SHARES is unparseable ("1,000", "abc")
     price: float | None  # None when the filing carries no price (27 of 5,954 P rows)
     value: float | None
     accession: str
@@ -204,12 +286,28 @@ class InsiderPurchase:
 
 def _tsv_rows(archive: zipfile.ZipFile, member: str):
     """Streaming DictReader over one ZIP member — the transaction table alone is ~12 MB
-    per quarter, so it is never materialized as a list."""
+    per quarter, so it is never materialized as a list.
+
+    `utf-8-sig` strips a BOM if one ever appears: with plain utf-8 the BOM would fuse onto
+    the first header name, so ACCESSION_NUMBER would be keyed "﻿ACCESSION_NUMBER",
+    every join would miss, and the run would report a cheerful zero. `QUOTE_NONE` because
+    these are tab-separated dumps, not CSV: a single unbalanced `"` in a company name
+    would otherwise make the reader swallow the rest of the member as one giant field.
+    """
     with archive.open(member) as handle:
-        yield from csv.DictReader(
-            io.TextIOWrapper(handle, encoding="utf-8", errors="replace", newline=""),
+        reader = csv.DictReader(
+            io.TextIOWrapper(handle, encoding="utf-8-sig", errors="replace", newline=""),
             delimiter="\t",
+            quoting=csv.QUOTE_NONE,
         )
+        missing = [
+            column
+            for column in _REQUIRED_COLUMNS[member]
+            if column not in (reader.fieldnames or ())
+        ]
+        if missing:
+            raise ValueError(f"{member} is missing joined column(s): {', '.join(missing)}")
+        yield from reader
 
 
 def purchases_from_quarter_zip(
@@ -218,18 +316,21 @@ def purchases_from_quarter_zip(
     """One quarter ZIP -> open-market insider purchases + per-bucket skip counters.
 
     Three-way join on ACCESSION_NUMBER (SUBMISSION x REPORTINGOWNER x NONDERIV_TRANS).
-    Every NONDERIV_TRANS row is counted in `rows` and lands in exactly one other bucket,
-    so `rows == sum(other buckets)` holds — the denominator the Task-7 report needs.
+    Every NONDERIV_TRANS row is counted in `rows` and lands in exactly one PARTITION
+    bucket, so `rows == sum(_COUNT_KEYS minus rows)` holds — the denominator the Task-7
+    report needs. `bad_shares` is an OVERLAY on `kept`, not a bucket (see module rules).
 
-    Raises ValueError when the ZIP is unreadable or a joined member is absent: that is a
-    broken download, not a row-level defect, and must not look like a quiet empty quarter.
-    A truncated download only fails mid-read, so the corruption errors are converted here
-    too — the caller must never see a raw BadZipFile crash a multi-hour backfill.
+    Raises ValueError when the ZIP is unreadable, a joined member is absent, or a joined
+    COLUMN was renamed: those are broken downloads / schema drift, not row-level defects,
+    and must never look like a quiet empty quarter. Corruption is only discovered
+    mid-read (BadZipFile on a bad CRC, zlib.error on a flipped bit inside the DEFLATE
+    stream, EOFError on a truncated one), so all of it is converted here — the caller
+    must never see a raw decompression error crash a multi-hour backfill.
     """
     try:
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as archive:
             return _purchases_from_archive(archive)
-    except (zipfile.BadZipFile, csv.Error) as err:
+    except (zipfile.BadZipFile, csv.Error, zlib.error, EOFError) as err:
         # A rate-limit/error page is HTML, not a ZIP — say so, like form4.py:296.
         raise ValueError(f"Quartals-ZIP unlesbar (Rate-Limit-/Fehlerseite?): {err}") from err
 
@@ -238,7 +339,7 @@ def _purchases_from_archive(
     archive: zipfile.ZipFile,
 ) -> tuple[list[InsiderPurchase], dict[str, int]]:
     """The join itself; `purchases_from_quarter_zip` owns the corruption contract."""
-    counts = dict.fromkeys(_COUNT_KEYS, 0)
+    counts = dict.fromkeys(_COUNT_KEYS + _OVERLAY_COUNT_KEYS, 0)
     missing = [
         member
         for member in (SUBMISSION_MEMBER, OWNER_MEMBER, TRANS_MEMBER)
@@ -298,7 +399,13 @@ def _purchases_from_archive(
         if filing_date < transaction_date:
             counts["discarded_pit"] += 1
             continue
-        shares = _float_or_none(row.get("TRANS_SHARES", "")) or 0.0
+        # An unparseable size does NOT void the fact: the insider, the ticker and both
+        # dates are intact, and the cluster rule counts people, not dollars. The purchase
+        # is kept with unknown size (value None, so it never fakes a $0 "priced" buy) and
+        # flagged via the overlay counter.
+        shares = _float_or_none(row.get("TRANS_SHARES", ""))
+        if shares is None:
+            counts["bad_shares"] += 1
         price = _float_or_none(row.get("TRANS_PRICEPERSHARE", ""))
         counts["kept"] += 1
         purchases.append(
@@ -309,36 +416,54 @@ def _purchases_from_archive(
                 filing_date=filing_date,
                 shares=shares,
                 price=price,
-                value=(shares * price) if price is not None else None,
+                value=(shares * price) if (shares is not None and price is not None) else None,
                 accession=accession,
             )
         )
     return purchases, counts
 
 
+def _filing_lag_trading_days(purchase: InsiderPurchase) -> int:
+    return int(np.busday_count(purchase.transaction_date, purchase.filing_date))
+
+
 def _cluster_event(ticker: str, members: list[InsiderPurchase]) -> HistoricalEvent:
     insiders = sorted({purchase.insider for purchase in members})
     priced = [purchase.value for purchase in members if purchase.value is not None]
+    complete = len(priced) == len(members)
     total_value = sum(priced) if priced else None
+    known_shares = [p.shares for p in members if p.shares is not None]
     # T0 = the LAST filing of the cluster: only then was the FULL cluster knowable.
     t0 = max(purchase.filing_date for purchase in members)
+    first_transaction_date = min(p.transaction_date for p in members)
+    # Filing lag is a study DIMENSION, not a filter: a cluster disclosed 8 months late is
+    # a different (and probably weaker) signal than one disclosed in 2 days, and Task 6
+    # conditions on it. No cutoff is applied here — that would silently change the
+    # population instead of letting the aggregation split it.
+    lags = sorted(_filing_lag_trading_days(purchase) for purchase in members)
     return HistoricalEvent(
         source=SOURCE_INSIDER,
         person="",  # a cluster has no single person — names live in details (Decision 2)
         ticker=ticker,
-        event_key=f"{ticker}-{t0}-cluster{len(insiders)}",
+        # `first_transaction_date` is part of the key because batch late-filings collide
+        # without it: several disjoint clusters on one ticker can share both the last
+        # filing date and the insider count (8 of 339 clusters lost on 2006q1), and
+        # `record_historical_events`' INSERT OR IGNORE would drop the duplicates silently.
+        event_key=f"{ticker}-{t0}-{first_transaction_date}-cluster{len(insiders)}",
         t0=t0,
         details={
             "insiders": insiders,
             "n_insiders": len(insiders),
             "n_purchases": len(members),
             "priced_purchases": len(priced),
-            "total_shares": sum(purchase.shares for purchase in members),
-            "total_value": total_value,
-            "value_band": _value_band(total_value),
-            "first_transaction_date": min(p.transaction_date for p in members),
+            "total_shares": sum(known_shares) if len(known_shares) == len(members) else None,
+            "total_value": total_value if complete else None,
+            "value_band": _value_band(total_value, complete=complete),
+            "first_transaction_date": first_transaction_date,
             "last_transaction_date": max(p.transaction_date for p in members),
             "first_filing_date": min(purchase.filing_date for purchase in members),
+            "median_filing_lag_days": float(statistics.median(lags)),
+            "max_filing_lag_days": lags[-1],
         },
     )
 
@@ -390,6 +515,35 @@ def cluster_events(
             else:
                 start += 1
     return events
+
+
+def count_boundary_candidates(
+    purchases: list[InsiderPurchase],
+    *,
+    window_trading_days: int = DEFAULT_WINDOW_TRADING_DAYS,
+    min_insiders: int = MIN_INSIDERS,
+) -> int:
+    """Tickers one insider short of a cluster in the file's trailing window.
+
+    Quantifies the quarter-boundary ceiling (see the module docstring): clustering runs
+    per quarter FILE, so a cluster whose filings straddle the boundary is invisible to
+    both files. A ticker sitting at exactly `min_insiders - 1` distinct insiders in the
+    last `window_trading_days` trading days of the file's transaction range is the
+    population that a cross-file stitch could still promote — Task 7 reports it as the
+    known undercount rather than as a footnote.
+
+    Deliberately an ESTIMATE, not a correction: it neither adds events nor changes any
+    key. The edge is measured from the file's latest transaction date, since the
+    transaction range (not the filing range) is what the clustering window slides over.
+    """
+    if not purchases:
+        return 0
+    edge = max(purchase.transaction_date for purchase in purchases)
+    trailing: dict[str, set[str]] = {}
+    for purchase in purchases:
+        if int(np.busday_count(purchase.transaction_date, edge)) <= window_trading_days:
+            trailing.setdefault(purchase.ticker, set()).add(purchase.insider)
+    return sum(1 for insiders in trailing.values() if len(insiders) == min_insiders - 1)
 
 
 def next_quarter(quarter: str) -> str:
@@ -448,19 +602,23 @@ def backfill_form4_quarter(
     """One quarterly SEC data set -> insider-cluster `HistoricalEvent`s, cursor advanced.
 
     Degrades like `form4.collect_form4`: a missing `EDGAR_USER_AGENT` returns
-    `unconfigured` (nothing fetched, nothing written, never a fake), an unreachable or
-    non-ZIP download returns `fetch_failed`/`parse_failed`. The cursor advances ONLY after
-    a quarter was fully recorded, so a failed run is simply retried next time.
+    `unconfigured` (nothing fetched, nothing written, never a fake), an unreachable
+    download returns `fetch_failed`, and a non-ZIP / corrupt / schema-drifted one returns
+    `parse_failed`. A structurally valid ZIP with ZERO transaction rows returns
+    `empty_quarter` — no real quarter is empty, so that is a defect, not a success. The
+    cursor advances ONLY on `ok`, so every other outcome is simply retried next run
+    instead of silently skipping a quarter forever.
 
-    `duplicate_key` counts clusters that collide on the plan-mandated event_key (two
-    disjoint windows of equal size whose last filing lands on the same day) — such a
-    collision is dropped by `record_historical_events`' INSERT OR IGNORE, so it is counted
-    here rather than vanishing into the events_new/events_seen difference.
+    `duplicate_key` counts clusters that still collide on the event_key after
+    `first_transaction_date` was added to it — such a collision is dropped by
+    `record_historical_events`' INSERT OR IGNORE, so it is counted here rather than
+    vanishing into the events_new/events_seen difference.
     """
     counts: dict = {
         "quarter": quarter, "status": STATUS_OK, "detail": "", "url_fallback": 0,
         "clusters": 0, "duplicate_key": 0, "events_seen": 0, "events_new": 0,
-        **dict.fromkeys(_COUNT_KEYS, 0),
+        "boundary_candidates": 0,
+        **dict.fromkeys(_COUNT_KEYS + _OVERLAY_COUNT_KEYS, 0),
     }
     _parse_quarter(quarter)  # fail loudly on a typo before touching the network
 
@@ -489,6 +647,14 @@ def backfill_form4_quarter(
         return counts
 
     counts.update(row_counts)
+    if row_counts["rows"] == 0:
+        # A readable ZIP whose transaction table is empty is a broken publish, never a
+        # real quarter — advancing past it would skip it permanently.
+        counts["status"] = STATUS_EMPTY_QUARTER
+        counts["detail"] = f"{TRANS_MEMBER} enthält 0 Zeilen — Quartal nicht übersprungen"
+        return counts
+
+    counts["boundary_candidates"] = count_boundary_candidates(purchases)
     events = cluster_events(purchases)
     counts["clusters"] = counts["events_seen"] = len(events)
     counts["duplicate_key"] = len(events) - len({(e.ticker, e.event_key) for e in events})
