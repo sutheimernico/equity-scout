@@ -91,13 +91,28 @@ def drop_short_history(
     return closes[keep], excluded
 
 
-def clean_columns(closes: pd.DataFrame) -> PricePanel:
+def clean_columns(closes: pd.DataFrame, *, mask_stale_tail: bool = False) -> PricePanel:
     """Pure: drop dead (all-NaN) columns, forward-fill stray gaps, keep each column's OWN history.
 
     No common-range trim: for per-pair measurements (person track records, ledger resolves) one
     young IPO or junk ticker must not truncate every other ticker's usable history — consumers
-    align pair-wise (`closes[[ticker, benchmark]].dropna()`) themselves."""
-    return PricePanel(closes.dropna(axis=1, how="all").ffill())
+    align pair-wise (`closes[[ticker, benchmark]].dropna()`) themselves.
+
+    `mask_stale_tail=True` (default off, live behaviour byte-identical) keeps a DELISTED ticker's
+    tail NaN instead of freezing its last close to the panel end. The plain ffill is right for
+    interior holiday gaps but fabricates prices after a ticker stops trading, and a forward-return
+    study then measures a flat, invented tail as a real outcome (2026-08-07: a crash-then-delist
+    scored a plausible-looking r_12m of -0.4979 that was pure ffill artifact) — exactly the
+    survivorship gap the history study exists to COUNT. Callers that measure realized returns over
+    long horizons want True; callers that just need a dense frame keep the default."""
+    frame = closes.dropna(axis=1, how="all")
+    filled = frame.ffill()
+    if not mask_stale_tail:
+        return PricePanel(filled)
+    # Reverse cumulative max of "has a real observation": True from a column's first valid
+    # value up to its LAST one, False for the fabricated tail after it.
+    observed = frame.notna()[::-1].cummax()[::-1]
+    return PricePanel(filled.where(observed))
 
 
 def save_snapshot(panel: PricePanel, path: str = DEFAULT_SNAPSHOT) -> None:
@@ -163,16 +178,19 @@ def load_price_history(
     snapshot: str,
     refresh: bool = True,
     now: datetime | None = None,
+    mask_stale_tail: bool = False,
 ) -> PricePanel:
     """Column-wise variant of load_etf_panel (clean_columns instead of clean_panel) for
     per-pair measurements over heterogeneous tickers. Missing symbols simply yield no
     column — callers count those honestly as unresolvable. Trims like load_etf_panel:
     heterogeneous tickers are exactly where a running Tokyo session stamps a future-dated
-    row that ffill then spreads across every US column."""
+    row that ffill then spreads across every US column.
+
+    `mask_stale_tail` is passed straight to `clean_columns` (see there) and applies to the
+    DOWNLOAD path only — a `refresh=False` snapshot read returns whatever was saved."""
     if not refresh and os.path.exists(snapshot):
         return PricePanel(trim_to_completed_sessions(load_snapshot(snapshot).closes, now=now))
-    panel = PricePanel(
-        trim_to_completed_sessions(clean_columns(_download_closes(tickers, start)).closes, now=now)
-    )
+    cleaned = clean_columns(_download_closes(tickers, start), mask_stale_tail=mask_stale_tail)
+    panel = PricePanel(trim_to_completed_sessions(cleaned.closes, now=now))
     save_snapshot(panel, snapshot)
     return panel

@@ -29,8 +29,10 @@ from scripts.run_history_resolve import (
     BUCKET_PANEL_GAP,
     BUCKET_PARTIAL,
     BUCKET_RESOLVED,
+    BUCKET_RESOLVED_THEN_BURIED,
     BUCKET_STILL_OPEN,
-    HORIZON_DAYS,
+    BUCKET_UNMAPPABLE_SYMBOL,
+    HISTORY_HORIZONS,
     apply_plan,
     main,
     resolve_batch,
@@ -56,13 +58,39 @@ def _panel(periods: int = 400, start: str = "2024-01-01") -> pd.DataFrame:
     )
 
 
+def _panel_with(*tickers: str, periods: int = 400) -> pd.DataFrame:
+    panel = _panel(periods)
+    for ticker in tickers:
+        panel[ticker] = panel["WIN"]
+    return panel
+
+
+def _raw_delisting(last_row: int = 80, periods: int = 400) -> pd.DataFrame:
+    """Raw (uncleaned) closes: DEAD crashes 1 %/day and stops trading after `last_row`."""
+    panel = _panel(periods)
+    crash = pd.Series(
+        [100.0 * 0.99**i for i in range(last_row)], index=panel.index[:last_row]
+    )
+    panel["DEAD"] = crash.reindex(panel.index)  # NaN tail = delisted
+    return panel
+
+
 def _event(event_id: int = 1, ticker: str = "WIN", t0: str = "2024-01-02", **written) -> dict:
     """An `unresolved_events` row: r_* None unless a horizon was written by an earlier run."""
     row = {"id": event_id, "source": "congress", "person": "Jane Doe", "ticker": ticker,
            "event_key": f"k{event_id}", "t0": t0, "details": {}, "created_at": NOW}
-    row.update({horizon: None for horizon in HORIZON_DAYS})
+    row.update({horizon: None for horizon in HISTORY_HORIZONS})
     row.update(written)
     return row
+
+
+def test_history_horizons_are_storage_columns():
+    """A horizon this script measures but the store has no column for would blow up at
+    write time; one the store has but this script never measures would leave rows
+    partially resolved forever."""
+    from equity_scout.evidence.historical_storage import RETURN_HORIZONS
+
+    assert set(HISTORY_HORIZONS) == set(RETURN_HORIZONS)
 
 
 # --- resolve_batch: the measurement --------------------------------------------------
@@ -74,12 +102,12 @@ def test_resolve_batch_fills_all_five_horizons_from_the_first_panel_date_on_or_a
 
     (resolution,) = plan.resolutions
     assert resolution.bucket == BUCKET_RESOLVED
-    assert set(resolution.returns) == set(HORIZON_DAYS)
+    assert set(resolution.returns) == set(HISTORY_HORIZONS)
     # Single source of return math: identical to calling entry_eval directly at the
     # first panel date >= t0 (2024-01-02, since 2024-01-01 is the panel's first row).
     pair = panel[["WIN", "SPY"]].dropna()
     at = pd.Timestamp("2024-01-02")
-    for horizon, days in HORIZON_DAYS.items():
+    for horizon, days in HISTORY_HORIZONS.items():
         assert resolution.returns[horizon] == pytest.approx(
             relative_forward_return(pair["WIN"], pair["SPY"], at, days)
         )
@@ -112,6 +140,70 @@ def test_resolve_batch_counts_a_ticker_missing_from_the_panel_as_no_price_histor
     assert resolution.bucket == BUCKET_NO_PRICE_HISTORY
     assert resolution.unresolvable_reason == "no_price_history"
     assert resolution.returns == {}
+
+
+def test_ffilled_delisting_fabricates_a_return_that_the_mask_turns_into_a_survivorship_gap():
+    """C1, measured end to end: without `mask_stale_tail` the frozen last close of a
+    delisted ticker resolves as five plausible-looking horizons — all invented past the
+    delisting. With the mask, the elapsed windows survive and the rest is buried."""
+    from equity_scout.data.etf_panel import clean_columns
+
+    raw = _raw_delisting()
+
+    fabricated = resolve_batch([_event(ticker="DEAD")], clean_columns(raw).closes, now=NOW)
+    (bogus,) = fabricated.resolutions
+    assert bogus.bucket == BUCKET_RESOLVED  # all five "measured" — from a flat invented tail
+    assert bogus.returns["r_12m"] < -0.4  # the artifact the review measured
+
+    honest = resolve_batch(
+        [_event(ticker="DEAD")], clean_columns(raw, mask_stale_tail=True).closes, now=NOW
+    )
+    (resolution,) = honest.resolutions
+    assert resolution.bucket == BUCKET_RESOLVED_THEN_BURIED
+    assert set(resolution.returns) == {"r_1w", "r_1m", "r_3m"}  # really elapsed before the end
+    assert resolution.unresolvable_reason == "no_price_history"
+
+
+def test_resolve_batch_buries_a_delisted_ticker_whose_t0_precedes_no_measurable_window():
+    """Delisted before even the 1w window elapsed: nothing measured, straight to the
+    survivorship bucket rather than waiting forever for prices that will never come."""
+    raw = _raw_delisting(last_row=80)
+    from equity_scout.data.etf_panel import clean_columns
+
+    panel = clean_columns(raw, mask_stale_tail=True).closes
+    t0 = panel.index[77].date().isoformat()  # 2 sessions before DEAD stops trading
+
+    (resolution,) = resolve_batch([_event(ticker="DEAD", t0=t0)], panel, now=NOW).resolutions
+    assert resolution.bucket == BUCKET_NO_PRICE_HISTORY
+    assert resolution.returns == {}
+
+
+def test_resolve_batch_does_not_bury_a_ticker_that_is_merely_a_few_sessions_stale():
+    """A foreign listing idle over a local holiday (or a provider one session behind) is
+    NOT delisted — burial is irreversible, so the staleness margin has to absorb this."""
+    from equity_scout.data.etf_panel import clean_columns
+
+    # Last close 5 sessions before the panel end, with the 12m window not yet elapsed.
+    panel = clean_columns(_raw_delisting(last_row=250, periods=255), mask_stale_tail=True).closes
+
+    (resolution,) = resolve_batch([_event(ticker="DEAD")], panel, now=NOW).resolutions
+    assert resolution.bucket == BUCKET_PARTIAL  # open, not buried
+    assert set(resolution.returns) == {"r_1w", "r_1m", "r_3m", "r_6m"}
+    assert resolution.unresolvable_reason is None
+
+
+def test_resolve_batch_counts_an_exchange_suffixed_symbol_as_unmappable_not_missing():
+    """BMW.DE -> BMW-DE is a normalization bug, not a delisting: report it, never bury it."""
+    plan = resolve_batch([_event(ticker="BMW.DE")], _panel(), now=NOW)
+
+    (resolution,) = plan.resolutions
+    assert resolution.bucket == BUCKET_UNMAPPABLE_SYMBOL
+    assert resolution.unresolvable_reason is None and resolution.returns == {}
+
+
+def test_resolve_batch_refuses_a_panel_without_rows():
+    with pytest.raises(ValueError, match="empty"):
+        resolve_batch([_event()], _panel().iloc[:0], now=NOW)
 
 
 def test_resolve_batch_counts_a_panel_starting_after_t0_as_panel_gap():
@@ -278,7 +370,8 @@ def test_run_history_resolve_chunks_tickers_and_always_fetches_the_benchmark(tmp
     _seed(db, [(t, "2024-01-02") for t in ("AAA", "BBB", "CCC", "DDD", "EEE")])
     seen: list = []
 
-    run_history_resolve(db, now=NOW, fetch_prices=_fetch(_panel(), seen), chunk_size=2)
+    panel = _panel_with("AAA", "BBB", "CCC", "DDD", "EEE")
+    run_history_resolve(db, now=NOW, fetch_prices=_fetch(panel, seen), chunk_size=2)
 
     assert [tickers for tickers, _ in seen] == [
         ["AAA", "BBB", "SPY"], ["CCC", "DDD", "SPY"], ["EEE", "SPY"]
@@ -323,6 +416,129 @@ def test_run_history_resolve_limit_touches_only_the_first_events(tmp_path):
 
     assert result["events"] == 1
     assert result["still_open"] == 2
+
+
+def test_run_history_resolve_treats_a_mass_of_missing_tickers_as_throttling(tmp_path):
+    """The 2026-07-14 precedent: Yahoo throttling returns all-NaN columns that look exactly
+    like delistings. Half a chunk vanishing is a provider problem — nothing may be buried,
+    and no per-ticker re-check storm may follow."""
+    db = str(tmp_path / "h.db")
+    _seed(db, [(t, "2024-01-02") for t in ("AAA", "BBB", "CCC", "DDD")])
+    seen: list = []
+
+    result = run_history_resolve(
+        db, now=NOW, fetch_prices=_fetch(_panel_with("AAA", "BBB"), seen), apply=True
+    )
+
+    assert result["counts"][BUCKET_FETCH_FAILED] == 4  # the WHOLE chunk, including AAA/BBB
+    assert result["counts"][BUCKET_NO_PRICE_HISTORY] == 0
+    assert len(seen) == 1  # no single-ticker re-checks after a suspected throttle
+    assert len(unresolved_events(db)) == 4
+
+
+def test_run_history_resolve_rechecks_a_missing_ticker_before_burying_it(tmp_path):
+    db = str(tmp_path / "h.db")
+    _seed(db, [("ZZZ", "2024-01-02")])
+    seen: list = []
+
+    def fetch(tickers: list[str], start: str) -> PricePanel:
+        seen.append(tickers)
+        # The batch download drops ZZZ; the targeted single fetch delivers it.
+        return PricePanel(_panel_with("ZZZ") if tickers == ["ZZZ", "SPY"] else _panel())
+
+    result = run_history_resolve(db, now=NOW, fetch_prices=fetch, apply=True)
+
+    assert seen == [["SPY", "ZZZ"], ["ZZZ", "SPY"]]
+    assert result["counts"][BUCKET_RESOLVED] == 1  # recovered, not buried
+    assert unresolved_events(db) == []
+
+
+def test_run_history_resolve_leaves_events_open_when_the_recheck_itself_fails(tmp_path):
+    db = str(tmp_path / "h.db")
+    _seed(db, [("ZZZ", "2024-01-02")])
+
+    def fetch(tickers: list[str], start: str) -> PricePanel:
+        if tickers == ["ZZZ", "SPY"]:
+            raise OSError("throttled")
+        return PricePanel(_panel())
+
+    result = run_history_resolve(db, now=NOW, fetch_prices=fetch, apply=True)
+
+    assert result["counts"][BUCKET_FETCH_FAILED] == 1
+    assert result["counts"][BUCKET_NO_PRICE_HISTORY] == 0
+    assert len(unresolved_events(db)) == 1  # unverified absence is never a burial
+
+
+def test_run_history_resolve_counts_a_duplicated_panel_index_as_a_failed_chunk(tmp_path):
+    db = str(tmp_path / "h.db")
+    _seed(db, [("WIN", "2024-01-02")])
+    panel = _panel()
+    doubled = pd.concat([panel, panel.iloc[[-1]]])  # provider hiccup: a repeated session
+
+    result = run_history_resolve(db, now=NOW, fetch_prices=_fetch(doubled), apply=True)
+
+    assert result["counts"][BUCKET_FETCH_FAILED] == 1
+    assert len(unresolved_events(db)) == 1
+
+
+def test_run_history_resolve_never_fetches_for_events_it_cannot_place(tmp_path):
+    """All events unusable (junk t0 / unmappable symbol): the pre-filter keeps them out of
+    the chunking, which is also what protects the per-chunk `min(t0)`."""
+    db = str(tmp_path / "h.db")
+    _seed(db, [("WIN", "junk"), ("LOSE", ""), ("BMW.DE", "2024-01-02")])
+
+    def fetch(tickers: list[str], start: str) -> PricePanel:
+        raise AssertionError("nothing placeable — must not fetch")
+
+    result = run_history_resolve(db, now=NOW, fetch_prices=fetch, apply=True)
+
+    assert result["counts"][BUCKET_BAD_T0] == 2
+    assert result["counts"][BUCKET_UNMAPPABLE_SYMBOL] == 1
+    assert result["written"] == 0 and len(unresolved_events(db)) == 3  # counted, not buried
+
+
+def test_run_history_resolve_delisted_event_keeps_measured_horizons_and_buries_the_rest(tmp_path):
+    """C1 end to end through the store: Decision 4's partially-measured-then-buried row."""
+    db = str(tmp_path / "h.db")
+    _seed(db, [("DEAD", "2024-01-02")])
+    from equity_scout.data.etf_panel import clean_columns
+
+    panel = clean_columns(_raw_delisting(), mask_stale_tail=True).closes
+    result = run_history_resolve(db, now=NOW, fetch_prices=_fetch(panel), apply=True)
+
+    assert result["counts"][BUCKET_RESOLVED_THEN_BURIED] == 1
+    assert result["written"] == 2  # one mark_resolved + one mark_unresolvable
+    row = sqlite3.connect(db).execute(
+        "SELECT r_1w, r_3m, r_6m, r_12m, unresolvable, unresolvable_reason, resolved_at"
+        " FROM historical_events"
+    ).fetchone()
+    assert row[0] is not None and row[1] is not None  # measured windows survive the burial
+    assert row[2] is None and row[3] is None  # unreachable windows stay NULL, never invented
+    assert row[4] == 1 and row[5] == "no_price_history" and row[6] == NOW
+
+
+def test_run_history_resolve_completes_a_partial_row_on_a_later_run(tmp_path):
+    """Cross-run resumability: the per-column store lets a second run fill the windows that
+    had not elapsed when the first run measured."""
+    db = str(tmp_path / "h.db")
+    _seed(db, [("WIN", "2024-01-02")])
+
+    first = run_history_resolve(db, now=NOW, fetch_prices=_fetch(_panel(periods=100)), apply=True)
+    assert first["counts"][BUCKET_PARTIAL] == 1
+    open_row = unresolved_events(db)[0]
+    assert open_row["r_3m"] is not None and open_row["r_12m"] is None
+
+    later = "2026-09-01T00:00:00+00:00"
+    second = run_history_resolve(db, now=later, fetch_prices=_fetch(_panel()), apply=True)
+
+    assert second["counts"][BUCKET_RESOLVED] == 1
+    assert second["refused"] == 0  # only the still-missing horizons are passed
+    assert unresolved_events(db) == []
+    r_3m, r_12m, resolved_at = sqlite3.connect(db).execute(
+        "SELECT r_3m, r_12m, resolved_at FROM historical_events"
+    ).fetchone()
+    assert r_3m == open_row["r_3m"]  # the first run's value stands, never recomputed
+    assert r_12m is not None and resolved_at == later
 
 
 def test_run_history_resolve_on_an_empty_queue_is_a_noop(tmp_path):
@@ -386,4 +602,5 @@ def test_price_panel_loader_is_column_wise_retried_and_uses_its_own_snapshot(mon
     resolve_mod._fetch_price_panel(["WIN", "SPY"], "2024-01-01")
 
     assert seen["snapshot"] == resolve_mod.HISTORY_SNAPSHOT and seen["refresh"] is True
+    assert seen["mask_stale_tail"] is True  # C1: never measure a ffilled delisting tail
     assert retried == [{"attempts": 3}]

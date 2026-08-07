@@ -86,6 +86,40 @@ def test_clean_columns_keeps_each_tickers_own_history():
     assert panel.closes["OLD"].notna().all()  # OLD keeps its full range
 
 
+def test_clean_columns_ffills_a_delisted_tail_by_default():
+    """Live behaviour, unchanged: the last close is carried to the panel end."""
+    import numpy as np
+
+    from equity_scout.data.etf_panel import clean_columns
+
+    idx = pd.bdate_range("2026-01-01", periods=6)
+    df = pd.DataFrame({"GONE": [1.0, 2.0, 3.0, np.nan, np.nan, np.nan]}, index=idx)
+    assert clean_columns(df).closes["GONE"].tolist() == [1.0, 2.0, 3.0, 3.0, 3.0, 3.0]
+
+
+def test_clean_columns_masks_a_delisted_tail_but_still_fills_interior_gaps():
+    """`mask_stale_tail`: an interior holiday is a gap to fill, a delisting is not.
+
+    Without the mask a forward-return study measures the frozen last close as a real
+    outcome — the fabricated-return bug the history resolver exists to avoid."""
+    import numpy as np
+
+    from equity_scout.data.etf_panel import clean_columns
+
+    idx = pd.bdate_range("2026-01-01", periods=6)
+    df = pd.DataFrame(
+        {
+            "GONE": [1.0, 2.0, np.nan, 4.0, np.nan, np.nan],  # interior gap, then delisted
+            "ALIVE": [1.0, np.nan, 3.0, 4.0, 5.0, 6.0],
+        },
+        index=idx,
+    )
+    closes = clean_columns(df, mask_stale_tail=True).closes
+    assert closes["GONE"].tolist()[:4] == [1.0, 2.0, 2.0, 4.0]  # interior gap still ffilled
+    assert closes["GONE"].iloc[4:].isna().all()  # tail after the last real close stays NaN
+    assert closes["ALIVE"].notna().all()  # a living ticker is untouched by the mask
+
+
 def test_drop_short_history_excludes_late_starter_with_metadata():
     """v13 Q1: a ticker starting deep into the span is dropped and reported; the earliest
     starter always survives, so a non-empty frame can never come back empty."""
