@@ -633,6 +633,29 @@ export async function askChat(question: string): Promise<ChatReply> {
   return response.json(); // body carries {answer} or {error} on both 200 and 503
 }
 
+/** Streams the assistant's answer, calling onChunk per token group. The local 7B model
+ *  needs 30-90 s for a full answer, which reads as broken on a phone — streamed, the
+ *  first words arrive in a few seconds. The token gate travels via cookie, as with fetch. */
+export async function askChatStream(
+  question: string,
+  onChunk: (text: string) => void,
+): Promise<void> {
+  const response = await fetch("/api/chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question }),
+  });
+  if (!response.ok || !response.body) throw new Error(`/api/chat/stream ${response.status}`);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    // stream: true keeps multi-byte characters (ä, ö, —) intact across chunk boundaries.
+    onChunk(decoder.decode(value, { stream: true }));
+  }
+}
+
 // --- Per-stock entry reference levels + tranche plan (src/equity_scout/entry.py) ---
 
 export interface EntryLevel {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { askChat } from "../api";
+import { askChatStream } from "../api";
 import { Explain } from "./ui/Explain";
 
 interface Msg {
@@ -9,9 +9,10 @@ interface Msg {
 }
 
 const EXAMPLES = [
-  "Welche Strategie hat den besten Sharpe?",
-  "Was sagt der PBO-Wert über das Auto-Research?",
-  "Wie läuft der Forward-Track im Vergleich zum Benchmark?",
+  "Wie hoch ist das KGV von Micron?",
+  "Welche Mitglieder haben Intel gekauft?",
+  "Wie steht mein Depot im Vergleich zum Markt?",
+  "Was bedeutet die Einstiegszone?",
 ];
 
 export function ChatPanel() {
@@ -22,17 +23,20 @@ export function ChatPanel() {
   const ask = async (question: string) => {
     const q = question.trim();
     if (!q || loading) return;
-    setMessages((m) => [...m, { role: "user", content: q }]);
+    // Die Assistenten-Nachricht wird leer angelegt und dann fortgeschrieben — so sieht
+    // man die Antwort entstehen, statt 40 s auf einen Spinner zu schauen.
+    setMessages((m) => [...m, { role: "user", content: q }, { role: "assistant", content: "" }]);
     setInput("");
     setLoading(true);
     try {
-      const reply = await askChat(q);
-      setMessages((m) => [
-        ...m,
-        reply.error
-          ? { role: "error", content: reply.error }
-          : { role: "assistant", content: reply.answer ?? "(leere Antwort)" },
-      ]);
+      await askChatStream(q, (chunk) => {
+        setMessages((m) => {
+          const next = [...m];
+          const last = next[next.length - 1]!;
+          next[next.length - 1] = { ...last, content: last.content + chunk };
+          return next;
+        });
+      });
     } catch {
       setMessages((m) => [...m, { role: "error", content: "Anfrage fehlgeschlagen." }]);
     } finally {
@@ -46,9 +50,10 @@ export function ChatPanel() {
         <p className="eyebrow">Assistent</p>
         <h1>Frag deine Daten</h1>
         <p className="section-sub">
-          Ein lokaler Chatbot (über <strong>Ollama</strong>) beantwortet Fragen zu den aktuellen
-          Dashboard-Zahlen — Strategien, ML-Modell, Auto-Research, Forward-Track. Läuft komplett lokal,
-          nichts verlässt den Rechner. Keine Anlageberatung.
+          Ein lokaler Chatbot (über <strong>Ollama</strong>) beantwortet Fragen zu jeder Aktie im
+          Bestand — Kennzahlen wie KGV und Marge, wer gekauft hat (Kongress, Fonds, Stimmen),
+          Einstiegs-Score, Pitches, Depots, Marktlage und Ergebnisse. Läuft komplett lokal, nichts
+          verlässt den Rechner. Keine Anlageberatung — Kauf-/Verkaufsfragen beantwortet er nicht.
         </p>
       </header>
 
