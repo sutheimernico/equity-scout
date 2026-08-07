@@ -377,3 +377,127 @@ def route_topics(question: str) -> list[str]:
     q = question.lower()
     topics = [t for t, words in _TOPIC_KEYWORDS.items() if any(w in q for w in words)]
     return topics or ["ueberblick"]
+
+
+_CHAMBER_DE = {"senate": "Senat", "house": "Repräsentantenhaus"}
+_PARTY_DE = {"R": "Republikaner", "D": "Demokraten", "I": "unabhängig"}
+_FUND_CHANGE_DE = {"new": "neue Position", "increased": "aufgestockt",
+                   "reduced": "reduziert", "closed": "verkauft"}
+_VOICE_KIND_DE = {"buy": "Kauf-Aussage", "sell": "Verkaufs-Aussage",
+                  "context": "Erwähnung"}
+# The 8-K item codes that actually occur in the feed, in plain German. Anything else is
+# rendered as its bare code rather than guessed at.
+_EIGHTK_ITEMS_DE = {
+    "1.01": "wesentliche Vereinbarung", "2.02": "Quartalszahlen",
+    "2.01": "Übernahme oder Verkauf", "5.02": "Wechsel in Vorstand/Aufsichtsrat",
+    "7.01": "Mitteilung an den Kapitalmarkt", "8.01": "sonstiges Ereignis",
+}
+
+
+def _congress_line(event: dict) -> str:
+    d = event["details"]
+    who = d.get("politician") or "unbekannt"
+    party = _PARTY_DE.get(str(d.get("party") or ""), d.get("party") or "?")
+    chamber = _CHAMBER_DE.get(str(d.get("chamber") or ""), d.get("chamber") or "?")
+    bought = d.get("transaction_date") or event["event_date"]
+    filed = d.get("filing_date") or event["event_date"]
+    amount = d.get("amount_range") or "Volumen unbekannt"
+    lag = d.get("days_to_file")
+    # The lag is the story: a filing can be years older than it looks, and treating it as
+    # fresh news is the single easiest way to misread this feed.
+    lag_text = f", {lag} Tage Meldeverzug" if lag is not None else ""
+    return (
+        f"- Kongress-Kauf: {who} ({party}, {chamber}) — gekauft am {bought}, "
+        f"gemeldet {filed}{lag_text}, Volumen {amount}."
+    )
+
+
+def _fund_line(event: dict) -> str:
+    d = event["details"]
+    change = _FUND_CHANGE_DE.get(str(d.get("change") or ""), d.get("change") or "?")
+    shares = d.get("shares")
+    shares_text = f", {_de(float(shares), 0)} Anteile" if shares else ""
+    return (
+        f"- Fonds-Meldung (13F): {d.get('fund', 'Fonds')} — {change} "
+        f"(Quartalsende {d.get('period', '?')}, gemeldet {d.get('filed_at', '?')})"
+        f"{shares_text}."
+    )
+
+
+def _voice_line(event: dict) -> str:
+    d = event["details"]
+    kind = _VOICE_KIND_DE.get(str(d.get("kind") or ""), d.get("kind") or "Erwähnung")
+    return (
+        f"- Stimme: {d.get('speaker', 'unbekannt')} — {kind} am {event['event_date']} "
+        f"(\"{d.get('headline', '')}\"). Presse-Erwähnung, keine Meldung."
+    )
+
+
+def _eightk_line(event: dict) -> str:
+    items = event["details"].get("items") or []
+    named = ", ".join(_EIGHTK_ITEMS_DE.get(str(i), f"Punkt {i}") for i in items) or "ohne Angabe"
+    return f"- Pflichtmitteilung (8-K) am {event['event_date']}: {named}."
+
+
+def _theme_line(event: dict) -> str:
+    d = event["details"]
+    return (
+        f"- Nachrichten-Thema \"{d.get('theme', '?')}\" am {event['event_date']} "
+        f"({d.get('hits', '?')} Treffer)."
+    )
+
+
+_EVENT_RENDERERS = {
+    "congress": _congress_line, "thirteen_f": _fund_line, "voice": _voice_line,
+    "edgar_8k": _eightk_line, "news_theme": _theme_line,
+}
+
+
+def people_lines(events: list[dict]) -> list[str]:
+    """Who bought, who sold, who talked — one line per event, names spelled out.
+
+    Answers both "wer hat X gekauft" and "was hat Person Y gekauft" from the same rows.
+    An empty list gets an explicit sentence: the measured assistant filled silence with
+    invented buyers.
+    """
+    if not events:
+        return ["- Keine gemeldeten Käufe oder Stimmen zu diesem Titel."]
+    lines: list[str] = []
+    for event in events:
+        render = _EVENT_RENDERERS.get(event.get("source", ""))
+        if render is not None:
+            lines.append(render(event))
+    return lines or ["- Keine gemeldeten Käufe oder Stimmen zu diesem Titel."]
+
+
+def find_persons(question: str, names: list[str]) -> list[str]:
+    """Tracked people mentioned in the question, by full name or unambiguous surname.
+
+    Ambiguous surnames resolve to nothing on purpose — attributing a trade to the wrong
+    person is worse than admitting the question was unclear.
+    """
+    index: dict[str, str] = {}
+    surname_owners: dict[str, set[str]] = {}
+    for name in names:
+        index.setdefault(name.lower(), name)
+        parts = _words(name)
+        if parts:
+            surname_owners.setdefault(parts[-1].lower(), set()).add(name)
+    for surname, owners in surname_owners.items():
+        if len(owners) == 1 and len(surname) >= 4:
+            index.setdefault(surname, next(iter(owners)))
+    words = _words(question)
+    hits: list[str] = []
+    position = 0
+    while position < len(words):
+        for span in range(min(4, len(words) - position), 0, -1):
+            key = " ".join(words[position : position + span]).lower()
+            person = index.get(key)
+            if person is not None:
+                if person not in hits:
+                    hits.append(person)
+                position += span
+                break
+        else:
+            position += 1
+    return hits

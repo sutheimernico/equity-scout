@@ -3,9 +3,11 @@ from __future__ import annotations
 
 from equity_scout.chat_retrieval import (
     candidate_symbols,
+    find_persons,
     find_tickers,
     is_advice_question,
     metrics_lines,
+    people_lines,
     route_topics,
     short_company_name,
     stock_dossier,
@@ -237,3 +239,54 @@ def test_routing_picks_kennzahlen_for_metric_questions():
     for q in ("Wie hoch ist das KGV von Micron?", "Zeig mir die Kennzahlen",
               "Wie ist die Marge?", "Was ist die Bewertung wert?"):
         assert "kennzahlen" in route_topics(q), q
+
+
+CONGRESS_EVENT = {
+    "source": "congress", "event_date": "2026-08-05",
+    "details": {"politician": "Thomas H Tuberville", "party": "R", "chamber": "senate",
+                "transaction_date": "2024-05-07", "filing_date": "2026-08-05",
+                "amount_range": "$100,001 - $250,000", "days_to_file": 820},
+}
+
+
+def test_people_lines_name_names_party_amount_and_reporting_lag():
+    line = "\n".join(people_lines([CONGRESS_EVENT]))
+    assert "Thomas H Tuberville" in line and "Senat" in line and "R" in line
+    assert "$100,001 - $250,000" in line
+    assert "gekauft am 2024-05-07" in line and "gemeldet 2026-08-05" in line
+    # Der Meldeverzug ist die Nachricht, nicht die Fußnote: 820 Tage alte "News".
+    assert "820 Tage" in line
+
+
+def test_people_lines_render_funds_voices_and_filings():
+    text = "\n".join(people_lines([
+        {"source": "thirteen_f", "event_date": "2026-05-15",
+         "details": {"fund": "Himalaya Capital", "period": "2026-03-31",
+                     "filed_at": "2026-05-15", "change": "new", "shares": 6590836.0}},
+        {"source": "voice", "event_date": "2026-08-06",
+         "details": {"speaker": "Michael Burry", "kind": "context",
+                     "headline": "Michael Burry Warns Of A 1987-Type Crash"}},
+        {"source": "edgar_8k", "event_date": "2026-08-05",
+         "details": {"items": ["2.02"], "filing_date": "2026-08-05"}},
+    ]))
+    assert "Himalaya Capital" in text and "neue Position" in text
+    assert "Michael Burry" in text and "Erwähnung" in text
+    assert "Quartalszahlen" in text  # 8-K Item 2.02 in Klartext
+
+
+def test_people_lines_say_when_there_is_nothing():
+    assert people_lines([]) == ["- Keine gemeldeten Käufe oder Stimmen zu diesem Titel."]
+
+
+def test_find_persons_matches_full_names_and_unique_surnames():
+    names = ["Thomas H Tuberville", "Warren Buffett", "Michael Burry"]
+    assert find_persons("Was hat Tuberville zuletzt gekauft?", names) == ["Thomas H Tuberville"]
+    assert find_persons("Was kauft Warren Buffett?", names) == ["Warren Buffett"]
+    assert find_persons("Wie ist die Marktlage?", names) == []
+
+
+def test_find_persons_skips_ambiguous_surnames():
+    names = ["Michael Burry", "Steven Burry"]
+    # "Burry" allein ist mehrdeutig — dann lieber kein Treffer als der falsche.
+    assert find_persons("Was macht Burry?", names) == []
+    assert find_persons("Was macht Michael Burry?", names) == ["Michael Burry"]
