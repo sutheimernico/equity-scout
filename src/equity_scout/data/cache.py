@@ -89,3 +89,24 @@ class CachedProvider:
         if not is_empty_metrics(metrics):
             self._cache.put(instrument.ticker, metrics, self._run_date)
         return quote
+
+
+def load_cached_metrics(db_path: str | Path, tickers: list[str]) -> dict[str, tuple[str, dict]]:
+    """ticker -> (fetched_on, metrics) for the chat assistant's key-figure block.
+
+    One query for all mentioned tickers rather than QuoteCache.get per ticker: the chat
+    endpoint asks for up to four at once and a missing cache file must not raise there.
+    """
+    if not tickers:
+        return {}
+    placeholders = ",".join("?" for _ in tickers)
+    try:
+        with sqlite3.connect(db_path) as con:
+            rows = con.execute(
+                f"SELECT ticker, fetched_on, metrics FROM quote_cache "  # noqa: S608
+                f"WHERE ticker IN ({placeholders})",
+                tickers,
+            ).fetchall()
+    except sqlite3.OperationalError:  # no cache file / no table yet
+        return {}
+    return {str(t): (str(fetched_on), json.loads(m)) for t, fetched_on, m in rows}

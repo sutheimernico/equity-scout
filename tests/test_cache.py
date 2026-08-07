@@ -46,3 +46,20 @@ def test_is_fresh_boundaries():
     assert is_fresh("2026-06-24", "2026-06-24", 1) is True
     assert is_fresh("2026-06-23", "2026-06-24", 1) is True
     assert is_fresh("2026-06-22", "2026-06-24", 1) is False
+
+
+def test_load_cached_metrics_batches_and_tolerates_a_missing_cache(tmp_path):
+    from equity_scout.data.cache import load_cached_metrics
+
+    db = tmp_path / "cache.db"
+    cache = QuoteCache(db)
+    cache.put("MU", {"trailing_pe": 22.3, "price": 160.0}, "2026-08-04")
+    cache.put("INTC", {"trailing_pe": None, "price": 24.0}, "2026-08-05")
+
+    hits = load_cached_metrics(db, ["MU", "INTC", "NOPE"])
+    assert hits["MU"] == ("2026-08-04", {"trailing_pe": 22.3, "price": 160.0})
+    assert hits["INTC"][0] == "2026-08-05"
+    assert "NOPE" not in hits
+    # Eine fehlende Cache-Datei ist ein normaler Zustand, kein Fehler im Chat-Pfad.
+    assert load_cached_metrics(tmp_path / "absent.db", ["MU"]) == {}
+    assert load_cached_metrics(db, []) == {}

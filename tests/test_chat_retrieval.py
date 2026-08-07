@@ -4,6 +4,7 @@ from __future__ import annotations
 from equity_scout.chat_retrieval import (
     find_tickers,
     is_advice_question,
+    metrics_lines,
     short_company_name,
     stock_dossier,
 )
@@ -142,3 +143,57 @@ def test_stock_dossier_says_whats_missing_instead_of_omitting():
     )
     assert "NICHT auf der aktuellen Watchlist" in text
     assert "Keine Analysten-Daten im Cache" in text
+
+
+def test_metrics_lines_render_every_cached_number_with_its_unit():
+    text = "\n".join(metrics_lines({
+        "trailing_pe": 22.3, "price_to_book": 5.42, "return_on_equity": 0.3056,
+        "profit_margins": 0.1744, "revenue_growth": 0.196, "earnings_growth": 2.423,
+        "momentum_6m": 0.2458, "volatility_6m": 0.0241, "price": 277.42,
+        "high_52w_proximity": 0.987,
+    }, fetched_on="2026-08-04"))
+    assert "KGV 22,3" in text
+    assert "Kurs-Buchwert-Verhältnis 5,4" in text
+    assert "Eigenkapitalrendite 30,6 %" in text
+    assert "Nettomarge 17,4 %" in text
+    assert "Umsatzwachstum +19,6 %" in text
+    assert "Gewinnwachstum +242,3 %" in text
+    assert "6-Monats-Rendite +24,6 %" in text
+    assert "Tagesschwankung 2,4 %" in text
+    assert "99 % seines 52-Wochen-Hochs" in text
+    assert "Stand 2026-08-04" in text
+
+
+def test_metrics_lines_name_the_gaps_instead_of_dropping_them():
+    text = "\n".join(metrics_lines({"trailing_pe": None, "price": 12.0},
+                                   fetched_on="2026-08-04"))
+    assert "Ohne Wert im Cache: KGV" in text
+
+
+def test_negative_pe_is_explained_not_hidden():
+    # Ein negatives KGV heißt Verlust — verschweigen wäre die gefährlichere Variante.
+    text = "\n".join(metrics_lines({"trailing_pe": -12.4}, fetched_on="2026-08-04"))
+    assert "KGV -12,4" in text and "Verlust" in text
+
+
+def test_dossier_carries_metrics_factors_fscore_and_earnings():
+    from equity_scout.fundamentals import Fundamentals
+
+    text = stock_dossier(
+        ticker="MU", name="Micron Technology", watchlist_entry=None,
+        fundamentals=Fundamentals(trailing_pe=22.3, analyst_target=180.0, analyst_count=31,
+                                  currency="USD", sector="Technology",
+                                  industry="Semiconductors", year_high=190.0),
+        insight=None, pitches=[], evidence_events=[], held_by={},
+        metrics={"trailing_pe": 22.3, "price": 160.0}, metrics_fetched_on="2026-08-04",
+        factor_breakdown={"value": 0.87, "quality": 0.42, "momentum": 0.61,
+                          "growth": 0.55, "low_vol": 0.30},
+        fscore={"score": 7, "evaluable": 9, "fiscal_year": 2025},
+        next_earnings="2026-09-24",
+    )
+    assert "Technology / Semiconductors" in text
+    assert "KGV 22,3" in text
+    assert "Substanz-Bewertung 87/100" in text        # value-Perzentil im Sektorvergleich
+    assert "Bilanz-Trend (F-Score) 7 von 9" in text
+    assert "Nächster Termin: Quartalszahlen am 2026-09-24" in text
+    assert "52-Wochen-Hoch 190.0" in text

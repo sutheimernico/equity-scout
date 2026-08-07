@@ -184,11 +184,35 @@ def stock_dossier(
     pitches: list[dict],
     evidence_events: list[dict],
     held_by: dict[str, float],
+    metrics: dict | None = None,
+    metrics_fetched_on: str | None = None,
+    factor_breakdown: dict | None = None,
+    fscore: dict | None = None,
+    next_earnings: str | None = None,
 ) -> str:
     """Everything the app knows about one ticker, as prompt lines. Absences are SAID
     ("nicht auf der aktuellen Watchlist") — the measurement showed the model inventing
     reasons exactly where the context was silent."""
     lines = [f"AKTIE {name or ticker} ({ticker}):"]
+    if fundamentals is not None and (fundamentals.sector or fundamentals.industry):
+        branch = " / ".join(x for x in (fundamentals.sector, fundamentals.industry) if x)
+        currency = f", Handelswährung {fundamentals.currency}" if fundamentals.currency else ""
+        lines.append(f"- Branche: {branch}{currency}")
+    if metrics:
+        lines.extend(metrics_lines(metrics, fetched_on=metrics_fetched_on or "unbekannt"))
+    if factor_breakdown:
+        ranked = " · ".join(
+            f"{_FACTOR_LABELS.get(family, family)} {round(value * 100)}/100"
+            for family, value in factor_breakdown.items()
+            if value is not None
+        )
+        # Percentiles, not absolutes: 87/100 means "cheaper than 87 % of its sector peers".
+        lines.append(f"- Faktor-Perzentile im Vergleich (0-100): {ranked}")
+    if fscore is not None and fscore.get("score") is not None:
+        lines.append(
+            f"- Bilanz-Trend (F-Score) {fscore['score']} von {fscore.get('evaluable', 9)} "
+            f"Kriterien erfüllt (Geschäftsjahr {fscore.get('fiscal_year', '?')})."
+        )
     if watchlist_entry is not None:
         score = round(watchlist_entry["composite"] * 100)
         lines.append(
@@ -205,6 +229,11 @@ def stock_dossier(
         )
     else:
         lines.append("- Keine Analysten-Daten im Cache.")
+    if fundamentals is not None and fundamentals.year_high is not None:
+        # The honest reference for names no analyst covers: geometry, not a target.
+        lines.append(f"- 52-Wochen-Hoch {fundamentals.year_high} (Kursmarke, kein Kursziel).")
+    if next_earnings:
+        lines.append(f"- Nächster Termin: Quartalszahlen am {next_earnings}.")
     if insight is not None:
         if insight.get("business"):
             lines.append(f"- Profil: {insight['business']}")
@@ -223,3 +252,67 @@ def stock_dossier(
             label = "Dein Depot" if lane == "nico" else "Autopilot-Depot"
             lines.append(f"- {label} hält {shares} Anteile.")
     return "\n".join(lines)
+
+
+# metric key -> (German label, renderer). One place for the vocabulary the assistant is
+# asked in: "KGV", "Kennzahlen", "Marge" must land on the same numbers the screener ranks.
+_METRIC_LABELS: dict[str, str] = {
+    "trailing_pe": "KGV",
+    "price_to_book": "Kurs-Buchwert-Verhältnis",
+    "return_on_equity": "Eigenkapitalrendite",
+    "profit_margins": "Nettomarge",
+    "revenue_growth": "Umsatzwachstum",
+    "earnings_growth": "Gewinnwachstum",
+    "momentum_6m": "6-Monats-Rendite",
+    "volatility_6m": "Tagesschwankung",
+    "high_52w_proximity": "Nähe zum 52-Wochen-Hoch",
+    "price": "Kurs",
+}
+# Metrics stored as a ratio (0.17 = 17 %); the rest are plain numbers.
+_PERCENT_METRICS = frozenset({
+    "return_on_equity", "profit_margins", "revenue_growth", "earnings_growth",
+    "momentum_6m", "volatility_6m",
+})
+_SIGNED_METRICS = frozenset({"revenue_growth", "earnings_growth", "momentum_6m"})
+
+
+def _metric_text(key: str, value: float) -> str:
+    label = _METRIC_LABELS[key]
+    if key == "high_52w_proximity":
+        return f"Kurs steht bei {_de(value * 100, 0)} % seines 52-Wochen-Hochs"
+    if key in _PERCENT_METRICS:
+        return f"{label} {_pct(value, signed=key in _SIGNED_METRICS)} %"
+    if key == "trailing_pe" and value < 0:
+        # A negative P/E is not "cheap" — it means the company loses money. factors.py drops
+        # it from the value ranking for exactly that reason; the assistant must say it.
+        return f"KGV {_de(value)} (negativ — das Unternehmen schreibt derzeit Verlust)"
+    return f"{label} {_de(value)}"
+
+
+def metrics_lines(metrics: dict, *, fetched_on: str) -> list[str]:
+    """The cached key figures of one ticker as prompt lines, German units and decimal comma.
+
+    Source is the screener's own quote cache (7 778 titles as of 2026-08-07), so a KGV
+    question is answered from the same number the ranking used — not from the model's
+    training data. Missing values are listed by name: silence is what made the measured
+    assistant invent them.
+    """
+    present = [
+        _metric_text(key, float(metrics[key]))
+        for key in _METRIC_LABELS
+        if metrics.get(key) is not None
+    ]
+    missing = [_METRIC_LABELS[key] for key in _METRIC_LABELS if metrics.get(key) is None]
+    lines: list[str] = []
+    if present:
+        lines.append(f"- Kennzahlen (Stand {fetched_on}): " + " · ".join(present))
+    if missing:
+        lines.append(f"- Ohne Wert im Cache: {', '.join(missing)}")
+    return lines
+
+
+# Factor family -> the plain-German name the dashboard uses for it.
+_FACTOR_LABELS = {
+    "value": "Substanz-Bewertung", "quality": "Qualität", "momentum": "Trendstärke",
+    "growth": "Wachstum", "low_vol": "Ruhe im Kurs",
+}
