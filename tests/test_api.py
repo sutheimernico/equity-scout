@@ -895,3 +895,36 @@ def test_chat_stream_reports_an_unreachable_model_in_band(tmp_path, monkeypatch)
     monkeypatch.setattr("equity_scout.chat.stream_ollama", failing)
     resp = client.post("/api/chat/stream", json={"question": "Wie ist die Marktlage?"})
     assert resp.status_code == 200 and "[Fehler:" in resp.text
+
+
+def test_chat_answers_about_a_named_person_instead_of_the_top_list(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+
+    from equity_scout.evidence.base import EvidenceEvent
+    from equity_scout.evidence.storage import record_events
+
+    db = str(tmp_path / "chat9.db")
+    today = datetime.now(timezone.utc).date().isoformat()
+    record_events(db, [
+        EvidenceEvent(source="congress", ticker="INTC", event_key="a", event_date=today,
+                      details={"politician": "Thomas H Tuberville", "party": "R",
+                               "chamber": "senate", "transaction_date": "2024-05-07",
+                               "filing_date": today, "amount_range": "$1 - $2",
+                               "days_to_file": 820}),
+        EvidenceEvent(source="congress", ticker="AAPL", event_key="b", event_date=today,
+                      details={"politician": "Jemand Anders", "party": "D",
+                               "chamber": "house", "transaction_date": "2026-01-02",
+                               "filing_date": today, "amount_range": "$1 - $2",
+                               "days_to_file": 30}),
+    ], now=today)
+
+    client = TestClient(create_app(db))
+    captured = _capture_chat_context(monkeypatch)
+    client.post("/api/chat", json={"question": "Was hat Tuberville zuletzt gekauft?"})
+
+    context = captured["context"]
+    assert "PERSON Thomas H Tuberville" in context
+    assert "INTC" in context
+    # Der gezielte Block ersetzt die globale Liste — sonst liest das Modell erst 4 000
+    # Zeichen fremder Namen, bevor es zur Frage kommt.
+    assert "Jemand Anders" not in context

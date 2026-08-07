@@ -2,6 +2,7 @@
 plus the decision inbox (GET listing, POST one-tap buy/pass/later decisions)."""
 from __future__ import annotations
 
+import json
 import hmac
 import os
 import re
@@ -357,6 +358,84 @@ def _chat_people_block(db_path: str, now: str) -> str:
                 f"Trefferquote kurzfristig "
                 f"{'—' if rate is None else f'{rate * 100:.0f} %'}."
             )
+    return "\n".join(lines)
+
+
+_chat_person_cache: dict[str, tuple[float, list[str]]] = {}
+
+
+def _chat_person_names(db_path: str, *, now: float | None = None) -> list[str]:
+    """Every person the evidence store knows — politicians, fund managers, quoted voices.
+
+    Cached like the lexicon: this reads ~1 400 event payloads and only changes when the
+    collectors write new ones.
+    """
+    import sqlite3
+
+    stamp = time.monotonic() if now is None else now
+    hit = _chat_person_cache.get(db_path)
+    if hit is not None and stamp - hit[0] < _CHAT_LEXICON_TTL_SECONDS:
+        return hit[1]
+
+    names: list[str] = []
+    seen: set[str] = set()
+    for row in load_person_scores(db_path):
+        person = str(row.get("person") or "")
+        if person and person not in seen:
+            seen.add(person)
+            names.append(person)
+    try:
+        with sqlite3.connect(db_path) as conn:
+            rows = conn.execute(
+                "SELECT details_json FROM evidence_events WHERE source IN"
+                " ('congress', 'voice', 'thirteen_f')"
+            ).fetchall()
+    except sqlite3.OperationalError:  # pre-feature DB
+        _chat_person_cache[db_path] = (stamp, names)
+        return names
+    for (payload,) in rows:
+        try:
+            details = json.loads(payload)
+        except (TypeError, ValueError):
+            continue
+        for key in ("politician", "speaker", "fund"):
+            person = str(details.get(key) or "")
+            if person and person not in seen:
+                seen.add(person)
+                names.append(person)
+    _chat_person_cache[db_path] = (stamp, names)
+    return names
+
+
+def _chat_person_block(db_path: str, person: str, now: str) -> str:
+    """What ONE named person bought — the "was hat Tuberville zuletzt gekauft" direction.
+
+    Far more useful than the top-10 list when the question names someone, and much shorter:
+    prompt length is what the local model pays for in seconds.
+    """
+    grouped = events_in_window(db_path, window_days=_CHAT_EVIDENCE_WINDOW_DAYS, now=now)
+    mine: list[tuple[str, dict]] = []
+    for ticker, events in grouped.items():
+        for event in events:
+            details = event["details"]
+            if person in (details.get("politician"), details.get("speaker"),
+                          details.get("fund")):
+                mine.append((ticker, event))
+    if not mine:
+        return f"PERSON {person}: keine Meldungen im Fenster."
+    mine.sort(key=lambda row: row[1]["event_date"], reverse=True)
+    lines = [f"PERSON {person} ({len(mine)} Meldungen im Fenster, jüngste zuerst):"]
+    for ticker, event in mine[:15]:
+        from equity_scout.chat_retrieval import people_lines
+
+        lines.append(f"- {ticker}: " + people_lines([event])[0].lstrip("- "))
+    scores = [s for s in load_person_scores(db_path) if s.get("person") == person]
+    for score in scores:
+        rate = score.get("hit_rate_short")
+        lines.append(
+            f"- Unsere Messung ({score['source']}): {score['n_calls']} Käufe, "
+            f"Trefferquote kurzfristig {'nicht bewertbar' if rate is None else f'{rate * 100:.0f} %'}."
+        )
     return "\n".join(lines)
 
 
@@ -1203,7 +1282,7 @@ def create_app(
         stock. Routing keeps the prompt short: the measurement showed a 7B model losing
         the thread when handed the whole dashboard for a single-stock question."""
         from equity_scout.chat import glossary_for
-        from equity_scout.chat_retrieval import route_topics
+        from equity_scout.chat_retrieval import find_persons, route_topics
 
         topics = route_topics(question)
         dossiers = _chat_dossier_blocks(question)
@@ -1216,9 +1295,19 @@ def create_app(
             blocks.append(_chat_depots_block(db_path, autotrader_db, shortterm_db))
         if "ergebnisse" in topics:
             blocks.append(_chat_proof_block(autotrader_db, shortterm_db, forward_db))
-        if "personen" in topics:
+        # Named people are detected like tickers — independent of keyword routing, because
+        # "Was hat Tuberville zuletzt gekauft?" routes on "gekauft" (a depot word) and would
+        # otherwise never reach the evidence at all.
+        named = find_persons(question, _chat_person_names(db_path))
+        if named or "personen" in topics:
             now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-            blocks.append(_chat_people_block(db_path, now))
+            if named:
+                blocks.extend(_chat_person_block(db_path, p, now) for p in named[:2])
+            elif not dossiers:
+                # Only without a dossier — a stock question already carries its own
+                # "who traded this" block, and the global list would just be 4 000
+                # characters the model has to read first.
+                blocks.append(_chat_people_block(db_path, now))
         if "markt" in topics or overview:
             blocks.append(_chat_regime_block(reports_cache.get("regime")))
         if "inbox" in topics or overview:

@@ -220,6 +220,61 @@ def test_resolve_ticker_strips_no_dash_listing_tail():
     assert resolve_ticker("Select Water Solutions wins contract", [wttr]) == "WTTR"
 
 
+# --- strict resolve channel (P2a statement backfill, evidence/backfill_statements.py) --
+
+
+def test_resolve_ticker_strict_still_allows_the_literal_full_name_match():
+    universe = [("MU", "Micron Technology, Inc.")]
+    title = "Micron Technology reports record earnings"
+    assert resolve_ticker(title, universe) == "MU"
+    assert resolve_ticker(title, universe, strict=True) == "MU"
+
+
+def test_resolve_ticker_strict_disables_the_distinguishing_first_word_channel():
+    # Non-strict: "Micron" alone resolves via the first-word channel (no other
+    # tracked company starts with "Micron"). Strict requires the full name.
+    universe = [("MU", "Micron Technology, Inc.")]
+    title = "Micron soars on AI chip demand"
+    assert resolve_ticker(title, universe) == "MU"
+    assert resolve_ticker(title, universe, strict=True) is None
+
+
+def test_resolve_ticker_strict_disables_the_single_token_name_channel():
+    # Live P2a fabrication: "Via @Breitbart" resolved to VIIA3.SA under non-strict
+    # matching via the single-token "capitalized occurrence" channel -- "Via" is a
+    # real (if unfortunate) single-word company name, not curated into
+    # `_GENERIC_FIRST_WORDS`, and ordinary prose capitalizes it constantly (sentence
+    # starts, "Via @handle" citations). Strict drops this channel entirely.
+    universe = [("VIA", "Via Inc.")]  # normalizes to the bare single token "VIA"
+    title = "Via @Breitbart, the story broke this morning"
+    assert resolve_ticker(title, universe) == "VIA"
+    assert resolve_ticker(title, universe, strict=True) is None
+
+
+def test_resolve_ticker_strict_disables_the_raw_caps_token_channel():
+    # Live P2a fabrication: "the market goes UP" resolved to Wheels Up (ticker "UP")
+    # purely via the raw all-caps ticker-token fallback -- a stray capitalized word
+    # in unedited prose, not a real mention.
+    universe = [("UP", "Wheels Up Experience Inc.")]
+    title = "I think the market goes UP from here"
+    assert resolve_ticker(title, universe) == "UP"
+    assert resolve_ticker(title, universe, strict=True) is None
+
+
+def test_resolve_ticker_strict_default_is_false_and_unchanged():
+    universe = [("TGT", "Target Corporation")]
+    title = "Burry buys TGT stake"
+    assert resolve_ticker(title, universe) == resolve_ticker(title, universe, strict=False)
+    assert resolve_ticker(title, universe) == "TGT"
+
+
+def test_classify_mention_threads_strict_through_to_resolve_ticker():
+    universe = [("VIA", "Via Inc.")]
+    hit = mention("Michael Burry says Via is a great company")
+    assert classify_mention(hit, universe, [])[1] == "VIA"
+    assert classify_mention(hit, universe, [], strict=True) is None
+
+
 def test_classify_mention_masks_speaker_name_before_ticker_resolution():
     # The speaker attribution must never double as company evidence: "Bill Ackman"
     # fabricated a BILL Holdings ledger call, "Stanley Druckenmiller" a Stanley

@@ -60,27 +60,58 @@ favourites_count`. `created_at` is ISO-8601 UTC with milliseconds
 holds the asset URL instead) -- verified 17.2% of the live file -- a real, expected
 shape (counted as `no_text`), not a defect.
 
---- Reuse of voices.classify_mention, and the expected LOW yield ------------------
+--- Reuse of voices.classify_mention (STRICT mode), and the MEASURED full-corpus yield --
 `events_from_statement_rows` builds one `voices.Mention` per statement (speaker=person,
-title=the statement text) and classifies it exactly like a news headline: the person's
-name (or an alias, or -- automatically, via `voices._name_in_title` -- their bare
-surname when longer than 3 chars) must appear BEFORE a closed-list direction phrase
-("buys", "sells", "bullish on", ...), and `resolve_ticker` must resolve to exactly one
-universe company. Trump's archived statements are overwhelmingly THIRD-PERSON
-self-references in the classic campaign-brand style ("Donald Trump reads Top Ten...",
-"...--Donald J. Trump") rather than first-person trading language ("I bought X") -- the
-surname fallback makes these classifiable without inventing any Trump-specific parsing.
-But most real statements are simply not about a tracked-universe ticker at all (live
-sample, 2026-08-07 truth_archive.csv: the phrases "buys"/"buying"/"sold"/etc. appear in
-~250 of 29,469 posts, and a manual read of a dozen shows none naming a company by its
-resolvable name) -- an expected, honest LOW-to-ZERO yield from this collector is a
-correct result of the deterministic, never-guess contract, not evidence of a bug. Do
-not "fix" this by loosening the classifier here (out of scope) or inventing a
-statement-specific alias/verb scheme (the plan explicitly forbids a new alias scheme).
+title=the statement text) and classifies it like a news headline, but with
+`classify_mention(..., strict=True)`: the person's name (or an alias, or --
+automatically, via `voices._name_in_title` -- their bare surname when longer than 3
+chars) must appear BEFORE a closed-list direction phrase ("buys", "sells", "bullish
+on", ...), and `resolve_ticker` must resolve to exactly one universe company via the
+literal FULL-NAME-as-substring match ONLY (`voices.resolve_ticker`'s `strict`
+docstring) -- the single-token-name, distinguishing-first-word and raw-caps-token
+channels are all disabled here. A retweet/quote ("RT @"/"RT:" prefix) is never the
+person's own statement and is filtered before classification; an exact-text repeat
+within the batch (mirror-side duplication, mostly self-RTs) is deduped, first kept.
+
+MEASURED, 2026-08-07, full real corpus (both Twitter files + the Truth Social archive,
+`data/universe_combined.csv`, 7,499 companies) run through this exact pipeline:
+78,728 total parsed statement rows (media-only Truth Social posts already excluded as
+`no_text`) -> 14,019 retweets filtered -> 1,554 exact-text duplicates filtered ->
+63,023 rows with no resolvable name+direction-phrase combination at all -> 132
+candidate rows -> after full strict ticker resolution: **10 raw "events"**.
+
+A manual spot-check of ALL 10 survivors (not a sample) found ZERO genuine investment
+calls -- the honest yield of this entire 2009-2026 corpus, under strict + RT-filter +
+dedupe, is effectively **ZERO**, matching the plan's own "expect ~0; that is a valid
+result." Two residual false-positive classes explain the 10, both OUTSIDE the approved
+fix package's scope (named here, not silently patched):
+  * 9 of 10 resolve to ticker M (Macy's Inc): every one is about Trump-BRANDED
+    MERCHANDISE (ties, cologne) being sold AT the retailer Macy's ("Selling like
+    hotcakes", "buys some DJT ties... at Macy's"), never a stock opinion about Macy's
+    the company. The literal company name "Macy's" genuinely, unambiguously appears in
+    the text -- the full-name channel is not wrong to match it -- but the CONTENT is a
+    merchandising mention, not a directional call; several of these ALSO carry the
+    direction verb from a QUOTED FAN's reply text embedded in Trump's own tweet
+    ("' @KSofen: ... I bought one of your ties at Macy's ...'" -- @KSofen bought the
+    tie, not Trump), the same "someone else's verb becomes a Trump call" failure mode
+    named for the RT case, but via an unprefixed quote-in-single-quotes citation style
+    (pre-official-retweet-era Twitter) the `_RETWEET_PREFIXES` check does not catch.
+  * 1 of 10 resolves to ticker DB (Deutsche Bank AG): a Truth Social repost of CNN
+    courtroom coverage where "Kise added" ("Chris Kise, [Trump's] attorney,
+    ADDED [a further remark]" -- ordinary reporting-verb English) collides with
+    BULLISH_PHRASES's "added" (short for "added to a position") -- a homograph, not a
+    name/ticker resolution error.
+Neither class is addressed by this module (would require either dropping brand-name
+tickers that double as common retail venues, or a quote-citation detector, or removing
+homograph-prone phrases from voices.py's SHARED closed list -- all out of this task's
+approved scope). Task 6/7 should treat the "statement" class as n approx 0 for the
+2009-2026 window and decide separately whether it is worth a manual-review gate before
+ever publishing a base rate from it.
 """
 from __future__ import annotations
 
 import csv
+import html
 import io
 import re
 from collections.abc import Callable
@@ -127,9 +158,19 @@ _TWEET_URL_ID_RE = re.compile(r"/status/(\d+)\s*$")
 # Every row lands in exactly one of these buckets except "kept", which is the OVERLAY
 # convenience sum calls+bearish_calls (same overlay-outside-the-partition convention
 # as backfill_form4.py's "bad_shares"): rows == calls + bearish_calls + context +
-# unclassified + malformed.
-_PARTITION_KEYS = ("rows", "calls", "bearish_calls", "context", "unclassified", "malformed")
+# unclassified + malformed + retweets + duplicate_text.
+_PARTITION_KEYS = (
+    "rows", "calls", "bearish_calls", "context", "unclassified", "malformed",
+    "retweets", "duplicate_text",
+)
 _OVERLAY_COUNT_KEYS = ("kept",)
+
+# A retweet/repost is NOT the person's own statement -- SOURCE_STATEMENT's whole
+# contract is "this person said this", and an RT attributes someone ELSE's words
+# (live P2a fabrication: an RT of a third party's NYT-bullish tweet became a
+# Trump-bullish-on-NYT call). Checked on the LSTRIPPED text so a leading blank/quote
+# character never defeats the prefix match.
+_RETWEET_PREFIXES = ("RT @", "RT:")
 
 
 def _http_get_default(url: str) -> str:
@@ -167,14 +208,20 @@ def _rows_from_twitter_csv(csv_text: str) -> tuple[list[dict], dict]:
     ValueError when it does not match exactly: a silently reordered header would
     otherwise parse "successfully" into wrong fields (e.g. a swapped Time/URL) rather
     than failing, which is worse than a crash.
+
+    Splits on plain `"\\n"` (+ manual `\\r` stripping) rather than `str.splitlines()`:
+    the latter also breaks on Unicode line-separator characters (U+2028/U+2029/...),
+    any of which can legitimately appear INSIDE a tweet's text -- `splitlines()` would
+    silently truncate such a tweet at the separator instead of treating it as content.
     """
     counts = {"malformed": 0, "no_text": 0}
     rows: list[dict] = []
-    lines = csv_text.splitlines()
-    if not lines or lines[0].strip() != _TWITTER_EXPECTED_HEADER:
-        got = lines[0].strip() if lines else "<empty>"
-        raise ValueError(f"unexpected Twitter archive header: {got!r}")
-    for line in lines[1:]:  # skip header
+    lines = csv_text.lstrip("\ufeff").split("\n")
+    header = lines[0].rstrip("\r").strip() if lines else ""
+    if header != _TWITTER_EXPECTED_HEADER:
+        raise ValueError(f"unexpected Twitter archive header: {header!r}")
+    for raw_line in lines[1:]:  # skip header
+        line = raw_line.rstrip("\r")
         if not line.strip():
             continue
         parts = line.split(", ", 3)
@@ -215,8 +262,12 @@ def _rows_from_truth_social_csv(csv_text: str) -> tuple[list[dict], dict]:
     Raises ValueError when a column this module READS is missing -- schema drift on
     the live mirror must fail loudly, never silently produce a quiet zero-row run
     (same convention as backfill_form4.py's `_REQUIRED_COLUMNS` guard).
+
+    `content` is HTML-escaped (Mastodon-API-style, e.g. "Tariffs &amp; Trade") --
+    `html.unescape`d here, before the text ever reaches `classify_mention`, so a
+    literal "&amp;" never breaks phrase adjacency or a company-name match.
     """
-    reader = csv.DictReader(io.StringIO(csv_text))
+    reader = csv.DictReader(io.StringIO(csv_text.lstrip("\ufeff")))
     missing = [
         column
         for column in _TRUTH_SOCIAL_REQUIRED_COLUMNS
@@ -246,7 +297,7 @@ def _rows_from_truth_social_csv(csv_text: str) -> tuple[list[dict], dict]:
             {
                 "platform": "truth_social",
                 "post_id": str(post_id),
-                "text": text,
+                "text": html.unescape(text),
                 "published": published,
             }
         )
@@ -278,12 +329,19 @@ def events_from_statement_rows(
     """Normalized statement rows -> `HistoricalEvent`s (bullish/bearish only) + a
     complete partition of skip counters.
 
-    Each row is run through `voices.classify_mention` unmodified: only unambiguous
-    (ticker, direction) hits are kept (KIND_CONTEXT and a `None` classification are
-    both counted, never stored -- a context mention has no direction to resolve, and
-    "unclassified" folds together every reason classify_mention itself refuses to
-    disclose: no name in the text, no resolvable ticker, or an ambiguous one).
-    T0 is the post timestamp (`published`), never a network fetch time. event_key is
+    Each row is run through `voices.classify_mention` in STRICT mode (only the
+    literal full-company-name match resolves a ticker -- see `voices.resolve_ticker`'s
+    docstring): only unambiguous (ticker, direction) hits are kept (KIND_CONTEXT and a
+    `None` classification are both counted, never stored -- a context mention has no
+    direction to resolve, and "unclassified" folds together every reason
+    classify_mention itself refuses to disclose: no name in the text, no resolvable
+    ticker, or an ambiguous one). A retweet/repost (`text` starting with "RT @" or
+    "RT:") is never the person's OWN statement and is counted (`retweets`) before ever
+    reaching the classifier. An exact-text repeat within this batch (mirror-side
+    duplication, mostly self-RTs) is counted (`duplicate_text`) and skipped, first
+    occurrence kept. T0 is the DATE part of the post timestamp (`published[:10]`,
+    consistent with the plain-date t0 the congress/form4 backfills use) -- the full
+    timestamp is preserved in `details["published"]`, never dropped. event_key is
     `f"{person_slug}-{post_id}"` per plan Task 4 -- collision risk across the two
     platforms' independent id spaces is negligible (both are large, effectively
     disjoint integer ranges) and `details["platform"]` still records which archive a
@@ -291,6 +349,7 @@ def events_from_statement_rows(
     """
     counts = dict.fromkeys(_PARTITION_KEYS + _OVERLAY_COUNT_KEYS, 0)
     person_slug = _slug(person)
+    seen_texts: set[str] = set()
     events: list[HistoricalEvent] = []
     for row in rows:
         counts["rows"] += 1
@@ -309,9 +368,16 @@ def events_from_statement_rows(
         ):
             counts["malformed"] += 1
             continue
+        if text.lstrip().startswith(_RETWEET_PREFIXES):
+            counts["retweets"] += 1
+            continue
+        if text in seen_texts:
+            counts["duplicate_text"] += 1
+            continue
+        seen_texts.add(text)
 
         mention = Mention(speaker=person, title=text, feed=platform, published=published)
-        classified = classify_mention(mention, universe, aliases)
+        classified = classify_mention(mention, universe, aliases, strict=True)
         if classified is None:
             counts["unclassified"] += 1
             continue
@@ -331,12 +397,13 @@ def events_from_statement_rows(
                 person=person,
                 ticker=ticker,
                 event_key=f"{person_slug}-{post_id}",
-                t0=published,
+                t0=published[:10],
                 details={
                     "platform": platform,
                     "direction": direction,
                     "matched_phrase": phrase,
                     "text": text,
+                    "published": published,
                 },
             )
         )
@@ -362,7 +429,13 @@ def backfill_statements(
     sources failing (either way) still returns a structurally complete, all-zero counts
     dict (`rows == 0`, `events_new == 0`) rather than raising -- loud via the returned
     counts, never a crash and never mistaken for a quiet no-op because the failure
-    counters are right there next to it.
+    counters are right there next to it. Every such failure also appends a
+    human-readable `f"{url}: {err}"` line to `counts["source_errors"]` (mirrors
+    `backfill_form4._fetch_quarter_zip`'s detail convention) -- a bare integer cannot
+    tell a 404 apart from a schema-drift ValueError.
+
+    Real yield is expected to be LOW-to-ZERO -- see the module docstring's measured
+    full-corpus numbers, not the collector's own summary counts.
 
     `universe` defaults to the full tracked universe (`data/universe_combined.csv`,
     same file `run_evidence.py` loads for the live voices collector) when not
@@ -370,10 +443,14 @@ def backfill_statements(
     """
     get = http_get if http_get is not None else _http_get_default
     if universe is None:
-        universe = [(instrument.ticker, instrument.name) for instrument in load_universe(DEFAULT_UNIVERSE_PATH)]
+        universe = [
+            (instrument.ticker, instrument.name)
+            for instrument in load_universe(DEFAULT_UNIVERSE_PATH)
+        ]
 
     counts: dict = {
         "sources_fetched": 0, "sources_failed": 0, "sources_parse_failed": 0,
+        "source_errors": [],
         "twitter_rows": 0, "truth_social_rows": 0,
         # CSV-parse-time skip buckets, kept separate per platform and distinct from
         # the classify-time "malformed"/"unclassified"/etc. buckets below -- these two
@@ -397,8 +474,9 @@ def backfill_statements(
     for platform, url in sources:
         try:
             csv_text = get(url)
-        except Exception:  # noqa: BLE001 -- a dead/renamed mirror is a status, not a crash
+        except Exception as err:  # noqa: BLE001 -- a dead/renamed mirror is a status, not a crash
             counts["sources_failed"] += 1
+            counts["source_errors"].append(f"{url}: {err}")
             continue
         counts["sources_fetched"] += 1
         try:
@@ -406,10 +484,11 @@ def backfill_statements(
                 rows, parse_counts = _rows_from_twitter_csv(csv_text)
             else:
                 rows, parse_counts = _rows_from_truth_social_csv(csv_text)
-        except ValueError:
+        except ValueError as err:
             # Fetched fine, but the content no longer matches the verified layout
             # (renamed/reordered column) -- counted, never a crash mid-run.
             counts["sources_parse_failed"] += 1
+            counts["source_errors"].append(f"{url}: {err}")
             continue
         counts[f"{platform}_rows"] += len(rows)
         counts[f"{platform}_malformed"] += parse_counts["malformed"]

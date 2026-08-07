@@ -278,7 +278,9 @@ def _direction_after(title_lower: str, name_pos: int) -> tuple[str, int] | None:
     return direction, pos
 
 
-def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
+def resolve_ticker(
+    title: str, universe: list[tuple[str, str]], *, strict: bool = False
+) -> str | None:
     """Exactly one universe company per title, or None — ambiguity is a non-match.
 
     Company name is the higher-trust channel and is tried first for every candidate:
@@ -296,6 +298,19 @@ def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
     never resolve as a ticker). All channel hits pool into one set before the
     ambiguity check, so a headline that genuinely names two different companies is
     still an honest non-match.
+
+    `strict=True` (evidence/backfill_statements.py, P2a): disables BOTH the
+    "capitalized occurrence" channel (single-token name AND distinguishing-first-word
+    of a multi-word name — the module docstring already treats these as one style)
+    and the raw caps-token fallback, leaving ONLY the literal full-name-as-substring
+    match. This is a further TIGHTENING of never-guess, added after full-corpus
+    statement backfill review found it fabricating attributions no news headline
+    would produce (e.g. "Via @Breitbart" resolving to VIIA3.SA via the single-token
+    channel, "market goes UP" resolving to Wheels Up via the raw caps-token channel —
+    headlines are edited prose that rarely says "UP" in caps as a stray word, but a
+    person's own unedited statements do, constantly). `strict=False` (the default)
+    is BYTE-IDENTICAL to the pre-strict behavior — every existing call site and test
+    is unaffected.
     """
     tokens = ["".join(ch for ch in tok if ch.isalnum()) for tok in title.split()]
     caps_tokens = {
@@ -327,7 +342,7 @@ def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
             if f" {norm_name} " in padded_title:
                 name_hit = True
                 full_name_hits.add(ticker)
-            else:  # try the name's unique, distinguishing first word instead
+            elif not strict:  # try the name's unique, distinguishing first word instead
                 first_word = norm_name.split()[0]
                 name_hit = (
                     len(first_word) > 3  # "A", "AN" alone are too generic to trust
@@ -335,7 +350,7 @@ def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
                     and len(first_word_owners.get(first_word, ())) == 1
                     and capitalized_original(first_word)
                 )
-        elif norm_name:
+        elif norm_name and not strict:
             # single-token name: capitalized original occurrence, and never a generic
             # English word (v13 Q4) — "Shell"/"Target"/"Next" headlines must not resolve
             # to SHEL.L/TGT/NXT.L; same gate the first-word channel already applies
@@ -344,14 +359,16 @@ def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
             )
             if name_hit:
                 single_name_hits.add(ticker)
-        if name_hit or ticker in caps_tokens:
+        if name_hit or (not strict and ticker in caps_tokens):
             matched.add(ticker)
     if len(matched) == 1:
         return matched.pop()
     # v13 Q4: a single-token match riding INSIDE the one full-name match is the same text
     # span, not a second company — "Target Hospitality wins" must resolve to TH, not go
     # ambiguous against TGT ("TARGET"). A genuine two-company title still returns None.
-    if len(full_name_hits) == 1:
+    # Structurally inert under strict (single_name_hits is always empty there), but
+    # gated explicitly so this stays true even if that invariant ever changes.
+    if not strict and len(full_name_hits) == 1:
         winner = next(iter(full_name_hits))
         winner_tokens = set(norm_names[winner].split())
         others = matched - {winner}
@@ -363,18 +380,24 @@ def resolve_ticker(title: str, universe: list[tuple[str, str]]) -> str | None:
 
 
 def classify_mention(
-    mention: Mention, universe: list[tuple[str, str]], aliases: list[str]
+    mention: Mention,
+    universe: list[tuple[str, str]],
+    aliases: list[str],
+    *,
+    strict: bool = False,
 ) -> tuple[str, str, str | None] | None:
     """-> (kind, ticker, direction|None) or None when the mention is unusable
     (name not in title, or no unambiguous ticker). The speaker's name is masked out
     of the title before ticker resolution: the attribution itself must never double
-    as the company evidence (see `_mask_speaker`)."""
+    as the company evidence (see `_mask_speaker`). `strict` is threaded straight
+    through to `resolve_ticker` (see its docstring) — default False leaves every
+    existing caller (the live news-mention pipeline) byte-identical."""
     title_lower = mention.title.lower()
     name_pos = _name_in_title(mention.speaker, aliases, title_lower)
     if name_pos < 0:
         return None
     ticker = resolve_ticker(
-        _mask_speaker(mention.title, mention.speaker, aliases), universe
+        _mask_speaker(mention.title, mention.speaker, aliases), universe, strict=strict
     )
     if ticker is None:
         return None
