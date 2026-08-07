@@ -686,15 +686,17 @@ export interface EntryPlan {
   reference_note: string;
 }
 
-// entry.compute_target_stop's return shape (A4): a deterministic model target/stop from
-// the entry_tb champion's own vol-scaled barrier config — distinct from both the
-// rule-based EntryPlan levels above and any third-party analyst consensus. null when no
-// champion/barrier config/long-enough history exists yet (honest gap, never a guess).
+// entry.resolve_target_stop's return shape: a deterministic target/stop from the entry_tb
+// champion's own vol-scaled barrier config (source "model"), or the fixed conservative
+// fallback barrier (source "heuristic_v1") while no champion exists — distinct from both
+// the rule-based EntryPlan levels above and any third-party analyst consensus. null only
+// when even the fallback's 20-day vol window cannot be computed.
 export interface TargetStop {
   target: number;
   stop: number;
   sigma: number;
   horizon_days: number;
+  source: "model" | "heuristic_v1";
 }
 
 export interface EntryResponse {

@@ -55,10 +55,16 @@ export function EntryPlanBlock({ ticker }: { ticker: string }) {
           <span className="nobr">🎯 Kursziel {state.target_stop.target}</span>
           <span className="nobr">🛑 Stop {state.target_stop.stop}</span>
           <span className="nobr">Horizont {state.target_stop.horizon_days} Handelstage</span>
+          {/* Provenance stays visible: a fallback number must never wear the model's badge. */}
+          <span className="nobr">
+            {state.target_stop.source === "model"
+              ? "(trainiertes Modell)"
+              : "(konservative Faustformel — noch kein trainiertes Modell)"}
+          </span>
         </span>
       ) : (
         <Explain tone="hint">
-          Kein Modell-Kursziel verfügbar (noch kein trainiertes Modell oder zu kurze Kurshistorie).
+          Kein Kursziel berechenbar (zu kurze Kurshistorie).
         </Explain>
       )}
 
