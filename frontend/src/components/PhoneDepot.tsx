@@ -70,8 +70,10 @@ function toneOf(value: number | null | undefined): string {
   return value >= 0 ? "brief-good" : "brief-warn";
 }
 
-export function PhoneDepot() {
-  const [book, setBook] = useState<Book>("long");
+// `fixedBook` pins one view without the internal switch — the rebuilt DepotsView
+// (mockup v2) drives Langfrist/Kurzfrist from its own segment control.
+export function PhoneDepot({ fixedBook }: { fixedBook?: Book }) {
+  const [book, setBook] = useState<Book>(fixedBook ?? "long");
   const [auto, setAuto] = useState<AutodepotResponse | null>(null);
   const [short, setShort] = useState<ShortTermResponse | null>(null);
   const [failed, setFailed] = useState(false);
@@ -98,24 +100,26 @@ export function PhoneDepot() {
 
   return (
     <div className="phone-depot">
-      <div className="pd-switch" role="tablist" aria-label="Depot">
-        <button
-          role="tab"
-          aria-selected={book === "long"}
-          className={book === "long" ? "pd-switch-btn active" : "pd-switch-btn"}
-          onClick={() => setBook("long")}
-        >
-          Long Term
-        </button>
-        <button
-          role="tab"
-          aria-selected={book === "day"}
-          className={book === "day" ? "pd-switch-btn active" : "pd-switch-btn"}
-          onClick={() => setBook("day")}
-        >
-          Day Trader
-        </button>
-      </div>
+      {!fixedBook && (
+        <div className="pd-switch" role="tablist" aria-label="Depot">
+          <button
+            role="tab"
+            aria-selected={book === "long"}
+            className={book === "long" ? "pd-switch-btn active" : "pd-switch-btn"}
+            onClick={() => setBook("long")}
+          >
+            Long Term
+          </button>
+          <button
+            role="tab"
+            aria-selected={book === "day"}
+            className={book === "day" ? "pd-switch-btn active" : "pd-switch-btn"}
+            onClick={() => setBook("day")}
+          >
+            Day Trader
+          </button>
+        </div>
+      )}
 
       {book === "long" ? <LongTerm auto={auto} /> : <DayTrader lanes={short.lanes ?? []} />}
     </div>

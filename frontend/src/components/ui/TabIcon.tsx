@@ -20,10 +20,18 @@ const COMMON = {
   "aria-hidden": true,
 };
 
-export type TabIconName = "today" | "depots" | "inbox" | "proof" | "more";
+export type TabIconName = "today" | "aktien" | "depots" | "inbox" | "proof" | "more";
 
 export function TabIcon({ name }: { name: TabIconName }) {
   switch (name) {
+    // Aktien: a rising price line with an arrow head — the stock list.
+    case "aktien":
+      return (
+        <svg {...COMMON} className="tab-icon">
+          <path d="M3.5 17l5-6 4 3 6.5-8.5" />
+          <path d="M15.5 5.5H19V9" />
+        </svg>
+      );
     // Today: a house — the start page.
     case "today":
       return (

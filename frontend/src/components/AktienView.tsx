@@ -26,7 +26,9 @@ const STYLES: { key: string; label: string }[] = [
   { key: "aggressive", label: "Aggressiv" },
 ];
 
-function StockCard({ brief, onOpen }: { brief: StockBrief; onOpen: () => void }) {
+/** Exported: TodayView's "Heute interessant" renders the same card, so the two
+ *  surfaces can never drift apart. */
+export function StockCard({ brief, onOpen }: { brief: StockBrief; onOpen: () => void }) {
   const risk = riskMeta(brief.bucket);
   return (
     <li className="brief-row">

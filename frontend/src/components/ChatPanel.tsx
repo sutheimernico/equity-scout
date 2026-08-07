@@ -15,7 +15,16 @@ const EXAMPLES = [
   "Was bedeutet die Einstiegszone?",
 ];
 
-export function ChatPanel() {
+// `overlay` renders the compact header with a close button instead of the full
+// section head — the panel now lives behind the FAB on every screen (mockup v2),
+// where the big explainer would push the log below the fold.
+export function ChatPanel({
+  overlay = false,
+  onClose,
+}: {
+  overlay?: boolean;
+  onClose?: () => void;
+}) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -46,16 +55,27 @@ export function ChatPanel() {
 
   return (
     <>
-      <header className="section-head">
-        <p className="eyebrow">Assistent</p>
-        <h1>Frag deine Daten</h1>
-        <p className="section-sub">
-          Ein lokaler Chatbot (über <strong>Ollama</strong>) beantwortet Fragen zu jeder Aktie im
-          Bestand — Kennzahlen wie KGV und Marge, wer gekauft hat (Kongress, Fonds, Stimmen),
-          Einstiegs-Score, Pitches, Depots, Marktlage und Ergebnisse. Läuft komplett lokal, nichts
-          verlässt den Rechner. Keine Anlageberatung — Kauf-/Verkaufsfragen beantwortet er nicht.
-        </p>
-      </header>
+      {overlay ? (
+        <header className="chat-overlay-head">
+          <button className="stock-more" onClick={onClose}>
+            ‹ Schließen
+          </button>
+          <span className="chat-overlay-title">Assistent</span>
+          <span className="brief-muted">lokale KI</span>
+        </header>
+      ) : (
+        <header className="section-head">
+          <p className="eyebrow">Assistent</p>
+          <h1>Frag deine Daten</h1>
+          <p className="section-sub">
+            Ein lokaler Chatbot (über <strong>Ollama</strong>) beantwortet Fragen zu jeder Aktie
+            im Bestand — Kennzahlen wie KGV und Marge, wer gekauft hat (Kongress, Fonds,
+            Stimmen), Einstiegs-Score, Pitches, Depots, Marktlage und Ergebnisse. Läuft komplett
+            lokal, nichts verlässt den Rechner. Keine Anlageberatung — Kauf-/Verkaufsfragen
+            beantwortet er nicht.
+          </p>
+        </header>
+      )}
 
       <div className="chat-log">
         {messages.length === 0 && (

@@ -1,21 +1,26 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 
+import { AktienView } from "./components/AktienView";
 import { ChatPanel } from "./components/ChatPanel";
 import { DepotsView } from "./components/DepotsView";
 import { FreshnessBanner } from "./components/FreshnessBanner";
-import { ProofView } from "./components/ProofView";
-import { FunnelView } from "./components/FunnelView";
 import { InboxPanel } from "./components/InboxPanel";
-import { LearningCurvePanel } from "./components/LearningCurvePanel";
-import { MLSection } from "./components/MLSection";
-import { ModelPanel } from "./components/ModelPanel";
-import { RadarPanel } from "./components/RadarPanel";
-import { StrategyDashboard } from "./components/StrategyDashboard";
+import { LaborView } from "./components/LaborView";
+import { ProofView } from "./components/ProofView";
+import { StockProfileView } from "./components/StockProfileView";
 import { TodayView } from "./components/TodayView";
-import { PeoplePanel } from "./components/PeoplePanel";
-import { VoicesPanel } from "./components/VoicesPanel";
+import { WerKauftView } from "./components/WerKauftView";
+import { WieView } from "./components/WieView";
 import { BottomNav } from "./components/BottomNav";
-import { GROUP_LABELS, NAV, parseView, type View } from "./views";
+import {
+  GROUP_LABELS,
+  NAV,
+  parseChatOpen,
+  parseTicker,
+  parseView,
+  resolveView,
+  type View,
+} from "./views";
 
 // Reveal-on-scroll: one global observer fades in any `.reveal` element as it enters the viewport.
 // A MutationObserver picks up async-loaded and tab-switched sections without per-component wiring.
@@ -56,20 +61,86 @@ function useRevealOnScroll() {
   }, []);
 }
 
+/** Everything routed lives in the URL — view, profile ticker, chat overlay — so
+ *  Telegram can deep-link anywhere, a reload keeps the place, and the phone's back
+ *  gesture walks back through screens AND closes the overlay/profile (pushState +
+ *  popstate, Nico 2026-08-07). */
+interface Route {
+  view: View;
+  ticker: string | null;
+  chatOpen: boolean;
+}
+
+function readRoute(): Route {
+  const search = window.location.search;
+  return {
+    view: parseView(search),
+    ticker: parseTicker(search),
+    chatOpen: parseChatOpen(search),
+  };
+}
+
 export default function App() {
-  // View lives in the URL so Telegram can deep-link into a focus and a reload keeps it.
-  // pushState + popstate (Nico 2026-08-07, reverses the earlier replaceState decision):
-  // the phone's back gesture walks back through visited tabs; backing past the first
-  // entry still leaves the app.
-  const [view, setViewState] = useState<View>(() => parseView(window.location.search));
-  const setView = useCallback((next: View) => {
-    if (next === parseView(window.location.search)) return; // re-tapping a tab adds no entry
+  const [route, setRoute] = useState<Route>(readRoute);
+
+  const push = useCallback((mutate: (params: URLSearchParams) => void) => {
     const params = new URLSearchParams(window.location.search);
-    params.set("view", next);
     params.delete("token"); // never leave the shared secret in the visible URL
-    window.history.pushState(null, "", `${window.location.pathname}?${params}`);
-    setViewState(next);
+    mutate(params);
+    const qs = params.toString();
+    window.history.pushState(
+      { fromApp: true },
+      "",
+      `${window.location.pathname}${qs ? `?${qs}` : ""}`,
+    );
+    setRoute(readRoute());
   }, []);
+
+  const navigate = useCallback(
+    (key: string) => {
+      const next = resolveView(key);
+      if (next === route.view && !route.ticker && !route.chatOpen) return;
+      push((params) => {
+        params.set("view", next);
+        params.delete("ticker"); // navigating away leaves the profile…
+        params.delete("chat"); // …and closes the overlay
+      });
+    },
+    [push, route],
+  );
+
+  const openStock = useCallback(
+    (ticker: string) => {
+      push((params) => {
+        params.set("view", "profil");
+        params.set("ticker", ticker);
+        params.delete("chat");
+      });
+    },
+    [push],
+  );
+
+  const openChat = useCallback(() => {
+    if (route.chatOpen) return;
+    push((params) => params.set("chat", "1"));
+  }, [push, route.chatOpen]);
+
+  const back = useCallback(() => {
+    if (window.history.state?.fromApp) {
+      window.history.back();
+      return;
+    }
+    // Deep link straight into a profile/overlay: back would leave the app, so rewrite
+    // in place instead.
+    const params = new URLSearchParams(window.location.search);
+    params.delete("chat");
+    params.delete("ticker");
+    params.set("view", route.view === "profil" ? "aktien" : route.view);
+    const qs = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    setRoute(readRoute());
+  }, [route.view]);
+
   useEffect(() => {
     // Strip the token from the FIRST history entry too — with pushState the initial entry
     // survives, and the back gesture must never resurface the shared secret in the URL.
@@ -83,11 +154,13 @@ export default function App() {
         `${window.location.pathname}${qs ? `?${qs}` : ""}`,
       );
     }
-    const onPop = () => setViewState(parseView(window.location.search));
+    const onPop = () => setRoute(readRoute());
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
   useRevealOnScroll();
+
+  const { view, ticker, chatOpen } = route;
 
   return (
     <>
@@ -111,34 +184,59 @@ export default function App() {
                 )}
                 <button
                   className={view === item.key ? "nav-link active" : "nav-link"}
-                  onClick={() => setView(item.key)}
+                  onClick={() => navigate(item.key)}
                 >
                   {item.label}
                 </button>
               </Fragment>
             ))}
+            <span className="nav-sep" aria-hidden="true" />
+            <button className="nav-link" onClick={openChat}>
+              Assistent
+            </button>
           </nav>
         </aside>
 
         <main className="content">
-          <div className="view" key={view}>
-            {view === "today" && <TodayView onNavigate={(v) => setView(v as View)} />}
-            {view === "funnel" && <FunnelView />}
-            {view === "radar" && <RadarPanel />}
-            {view === "voices" && <VoicesPanel />}
-            {view === "people" && <PeoplePanel />}
-            {view === "inbox" && <InboxPanel />}
-            {view === "depots" && <DepotsView />}
-            {view === "proof" && <ProofView />}
-            {view === "strategies" && <StrategyDashboard />}
-            {view === "model" && <ModelPanel />}
-            {view === "ml" && <MLSection />}
-            {view === "learning" && <LearningCurvePanel />}
-            {view === "chat" && <ChatPanel />}
+          <div className="view" key={`${view}:${ticker ?? ""}`}>
+            {view === "heute" && <TodayView onNavigate={navigate} onOpenStock={openStock} />}
+            {view === "aktien" && <AktienView onOpenStock={openStock} onNavigate={navigate} />}
+            {view === "profil" && ticker && (
+              <StockProfileView ticker={ticker} onBack={back} onNavigate={navigate} />
+            )}
+            {view === "entscheiden" && <InboxPanel onOpenStock={openStock} />}
+            {view === "depot" && <DepotsView onNavigate={navigate} />}
+            {view === "ergebnisse" && <ProofView />}
+            {view === "werkauft" && <WerKauftView />}
+            {view === "labor" && <LaborView />}
+            {view === "wie" && <WieView />}
           </div>
         </main>
       </div>
-      <BottomNav view={view} onNavigate={setView} />
+
+      {!chatOpen && (
+        <button className="chat-fab" onClick={openChat} aria-label="Assistent öffnen">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z" />
+            <path d="M8.5 11h.01M12.5 11h.01M16.5 11h.01" />
+          </svg>
+        </button>
+      )}
+      {chatOpen && (
+        <div className="chat-overlay" role="dialog" aria-label="Assistent">
+          <ChatPanel overlay onClose={back} />
+        </div>
+      )}
+
+      <BottomNav view={view} onNavigate={navigate} onOpenChat={openChat} />
     </>
   );
 }

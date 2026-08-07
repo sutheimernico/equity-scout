@@ -1,31 +1,47 @@
-import { Fragment, useState } from "react";
+import { useState } from "react";
 
-import { GROUP_LABELS, MOBILE_FOCUSES, MOBILE_LABELS, NAV, type View } from "../views";
+import { MOBILE_FOCUSES, MOBILE_LABELS, NAV, SHEET_NOTES, type View } from "../views";
 import { TabIcon, type TabIconName } from "./ui/TabIcon";
 
 // Stroke icons, not emoji (2026-08-06). Emoji render in the OS font, so their weight,
 // colour and optical size are outside our control and never match the label beneath them —
 // which is exactly what made the row look unfinished ("die Symbole sehen noch nicht
-// wirklich clean aus"). Still no dependency: five hand-drawn paths, see ui/TabIcon.tsx.
+// wirklich clean aus"). Still no dependency: hand-drawn paths, see ui/TabIcon.tsx.
 const FOCUS_ICONS: Record<string, TabIconName> = {
-  today: "today",
-  depots: "depots",
-  inbox: "inbox",
-  proof: "proof",
+  heute: "today",
+  aktien: "aktien",
+  entscheiden: "inbox",
+  depot: "depots",
 };
 
-// Everything that isn't one of the four phone focuses lives in the "Mehr" sheet,
-// grouped the same way the sidebar groups them.
-const MORE_NAV = NAV.filter((item) => !MOBILE_FOCUSES.includes(item.key));
+const SHEET_ICONS: Record<string, string> = {
+  ergebnisse: "📊",
+  werkauft: "🏛",
+  wie: "❓",
+  labor: "🧪",
+};
 
-export function BottomNav({ view, onNavigate }: { view: View; onNavigate: (view: View) => void }) {
+// Everything in the "mehr" group lives in the sheet, plus the assistant entry.
+const MORE_NAV = NAV.filter((item) => item.group === "mehr");
+
+export function BottomNav({
+  view,
+  onNavigate,
+  onOpenChat,
+}: {
+  view: View;
+  onNavigate: (view: string) => void;
+  onOpenChat: () => void;
+}) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  // "Mehr" reads as active whenever the current view is one of the eight sheet entries —
-  // otherwise a deep link straight into e.g. Radar would show no active tab at all.
-  const moreActive = !MOBILE_FOCUSES.includes(view);
+  // The profile is a drill-down from the stock list, so the Aktien tab stays lit there.
+  const activeFocus: View = view === "profil" ? "aktien" : view;
+  // "Mehr" reads as active whenever the current view is one of the sheet entries —
+  // otherwise a deep link straight into e.g. Labor would show no active tab at all.
+  const moreActive = !MOBILE_FOCUSES.includes(activeFocus);
 
-  const go = (next: View) => {
+  const go = (next: string) => {
     onNavigate(next);
     setSheetOpen(false);
   };
@@ -34,7 +50,7 @@ export function BottomNav({ view, onNavigate }: { view: View; onNavigate: (view:
     <>
       <nav className="bottom-nav" aria-label="Hauptnavigation">
         {MOBILE_FOCUSES.map((key) => {
-          const active = view === key;
+          const active = activeFocus === key;
           return (
             <button
               key={key}
@@ -69,20 +85,41 @@ export function BottomNav({ view, onNavigate }: { view: View; onNavigate: (view:
             aria-label="Weitere Ansichten"
             onClick={(e) => e.stopPropagation()}
           >
-            {MORE_NAV.map((item, i) => (
-              <Fragment key={item.key}>
-                {(i === 0 || MORE_NAV[i - 1].group !== item.group) && GROUP_LABELS[item.group] && (
-                  <span className="sheet-group">{GROUP_LABELS[item.group]}</span>
-                )}
-                <button
-                  className={view === item.key ? "sheet-link active" : "sheet-link"}
-                  onClick={() => go(item.key)}
-                  aria-current={view === item.key ? "page" : undefined}
-                >
-                  {item.label}
-                </button>
-              </Fragment>
+            {MORE_NAV.map((item) => (
+              <button
+                key={item.key}
+                className={view === item.key ? "sheet-link active" : "sheet-link"}
+                onClick={() => go(item.key)}
+                aria-current={view === item.key ? "page" : undefined}
+              >
+                <span className="sheet-ico" aria-hidden="true">
+                  {SHEET_ICONS[item.key] ?? "·"}
+                </span>
+                <span className="sheet-text">
+                  <span className="sheet-title">{item.label}</span>
+                  {SHEET_NOTES[item.key] && (
+                    <span className="sheet-note">{SHEET_NOTES[item.key]}</span>
+                  )}
+                </span>
+              </button>
             ))}
+            <button
+              className="sheet-link"
+              onClick={() => {
+                setSheetOpen(false);
+                onOpenChat();
+              }}
+            >
+              <span className="sheet-ico" aria-hidden="true">
+                💬
+              </span>
+              <span className="sheet-text">
+                <span className="sheet-title">Assistent</span>
+                <span className="sheet-note">
+                  Fragen zu deinen Zahlen — beantwortet von lokaler KI.
+                </span>
+              </span>
+            </button>
           </nav>
         </div>
       )}

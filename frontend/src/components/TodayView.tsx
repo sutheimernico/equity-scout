@@ -2,31 +2,40 @@ import { useEffect, useState } from "react";
 
 import {
   fetchArena,
+  fetchBriefs,
   fetchEvidence,
   fetchInbox,
-  fetchRadar,
+  fetchProof,
   fetchRunHistory,
   type ArenaResponse,
   type EvidenceResponse,
   type InboxResponse,
-  type RadarResponse,
+  type ProofResponse,
   type RunSummary,
+  type StockBrief,
 } from "../api";
 import { alertClaim } from "../alerts";
 import { shortCompanyName } from "../company";
 import { pct } from "../format";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
 import { RegimeCard } from "./RegimeCard";
-import { StatTile } from "./StatTile";
-import { StockList } from "./StockList";
+import { StockCard } from "./AktienView";
 
-// The system-status start page (plan v6 P6): what needs a decision, how the paper depots
-// stand, what fired recently, when things last ran. Every block degrades independently —
+// The 3-minute briefing (mockup v2), answering Alex's daily questions in order:
+// Wie ist die Lage? → Gibt's was Interessantes? → Muss ich was entscheiden? →
+// Läuft mein Autopilot? → Was ist passiert? Every block degrades independently —
 // a missing data source renders an honest placeholder, never a fake number.
-export function TodayView({ onNavigate }: { onNavigate: (view: string) => void }) {
+export function TodayView({
+  onNavigate,
+  onOpenStock,
+}: {
+  onNavigate: (view: string) => void;
+  onOpenStock: (ticker: string) => void;
+}) {
+  const [briefs, setBriefs] = useState<StockBrief[] | null>(null);
   const [inbox, setInbox] = useState<InboxResponse | null>(null);
   const [arena, setArena] = useState<ArenaResponse | null>(null);
-  const [radar, setRadar] = useState<RadarResponse | null>(null);
+  const [proof, setProof] = useState<ProofResponse | null>(null);
   const [evidence, setEvidence] = useState<EvidenceResponse | null>(null);
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
 
@@ -35,9 +44,14 @@ export function TodayView({ onNavigate }: { onNavigate: (view: string) => void }
     const guard = <T,>(setter: (v: T) => void) => (v: T) => {
       if (!ignore) setter(v);
     };
+    fetchBriefs(3)
+      .then((r) => {
+        if (!ignore) setBriefs(r.briefs);
+      })
+      .catch(() => undefined);
     fetchInbox().then(guard(setInbox)).catch(() => undefined);
     fetchArena().then(guard(setArena)).catch(() => undefined);
-    fetchRadar().then(guard(setRadar)).catch(() => undefined);
+    fetchProof().then(guard(setProof)).catch(() => undefined);
     fetchEvidence().then(guard(setEvidence)).catch(() => undefined);
     fetchRunHistory()
       .then((r) => {
@@ -50,75 +64,99 @@ export function TodayView({ onNavigate }: { onNavigate: (view: string) => void }
   }, []);
 
   const openPitches = (inbox?.pitches ?? []).filter((p) => p.status === "open");
-  const lanes = arena?.lanes ?? [];
-  const inZone = (radar?.watchlist?.entries ?? []).filter((e) => e.in_zone);
   const alerts = (evidence?.recent_alerts ?? []).slice(0, 3);
   const lastRun = runs?.[0];
+
+  // Autopilot three-liner from the proof books (Langfrist = Auto-Depot, Kurzfrist =
+  // the arena lanes' mean — every lane starts with the same capital, so the mean IS
+  // the book's return) plus the arena "Du" lane.
+  const langBook = proof?.books?.find((b) => b.label === "Auto-Depot") ?? null;
+  const kurzBooks = (proof?.books ?? []).filter((b) => b.label.startsWith("Arena "));
+  const kurzReturns = kurzBooks
+    .map((b) => b.total_return_pct)
+    .filter((v): v is number => typeof v === "number");
+  const kurzMean =
+    kurzReturns.length > 0 ? kurzReturns.reduce((a, b) => a + b, 0) / kurzReturns.length : null;
+  const duLane = (arena?.lanes ?? []).find((lane) => lane.lane === "nico") ?? null;
 
   return (
     <>
       <header className="section-head reveal">
         <p className="eyebrow">Heute</p>
-        <h1>Systemstatus auf einen Blick</h1>
+        <h1>Dein Überblick in drei Minuten</h1>
         <p className="section-sub">
-          Offene Entscheidungen, Depot-Stände, frische Signale und die letzten Läufe — alles
-          Paper, alles Recherche, keine Anlageberatung.
+          Lage, interessante Titel, offene Entscheidungen, Autopilot — alles Papiergeld, alles
+          Recherche, keine Anlageberatung.
         </p>
       </header>
 
-      {/* Desktop keeps the market light at the top; on the phone it moves BELOW the stock
-          list. It answers "how is the market", not "what should I look at" — and the first
-          screen belongs to the second question (Nico 2026-08-06). */}
-      <div className="only-desktop">
-        <RegimeCard />
-      </div>
+      <RegimeCard />
 
-      {/* Companies before counters (Nico, 2026-08-04): the first thing on the phone should
-          be WHICH names the funnel has in front, spelled out and with a logo, not a tally
-          of how many pitches are open. */}
-      {/* No own heading anymore: StockList carries two of its own ("Jetzt im
-          Einstiegsbereich" / "Höchstes Potenzial", 2026-08-05), and a third one above them
-          read as a stacked duplicate on the phone. */}
-      <section className="panel reveal">
-        <StockList onOpen={() => onNavigate("radar")} />
-      </section>
+      <h2 className="brief-section-head">
+        Heute interessant
+        <button className="stock-more profil-sect-link" onClick={() => onNavigate("aktien")}>
+          Alle ansehen →
+        </button>
+      </h2>
+      {briefs === null ? (
+        <p className="brief-muted">lädt …</p>
+      ) : briefs.length === 0 ? (
+        <p className="brief-muted">Noch keine Watchlist — der Screener lief noch nicht.</p>
+      ) : (
+        <ul className="brief-list">
+          {briefs.map((brief) => (
+            <StockCard key={brief.ticker} brief={brief} onOpen={() => onOpenStock(brief.ticker)} />
+          ))}
+        </ul>
+      )}
 
-      <div className="only-phone">
-        <RegimeCard />
-      </div>
+      <h2 className="brief-section-head">Zu entscheiden</h2>
+      {openPitches.length > 0 ? (
+        <button className="today-decide" onClick={() => onNavigate("entscheiden")}>
+          <b>
+            {openPitches.length === 1
+              ? "Ein Vorschlag wartet auf dich"
+              : `${openPitches.length} Vorschläge warten auf dich`}
+          </b>
+          <span className="brief-muted">
+            Der Scout hat Kauf-Ideen für dein Depot „Du" vorbereitet — auch Ablehnen zählt.
+          </span>
+        </button>
+      ) : (
+        <p className="brief-muted">{inbox ? "Nichts offen." : "—"}</p>
+      )}
 
-      <div className="kpi-row">
-        <StatTile
-          label="Offene Pitches"
-          value={inbox ? String(openPitches.length) : "—"}
-          sub={openPitches.length > 0 ? "warten auf deine Entscheidung" : "nichts offen"}
-        />
-        <StatTile
-          label="Radar in Zone"
-          value={radar?.watchlist ? String(inZone.length) : "—"}
-          sub={
-            inZone.length > 0
-              ? inZone.slice(0, 3).map((e) => e.ticker).join(" · ")
-              : "kein Titel in der Einstiegszone"
-          }
-        />
-        {lanes.map((lane) => (
-          <StatTile
-            key={lane.lane}
-            label={lane.lane === "nico" ? "Depot Du" : "Depot Autopilot"}
-            value={pct(lane.total_return)}
-            sub={`vs. Markt ${pct(lane.benchmark_return)}`}
-          />
-        ))}
-        {/* After a reset the nico lane has no portfolio row until the next lane run —
-            the tile stays, honestly empty, instead of silently disappearing. */}
-        {arena?.available && !lanes.some((lane) => lane.lane === "nico") && (
-          <StatTile label="Depot Du" value="—" sub="leer — noch kein Pitch gekauft" />
-        )}
-      </div>
+      <h2 className="brief-section-head">
+        Dein Autopilot
+        <button className="stock-more profil-sect-link" onClick={() => onNavigate("depot")}>
+          Zum Depot →
+        </button>
+      </h2>
+      <dl className="brief-detail">
+        <dt>Langfrist (ETFs)</dt>
+        <dd className="num">
+          {langBook?.total_return_pct != null
+            ? `${pct(langBook.total_return_pct / 100)} · ${
+                (langBook.vs_benchmark_pct ?? 0) >= 0 ? "vor" : "hinter"
+              } dem Markt`
+            : "—"}
+        </dd>
+        <dt>Kurzfrist (Trading)</dt>
+        <dd className="num">
+          {kurzMean !== null
+            ? `${pct(kurzMean / 100)} · im Schnitt über ${kurzBooks.length} Taktiken`
+            : "—"}
+        </dd>
+        <dt>Du (deine Käufe)</dt>
+        <dd className="num">
+          {duLane
+            ? `${pct(duLane.total_return)} · Markt ${pct(duLane.benchmark_return)}`
+            : "leer — noch kein Pitch gekauft"}
+        </dd>
+      </dl>
 
+      <h2 className="brief-section-head">Was passiert ist</h2>
       <section className="strat-block">
-        <h3 className="block-title">Was zuletzt passiert ist</h3>
         {alerts.length === 0 ? (
           <p className="muted">Keine Evidenz-Alarme in letzter Zeit.</p>
         ) : (
@@ -150,23 +188,22 @@ export function TodayView({ onNavigate }: { onNavigate: (view: string) => void }
 
       {/* "Direkt weiter" and the disclaimer bar are desktop-only (2026-08-06): the phone
           has the bottom tab bar for navigation, so a second set of jump links is a
-          duplicate, and a paragraph of legal prose is not what a daily glance is for.
-          Both stay on desktop, where there is room and no tab bar. */}
+          duplicate, and a paragraph of legal prose is not what a daily glance is for. */}
       <div className="only-desktop">
         <section className="strat-block">
           <h3 className="block-title">Direkt weiter</h3>
           <div className="tabbar wrap">
-            <button className="tab" onClick={() => onNavigate("inbox")}>
-              → Inbox {openPitches.length > 0 ? `(${openPitches.length})` : ""}
+            <button className="tab" onClick={() => onNavigate("entscheiden")}>
+              → Entscheiden {openPitches.length > 0 ? `(${openPitches.length})` : ""}
             </button>
-            <button className="tab" onClick={() => onNavigate("radar")}>
-              → Radar
+            <button className="tab" onClick={() => onNavigate("aktien")}>
+              → Aktien
             </button>
-            <button className="tab" onClick={() => onNavigate("depots")}>
-              → Depots
+            <button className="tab" onClick={() => onNavigate("depot")}>
+              → Depot
             </button>
-            <button className="tab" onClick={() => onNavigate("learning")}>
-              → Lernkurven
+            <button className="tab" onClick={() => onNavigate("labor")}>
+              → Labor
             </button>
           </div>
         </section>

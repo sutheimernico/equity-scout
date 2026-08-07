@@ -59,7 +59,7 @@ function hasEvidenceSection(pitch: Pitch): boolean {
   return pitch.pitch.includes("Externe Signale:");
 }
 
-export function InboxPanel() {
+export function InboxPanel({ onOpenStock }: { onOpenStock?: (ticker: string) => void }) {
   const [data, setData] = useState<InboxResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Pitch ids with an in-flight decision → all three buttons disabled while pending.
@@ -145,7 +145,7 @@ export function InboxPanel() {
   return (
     <>
       <header className="section-head reveal">
-        <p className="eyebrow">Inbox</p>
+        <p className="eyebrow">Entscheiden</p>
         <h1>Entscheidungen — ein Tipp pro Pitch</h1>
         <p className="section-sub">
           Beste Einstiege zuerst. Jede Entscheidung ist eine Papier-Notiz, kein realer Handel und
@@ -212,6 +212,14 @@ export function InboxPanel() {
                   )}
                   <span className="nobr">Pitch vom {pitchDate(p.created_at)}</span>
                 </div>
+
+                {/* Every pitch links into the ONE canonical stock profile (mockup v2)
+                    instead of stuffing chart, buyers and news into this card. */}
+                {onOpenStock && (
+                  <button className="stock-more" onClick={() => onOpenStock(p.ticker)}>
+                    Ganzes Aktienprofil ansehen →
+                  </button>
+                )}
 
                 {/* An open pitch whose ticker left the watchlist has NO current view —
                     said out loud instead of letting pitch-time numbers pass as today's. */}

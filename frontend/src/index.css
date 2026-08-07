@@ -3066,6 +3066,119 @@ code {
   background: var(--accent);
   color: var(--bg-base);
 }
+
+/* ---- Assistant FAB + full-screen chat overlay (mockup v2). ---- */
+.chat-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  z-index: 60;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--bg-base);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--raised-hover);
+}
+.chat-fab svg {
+  width: 24px;
+  height: 24px;
+}
+.chat-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) var(--space-3) calc(var(--space-3) + env(safe-area-inset-bottom));
+  background: var(--bg-base);
+  overflow-y: auto;
+}
+.chat-overlay-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-faint);
+  margin-bottom: var(--space-2);
+}
+.chat-overlay-head .stock-more {
+  padding: 0;
+}
+.chat-overlay-title {
+  flex: 1;
+  text-align: center;
+  font-weight: 700;
+}
+
+/* Mehr sheet entries with icon + title + one-line note (mockup v2). */
+.sheet-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: left;
+}
+.sheet-ico {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  background: var(--bg-inset);
+  font-size: 17px;
+}
+.sheet-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sheet-title {
+  font-weight: 600;
+}
+.sheet-note {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* Heute: the "Zu entscheiden" teaser card. */
+.today-decide {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--warning-subtle, var(--bg-inset));
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+/* Depot: the "Funktioniert es?" header per Sicht. */
+.depot-proof-row {
+  margin-bottom: var(--space-3);
+}
+.depot-proof-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.depot-proof-verdict {
+  margin: 4px 0 0;
+  font-size: var(--text-xs);
+}
 /* The potential sits right-aligned in its own column, label under the number. */
 .brief-potential {
   flex-direction: column;
