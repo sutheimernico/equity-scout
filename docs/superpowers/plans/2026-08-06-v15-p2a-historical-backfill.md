@@ -81,9 +81,9 @@
 
 **Files:** Create `src/equity_scout/evidence/historical_study.py`, `scripts/run_history_report.py`, `tests/test_historical_study.py`.
 
-- [ ] **Step 1:** Failing tests: `aggregate_history(db, *, split_date="2021-12-31", min_cell_n=30)` returns per source-class (congress / insider_cluster / statement) and per person: `{n, coverage (resolved/total incl. unresolvable-by-reason), hit_rate and mean_relative_return per horizon, fit vs validate split}`; conditional splits ONLY on deterministic features present in details (amount band, chamber, cluster size, direction), each cell reported with its n and refused below `min_cell_n` (`{"measurable": False, "reason": "n<30"}`); NO cell without both fit AND validate coverage may claim an edge.
-- [ ] **Step 2:** `run_history_report.py` prints the aggregate and writes `docs/research/history-study-report.json` (overwrite-is-fine derived state, like `person_storage`). The report header carries the survivorship disclaimer verbatim from the spec.
-- [ ] **Step 3:** Full gate; commit `feat(history): base-rate study with time-split validation and honest cells`.
+- [x] **Step 1:** Failing tests: `aggregate_history(db, *, split_date="2021-12-31", min_cell_n=30)` returns per source-class (congress / insider_cluster / statement) and per person: `{n, coverage (resolved/total incl. unresolvable-by-reason), hit_rate and mean_relative_return per horizon, fit vs validate split}`; conditional splits ONLY on deterministic features present in details (amount band, chamber, cluster size, direction), each cell reported with its n and refused below `min_cell_n` (`{"measurable": False, "reason": "n<30"}`); NO cell without both fit AND validate coverage may claim an edge.
+- [x] **Step 2:** `run_history_report.py` prints the aggregate and writes `docs/research/history-study-report.json` (overwrite-is-fine derived state, like `person_storage`). The report header carries the survivorship disclaimer verbatim from the spec.
+- [x] **Step 3:** Full gate; commit `feat(history): base-rate study with time-split validation and honest cells`. *(Done: 48e2a8c + review-driven 12773c0 — edge claims renamed to direction-agreement-only after the reviewer measured ~50% null pass-rate (9/9 cells claimed on pure noise), multiplicity made numeric (n_gated_cells, expected_spurious_at_50pct in dict AND summary lead), stdev/stderr, per-side hit rates, claims index. 41 module tests, gate 1692. Two-stage review passed.)*
 
 ### Task 7: Backfill runner + first real run
 
