@@ -348,3 +348,32 @@ def candidate_symbols(question: str, *, known: set[str] | None = None) -> list[s
         if word == word.upper() and _SYMBOL_SHAPE_RE.fullmatch(word) and word not in out:
             out.append(word)
     return out
+
+
+_TOPIC_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "depots": ("depot", "portfolio", "position", "autotrader", "auto-depot", "lane",
+               "gekauft", "verkauft", "hält", "bestand", "anteile"),
+    "ergebnisse": ("ergebnis", "bilanz", "sharpe", "drawdown", "track record",
+                   "funktioniert", "benchmark", "rendite", "performance", "gewinn"),
+    "personen": ("buffett", "burry", "ackman", "kongress", "insider", "politiker",
+                 "wer hat", "investor", "mitglied", "senator", "abgeordnet", "fonds",
+                 "13f", "form 4", "gekauft hat", "stimmen"),
+    "markt": ("marktlage", "risk-on", "risk on", "regime", "vix", "markt", "sektor"),
+    "strategien": ("strategie", "60/40", "momentum", "ml", "signal-filter",
+                   "research", "pbo", "champion", "modell"),
+    "inbox": ("pitch", "inbox", "entscheidung", "offen", "verfallen"),
+    # Key figures get their own topic: those questions need the metric glossary, and
+    # nothing else — folding the whole dashboard in would only distract a 7B model.
+    "kennzahlen": ("kgv", "kurs-gewinn", "kennzahl", "marge", "bewertung", "buchwert",
+                   "eigenkapital", "wachstum", "verschuld", "dividende", "umsatz",
+                   "gewinnwachstum", "volatil", "schwankung", "f-score", "bilanztrend"),
+}
+
+
+def route_topics(question: str) -> list[str]:
+    """Which base context blocks the question needs. Deterministic keyword routing —
+    a 7B model gets calmer, better answers from a short, relevant prompt than from
+    everything at once. No match -> the compact overview block."""
+    q = question.lower()
+    topics = [t for t, words in _TOPIC_KEYWORDS.items() if any(w in q for w in words)]
+    return topics or ["ueberblick"]

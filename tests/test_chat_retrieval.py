@@ -6,6 +6,7 @@ from equity_scout.chat_retrieval import (
     find_tickers,
     is_advice_question,
     metrics_lines,
+    route_topics,
     short_company_name,
     stock_dossier,
 )
@@ -212,3 +213,27 @@ def test_candidate_symbols_ignores_finance_abbreviations_and_known_tickers():
     assert candidate_symbols("Wie steht MU?", known={"MU"}) == []
     # Kleinschreibung ist Sprache, kein Symbol.
     assert candidate_symbols("was ist mit rheinmetall?", known=set()) == []
+
+
+def test_routing_picks_depot_block_for_depot_questions():
+    assert "depots" in route_topics("Wie steht mein Auto-Depot im Vergleich zum Markt?")
+
+
+def test_routing_picks_people_for_person_questions():
+    assert "personen" in route_topics("Was hat Warren Buffett zuletzt gekauft?")
+    assert "personen" in route_topics("Welche Mitglieder haben Intel gekauft?")
+
+
+def test_routing_defaults_to_overview_when_nothing_matches():
+    assert route_topics("Wie geht es dir?") == ["ueberblick"]
+
+
+def test_routing_can_return_multiple_topics():
+    topics = route_topics("Wie laufen die Depots und was sagt die Marktlage?")
+    assert "depots" in topics and "markt" in topics
+
+
+def test_routing_picks_kennzahlen_for_metric_questions():
+    for q in ("Wie hoch ist das KGV von Micron?", "Zeig mir die Kennzahlen",
+              "Wie ist die Marge?", "Was ist die Bewertung wert?"):
+        assert "kennzahlen" in route_topics(q), q
