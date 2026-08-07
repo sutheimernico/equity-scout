@@ -60,10 +60,23 @@ def test_zone_gap_above_zone_rounds_against_zone_high():
 
 def test_zone_gap_below_zone_rounds_against_zone_low():
     gap, verdict = zone_gap(50.0, 90.0, 110.0)
-    assert gap == 44.0
+    # Negative by design (2026-08-07): the sign carries the direction. Both sides used to
+    # return positive gaps, so entry_note's below-zone branch never fired and a
+    # broken-support stock read as sitting "über dem letzten Support".
+    assert gap == -44.0
     # Never phrased as a bargain: below the zone every support has broken (see zone_gap).
     assert verdict == "44 % unter der Zone — Support gebrochen"
     assert "günstig" not in verdict
+
+
+def test_entry_note_below_zone_names_the_broken_support():
+    from equity_scout.briefs import entry_note
+
+    note = entry_note(in_zone=False, gap_pct=-44.0, upside_pct=30.0)
+    assert "Support-Levels sind gefallen" in note
+    assert "44 %" in note
+    # The wrong branch used to claim the price sat ABOVE the last support.
+    assert "über dem letzten Support" not in note
 
 
 def test_zone_gap_zero_or_negative_price_is_honest_none():

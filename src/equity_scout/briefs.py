@@ -59,7 +59,10 @@ def zone_gap(price: float, zone_low: float, zone_high: float) -> tuple[float | N
     # support level has broken, with nothing holding underneath. `in_zone` is a pitch gate
     # (notify.py, lanes.py), so this side is just as much a "not now" as being too expensive.
     # Kept in step with radar.zone_note's "tiefer als die Support-Levels".
-    return float(gap), f"{gap} % unter der Zone — Support gebrochen"
+    # NEGATIVE by design: the sign carries the direction (above/below the band), which is
+    # what `entry_note`'s below-zone branch keys on — it had never fired while both sides
+    # returned positive gaps, so broken-support stocks read as "über dem letzten Support".
+    return float(-gap), f"{gap} % unter der Zone — Support gebrochen"
 
 
 def entry_note(*, in_zone: bool, gap_pct: float | None, upside_pct: float | None) -> str:
