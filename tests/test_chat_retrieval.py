@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from equity_scout.chat_retrieval import (
+    candidate_symbols,
     find_tickers,
     is_advice_question,
     metrics_lines,
@@ -197,3 +198,17 @@ def test_dossier_carries_metrics_factors_fscore_and_earnings():
     assert "Bilanz-Trend (F-Score) 7 von 9" in text
     assert "Nächster Termin: Quartalszahlen am 2026-09-24" in text
     assert "52-Wochen-Hoch 190.0" in text
+
+
+def test_candidate_symbols_finds_an_unknown_ticker():
+    assert candidate_symbols("Was ist das KGV von RHM.DE?", known={"MU"}) == ["RHM.DE"]
+    assert candidate_symbols("Wie steht TSLA gerade?", known={"MU"}) == ["TSLA"]
+
+
+def test_candidate_symbols_ignores_finance_abbreviations_and_known_tickers():
+    # "KGV"/"ETF"/"USD" sind Vokabular, keine Ticker — ein Lookup darauf wäre Unsinn.
+    assert candidate_symbols("Was sagt das KGV in USD über den ETF?", known=set()) == []
+    # Bereits im Lexikon gefundene Ticker brauchen keinen Live-Nachschlag.
+    assert candidate_symbols("Wie steht MU?", known={"MU"}) == []
+    # Kleinschreibung ist Sprache, kein Symbol.
+    assert candidate_symbols("was ist mit rheinmetall?", known=set()) == []

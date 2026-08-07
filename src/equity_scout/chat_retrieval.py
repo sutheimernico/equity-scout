@@ -316,3 +316,35 @@ _FACTOR_LABELS = {
     "value": "Substanz-Bewertung", "quality": "Qualität", "momentum": "Trendstärke",
     "growth": "Wachstum", "low_vol": "Ruhe im Kurs",
 }
+
+
+# Capitalised words that look like tickers but are vocabulary. Without this, "Was sagt das
+# KGV?" would spend the question's one live lookup on a metric name.
+_NOT_A_SYMBOL = frozenset(
+    "KGV KBV KUV KCV ETF ETFS REIT IPO EPS ROE ROI ROA EBIT EBITDA CAGR DSR PBO "
+    "USD EUR CHF GBP JPY CAD AUD CNY INR BRL SEK NOK DKK "
+    "EU US USA UK DE JP CN IN BR CH AT NL FR IT ES "
+    "DAX MDAX SDAX TECDAX NASDAQ NYSE SEC EZB FED BIP KI AI ML LLM API URL FAQ PDF "
+    "CEO CFO CTO COO WKN ISIN AG SE KG GMBH NV SA PLC INC LTD ADR ADS "
+    "OK ZB BZW USW GGF INKL EXKL MWST".split()
+)
+# Ticker shape: 2-5 letters, optionally an exchange suffix (RHM.DE, ITC.NS, BRK-B).
+_SYMBOL_SHAPE_RE = re.compile(r"[A-Z]{2,5}(?:[.\-][A-Z0-9]{1,3})?$")
+
+
+def candidate_symbols(question: str, *, known: set[str] | None = None) -> list[str]:
+    """Ticker-shaped words the lexicon does NOT know, question order, deduped.
+
+    These are the only symbols worth a live lookup: everything the screener ever saw is
+    already in the lexicon, so a leftover is either a foreign listing (RHM.DE) or a typo.
+    Callers spend at most one lookup per question — see api.py.
+    """
+    seen = {t.upper() for t in (known or set())}
+    out: list[str] = []
+    for word in _words(question):
+        if word.upper() in _NOT_A_SYMBOL or word.upper() in seen:
+            continue
+        # Uppercase spelling required, same reason as build_lookup: lowercase is language.
+        if word == word.upper() and _SYMBOL_SHAPE_RE.fullmatch(word) and word not in out:
+            out.append(word)
+    return out
