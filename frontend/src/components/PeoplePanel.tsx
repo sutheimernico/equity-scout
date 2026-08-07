@@ -144,7 +144,7 @@ export function PeoplePanel() {
   return (
     <>
       <header className="section-head reveal">
-        <p className="eyebrow">Signale · Personen</p>
+        <p className="eyebrow">Mehr · Wer kauft?</p>
         <h1>Wer kauft gerade was</h1>
         <p className="section-sub">
           Kongress-Pflichtmeldungen, Insider-Meldungen, Fonds-Quartalsberichte und

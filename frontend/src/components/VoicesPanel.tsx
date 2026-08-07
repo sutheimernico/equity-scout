@@ -88,7 +88,7 @@ export function VoicesPanel() {
   return (
     <>
       <header className="section-head reveal">
-        <p className="eyebrow">Signale · Stimmen</p>
+        <p className="eyebrow">Mehr · Wer kauft? · Stimmen</p>
         <h1>Was bekannte Investoren öffentlich sagen</h1>
         <p className="section-sub">
           Presse-Erwähnungen der beobachteten Fonds-Manager (Buffett, Burry, Ackman, …) aus freien

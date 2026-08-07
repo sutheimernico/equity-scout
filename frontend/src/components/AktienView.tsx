@@ -126,7 +126,7 @@ export function AktienView({
         ))}
       </div>
 
-      <div className="chip-row" role="group" aria-label="Risikoprofil">
+      <div className="style-chips" role="group" aria-label="Risikoprofil">
         {STYLES.map((s) => (
           <button
             key={s.key}

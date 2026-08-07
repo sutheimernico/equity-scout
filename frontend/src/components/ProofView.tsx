@@ -192,7 +192,7 @@ export function ProofView() {
   return (
     <>
       <header className="section-head reveal">
-        <p className="eyebrow">Entscheiden · Ergebnisse</p>
+        <p className="eyebrow">Mehr · Ergebnisse</p>
         <h1>Kann das funktionieren?</h1>
         <p className="section-sub">
           Jedes Papier-Buch wird laufend gegen „einfach den Markt kaufen“ gemessen — hier steht,
