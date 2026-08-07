@@ -83,8 +83,10 @@ def test_entry_endpoint_returns_plan(tmp_path, monkeypatch):
     assert body["plan"]["ticker"] == "AAPL"
     assert "disclaimer" in body
     assert len(body["plan"]["dca_tranches"]) == 4
-    # A4: no entry_tb champion registered in this fresh db -> honest gap, not a guess.
-    assert body["target_stop"] is None
+    # A4 + fallback (2026-08-07): no entry_tb champion in this fresh db -> the fixed
+    # conservative heuristic barrier, provenance-tagged so the UI can say which it is.
+    assert body["target_stop"]["source"] == "heuristic_v1"
+    assert body["target_stop"]["stop"] < closes[-1] < body["target_stop"]["target"]
 
 
 def test_entry_endpoint_rejects_bad_ticker(tmp_path):
@@ -183,11 +185,13 @@ def test_entry_endpoint_target_stop_from_entry_tb_champion(tmp_path, monkeypatch
     assert body["target_stop"]["target"] == round(price * (1 + 2.0 * sigma), 2)
     assert body["target_stop"]["stop"] == round(price * (1 - 1.0 * sigma), 2)
     assert body["target_stop"]["horizon_days"] == 40
+    assert body["target_stop"]["source"] == "model"
 
 
-def test_entry_endpoint_target_stop_none_when_champion_lacks_barrier_config(tmp_path, monkeypatch):
+def test_entry_endpoint_heuristic_when_champion_lacks_barrier_config(tmp_path, monkeypatch):
     # An entry_tb champion whose metrics predate A3 (no persisted barrier_config) must not crash
-    # the endpoint and must not fall back to a guessed default -> honest gap.
+    # the endpoint; since 2026-08-07 it falls back to the fixed heuristic barrier — provenance-
+    # tagged, so it can never be mistaken for the champion's own numbers.
     import numpy as np
     import pandas as pd
 
@@ -213,13 +217,13 @@ def test_entry_endpoint_target_stop_none_when_champion_lacks_barrier_config(tmp_
     client = TestClient(create_app(db))
     body = client.get("/api/entry/AAPL").json()
     assert body["available"] is True
-    assert body["target_stop"] is None
+    assert body["target_stop"]["source"] == "heuristic_v1"
 
 
-def test_entry_endpoint_target_stop_none_on_short_history_with_champion(tmp_path, monkeypatch):
+def test_entry_endpoint_heuristic_rescues_short_history_champion(tmp_path, monkeypatch):
     # Champion present with the default vol_window=60, but the fetched history (30 closes) is
-    # long enough for compute_entry_plan (>= 2) yet too short for a trailing-vol reading -> the
-    # plan and the target/stop gap are independent: available True, target_stop None.
+    # too short for its trailing-vol reading. The heuristic's 20-day window still fits, so the
+    # Scout-Ziel stays populated — tagged heuristic_v1, never passed off as the champion's.
     db = str(tmp_path / "x.db")
     _register_entry_tb_champion(db, {"k_pt": 2.0, "k_sl": 1.0, "horizon_days": 40, "vol_window": 60})
 
@@ -231,7 +235,8 @@ def test_entry_endpoint_target_stop_none_on_short_history_with_champion(tmp_path
     client = TestClient(create_app(db))
     body = client.get("/api/entry/AAPL").json()
     assert body["available"] is True
-    assert body["target_stop"] is None
+    assert body["target_stop"]["source"] == "heuristic_v1"
+    assert body["target_stop"]["horizon_days"] == 20
 
 
 def test_radar_endpoint_returns_latest_watchlist_or_empty(tmp_path, monkeypatch):

@@ -477,6 +477,11 @@ def create_app(
     # data_quality column); init_db is idempotent and carries the migrations.
     init_db(db_path)
     app = FastAPI(title="equity-scout")
+    # Profile-page data (F-Score, next earnings) lives in its own router module — see
+    # company_api.py for why it is not inline here.
+    from equity_scout.company_api import build_company_router
+
+    app.include_router(build_company_router(db_path))
 
     if warm_model:
         # Pull the chat model into RAM in the background: the first question of the day
@@ -1135,12 +1140,13 @@ def create_app(
                 "disclaimer": DISCLAIMER,
             })
 
-        # A4: model-derived target/stop from the entry_tb champion's OWN vol-scaled barrier config
-        # (never re-derived from hardcoded defaults). No champion / no persisted barrier_config /
-        # too little price history for its vol_window -> an honest gap (None), never a guess.
+        # A4: target/stop from the entry_tb champion's OWN vol-scaled barrier config when one
+        # exists (source="model"), else the conservative fixed fallback (source="heuristic_v1",
+        # Nico 2026-08-07: the Scout-Ziel should be populated, provenance-tagged, not null).
+        # None only when even the fallback's 20-day window cannot be computed.
         champ = entry_champion(db_path, family="entry_tb")
         barrier_config = champ[2].get("barrier_config") if champ is not None else None
-        target_stop = entry_mod.compute_target_stop(closes, barrier_config) if barrier_config else None
+        target_stop = entry_mod.resolve_target_stop(closes, barrier_config)
 
         try:
             plan = entry_mod.compute_entry_plan(t, closes, highs, lows)
