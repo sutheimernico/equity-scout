@@ -226,7 +226,9 @@ def test_entry_endpoint_target_stop_none_on_short_history_with_champion(tmp_path
     assert body["target_stop"] is None
 
 
-def test_radar_endpoint_returns_latest_watchlist_or_empty(tmp_path):
+def test_radar_endpoint_returns_latest_watchlist_or_empty(tmp_path, monkeypatch):
+    import equity_scout.api as api_mod
+    from equity_scout.fundamentals import Fundamentals
     from equity_scout.radar import build_watchlist
     from equity_scout.radar_storage import save_watchlist
     from tests.test_radar import _finalist
@@ -245,10 +247,20 @@ def test_radar_endpoint_returns_latest_watchlist_or_empty(tmp_path):
             [_finalist("DIP")], {"DIP": downtrend_history()}, created_at="2026-07-04T12:00:00"
         ),
     )
+    # The endpoint calls the CACHED wrapper (fundamentals seam), same as /api/briefs.
+    monkeypatch.setattr(
+        api_mod, "fetch_fundamentals_cached",
+        lambda t: Fundamentals(trailing_pe=None, analyst_target=None, analyst_count=None,
+                                currency="USD"),
+    )
     loaded = client.get("/api/radar")
     assert loaded.status_code == 200
     body = loaded.json()
-    assert body["watchlist"]["entries"][0]["ticker"] == "DIP"
+    entry = body["watchlist"]["entries"][0]
+    assert entry["ticker"] == "DIP"
+    # Analyst view rides along per entry; no target -> honest nulls, never a 0.
+    assert entry["analyst_upside_pct"] is None
+    assert entry["analyst_count"] is None
     assert "disclaimer" in body
 
 

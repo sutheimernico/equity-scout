@@ -76,10 +76,10 @@ def zone_note(price: float, low: float, high: float, in_zone: bool, proximity: f
     contradict it (unlike entry.py's independent near_reference/reference_note, which compares
     against different levels and disagrees with in_zone ~15% of the time)."""
     if in_zone:
-        return f"Kurs in der Entry-Zone ({low:.2f}–{high:.2f})."
+        return f"Kurs in der Einstiegszone ({low:.2f}–{high:.2f})."
     if price < low:
-        return "Kurs unter der Entry-Zone — tiefer als die Support-Levels."
-    return f"Kurs {proximity * 100:+.1f} % über der Entry-Zone."
+        return "Kurs unter der Einstiegszone — tiefer als die Support-Levels."
+    return f"Kurs {proximity * 100:+.1f} % über der Einstiegszone."
 
 
 def build_watchlist(

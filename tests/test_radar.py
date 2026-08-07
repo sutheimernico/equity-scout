@@ -97,17 +97,17 @@ def test_watchlist_entry_carries_dip_tranches():
 
 
 def test_zone_note_in_zone_states_the_band():
-    assert zone_note(87.0, 85.0, 90.0, True, -0.0333) == "Kurs in der Entry-Zone (85.00–90.00)."
+    assert zone_note(87.0, 85.0, 90.0, True, -0.0333) == "Kurs in der Einstiegszone (85.00–90.00)."
 
 
 def test_zone_note_below_zone_flags_it():
     assert zone_note(80.0, 85.0, 90.0, False, -0.1111) == (
-        "Kurs unter der Entry-Zone — tiefer als die Support-Levels."
+        "Kurs unter der Einstiegszone — tiefer als die Support-Levels."
     )
 
 
 def test_zone_note_above_zone_reports_proximity():
-    assert zone_note(95.0, 85.0, 90.0, False, 0.0556) == "Kurs +5.6 % über der Entry-Zone."
+    assert zone_note(95.0, 85.0, 90.0, False, 0.0556) == "Kurs +5.6 % über der Einstiegszone."
 
 
 @pytest.mark.parametrize(
@@ -123,4 +123,4 @@ def test_zone_note_never_contradicts_in_zone(price, low, high):
     in_zone = low <= price <= high
     proximity = round(price / high - 1.0, 4)
     note = zone_note(price, low, high, in_zone, proximity)
-    assert ("in der Entry-Zone" in note) == in_zone
+    assert ("in der Einstiegszone" in note) == in_zone

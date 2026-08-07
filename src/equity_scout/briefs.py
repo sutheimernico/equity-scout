@@ -23,7 +23,14 @@ __all__ = [
     "rank_entries",
     "build_brief",
     "pitch_market_context",
+    "analyst_upside_pct",
 ]
+
+
+def analyst_upside_pct(target: float | None, price: float) -> float | None:
+    """Analyst-consensus upside in %, or None without a target/valid price — the one
+    formula behind every "Potenzial" number (briefs, inbox context, radar)."""
+    return round((target / price - 1.0) * 100, 1) if target is not None and price > 0 else None
 
 
 def zone_gap(price: float, zone_low: float, zone_high: float) -> tuple[float | None, str]:
@@ -124,7 +131,7 @@ def pitch_market_context(entry: dict | None, fundamentals: Fundamentals | None) 
     price = entry["price"]
     gap_pct, verdict = zone_gap(price, entry["entry_zone_low"], entry["entry_zone_high"])
     target = fundamentals.analyst_target if fundamentals else None
-    upside = round((target / price - 1.0) * 100, 1) if target is not None and price > 0 else None
+    upside = analyst_upside_pct(target, price)
     return {
         "name": entry["name"],
         "current_price": price,
@@ -173,7 +180,7 @@ def build_brief(
     gap_pct, verdict = zone_gap(price, entry["entry_zone_low"], entry["entry_zone_high"])
 
     target = fundamentals.analyst_target if fundamentals else None
-    upside = round((target / price - 1.0) * 100, 1) if target is not None and price > 0 else None
+    upside = analyst_upside_pct(target, price)
 
     return {
         "ticker": entry["ticker"],

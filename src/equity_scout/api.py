@@ -14,7 +14,12 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from equity_scout.briefs import build_brief, pitch_market_context, rank_entries
+from equity_scout.briefs import (
+    analyst_upside_pct,
+    build_brief,
+    pitch_market_context,
+    rank_entries,
+)
 from equity_scout.buckets import BUCKET_WEIGHTS
 from equity_scout.constants import (
     DEFAULT_DB_PATH,
@@ -346,8 +351,26 @@ def create_app(
         watchlist = load_latest_watchlist(db_path)
         if watchlist and watchlist.get("entries"):
             scores = latest_scores(db_path)
-            for entry in watchlist["entries"]:
+            entries = watchlist["entries"]
+
+            def _fundamentals(ticker: str):
+                try:
+                    return fetch_fundamentals_cached(ticker)
+                except Exception:  # noqa: BLE001 - one bad ticker must never break the radar
+                    return None
+
+            # Analyst potential per entry (Nico 2026-08-07: "bei alle im Radar auch das
+            # unterscheiden" — the analyst view next to our model, same split as the Heute
+            # list). Cached fundamentals, bounded pool — the same idiom as /api/briefs.
+            with ThreadPoolExecutor(max_workers=5) as pool:
+                fetched = list(pool.map(_fundamentals, [e["ticker"] for e in entries]))
+            for entry, fundamentals in zip(entries, fetched):
                 entry["ml"] = scores.get(entry["ticker"])
+                target = fundamentals.analyst_target if fundamentals else None
+                price = entry["price"]
+                entry["analyst_target"] = target
+                entry["analyst_count"] = fundamentals.analyst_count if fundamentals else None
+                entry["analyst_upside_pct"] = analyst_upside_pct(target, price)
         return JSONResponse({"watchlist": watchlist, "disclaimer": DISCLAIMER})
 
     @app.get("/api/briefs")
