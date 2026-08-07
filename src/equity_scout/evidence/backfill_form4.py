@@ -585,8 +585,14 @@ def _parse_quarter(quarter: str) -> tuple[int, int]:
     return int(match.group(1)), int(match.group(2))
 
 
-def _latest_published_quarter(now: str) -> str:
-    """The newest data set the SEC can have published: the last FULLY elapsed quarter."""
+def latest_published_quarter(now: str) -> str:
+    """The newest data set the SEC can have published: the last FULLY elapsed quarter.
+
+    Public because `scripts/run_history_backfill.py` needs it too: "is this the newest
+    quarter that CAN exist yet" is the single fact separating a normal publication lag
+    (plan Decision 7) from a real defect, and a second copy of the calendar rule would
+    drift from this one.
+    """
     today = datetime.fromisoformat(now).date()
     index = (today.month - 1) // 3 + 1  # 1..4, the quarter `now` sits in — still running
     return f"{today.year - 1}q4" if index == 1 else f"{today.year}q{index - 1}"
@@ -600,7 +606,7 @@ def next_quarter_to_backfill(db_path: str, *, now: str) -> str | None:
     """
     cursor = get_state(db_path, key=HISTORY_FORM4_CURSOR_KEY)
     candidate = FIRST_QUARTER if cursor is None else next_quarter(cursor)
-    return candidate if candidate <= _latest_published_quarter(now) else None
+    return candidate if candidate <= latest_published_quarter(now) else None
 
 
 def _fetch_quarter_zip(

@@ -17,6 +17,7 @@ import sys
 import pytest
 
 import scripts.run_history_backfill as backfill_mod
+from equity_scout import db
 from equity_scout.evidence.backfill_form4 import HISTORY_FORM4_CURSOR_KEY
 from equity_scout.evidence.base import (
     STATUS_FETCH_FAILED,
@@ -145,6 +146,47 @@ def test_shadow_db_mirrors_dedupe_keys_and_cursor_without_touching_the_original(
         assert _hist_rows(shadow) == 2
 
     assert _hist_rows(real) == 1
+
+
+def test_shadow_db_mirrors_a_src_that_has_app_state_but_no_events_table_yet(tmp_path):
+    """First real backfill against a live db: app_state exists (other chains write it),
+    historical_events does not. Both halves must be decided independently."""
+    real = str(tmp_path / "real.db")
+    set_state(real, key=HISTORY_FORM4_CURSOR_KEY, value="2012q4")
+
+    with shadow_db(real) as shadow:
+        assert _hist_rows(shadow) == 0
+        assert get_state(shadow, key=HISTORY_FORM4_CURSOR_KEY) == "2012q4"
+
+
+def test_shadow_db_raises_on_schema_drift_instead_of_reporting_a_full_store_as_new(tmp_path):
+    """The failure the old blanket `except OperationalError` hid: a renamed column would
+    mirror as an EMPTY store, so a dry-run would claim every known event is new."""
+    real = str(tmp_path / "real.db")
+    record_historical_events(real, [_event("k1")], now=NOW)
+    conn = sqlite3.connect(real)
+    conn.execute("ALTER TABLE historical_events RENAME COLUMN event_key TO ereignis_key")
+    conn.commit()
+    conn.close()
+
+    with pytest.raises(sqlite3.OperationalError):
+        with shadow_db(real):
+            pass
+
+
+def test_shadow_db_completes_while_another_process_holds_a_write_transaction(tmp_path):
+    """The resolve driver writes the same file for hours. WAL + busy timeout must let the
+    mirror's READ through instead of failing the dry-run."""
+    real = str(tmp_path / "real.db")
+    record_historical_events(real, [_event("k1")], now=NOW)
+    writer = db.connect(real)
+    writer.execute("BEGIN IMMEDIATE")
+    try:
+        with shadow_db(real) as shadow:
+            assert _hist_rows(shadow) == 1
+    finally:
+        writer.rollback()
+        writer.close()
 
 
 def test_shadow_db_of_a_never_created_database_leaves_no_file_behind(tmp_path):
@@ -291,6 +333,41 @@ def test_quarters_below_one_is_rejected_instead_of_silently_doing_nothing(
         _run(monkeypatch, "--source", "form4", "--db", str(tmp_path / "real.db"), "--quarters", "0")
 
 
+@pytest.mark.parametrize("source", ["congress", "statements"])
+def test_quarters_is_rejected_for_sources_it_means_nothing_to(source, tmp_path, monkeypatch):
+    """Silently accepting it would imply those sources have a cursor. They do not."""
+    monkeypatch.setattr(
+        backfill_mod, "backfill_congress",
+        lambda *a, **k: pytest.fail("a rejected invocation must not run"),
+    )
+    monkeypatch.setattr(
+        backfill_mod, "backfill_statements",
+        lambda *a, **k: pytest.fail("a rejected invocation must not run"),
+    )
+    with pytest.raises(SystemExit) as excinfo:
+        _run(monkeypatch, "--source", source, "--db", str(tmp_path / "real.db"),
+             "--quarters", "3")
+    assert excinfo.value.code == EXIT_REFUSED  # argparse's usage-error code, same taxonomy
+
+
+def test_a_dead_mirror_is_named_not_printed_as_a_parsed_none(tmp_path, monkeypatch, capsys):
+    real = str(tmp_path / "real.db")
+    monkeypatch.setattr(
+        backfill_mod, "backfill_statements",
+        _fake_statements(
+            [], sources_fetched=1, sources_failed=2, twitter_rows=0,
+            twitter_date_min=None, twitter_date_max=None,
+        ),
+    )
+
+    _run(monkeypatch, "--source", "statements", "--db", real)
+
+    out = capsys.readouterr().out
+    assert "Twitter: nicht geladen" in out
+    assert "None" not in out
+    assert "1/3 Quellen geladen" in out  # denominator derived, not hardcoded
+
+
 # --- congress -------------------------------------------------------------------------
 
 def test_congress_seed_empty_is_a_failure_not_a_quiet_success(tmp_path, monkeypatch, capsys):
@@ -313,11 +390,11 @@ def test_congress_with_every_filer_failing_is_a_failure(tmp_path, monkeypatch, c
     assert "4/4" in capsys.readouterr().out
 
 
-def test_congress_index_fallback_is_surfaced(tmp_path, capsys):
-    result = run_congress(
-        str(tmp_path / "d.db"), now=NOW,
-        collector=_fake_congress([_event("a")], index_fallback=1),
+def test_congress_index_fallback_is_surfaced(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        backfill_mod, "backfill_congress", _fake_congress([_event("a")], index_fallback=1)
     )
+    result = run_congress(str(tmp_path / "d.db"), now=NOW)
     assert result["ok"] is True
     assert result["counts"]["index_fallback"] == 1
 
@@ -430,14 +507,75 @@ def test_form4_already_caught_up_is_a_clean_no_op(tmp_path, monkeypatch, capsys)
     assert "aufgeholt" in capsys.readouterr().out.lower()
 
 
-def test_run_form4_keeps_per_quarter_counts_for_the_outcome_write_up(tmp_path):
+def test_run_form4_keeps_per_quarter_counts_for_the_outcome_write_up(tmp_path, monkeypatch):
     collector, _calls = _fake_form4()
-    result = run_form4(
-        str(tmp_path / "d.db"), now=NOW, quarters=2, collector=collector,
-    )
+    monkeypatch.setattr(backfill_mod, "backfill_form4_quarter", collector)
+    result = run_form4(str(tmp_path / "d.db"), now=NOW, quarters=2)
     assert [q["quarter"] for q in result["quarters"]] == ["2006q1", "2006q2"]
     assert result["ok"] is True
     assert sum(q["events_new"] for q in result["quarters"]) == 2
+
+
+def test_run_form4_prints_each_quarter_as_it_completes(tmp_path, monkeypatch, capsys):
+    """A crash at quarter 60/82 must not take the record of the first 59 with it."""
+    collector, _calls = _fake_form4({"2006q3": STATUS_PARSE_FAILED})
+    monkeypatch.setattr(backfill_mod, "backfill_form4_quarter", collector)
+
+    run_form4(str(tmp_path / "d.db"), now=NOW, quarters=5)
+
+    out = capsys.readouterr().out
+    assert "2006q1: ok" in out and "2006q2: ok" in out
+    assert f"2006q3: {STATUS_PARSE_FAILED}" in out
+
+
+def test_a_crash_mid_walk_still_reports_and_points_at_the_cursor(
+    tmp_path, monkeypatch, capsys
+):
+    real = str(tmp_path / "real.db")
+    set_state(real, key=HISTORY_FORM4_CURSOR_KEY, value="2006q1")
+    collector, _calls = _fake_form4()
+
+    def exploding(db_path: str, quarter: str, *, now: str, **kwargs) -> dict:
+        if quarter == "2006q4":
+            raise RuntimeError("boom")
+        return collector(db_path, quarter, now=now, **kwargs)
+
+    monkeypatch.setattr(backfill_mod, "backfill_form4_quarter", exploding)
+
+    assert _run(monkeypatch, "--source", "form4", "--db", real, "--apply",
+                "--quarters", "5") == EXIT_FAILED
+
+    captured = capsys.readouterr()
+    assert "2006q2: ok" in captured.out and "2006q3: ok" in captured.out
+    assert "ABBRUCH" in captured.err and "RuntimeError" in captured.err
+    assert HISTORY_FORM4_CURSOR_KEY in captured.err
+    # The two quarters that DID complete are durable — the cursor is the state of record.
+    assert get_state(real, key=HISTORY_FORM4_CURSOR_KEY) == "2006q3"
+
+
+def test_a_second_run_resumes_from_the_advanced_cursor(tmp_path, monkeypatch, capsys):
+    """The core 82-quarter property: partial success is progress, not a wasted run."""
+    real = str(tmp_path / "real.db")
+    set_state(real, key=HISTORY_FORM4_CURSOR_KEY, value="2006q1")
+    collector, calls = _fake_form4({"2006q4": STATUS_PARSE_FAILED})
+    monkeypatch.setattr(backfill_mod, "backfill_form4_quarter", collector)
+
+    assert _run(monkeypatch, "--source", "form4", "--db", real, "--apply",
+                "--quarters", "5") == EXIT_FAILED
+    assert [q for q, _ in calls] == ["2006q2", "2006q3", "2006q4"]
+    assert get_state(real, key=HISTORY_FORM4_CURSOR_KEY) == "2006q3"
+
+    # Second invocation: the broken quarter is retried, then the walk carries on.
+    calls.clear()
+    collector2, calls2 = _fake_form4()
+    monkeypatch.setattr(backfill_mod, "backfill_form4_quarter", collector2)
+    capsys.readouterr()
+
+    assert _run(monkeypatch, "--source", "form4", "--db", real, "--apply",
+                "--quarters", "2") == EXIT_OK
+    assert [q for q, _ in calls2] == ["2006q4", "2007q1"]
+    assert get_state(real, key=HISTORY_FORM4_CURSOR_KEY) == "2007q1"
+    assert _hist_rows(real) == 4  # q2, q3 from run one + q4, 2007q1 from run two
 
 
 def test_run_statements_never_receives_the_apply_flag():
