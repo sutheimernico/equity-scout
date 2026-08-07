@@ -13,11 +13,25 @@ export function signedPct(value: number): string {
 export function PotentialBlock({
   upsidePct,
   analystCount,
+  yearHighPct,
 }: {
   upsidePct: number | null;
   analystCount: number | null;
+  /** Distance to the 52-week high — the honest fallback for names no analyst covers
+   *  (CEFs, small caps). Geometry, labelled as such, NEVER blended with the analyst
+   *  view: the caption changes so the two can't be mistaken for each other. */
+  yearHighPct?: number | null;
 }) {
   if (upsidePct === null) {
+    if (yearHighPct !== null && yearHighPct !== undefined) {
+      return (
+        <span className="brief-potential brief-potential-ref">
+          <span className="brief-potential-cap">Bis Jahreshoch</span>
+          <span className="brief-potential-num">{signedPct(yearHighPct)}</span>
+          <span className="brief-potential-label">Referenz — kein Kursziel</span>
+        </span>
+      );
+    }
     return (
       <span className="brief-potential brief-potential-none">
         <span className="brief-potential-cap">Potenzial</span>

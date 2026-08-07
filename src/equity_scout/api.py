@@ -318,12 +318,16 @@ def create_app(
     def _pick_extras(pick: dict, fundamentals, insights: dict, series: dict) -> dict:
         """Screener-card context per pick (Nico 2026-08-07): the cached insight + own
         chart (nightly run_insights covers the run picks), last close from that chart,
-        and the analyst target/upside — no live fetch beyond the shared 6 h cache."""
+        and the analyst target/upside — no live fetch beyond the shared 6 h cache.
+        `year_high_gap_pct` is the honest fallback figure for names without analyst
+        coverage: distance to the 52-week high — geometry, labelled as such in the UI,
+        never a price target."""
         ticker = pick["instrument"]["ticker"]
         chart = series.get(ticker)
         closes = (chart or {}).get("closes") or []
         last_close = closes[-1] if closes else None
         target = fundamentals.analyst_target if fundamentals else None
+        year_high = fundamentals.year_high if fundamentals else None
         return {
             **pick,
             "insight": insights.get(ticker),
@@ -334,6 +338,9 @@ def create_app(
             "analyst_count": fundamentals.analyst_count if fundamentals else None,
             "analyst_upside_pct": (
                 analyst_upside_pct(target, last_close) if last_close is not None else None
+            ),
+            "year_high_gap_pct": (
+                analyst_upside_pct(year_high, last_close) if last_close is not None else None
             ),
         }
 

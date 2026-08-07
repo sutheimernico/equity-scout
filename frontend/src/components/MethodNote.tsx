@@ -28,6 +28,12 @@ export function MethodNote() {
           nachsortiert (0–100). Auch das ist eine Zeitpunkt-Einschätzung, keine Prognose.
         </p>
         <p>
+          <b>„Bis Jahreshoch“</b> — erscheint, wo kein Analyst die Aktie abdeckt (z.&nbsp;B.
+          Fonds): der Abstand vom aktuellen Kurs zum höchsten Stand der letzten 52 Wochen.
+          Reine Geometrie als Orientierung — <b>kein Kursziel</b> und keine Aussage, dass
+          der Kurs dahin zurückkehrt.
+        </p>
+        <p>
           Beides kann sich widersprechen, ohne dass eines falsch ist: Analysten beziffern
           den <b>Wert</b>, unser Modell den <b>Zeitpunkt</b>. Keine Anlageberatung.
         </p>

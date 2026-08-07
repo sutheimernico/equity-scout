@@ -39,13 +39,17 @@ export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string
         <StockLogo ticker={pick.instrument.ticker} name={pick.instrument.name} />
         <span className="pitch-ident">
           <span className="pitch-company">{shortCompanyName(pick.instrument.name)}</span>
-          <span className="ticker">
-            {pick.instrument.ticker} <Badge tone="region">{pick.instrument.region}</Badge>
+          {/* Badge on its own line: inside the nowrap ticker span it pushed the pair
+              past the column edge and under the potential label. */}
+          <span className="ticker">{pick.instrument.ticker}</span>
+          <span>
+            <Badge tone="region">{pick.instrument.region}</Badge>
           </span>
         </span>
         <PotentialBlock
           upsidePct={pick.analyst_upside_pct ?? null}
           analystCount={pick.analyst_count ?? null}
+          yearHighPct={pick.year_high_gap_pct ?? null}
         />
         <Chevron />
       </button>

@@ -18,10 +18,12 @@ def test_from_info_maps_all_fields():
             "targetMeanPrice": 210.5,
             "numberOfAnalystOpinions": 27,
             "currency": "USD",
+            "fiftyTwoWeekHigh": 250.0,
         }
     )
     assert fund == Fundamentals(
-        trailing_pe=18.4, analyst_target=210.5, analyst_count=27, currency="USD"
+        trailing_pe=18.4, analyst_target=210.5, analyst_count=27, currency="USD",
+        year_high=250.0,
     )
 
 

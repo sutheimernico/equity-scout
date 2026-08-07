@@ -38,6 +38,8 @@ export interface Pick {
   analyst_target?: number | null;
   analyst_count?: number | null;
   analyst_upside_pct?: number | null;
+  // Distance to the 52-week high — honest reference for uncovered names, no target.
+  year_high_gap_pct?: number | null;
 }
 
 export interface GateStats {

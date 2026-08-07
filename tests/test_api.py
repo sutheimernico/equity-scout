@@ -35,6 +35,7 @@ def test_latest_endpoint_returns_buckets(tmp_path):
     assert pick_row["chart"] is None
     assert pick_row["price"] is None
     assert pick_row["analyst_upside_pct"] is None
+    assert pick_row["year_high_gap_pct"] is None
 
 
 def test_latest_endpoint_empty_db_still_has_disclaimer(tmp_path):

@@ -24,6 +24,10 @@ class Fundamentals:
     # card); same `.info` payload as the fields above, so this is not a second fetch.
     sector: str | None = None
     industry: str | None = None
+    # 52-week high: the honest reference figure for names WITHOUT analyst coverage
+    # (CEFs, small caps) — geometry, never a price target (Nico 2026-08-07: "irgendwelche
+    # Kursziele muss es da geben"). Same `.info` payload, no extra fetch.
+    year_high: float | None = None
 
 
 def _finite(value: object) -> float | None:
@@ -48,6 +52,7 @@ def from_info(info: dict) -> Fundamentals:
         currency=info.get("currency") or None,
         sector=info.get("sector") or None,
         industry=info.get("industry") or None,
+        year_high=_finite(info.get("fiftyTwoWeekHigh")),
     )
 
 

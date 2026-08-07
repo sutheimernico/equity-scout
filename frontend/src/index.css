@@ -3283,4 +3283,27 @@ li.pd-alloc-row {
 }
 .pick-main .pitch-ident .ticker {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 52-week-high reference: muted on purpose — a reference figure must not glow green
+   like the analyst upside, or the two read as the same kind of claim. */
+.brief-potential-ref .brief-potential-num {
+  color: var(--text-secondary);
+}
+
+/* Long fund names ("Eaton Vance Tax-Advantage Global Dividend Opp Common Stock") get
+   two lines, then an ellipsis — the global overflow-wrap:anywhere otherwise shreds them
+   letter-by-letter in the narrow grid column. The label under the potential figure may
+   wrap instead of pushing into the name column. */
+.pick-main .pitch-company {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pick-main .brief-potential-label {
+  white-space: normal;
+  text-align: right;
 }
