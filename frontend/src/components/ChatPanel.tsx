@@ -70,10 +70,13 @@ export function ChatPanel() {
         )}
         {messages.map((m, i) => (
           <div key={i} className={`chat-msg chat-${m.role}`}>
-            {m.content}
+            {/* Die leere Assistenten-Blase entsteht beim Start des Streams. Bis das erste
+                Wort kommt, liest das lokale Modell den Datenkontext — auf CPU dauert das
+                bei Aktienfragen gemessen 60–80 s, und eine leere Blase sähe wie ein Fehler
+                aus. */}
+            {m.content || (m.role === "assistant" ? "liest die Daten…" : "")}
           </div>
         ))}
-        {loading && <div className="chat-msg chat-assistant muted">denkt nach…</div>}
       </div>
 
       <form
