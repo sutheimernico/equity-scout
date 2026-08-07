@@ -2833,6 +2833,59 @@ code {
   color: var(--warning);
   background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
+/* Risk-profile chips (mockup v2): a THIRD axis besides status and brand. Violet for
+   aggressive so risk never borrows the green/amber status meaning; brand-accent for
+   defensive; muted for balanced. */
+.brief-chip-brand {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+.brief-chip-mute {
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  border: 1px solid var(--border-faint);
+}
+.brief-chip-risk {
+  color: var(--violet);
+  background: var(--violet-subtle);
+}
+/* Chips side by side under the stock name (zone status + risk profile). */
+.stock-chiprow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+/* Style-filter chip row above the stock list. */
+.chip-row {
+  display: flex;
+  gap: var(--space-1);
+  padding-bottom: var(--space-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.chip-btn {
+  border: 1px solid var(--border-soft);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border-radius: var(--radius-pill);
+  padding: 6px 13px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.chip-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-base);
+}
+/* The one-line why under a stock card row. */
+.stock-reason {
+  margin: 0;
+  padding: 0 0 var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.45;
+}
 /* The potential sits right-aligned in its own column, label under the number. */
 .brief-potential {
   flex-direction: column;
@@ -2908,7 +2961,8 @@ code {
 
 /* ===== Depot: switch, donut, grouped positions (2026-08-06) ===== */
 /* Segmented control. English labels at Nico's request; the rest of the UI stays German. */
-.pd-switch {
+.pd-switch,
+.seg-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2px;
@@ -2917,7 +2971,14 @@ code {
   background: var(--bg-inset);
   border-radius: 10px;
 }
-.pd-switch-btn {
+/* Same switch, any button count (Aktien: Kaufbereit/Fast/Alle; Depot: Lang/Kurz/Du). */
+.seg-switch {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+}
+.pd-switch-btn,
+.seg-btn {
   min-height: 38px;
   border: 0;
   border-radius: 8px;
@@ -2926,7 +2987,8 @@ code {
   font-size: 0.86rem;
   font-weight: 600;
 }
-.pd-switch-btn.active {
+.pd-switch-btn.active,
+.seg-btn.active {
   background: var(--bg-raised);
   color: var(--text-strong);
 }

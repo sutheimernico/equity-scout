@@ -32,8 +32,9 @@ function money(value: number, currency: string | null): string {
 }
 
 /** Entry state as a compact chip. Status colour never travels alone — the glyph and the
- *  word carry the same meaning, which is what makes the green/amber pair legal here. */
-function ZoneChip({ brief }: { brief: StockBrief }) {
+ *  word carry the same meaning, which is what makes the green/amber pair legal here.
+ *  Exported: AktienView renders the same chip so the two lists can never disagree. */
+export function ZoneChip({ brief }: { brief: StockBrief }) {
   return (
     <span className={brief.in_zone ? "brief-chip brief-chip-good" : "brief-chip brief-chip-warn"}>
       {brief.in_zone ? "✓" : "⚠"} {shortVerdict(brief)}

@@ -1097,6 +1097,8 @@ export interface StockChart {
 export interface StockBrief {
   ticker: string;
   name: string;
+  /** Factor bucket — doubles as the card's risk profile (defensiv/ausgewogen/aggressiv). */
+  bucket: "defensive" | "balanced" | "aggressive" | null;
   sector: string | null;
   industry: string | null;
   currency: string | null;
@@ -1117,6 +1119,8 @@ export interface StockBrief {
   trailing_pe: number | null;
   model_target: number | null;
   model_stop: number | null;
+  /** Provenance of the Scout-Ziel: trained champion vs. conservative rule of thumb. */
+  target_source: "model" | "heuristic_v1" | null;
   insight: StockInsight | null;
   chart: StockChart | null;
 }
@@ -1130,4 +1134,12 @@ export async function fetchBriefs(limit = 12): Promise<BriefsResponse> {
   const response = await fetch(`/api/briefs?limit=${limit}`);
   if (!response.ok) throw new Error(`/api/briefs returned ${response.status}`);
   return response.json();
+}
+
+/** One card by ticker (profile deep link) — null when the stock is not on the watchlist. */
+export async function fetchBrief(ticker: string): Promise<StockBrief | null> {
+  const response = await fetch(`/api/briefs?ticker=${encodeURIComponent(ticker)}`);
+  if (!response.ok) throw new Error(`/api/briefs returned ${response.status}`);
+  const body: BriefsResponse = await response.json();
+  return body.briefs[0] ?? null;
 }

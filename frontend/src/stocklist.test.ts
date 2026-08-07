@@ -5,11 +5,12 @@ import { shortVerdict, splitSections } from "./stocklist";
 
 function brief(over: Partial<StockBrief>): StockBrief {
   return {
-    ticker: "AAA", name: "AAA Inc.", sector: null, industry: null, currency: "USD",
+    ticker: "AAA", name: "AAA Inc.", bucket: "balanced", sector: null, industry: null,
+    currency: "USD",
     price: 100, score: 40, score_band: "mittel", zone_low: 90, zone_high: 110,
     in_zone: false, zone_gap_pct: 0, zone_verdict: "", entry_note: "", analyst_target: null,
     analyst_count: null, analyst_upside_pct: null, trailing_pe: null,
-    model_target: null, model_stop: null, insight: null, chart: null,
+    model_target: null, model_stop: null, target_source: null, insight: null, chart: null,
     ...over,
   };
 }
