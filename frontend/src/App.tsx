@@ -58,15 +58,34 @@ function useRevealOnScroll() {
 
 export default function App() {
   // View lives in the URL so Telegram can deep-link into a focus and a reload keeps it.
-  // replaceState (not pushState): the phone's back gesture should leave the app, not walk
-  // a tab history the user never built on purpose.
+  // pushState + popstate (Nico 2026-08-07, reverses the earlier replaceState decision):
+  // the phone's back gesture walks back through visited tabs; backing past the first
+  // entry still leaves the app.
   const [view, setViewState] = useState<View>(() => parseView(window.location.search));
   const setView = useCallback((next: View) => {
-    setViewState(next);
+    if (next === parseView(window.location.search)) return; // re-tapping a tab adds no entry
     const params = new URLSearchParams(window.location.search);
     params.set("view", next);
     params.delete("token"); // never leave the shared secret in the visible URL
-    window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
+    window.history.pushState(null, "", `${window.location.pathname}?${params}`);
+    setViewState(next);
+  }, []);
+  useEffect(() => {
+    // Strip the token from the FIRST history entry too — with pushState the initial entry
+    // survives, and the back gesture must never resurface the shared secret in the URL.
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("token")) {
+      params.delete("token");
+      const qs = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${qs ? `?${qs}` : ""}`,
+      );
+    }
+    const onPop = () => setViewState(parseView(window.location.search));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
   useRevealOnScroll();
 
