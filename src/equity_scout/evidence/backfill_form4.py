@@ -31,10 +31,10 @@ it lives in a THIRD member, REPORTINGOWNER.tsv. The join is a 3-way join on
 ACCESSION_NUMBER, all inside the one ZIP (no extra request, no extra URL).
 
 THE SCHEMA DRIFTS ACROSS YEARS: 2006q1's SUBMISSION.tsv has 13 columns, 2024q1's has 14
-(AFF10B5ONE was added later). So the reader validates only the columns actually JOINED
-(`_REQUIRED_COLUMNS`), never the full header — but it does validate them, because a
-renamed join column would otherwise yield a silent "ok, 0 clusters" run that also
-advances the cursor and skips that quarter forever.
+(AFF10B5ONE was added later). So the reader validates every column the module READS
+(`_REQUIRED_COLUMNS`), never the full header — but it does validate those, because a
+renamed one would otherwise yield a silent "ok, 0 clusters" run that also advances the
+cursor and skips that quarter forever.
 
   SUBMISSION.tsv (14 cols in 2024q1; 2006q1 lacks the trailing AFF10B5ONE):
     ACCESSION_NUMBER, FILING_DATE, PERIOD_OF_REPORT,
@@ -87,8 +87,13 @@ the collision-free event_key below are load-bearing, not cosmetic.
   `form4.py`'s unmapped tickers. The ONE exception is the OTC quotation suffix
   ".OB" (OTC Bulletin Board) / ".PK" (Pink Sheets): those name the same firm on the same
   ticker root, they are a venue tag rather than a share class, and `form4.py` would
-  otherwise drop every dot-ticker as non-US. They are stripped (19 of 339 clusters in
-  2006q1 depend on it — the OTC-heavy early years would be gutted without it).
+  otherwise drop every dot-ticker as non-US. Stripping them barely moves the cluster
+  COUNT (2006q1: 338 unstripped -> 339 stripped, with only 5 clusters changing membership
+  at all) — that is NOT why it is done. It is done so one firm has one ticker across the
+  whole 2006-> panel (a company that moved from the OTCBB to an exchange would otherwise
+  appear as two different tickers) and so Task 5 can actually resolve the symbol: a
+  price panel has no "ABCD.OB" series, so every unstripped OTC cluster would land in the
+  `no_price_history` survivorship bucket instead of being measured.
 * `rows` is the denominator and every row lands in exactly ONE PARTITION bucket; a
   malformed row is counted and skipped, never raised out of a multi-hour run (Task-2
   convention from `backfill_congress.py`). `bad_shares` is the one OVERLAY counter — such
@@ -110,12 +115,24 @@ publish that ceiling as a number instead of a footnote. This is an UNDERCOUNT of
 never an overcount — the study's n is a floor.
 
 KNOWN BIAS — greedy non-overlap: the sweep anchors on the earliest unconsumed purchase
-and takes the widest window from it, which systematically prefers the LOOSER cluster. If
-four insiders buy on days 1, 9, 10 and 11, the anchor at day 1 swallows days 9 and 10 into
-one 3-insider cluster and leaves day 11 orphaned — the tighter, arguably stronger trio of
-days 9/10/11 is never emitted. The alternative (anchoring on every purchase) inflates n
-5-fold with near-duplicates (902 vs 179 on 2024q1), which is the worse error for a base-
-rate study, so the bias is accepted and recorded here rather than tuned away.
+and takes the widest window from it, which systematically prefers the LOOSER cluster.
+Verified minimal case — four insiders buying on 01., 02., 15., 16. and 19-FEB-2024: the
+anchor on the 1st reaches exactly 10 trading days, so it swallows the 15th (the 16th is
+already 11 trading days out) and emits the loose trio 01./02./15.; the 16th and 19th are
+then left as an orphaned pair, and the tighter, arguably stronger trio 15./16./19. is
+never emitted. The alternative (anchoring on every purchase) inflates n 5-fold with
+near-duplicates (902 vs 179 on 2024q1), which is the worse error for a base-rate study,
+so the bias is accepted and recorded here rather than tuned away.
+
+KNOWN RISK — ticker strings are not issuer identity: the same ticker is reused by
+different companies over time (real 2006q1 case: PZZI covers CIK 0000078916 AND CIK
+0000718332), and corporate restructurings move a ticker between CIKs (2024q1: LSXMA/LSXMK
+across CIK 0001082114 and 0001560385). Such a "cluster" would be several firms' insiders
+fused into one fact. Every event therefore carries `details["issuer_ciks"]`, and
+`mixed_issuer` counts the events spanning more than one — 1 of 339 clusters in 2006q1,
+0 of 179 in 2024q1. Note this is NOT an artifact of the OTC strip above: both PZZI
+symbols are plain, dot-free tickers. Nothing is dropped here (that is Task 6's call with
+the full picture), but it can no longer happen invisibly.
 """
 from __future__ import annotations
 
@@ -160,12 +177,12 @@ SUBMISSION_MEMBER = "SUBMISSION.tsv"
 OWNER_MEMBER = "REPORTINGOWNER.tsv"
 TRANS_MEMBER = "NONDERIV_TRANS.tsv"
 
-# ONLY the columns this module joins on. The full header drifts between years (2006q1's
+# Every column this module READS. The full header drifts between years (2006q1's
 # SUBMISSION has 13 columns, 2024q1's has 14), so requiring the whole header would break
-# on valid data — but a RENAMED join column must fail loudly, not silently produce zero.
+# on valid data — but a RENAMED read column must fail loudly, not silently produce zero.
 _REQUIRED_COLUMNS = {
     SUBMISSION_MEMBER: ("ACCESSION_NUMBER", "FILING_DATE", "DOCUMENT_TYPE",
-                        "ISSUERTRADINGSYMBOL"),
+                        "ISSUERTRADINGSYMBOL", "ISSUERCIK"),
     OWNER_MEMBER: ("ACCESSION_NUMBER", "RPTOWNERNAME"),
     TRANS_MEMBER: ("ACCESSION_NUMBER", "TRANS_CODE", "TRANS_ACQUIRED_DISP_CD", "TRANS_DATE",
                    "TRANS_SHARES", "TRANS_PRICEPERSHARE"),
@@ -282,6 +299,9 @@ class InsiderPurchase:
     price: float | None  # None when the filing carries no price (27 of 5,954 P rows)
     value: float | None
     accession: str
+    # SEC's Central Index Key — the only STABLE issuer identity. Ticker strings are
+    # reused across companies (see the cross-issuer note in the module docstring).
+    issuer_cik: str = ""
 
 
 def _tsv_rows(archive: zipfile.ZipFile, member: str):
@@ -306,7 +326,7 @@ def _tsv_rows(archive: zipfile.ZipFile, member: str):
             if column not in (reader.fieldnames or ())
         ]
         if missing:
-            raise ValueError(f"{member} is missing joined column(s): {', '.join(missing)}")
+            raise ValueError(f"{member} is missing read column(s): {', '.join(missing)}")
         yield from reader
 
 
@@ -320,8 +340,9 @@ def purchases_from_quarter_zip(
     bucket, so `rows == sum(_COUNT_KEYS minus rows)` holds — the denominator the Task-7
     report needs. `bad_shares` is an OVERLAY on `kept`, not a bucket (see module rules).
 
-    Raises ValueError when the ZIP is unreadable, a joined member is absent, or a joined
-    COLUMN was renamed: those are broken downloads / schema drift, not row-level defects,
+    Raises ValueError when the ZIP is unreadable, a joined member is absent, or any column
+    the module READS was renamed: those are broken downloads / schema drift, not row-level
+    defects,
     and must never look like a quiet empty quarter. Corruption is only discovered
     mid-read (BadZipFile on a bad CRC, zlib.error on a flipped bit inside the DEFLATE
     stream, EOFError on a truncated one), so all of it is converted here — the caller
@@ -348,13 +369,14 @@ def _purchases_from_archive(
     if missing:
         raise ValueError(f"quarter ZIP is missing {', '.join(missing)}")
 
-    # Only the three joined columns are kept per submission — a quarter has ~68k of
-    # them and the other 11 columns are never read.
-    submissions: dict[str, tuple[str, str, str]] = {
+    # Only the four read columns are kept per submission — a quarter has ~68k of them and
+    # the remaining ones are never touched.
+    submissions: dict[str, tuple[str, str, str, str]] = {
         row.get("ACCESSION_NUMBER", ""): (
             (row.get("DOCUMENT_TYPE") or "").strip(),
             row.get("ISSUERTRADINGSYMBOL") or "",
             row.get("FILING_DATE") or "",
+            (row.get("ISSUERCIK") or "").strip(),
         )
         for row in _tsv_rows(archive, SUBMISSION_MEMBER)
     }
@@ -379,7 +401,7 @@ def _purchases_from_archive(
         if submission is None:
             counts["no_submission"] += 1
             continue
-        document_type, raw_symbol, raw_filing_date = submission
+        document_type, raw_symbol, raw_filing_date, issuer_cik = submission
         if document_type != _FORM4_DOCUMENT_TYPE:
             counts["not_form4"] += 1
             continue
@@ -418,6 +440,7 @@ def _purchases_from_archive(
                 price=price,
                 value=(shares * price) if (shares is not None and price is not None) else None,
                 accession=accession,
+                issuer_cik=issuer_cik,
             )
         )
     return purchases, counts
@@ -453,6 +476,10 @@ def _cluster_event(ticker: str, members: list[InsiderPurchase]) -> HistoricalEve
         t0=t0,
         details={
             "insiders": insiders,
+            # More than one CIK here means the "cluster" spans two different COMPANIES
+            # that happen to share a ticker string — Task 6 must drop or split those
+            # rather than treat them as one firm's insiders acting together.
+            "issuer_ciks": sorted({purchase.issuer_cik for purchase in members}),
             "n_insiders": len(insiders),
             "n_purchases": len(members),
             "priced_purchases": len(priced),
@@ -617,7 +644,7 @@ def backfill_form4_quarter(
     counts: dict = {
         "quarter": quarter, "status": STATUS_OK, "detail": "", "url_fallback": 0,
         "clusters": 0, "duplicate_key": 0, "events_seen": 0, "events_new": 0,
-        "boundary_candidates": 0,
+        "boundary_candidates": 0, "mixed_issuer": 0,
         **dict.fromkeys(_COUNT_KEYS + _OVERLAY_COUNT_KEYS, 0),
     }
     _parse_quarter(quarter)  # fail loudly on a typo before touching the network
@@ -658,6 +685,7 @@ def backfill_form4_quarter(
     events = cluster_events(purchases)
     counts["clusters"] = counts["events_seen"] = len(events)
     counts["duplicate_key"] = len(events) - len({(e.ticker, e.event_key) for e in events})
+    counts["mixed_issuer"] = sum(1 for e in events if len(e.details["issuer_ciks"]) > 1)
     counts["events_new"] = len(record_historical_events(db_path, events, now=now))
     set_state(db_path, key=HISTORY_FORM4_CURSOR_KEY, value=quarter)
     return counts

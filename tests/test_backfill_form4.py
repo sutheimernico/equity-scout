@@ -668,19 +668,16 @@ def test_cursor_stops_at_the_last_fully_elapsed_quarter(tmp_path) -> None:
     assert next_quarter_to_backfill(db_path, now=NOW) is None
 
 
-def test_first_quarter_of_a_year_resumes_into_the_prior_years_q4() -> None:
+def test_first_quarter_of_a_year_resumes_into_the_prior_years_q4(tmp_path) -> None:
     """January..March: the last FULLY elapsed quarter is the previous year's q4."""
-    import tempfile
+    db_path = str(tmp_path / "scout.db")
+    set_state(db_path, key=HISTORY_FORM4_CURSOR_KEY, value="2025q3")
+    assert next_quarter_to_backfill(db_path, now="2026-01-15T09:00:00+00:00") == "2025q4"
 
-    with tempfile.TemporaryDirectory() as tmp:
-        db_path = f"{tmp}/scout.db"
-        set_state(db_path, key=HISTORY_FORM4_CURSOR_KEY, value="2025q3")
-        assert next_quarter_to_backfill(db_path, now="2026-01-15T09:00:00+00:00") == "2025q4"
-
-        set_state(db_path, key=HISTORY_FORM4_CURSOR_KEY, value="2025q4")
-        assert next_quarter_to_backfill(db_path, now="2026-01-15T09:00:00+00:00") is None
-        # ...but by April 2026q1 has elapsed and the run continues.
-        assert next_quarter_to_backfill(db_path, now="2026-04-01T09:00:00+00:00") == "2026q1"
+    set_state(db_path, key=HISTORY_FORM4_CURSOR_KEY, value="2025q4")
+    assert next_quarter_to_backfill(db_path, now="2026-01-15T09:00:00+00:00") is None
+    # ...but by April 2026q1 has elapsed and the run continues.
+    assert next_quarter_to_backfill(db_path, now="2026-04-01T09:00:00+00:00") == "2026q1"
 
 
 # --- hardening: reader contract, corruption, schema drift -----------------------------
@@ -870,7 +867,14 @@ def test_deflate_corruption_becomes_a_value_error_not_a_raw_zlib_error(tmp_path)
 
 def test_truncated_stream_eof_becomes_a_value_error(monkeypatch, tmp_path) -> None:
     """zipfile raises a bare EOFError when a DEFLATE stream stops before its end marker;
-    it must not fly out of a multi-hour backfill."""
+    it must not fly out of a multi-hour backfill.
+
+    NOTE: this injects the EOFError rather than corrupting a real ZIP — every truncation
+    that was tried hits the CRC check first and surfaces as BadZipFile, so zipfile's own
+    EOFError path could not be provoked from a fixture. What is verified here is the
+    except-tuple contract (EOFError -> ValueError -> parse_failed), not zipfile's
+    behaviour on a truncated stream.
+    """
     def boom(_archive, _member):
         raise EOFError("Compressed file ended before the end-of-stream marker was reached")
         yield  # pragma: no cover — generator marker
@@ -975,3 +979,53 @@ def test_successful_run_reports_the_boundary_ceiling(tmp_path) -> None:
     assert counts["bad_shares"] == 0
     # The cluster's own 3 insiders sit in the trailing window, so it is not a candidate.
     assert counts["boundary_candidates"] == 0
+
+
+def test_cluster_records_issuer_ciks_and_flags_cross_issuer_fusion(tmp_path) -> None:
+    """Ticker strings are not issuer identity: the same string is reused by different
+    companies (real 2006q1: PZZI = CIK 0000078916 AND CIK 0000718332). Fusing two firms'
+    insiders into one "cluster" must be visible, not invisible.
+    """
+    submissions = [
+        _submission("a1", ISSUERCIK="0000078916", FILING_DATE="02-FEB-2024"),
+        _submission("a2", ISSUERCIK="0000078916", FILING_DATE="05-FEB-2024"),
+        # Same ticker string, DIFFERENT company.
+        _submission("a3", ISSUERCIK="0000718332", FILING_DATE="06-FEB-2024"),
+    ]
+    owners = [_owner("a1", "Alpha A"), _owner("a2", "Beta B"), _owner("a3", "Gamma C")]
+    transactions = [_trans(acc, TRANS_DATE="01-FEB-2024") for acc in ("a1", "a2", "a3")]
+    zip_bytes = _quarter_zip(submissions, owners, transactions)
+
+    purchases, _ = purchases_from_quarter_zip(zip_bytes)
+    event = cluster_events(purchases)[0]
+
+    assert event.details["issuer_ciks"] == ["0000078916", "0000718332"]
+
+    counts = backfill_form4_quarter(
+        str(tmp_path / "scout.db"), "2024q1", now=NOW, http_get_bytes=lambda _url: zip_bytes
+    )
+    assert counts["clusters"] == 1
+    assert counts["mixed_issuer"] == 1
+
+
+def test_single_issuer_cluster_is_not_flagged(tmp_path) -> None:
+    counts = backfill_form4_quarter(
+        str(tmp_path / "scout.db"), "2024q1", now=NOW,
+        http_get_bytes=lambda _url: _cluster_zip(),
+    )
+
+    assert counts["clusters"] == 1
+    assert counts["mixed_issuer"] == 0
+
+
+def test_issuer_cik_is_a_required_read_column() -> None:
+    """It is not a join key, but it IS read — drift must fail loudly like the rest."""
+    columns = ["ISSUER_CIK" if c == "ISSUERCIK" else c for c in SUBMISSION_COLUMNS]
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("SUBMISSION.tsv", _tsv(columns, [_submission("acc-1")]))
+        archive.writestr("REPORTINGOWNER.tsv", _tsv(OWNER_COLUMNS, [_owner("acc-1", "A B")]))
+        archive.writestr("NONDERIV_TRANS.tsv", _tsv(TRANS_COLUMNS, [_trans("acc-1")]))
+
+    with pytest.raises(ValueError, match="ISSUERCIK"):
+        purchases_from_quarter_zip(buffer.getvalue())
