@@ -3,6 +3,7 @@ import { Fragment, useEffect, useState } from "react";
 import { decidePitch, fetchInbox, type InboxResponse, type Pitch } from "../api";
 import { companyNameFromPitch, shortCompanyName } from "../company";
 import { GROUP_HEADINGS, groupKey, sortByVerdict } from "../inbox";
+import { MethodNote } from "./MethodNote";
 import { PotentialBlock } from "./PotentialBlock";
 import { StockLogo } from "./StockLogo";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
@@ -294,6 +295,7 @@ export function InboxPanel() {
         </div>
       )}
 
+      <MethodNote />
       <DisclaimerBar text={data.disclaimer} />
     </>
   );

@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 
 import { fetchRadar, type RadarResponse, type WatchlistEntry } from "../api";
-import { BUCKET_LABELS, pct, toPercent } from "../format";
+import { shortCompanyName } from "../company";
+import { BUCKET_LABELS, toPercent } from "../format";
+import { MethodNote } from "./MethodNote";
+import { PotentialBlock } from "./PotentialBlock";
 import { SignalStackBlock } from "./SignalStackBlock";
+import { StockLogo } from "./StockLogo";
 import { Bar } from "./ui/Bar";
 import { Chip } from "./ui/Chip";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
@@ -33,25 +37,56 @@ function zoneGeometry(entry: WatchlistEntry) {
   return { bandLeft: at(lo), bandWidth: at(hi) - at(lo), priceLeft: at(price) };
 }
 
+/** Today's entry state as the same chip the Heute list and the inbox use — the one
+ *  visual language for "is this a good moment" across the app. */
+function zoneChipLabel(entry: WatchlistEntry): string {
+  if (entry.in_zone) return "✓ Einstiegsbereich";
+  if (entry.price < entry.entry_zone_low) return "⚠ unter der Zone — Support gebrochen";
+  return `⚠ ${Math.round(entry.proximity * 100)} % über der Einstiegszone`;
+}
+
 function RadarEntry({ entry }: { entry: WatchlistEntry }) {
   const score = toPercent(entry.composite);
   const { bandLeft, bandWidth, priceLeft } = zoneGeometry(entry);
 
   return (
     <article className="panel radar-entry">
-      <div className="radar-entry-head">
-        <span className="ticker">{entry.ticker}</span>
-        <span className="radar-name">{entry.name}</span>
+      {/* Same head as the inbox card (company first, ticker small, today's zone chip,
+          analyst potential right) — the ticker-first head broke mid-word at 390 px
+          ("ITC.N S") and carried no company name a lay reader could recognise. */}
+      <div className="pitch-head">
+        <StockLogo ticker={entry.ticker} name={entry.name} />
+        <span className="pitch-ident">
+          <span className="pitch-company">{shortCompanyName(entry.name)}</span>
+          <span className="ticker">{entry.ticker}</span>
+          <span
+            className={entry.in_zone ? "brief-chip brief-chip-good" : "brief-chip brief-chip-warn"}
+          >
+            {zoneChipLabel(entry)}
+          </span>
+        </span>
+        <PotentialBlock
+          upsidePct={entry.analyst_upside_pct ?? null}
+          analystCount={entry.analyst_count ?? null}
+        />
+      </div>
+
+      <div className="radar-chips">
         <Chip>{BUCKET_LABELS[entry.bucket] ?? entry.bucket}</Chip>
         {entry.ml && (
           <Chip>
-            ML {entry.ml.score}/100 · Stand {entry.ml.created_at.slice(0, 10)}
+            Signal-Filter {entry.ml.score}/100 · Stand {entry.ml.created_at.slice(0, 10)}
           </Chip>
         )}
-        <span className="radar-composite tnum">{score}</span>
       </div>
 
-      <div className="radar-meter" role="img" aria-label={`Composite-Score ${score} von 100`}>
+      {/* Labelled and attributed: a bare blue "71" read as anything from a price to a
+          percent. Same attribution split as the Heute list — this number is OUR model. */}
+      <p className="radar-score-label">
+        Einstiegs-Score <b className="tnum">{score}/100</b> — unser Modell, bewertet nur den
+        Zeitpunkt
+      </p>
+      <div className="radar-meter" role="img" aria-label={`Einstiegs-Score ${score} von 100`}>
         <Bar value={entry.composite} max={1} />
       </div>
 
@@ -75,16 +110,14 @@ function RadarEntry({ entry }: { entry: WatchlistEntry }) {
         />
       </div>
 
+      {/* The raw signed proximity ("-10.5 % · in Zone") moved into the head chip in
+          plain words — a negative percent next to "in Zone" was a riddle, not a fact. */}
       <div className="zone-legend">
         <span className="nobr">
           Zone <span className="tnum">{entry.entry_zone_low}–{entry.entry_zone_high}</span>
         </span>
         <span className="nobr">
           Kurs <span className="tnum">{entry.price}</span>
-        </span>
-        <span className={entry.in_zone ? "nobr zone-prox in" : "nobr zone-prox"}>
-          <span className="tnum">{pct(entry.proximity)}</span>
-          {entry.in_zone ? " · in Zone" : ""}
         </span>
       </div>
       {entry.zone_note && <p className="zone-note">{entry.zone_note}</p>}
@@ -171,6 +204,7 @@ export function RadarPanel() {
         </div>
       )}
 
+      <MethodNote />
       <DisclaimerBar text={data.disclaimer} />
     </>
   );

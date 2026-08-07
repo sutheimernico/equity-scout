@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { fetchBriefs, type StockBrief } from "../api";
 import { shortCompanyName } from "../company";
 import { shortVerdict, splitSections } from "../stocklist";
+import { MethodNote } from "./MethodNote";
 import { MiniYearChart } from "./MiniYearChart";
 import { PotentialBlock } from "./PotentialBlock";
 import { StockLogo } from "./StockLogo";
@@ -222,6 +223,7 @@ export function StockList({ limit = 12, onOpen }: { limit?: number; onOpen?: () 
           Alle im Radar →
         </button>
       )}
+      <MethodNote />
     </>
   );
 }

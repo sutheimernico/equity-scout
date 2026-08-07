@@ -709,6 +709,11 @@ export interface WatchlistEntry {
   zone_note: string;
   breakdown: Record<string, number>;
   ml?: MlScoreStamp | null;
+  // Analyst view joined on by /api/radar (cached fundamentals) — the third-party
+  // counterpart to our model's score/zone; null when no estimate exists.
+  analyst_target?: number | null;
+  analyst_count?: number | null;
+  analyst_upside_pct?: number | null;
 }
 
 export interface Watchlist {
