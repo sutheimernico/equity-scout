@@ -379,8 +379,13 @@ def route_topics(question: str) -> list[str]:
     return topics or ["ueberblick"]
 
 
-_CHAMBER_DE = {"senate": "Senat", "house": "Repräsentantenhaus"}
+# The feed mixes congress with executive-branch filers (the 2026-08-07 backfill pulled the
+# full OGE index, e.g. "oge_donald_trump"), so "Kongress" alone would mislabel some rows.
+_CHAMBER_DE = {"senate": "Senat", "house": "Repräsentantenhaus",
+               "executive": "Regierung/Exekutive"}
 _PARTY_DE = {"R": "Republikaner", "D": "Demokraten", "I": "unabhängig"}
+_UNKNOWN_PARTY = "Partei unbekannt"
+_UNKNOWN_CHAMBER = "Amt unbekannt"
 _FUND_CHANGE_DE = {"new": "neue Position", "increased": "aufgestockt",
                    "reduced": "reduziert", "closed": "verkauft"}
 _VOICE_KIND_DE = {"buy": "Kauf-Aussage", "sell": "Verkaufs-Aussage",
@@ -397,8 +402,8 @@ _EIGHTK_ITEMS_DE = {
 def _congress_line(event: dict) -> str:
     d = event["details"]
     who = d.get("politician") or "unbekannt"
-    party = _PARTY_DE.get(str(d.get("party") or ""), d.get("party") or "?")
-    chamber = _CHAMBER_DE.get(str(d.get("chamber") or ""), d.get("chamber") or "?")
+    party = _PARTY_DE.get(str(d.get("party") or ""), d.get("party") or _UNKNOWN_PARTY)
+    chamber = _CHAMBER_DE.get(str(d.get("chamber") or ""), d.get("chamber") or _UNKNOWN_CHAMBER)
     bought = d.get("transaction_date") or event["event_date"]
     filed = d.get("filing_date") or event["event_date"]
     amount = d.get("amount_range") or "Volumen unbekannt"
@@ -407,7 +412,7 @@ def _congress_line(event: dict) -> str:
     # fresh news is the single easiest way to misread this feed.
     lag_text = f", {lag} Tage Meldeverzug" if lag is not None else ""
     return (
-        f"- Kongress-Kauf: {who} ({party}, {chamber}) — gekauft am {bought}, "
+        f"- Gemeldeter Kauf: {who} ({party}, {chamber}) — gekauft am {bought}, "
         f"gemeldet {filed}{lag_text}, Volumen {amount}."
     )
 

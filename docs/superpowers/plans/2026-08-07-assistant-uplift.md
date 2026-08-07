@@ -52,7 +52,7 @@ wird per Regex erkannt und mit einem festen Satz beantwortet — 0 s Latenz, 0 %
 - Create: `src/equity_scout/chat_retrieval.py`
 - Test: `tests/test_chat_retrieval.py`
 
-- [ ] **Step 1: Failing Test schreiben**
+- [x] **Step 1: Failing Test schreiben**
 
 ```python
 """tests/test_chat_retrieval.py — deterministic retrieval in front of the LLM."""
@@ -82,12 +82,12 @@ def test_data_questions_are_not_advice():
         assert not is_advice_question(q), q
 ```
 
-- [ ] **Step 2: Test laufen lassen — muss fehlschlagen**
+- [x] **Step 2: Test laufen lassen — muss fehlschlagen**
 
 Run: `.venv/bin/python -m pytest tests/test_chat_retrieval.py -q`
 Expected: FAIL (`ModuleNotFoundError: equity_scout.chat_retrieval`)
 
-- [ ] **Step 3: Minimale Implementierung**
+- [x] **Step 3: Minimale Implementierung**
 
 ```python
 """Deterministic retrieval in front of the local chat LLM.
@@ -117,12 +117,12 @@ def is_advice_question(question: str) -> bool:
     return bool(_ADVICE_RE.search(question))
 ```
 
-- [ ] **Step 4: Test laufen lassen — muss grün sein**
+- [x] **Step 4: Test laufen lassen — muss grün sein**
 
 Run: `.venv/bin/python -m pytest tests/test_chat_retrieval.py -q`
 Expected: PASS (2 Tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/equity_scout/chat_retrieval.py tests/test_chat_retrieval.py
@@ -135,7 +135,7 @@ git commit -m "feat(chat): detect advice questions deterministically"
 - Modify: `src/equity_scout/chat.py:16-23` (SYSTEM_PROMPT ersetzen, Konstanten ergänzen)
 - Test: `tests/test_chat.py` (existiert; Tests ergänzen — vorher `grep -n "SYSTEM_PROMPT" tests/test_chat.py`, bestehende Prompt-Assertions mit anpassen)
 
-- [ ] **Step 1: Failing Tests schreiben** (in `tests/test_chat.py` anhängen)
+- [x] **Step 1: Failing Tests schreiben** (in `tests/test_chat.py` anhängen)
 
 ```python
 from equity_scout.chat import GLOSSARY, REFUSAL_ANSWER, SYSTEM_PROMPT
@@ -163,12 +163,12 @@ def test_glossary_defines_the_house_terms():
         assert term in GLOSSARY, term
 ```
 
-- [ ] **Step 2: Test laufen lassen — muss fehlschlagen**
+- [x] **Step 2: Test laufen lassen — muss fehlschlagen**
 
 Run: `.venv/bin/python -m pytest tests/test_chat.py -q`
 Expected: FAIL (`ImportError: cannot import name 'GLOSSARY'`)
 
-- [ ] **Step 3: Implementierung** — in `chat.py` den SYSTEM_PROMPT ersetzen und die zwei
+- [x] **Step 3: Implementierung** — in `chat.py` den SYSTEM_PROMPT ersetzen und die zwei
   Konstanten ergänzen:
 
 ```python
@@ -209,13 +209,13 @@ GLOSSARY = (
 )
 ```
 
-- [ ] **Step 4: Alle chat-Tests laufen lassen** (bestehende Prompt-Assertions können am
+- [x] **Step 4: Alle chat-Tests laufen lassen** (bestehende Prompt-Assertions können am
   alten Wortlaut hängen — die auf den neuen Wortlaut anpassen, NICHT abschwächen)
 
 Run: `.venv/bin/python -m pytest tests/test_chat.py -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/equity_scout/chat.py tests/test_chat.py
@@ -228,7 +228,7 @@ git commit -m "feat(chat): hard system prompt, fixed refusal answer, house-term 
 - Modify: `src/equity_scout/chat_retrieval.py`
 - Test: `tests/test_chat_retrieval.py`
 
-- [ ] **Step 1: Failing Tests schreiben**
+- [x] **Step 1: Failing Tests schreiben**
 
 ```python
 from equity_scout.chat_retrieval import find_tickers
@@ -271,12 +271,12 @@ def test_company_suffixes_do_not_block_the_match():
     assert find_tickers("Warum wurde Yamato nicht gekauft?", LEXICON) == ["9064.T"]
 ```
 
-- [ ] **Step 2: Test laufen lassen — muss fehlschlagen**
+- [x] **Step 2: Test laufen lassen — muss fehlschlagen**
 
 Run: `.venv/bin/python -m pytest tests/test_chat_retrieval.py -q`
 Expected: FAIL (`ImportError: cannot import name 'find_tickers'`)
 
-- [ ] **Step 3: Implementierung** (an `chat_retrieval.py` anhängen)
+- [x] **Step 3: Implementierung** (an `chat_retrieval.py` anhängen)
 
 ```python
 # Legal-form suffixes stripped for matching (mirrors frontend/src/company.ts, kept tiny —
@@ -319,14 +319,14 @@ def find_tickers(question: str, lexicon: dict[str, str]) -> list[str]:
     return [t for t, _ in sorted(hits.items(), key=lambda kv: kv[1])]
 ```
 
-- [ ] **Step 4: Tests laufen lassen**
+- [x] **Step 4: Tests laufen lassen**
 
 Run: `.venv/bin/python -m pytest tests/test_chat_retrieval.py -q`
 Expected: PASS. Falls `test_company_suffixes_do_not_block_the_match` rot bleibt: das
 iterative Suffix-Strippen prüfen (es muss „Holdings" UND „Co., Ltd." nacheinander
 entfernen).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/equity_scout/chat_retrieval.py tests/test_chat_retrieval.py
@@ -342,7 +342,7 @@ die anderen Endpoints schon nutzen. Reine Formatierung, I/O wird injiziert (test
 - Modify: `src/equity_scout/chat_retrieval.py`
 - Test: `tests/test_chat_retrieval.py`
 
-- [ ] **Step 1: Failing Tests schreiben**
+- [x] **Step 1: Failing Tests schreiben**
 
 ```python
 from equity_scout.chat_retrieval import stock_dossier
@@ -382,12 +382,12 @@ def test_stock_dossier_says_whats_missing_instead_of_omitting():
     assert "keine Analysten-Daten im Cache" in text
 ```
 
-- [ ] **Step 2: Test laufen lassen — muss fehlschlagen**
+- [x] **Step 2: Test laufen lassen — muss fehlschlagen**
 
 Run: `.venv/bin/python -m pytest tests/test_chat_retrieval.py -q`
 Expected: FAIL (`ImportError: cannot import name 'stock_dossier'`)
 
-- [ ] **Step 3: Implementierung** (an `chat_retrieval.py` anhängen; `Fundamentals` aus
+- [x] **Step 3: Implementierung** (an `chat_retrieval.py` anhängen; `Fundamentals` aus
   `equity_scout.fundamentals` importieren)
 
 ```python
@@ -446,12 +446,12 @@ def stock_dossier(
     return "\n".join(lines)
 ```
 
-- [ ] **Step 4: Tests laufen lassen**
+- [x] **Step 4: Tests laufen lassen**
 
 Run: `.venv/bin/python -m pytest tests/test_chat_retrieval.py -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/equity_scout/chat_retrieval.py tests/test_chat_retrieval.py
@@ -467,7 +467,7 @@ Keyword-Router die relevanten Blöcke. Ohne Treffer: kompakter Systemstatus.
 - Modify: `src/equity_scout/chat_retrieval.py`
 - Test: `tests/test_chat_retrieval.py`
 
-- [ ] **Step 1: Failing Tests schreiben**
+- [x] **Step 1: Failing Tests schreiben**
 
 ```python
 from equity_scout.chat_retrieval import route_topics
@@ -490,12 +490,12 @@ def test_routing_can_return_multiple_topics():
     assert "depots" in topics and "markt" in topics
 ```
 
-- [ ] **Step 2: Test laufen lassen — muss fehlschlagen**
+- [x] **Step 2: Test laufen lassen — muss fehlschlagen**
 
 Run: `.venv/bin/python -m pytest tests/test_chat_retrieval.py -q`
 Expected: FAIL (`ImportError: cannot import name 'route_topics'`)
 
-- [ ] **Step 3: Implementierung** (an `chat_retrieval.py` anhängen)
+- [x] **Step 3: Implementierung** (an `chat_retrieval.py` anhängen)
 
 ```python
 _TOPIC_KEYWORDS: dict[str, tuple[str, ...]] = {
@@ -521,12 +521,12 @@ def route_topics(question: str) -> list[str]:
     return topics or ["ueberblick"]
 ```
 
-- [ ] **Step 4: Tests laufen lassen**
+- [x] **Step 4: Tests laufen lassen**
 
 Run: `.venv/bin/python -m pytest tests/test_chat_retrieval.py -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/equity_scout/chat_retrieval.py tests/test_chat_retrieval.py
@@ -542,7 +542,7 @@ ein Steckbrief je erkannter Aktie. Der Vorschalter aus Task 1 antwortet vor dem 
 - Modify: `src/equity_scout/api.py` (`/api/chat`, aktuell ~Zeile 842)
 - Test: `tests/test_api.py`
 
-- [ ] **Step 1: Failing Tests schreiben** (in `tests/test_api.py`; `create_app` +
+- [x] **Step 1: Failing Tests schreiben** (in `tests/test_api.py`; `create_app` +
   TestClient-Idiom wie `test_inbox_endpoints_list_and_decide`)
 
 ```python
@@ -584,12 +584,12 @@ def test_chat_context_carries_dossier_for_mentioned_ticker(tmp_path, monkeypatch
     assert "GLOSSAR" in captured["context"]
 ```
 
-- [ ] **Step 2: Tests laufen lassen — müssen fehlschlagen**
+- [x] **Step 2: Tests laufen lassen — müssen fehlschlagen**
 
 Run: `.venv/bin/python -m pytest tests/test_api.py -k chat -q`
 Expected: FAIL (Ablehnung kommt nicht, Kontext trägt kein Dossier)
 
-- [ ] **Step 3: Implementierung.** In `api.py` den `/api/chat`-Body ersetzen. Der alte
+- [x] **Step 3: Implementierung.** In `api.py` den `/api/chat`-Body ersetzen. Der alte
   Kontext (Strategien/ML/Research/Forward/Screener) wird zum `strategien`-Block; neue
   Blöcke aus vorhandenen Loadern. Kernstruktur:
 
@@ -700,12 +700,12 @@ def _chat_inbox_block(pitches: list[dict]) -> str:
   Funktionskörper lassen (wie bisher) und `chat_mod.ask_ollama(...)` verwenden:
   `import equity_scout.chat as chat_mod`.
 
-- [ ] **Step 4: Tests laufen lassen**
+- [x] **Step 4: Tests laufen lassen**
 
 Run: `.venv/bin/python -m pytest tests/test_api.py -k chat -q && .venv/bin/python -m ruff check .`
 Expected: PASS + clean
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/equity_scout/api.py tests/test_api.py
@@ -721,7 +721,7 @@ Call 24 h im RAM; `num_predict` verhindert Endlos-Antworten (schneller fertig).
 - Modify: `src/equity_scout/chat.py` (`ask_ollama`, Payload)
 - Test: `tests/test_chat.py`
 
-- [ ] **Step 1: Failing Test schreiben** (bestehende `ask_ollama`-Tests nutzen einen
+- [x] **Step 1: Failing Test schreiben** (bestehende `ask_ollama`-Tests nutzen einen
   gemockten httpx — dasselbe Muster: `grep -n "httpx" tests/test_chat.py`)
 
 ```python
@@ -747,12 +747,12 @@ def test_ask_ollama_keeps_the_model_warm_and_caps_length(monkeypatch):
     assert captured["options"]["num_predict"] == 400
 ```
 
-- [ ] **Step 2: Test laufen lassen — muss fehlschlagen**
+- [x] **Step 2: Test laufen lassen — muss fehlschlagen**
 
 Run: `.venv/bin/python -m pytest tests/test_chat.py -k warm -q`
 Expected: FAIL (`KeyError: 'keep_alive'`)
 
-- [ ] **Step 3: Implementierung** — in `ask_ollama` das Payload erweitern:
+- [x] **Step 3: Implementierung** — in `ask_ollama` das Payload erweitern:
 
 ```python
     payload = {
@@ -770,12 +770,12 @@ Expected: FAIL (`KeyError: 'keep_alive'`)
     }
 ```
 
-- [ ] **Step 4: Tests laufen lassen**
+- [x] **Step 4: Tests laufen lassen**
 
 Run: `.venv/bin/python -m pytest tests/test_chat.py -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/equity_scout/chat.py tests/test_chat.py
@@ -791,7 +791,7 @@ Gefühlte Latenz schlägt echte: erste Tokens nach wenigen Sekunden statt 40 s S
 - Modify: `src/equity_scout/api.py` (`/api/chat/stream`)
 - Test: `tests/test_chat.py`, `tests/test_api.py`
 
-- [ ] **Step 1: Failing Test für `stream_ollama`**
+- [x] **Step 1: Failing Test für `stream_ollama`**
 
 ```python
 def test_stream_ollama_yields_content_chunks(monkeypatch):
@@ -817,12 +817,12 @@ def test_stream_ollama_yields_content_chunks(monkeypatch):
     assert list(stream_ollama("F?", "K")) == ["Hal", "lo"]
 ```
 
-- [ ] **Step 2: Test laufen lassen — muss fehlschlagen**
+- [x] **Step 2: Test laufen lassen — muss fehlschlagen**
 
 Run: `.venv/bin/python -m pytest tests/test_chat.py -k stream -q`
 Expected: FAIL (`ImportError: cannot import name 'stream_ollama'`)
 
-- [ ] **Step 3: `stream_ollama` implementieren** (in `chat.py`; gleiche Fehlerbehandlung
+- [x] **Step 3: `stream_ollama` implementieren** (in `chat.py`; gleiche Fehlerbehandlung
   wie `ask_ollama`, gleiche Payload-Basis mit `"stream": True`)
 
 ```python
@@ -870,7 +870,7 @@ def stream_ollama(
         raise ChatError(f"Ollama ist unter {host} nicht erreichbar.") from exc
 ```
 
-- [ ] **Step 4: Endpoint `/api/chat/stream`** in `api.py` direkt unter `/api/chat` — die
+- [x] **Step 4: Endpoint `/api/chat/stream`** in `api.py` direkt unter `/api/chat` — die
   Kontext-Assemblierung aus Task 6 in eine Helper-Funktion `_chat_context(question) ->
   str | None` ziehen (None = Ratschlagsfrage), damit beide Endpoints sie teilen (DRY):
 
@@ -911,12 +911,12 @@ def test_chat_stream_endpoint_streams_text(tmp_path, monkeypatch):
     assert resp.text == "Hallo"
 ```
 
-- [ ] **Step 5: Tests + ruff**
+- [x] **Step 5: Tests + ruff**
 
 Run: `.venv/bin/python -m pytest tests/test_chat.py tests/test_api.py -k "chat or stream" -q && .venv/bin/python -m ruff check .`
 Expected: PASS + clean
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/equity_scout/chat.py src/equity_scout/api.py tests/test_chat.py tests/test_api.py
@@ -929,7 +929,7 @@ git commit -m "feat(chat): streaming endpoint — first tokens instead of a 40s 
 - Modify: `frontend/src/api.ts` (neben `askChat`)
 - Modify: `frontend/src/components/ChatPanel.tsx`
 
-- [ ] **Step 1: `askChatStream` in `api.ts`**
+- [x] **Step 1: `askChatStream` in `api.ts`**
 
 ```typescript
 /** Streams the assistant's answer; calls onChunk per token group. Falls back to the
@@ -954,7 +954,7 @@ export async function askChatStream(
 }
 ```
 
-- [ ] **Step 2: `ChatPanel.tsx` auf Streaming umstellen** — in `ask()` den `askChat`-Call
+- [x] **Step 2: `ChatPanel.tsx` auf Streaming umstellen** — in `ask()` den `askChat`-Call
   ersetzen; die Assistenten-Nachricht wird einmal leer angelegt und dann fortgeschrieben:
 
 ```typescript
@@ -988,12 +988,12 @@ const EXAMPLES = [
 ];
 ```
 
-- [ ] **Step 3: Gate**
+- [x] **Step 3: Gate**
 
 Run: `cd frontend && npx tsc --noEmit && npm test && npm run build`
 Expected: alles grün
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/api.ts frontend/src/components/ChatPanel.tsx
@@ -1141,7 +1141,7 @@ Einträgen ist der Regex-Scan aus Task 3 pro Frage zu teuer und zu falsch-positi
 - Modify: `src/equity_scout/storage.py` (`load_company_names`)
 - Test: `tests/test_chat_retrieval.py`, `tests/test_storage.py`
 
-- [ ] **Step 1: Failing Tests**
+- [x] **Step 1: Failing Tests**
 
 ```python
 def test_lexicon_matching_ignores_generic_single_words():
@@ -1164,12 +1164,12 @@ def test_lexicon_is_built_from_runs_and_watchlist(tmp_path):
     ...
 ```
 
-- [ ] **Step 2/3: `load_company_names(db_path)` in `storage.py`** — `SELECT ticker, name FROM
+- [x] **Step 2/3: `load_company_names(db_path)` in `storage.py`** — `SELECT ticker, name FROM
   run_scores ORDER BY run_id ASC` (späterer Run überschreibt), plus die Watchlist-Ticker ohne
   Namen als `ticker -> ticker`. Ein Modul-Cache mit 10-Minuten-TTL in `api.py` hält den Aufbau
   aus dem Request-Pfad (das Ergebnis ändert sich nur bei einem Scout-Lauf).
 
-- [ ] **Step 4: `find_tickers` auf Index umstellen** — Vertrag bleibt exakt gleich (alle Tests
+- [x] **Step 4: `find_tickers` auf Index umstellen** — Vertrag bleibt exakt gleich (alle Tests
   aus Task 3 müssen weiter grün sein), nur die Auswertung wird O(Frage) statt O(Lexikon):
   - Namen ohne Rechtsform-Suffix normalisieren, in 1–3-Wort-N-Gramme zerlegen, Index
     `n-gramm -> ticker` aufbauen (längster Treffer gewinnt).
@@ -1178,7 +1178,7 @@ def test_lexicon_is_built_from_runs_and_watchlist(tmp_path):
     statt neu erfinden).
   - **Symbole** matchen case-sensitiv (`ON` ja, `on` nein); Ein-Zeichen-Symbole nie.
 
-- [ ] **Step 5: Gate + Commit** — `feat(chat): lexicon over the whole screened universe`
+- [x] **Step 5: Gate + Commit** — `feat(chat): lexicon over the whole screened universe`
 
 ## Task 13: Kennzahlen im Dossier (KGV & Co.) — der Kern von „alles alles"
 
@@ -1186,7 +1186,7 @@ def test_lexicon_is_built_from_runs_and_watchlist(tmp_path):
 - Modify: `src/equity_scout/chat_retrieval.py` (`metrics_lines`, in `stock_dossier` verdrahtet)
 - Test: `tests/test_chat_retrieval.py`
 
-- [ ] **Step 1: Failing Test**
+- [x] **Step 1: Failing Test**
 
 ```python
 def test_metrics_lines_render_every_cached_number_with_its_unit():
@@ -1212,7 +1212,7 @@ def test_metrics_lines_name_the_gaps_instead_of_dropping_them():
     assert "KGV: nicht verfügbar" in text
 ```
 
-- [ ] **Step 2/3: Implementierung.** Deutsche Zahlformatierung (Komma), jede Kennzahl mit
+- [x] **Step 2/3: Implementierung.** Deutsche Zahlformatierung (Komma), jede Kennzahl mit
   Klarnamen UND Kurzform, damit sowohl „KGV" als auch „Kurs-Gewinn-Verhältnis" in der Frage
   greifen. Negative/unplausible Werte werden benannt, nicht verschwiegen (ein negatives KGV
   heißt Verlust — der Assistent sagt das). Zusätzlich in `stock_dossier`:
@@ -1222,7 +1222,7 @@ def test_metrics_lines_name_the_gaps_instead_of_dropping_them():
   - nächster Termin aus `earnings_dates`, falls vorhanden.
   Loader `load_quote_metrics(cache_db, tickers)` in `data/cache.py` (Batch, ein Query).
 
-- [ ] **Step 4/5: Gate + Commit** — `feat(chat): full key-figure block in the stock dossier`
+- [x] **Step 4/5: Gate + Commit** — `feat(chat): full key-figure block in the stock dossier`
 
 ## Task 14: Unbekannte Aktien — ehrlicher Live-Nachschlag statt „kenne ich nicht"
 
@@ -1234,13 +1234,13 @@ nicht kapitulieren: ein einziger yfinance-Lookup pro Frage, im 6-h-Cache, hart g
 - Modify: `src/equity_scout/api.py` (Fallback im Kontext-Assembler)
 - Test: `tests/test_chat_retrieval.py`, `tests/test_api.py`
 
-- [ ] **Step 1: Failing Test** — `candidate_symbols("Was ist das KGV von RHM.DE?")` == `["RHM.DE"]`;
+- [x] **Step 1: Failing Test** — `candidate_symbols("Was ist das KGV von RHM.DE?")` == `["RHM.DE"]`;
   Alltagswörter, deutsche Großschreibung am Satzanfang und bereits erkannte Ticker fallen raus.
-- [ ] **Step 2/3:** Ticker-Kandidaten = Caps-Token (2–5 Zeichen) optional mit `.XX`-Suffix, die
+- [x] **Step 2/3:** Ticker-Kandidaten = Caps-Token (2–5 Zeichen) optional mit `.XX`-Suffix, die
   das Lexikon NICHT kennt, max. **1** pro Frage. Dafür `fetch_fundamentals_cached` (bestehender
   6-h-Cache, kein neuer Pfad). Kommt nichts zurück: die Zeile lautet wörtlich „zu SYMBOL liegen
   keine Daten vor" — im Test mit gefaktem Fetch, **nie** echtes Netz.
-- [ ] **Step 4/5: Gate + Commit** — `feat(chat): honest live lookup for unknown symbols`
+- [x] **Step 4/5: Gate + Commit** — `feat(chat): honest live lookup for unknown symbols`
 
 ## Task 15: „Welche Mitglieder haben gekauft" — Personen-Evidenz, beide Richtungen
 
@@ -1252,7 +1252,7 @@ Zwei Fragerichtungen, eine Datenbasis: *„Wer hat INTC gekauft?"* (Ticker → P
 - Modify: `src/equity_scout/api.py` (`_chat_people_block`, Dossier-Fenster)
 - Test: `tests/test_chat_retrieval.py`, `tests/test_api.py`
 
-- [ ] **Step 1: Failing Tests**
+- [x] **Step 1: Failing Tests**
 
 ```python
 def test_people_lines_name_names_party_amount_and_reporting_lag():
@@ -1274,7 +1274,7 @@ def test_find_persons_matches_the_tracked_names():
     ]
 ```
 
-- [ ] **Step 2/3:** `people_lines` rendert alle fünf Quellen mit Namen: `congress` (Politiker,
+- [x] **Step 2/3:** `people_lines` rendert alle fünf Quellen mit Namen: `congress` (Politiker,
   Partei, Kammer, Betrag, Transaktions- **und** Meldedatum, Verzug in Tagen), `thirteen_f`
   (Fonds, neu/aufgestockt/reduziert, Quartalsende), `voice` (Sprecher, Richtung, Schlagzeile),
   `edgar_8k` (Item-Codes in Klartext), `news_theme`. `find_persons` matcht gegen die Namen aus
@@ -1284,7 +1284,7 @@ def test_find_persons_matches_the_tracked_names():
   die 5 jüngsten Ereignisse, plus eine Zählzeile („insgesamt N Kongress-Käufe seit …").
   `_chat_people_block` beantwortet zusätzlich die Person→Ticker-Richtung inklusive
   Trefferquote aus `person_scores`, wo vorhanden.
-- [ ] **Step 4/5: Gate + Commit** — `feat(chat): who-bought-what evidence in both directions`
+- [x] **Step 4/5: Gate + Commit** — `feat(chat): who-bought-what evidence in both directions`
 
 ## Task 16: Glossar für Kennzahlen und Meldewege
 
@@ -1293,13 +1293,13 @@ was ist ein 13F, warum meldet ein Senator 820 Tage später.
 
 **Files:** `src/equity_scout/chat.py` (`GLOSSARY` erweitern), `tests/test_chat.py`
 
-- [ ] **Step 1: Failing Test** — `for term in ("KGV", "Eigenkapitalrendite", "13F", "Form 4",
+- [x] **Step 1: Failing Test** — `for term in ("KGV", "Eigenkapitalrendite", "13F", "Form 4",
   "Meldeverzug", "F-Score", "52-Wochen-Hoch"): assert term in GLOSSARY`
-- [ ] **Step 2/3:** Je Begriff ein Satz Bedeutung + ein Satz Grenze („ein niedriges KGV ist kein
+- [x] **Step 2/3:** Je Begriff ein Satz Bedeutung + ein Satz Grenze („ein niedriges KGV ist kein
   Kaufgrund — es kann auch heißen, dass der Markt fallende Gewinne erwartet"). Dazu die
   Prompt-Regel für Vergleichsfragen: bei mehreren Steckbriefen Kennzahl für Kennzahl
   gegenüberstellen und Lücken benennen, statt einen Sieger zu küren. Dossier-Limit 3 → 4.
-- [ ] **Step 4/5: Gate + Commit** — `docs(chat): key-figure and filing glossary`
+- [x] **Step 4/5: Gate + Commit** — `docs(chat): key-figure and filing glossary`
 
 ## Task 17: Eval-Suite auf Vollabdeckung erweitern
 

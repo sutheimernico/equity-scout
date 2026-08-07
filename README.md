@@ -16,7 +16,12 @@ Local, free research harness with two parts, switchable from the dashboard top n
 The strategies also run **forward** as live paper accounts (Live tab — a true out-of-sample track that
 builds over real time), the ML tab carries **per-bet self-analysis** (where the model was wrong, in
 which regime) and a second overfitting check (**CSCV-PBO**), and an **Assistent** tab answers questions
-about the current numbers via a local **Ollama** model (no data leaves the machine).
+about any screened stock via a local **Ollama** model (no data leaves the machine): key figures
+(P/E, price/book, ROE, margins, growth, momentum, F-Score), who has been buying (congress filings
+with their reporting lag, 13F funds, quoted voices), entry score and zone, pitches, both depots,
+market regime and measured results. Facts are retrieved deterministically BEFORE the model sees the
+question — the LLM only phrases what local code selected — and buy/sell questions are refused by a
+fixed sentence that never reaches the model.
 
 **Research assistant — not investment advice, no edge promise.** Every result is after-cost and
 out-of-sample; the honest takeaway is process/risk, not alpha (see `docs/research/`). Two known
@@ -75,8 +80,10 @@ uv run python scripts/run_autotrader.py
 # Probability of Backtest Overfitting over the top configs (slow, occasional) → Auto-Research tab
 uv run python scripts/run_pbo.py
 
-# Local assistant ("Assistent" tab): run Ollama + pull a model (configurable via OLLAMA_MODEL)
-ollama serve & ollama pull llama3.2
+# Local assistant ("Assistent" tab): run Ollama + pull the model (configurable via OLLAMA_MODEL)
+ollama serve & ollama pull qwen2.5:7b   # measured better and 7x faster than llama3.1:8b
+# Repeatable quality check for the assistant (needs the dash service + Ollama running):
+uv run python scripts/eval_chat.py
 
 # Build the React dashboard once, then serve it
 cd frontend && npm install && npm run build && cd ..

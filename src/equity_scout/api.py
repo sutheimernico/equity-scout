@@ -290,7 +290,12 @@ def _chat_people_block(db_path: str, now: str) -> str:
     Window is 400 days, not the dashboard's 30: congress filings arrive with a measured
     p99 lag of 261 days, so a month-long window answers "wer hat gekauft" with silence.
     """
-    from equity_scout.chat_retrieval import _CHAMBER_DE, _PARTY_DE
+    from equity_scout.chat_retrieval import (
+        _CHAMBER_DE,
+        _PARTY_DE,
+        _UNKNOWN_CHAMBER,
+        _UNKNOWN_PARTY,
+    )
 
     grouped = events_in_window(db_path, window_days=_CHAT_EVIDENCE_WINDOW_DAYS, now=now)
     congress: list[tuple[str, str, dict]] = []
@@ -306,19 +311,32 @@ def _chat_people_block(db_path: str, now: str) -> str:
              f"{_CHAT_EVIDENCE_WINDOW_DAYS} Tage):"]
     congress.sort(key=lambda row: row[1], reverse=True)
     if congress:
-        lines.append(f"- Kongress: {len(congress)} gemeldete Käufe. Die jüngsten:")
-        for ticker, date, d in congress[:12]:
-            party = _PARTY_DE.get(str(d.get("party") or ""), d.get("party") or "?")
-            chamber = _CHAMBER_DE.get(str(d.get("chamber") or ""), "?")
+        # Grouped by person, not by date: one backfill drops hundreds of filings with the
+        # SAME filing date, so a date-sorted list answers "welche Mitglieder haben gekauft"
+        # with the same name twelve times.
+        by_person: dict[str, list[tuple[str, str, dict]]] = {}
+        for row in congress:
+            by_person.setdefault(str(row[2].get("politician") or "unbekannt"), []).append(row)
+        ranked = sorted(by_person.items(), key=lambda kv: -len(kv[1]))
+        lines.append(
+            f"- Offenlegungen (Kongress und Regierung): {len(congress)} gemeldete Käufe "
+            f"von {len(by_person)} Personen. Die aktivsten:"
+        )
+        for person, rows in ranked[:10]:
+            newest_ticker, newest_date, d = rows[0]
+            party = _PARTY_DE.get(str(d.get("party") or ""), d.get("party") or _UNKNOWN_PARTY)
+            chamber = _CHAMBER_DE.get(str(d.get("chamber") or ""), _UNKNOWN_CHAMBER)
             lag = d.get("days_to_file")
+            others = sorted({row[0] for row in rows[1:]})[:6]
             lines.append(
-                f"  · {d.get('politician', 'unbekannt')} ({party}, {chamber}) kaufte "
-                f"{ticker}, gekauft {d.get('transaction_date', '?')}, gemeldet {date}"
-                f"{f' ({lag} Tage Meldeverzug)' if lag is not None else ''}, "
-                f"Volumen {d.get('amount_range', '?')}."
+                f"  · {person} ({party}, {chamber}): {len(rows)} Käufe, zuletzt "
+                f"{newest_ticker} (gekauft {d.get('transaction_date', '?')}, gemeldet "
+                f"{newest_date}{f', {lag} Tage Meldeverzug' if lag is not None else ''}, "
+                f"Volumen {d.get('amount_range', '?')})"
+                f"{'; außerdem ' + ', '.join(others) if others else ''}."
             )
     else:
-        lines.append("- Kongress: keine Käufe im Fenster.")
+        lines.append("- Offenlegungen: keine Käufe im Fenster.")
     funds.sort(key=lambda row: row[1], reverse=True)
     for ticker, date, d in funds[:5]:
         lines.append(
@@ -374,11 +392,22 @@ def create_app(
     shortterm_db: str = DEFAULT_SHORTTERM_DB_PATH,
     cache_db: str = DEFAULT_CACHE_DB_PATH,
     dash_token: str | None = None,
+    warm_model: bool = False,
 ) -> FastAPI:
     # The read API may face a DB written before a schema migration (e.g. the
     # data_quality column); init_db is idempotent and carries the migrations.
     init_db(db_path)
     app = FastAPI(title="equity-scout")
+
+    if warm_model:
+        # Pull the chat model into RAM in the background: the first question of the day
+        # otherwise pays a measured 90-120 s cold start (2026-08-07 eval). Off by default
+        # so no test ever touches Ollama; scripts/run_api.py turns it on.
+        import threading
+
+        from equity_scout.chat import warm_model as _warm
+
+        threading.Thread(target=_warm, daemon=True).start()
 
     # v12 M1: shared-secret gate for the phone cockpit. With DASH_TOKEN set, every
     # non-loopback request (static app included — the whole dashboard is private) must

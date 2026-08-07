@@ -251,7 +251,7 @@ CONGRESS_EVENT = {
 
 def test_people_lines_name_names_party_amount_and_reporting_lag():
     line = "\n".join(people_lines([CONGRESS_EVENT]))
-    assert "Thomas H Tuberville" in line and "Senat" in line and "R" in line
+    assert "Thomas H Tuberville" in line and "Senat" in line and "Republikaner" in line
     assert "$100,001 - $250,000" in line
     assert "gekauft am 2024-05-07" in line and "gemeldet 2026-08-05" in line
     # Der Meldeverzug ist die Nachricht, nicht die Fußnote: 820 Tage alte "News".

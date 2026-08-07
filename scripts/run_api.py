@@ -25,7 +25,7 @@ def main() -> None:
             "write endpoint and stays private. Set DASH_TOKEN in .env (see README "
             "'Handy-Cockpit') and retry."
         )
-    uvicorn.run(create_app(args.db), host=args.host, port=args.port)
+    uvicorn.run(create_app(args.db, warm_model=True), host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

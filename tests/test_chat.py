@@ -142,3 +142,49 @@ def test_stream_ollama_reports_an_unreachable_server(monkeypatch) -> None:
 
     with pytest.raises(ChatError):
         list(stream_ollama("F?", "K"))
+
+
+def test_warm_model_never_raises_when_ollama_is_down(monkeypatch) -> None:
+    import httpx
+
+    def boom(*a, **k):  # noqa: ANN002, ANN003, ANN202
+        raise httpx.ConnectError("nope")
+
+    monkeypatch.setattr(httpx, "post", boom)
+    from equity_scout.chat import warm_model
+
+    assert warm_model() is False
+
+
+def test_warm_model_requests_a_single_token(monkeypatch) -> None:
+    captured: dict = {}
+
+    class _Resp:
+        def raise_for_status(self) -> None:
+            pass
+
+    def fake_post(url, json=None, timeout=None):  # noqa: ANN001, ANN202
+        captured.update(json)
+        return _Resp()
+
+    import httpx
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    from equity_scout.chat import warm_model
+
+    assert warm_model() is True
+    assert captured["options"]["num_predict"] == 1
+    assert captured["keep_alive"] == "24h"
+
+
+def test_ask_ollama_names_a_timeout_as_a_timeout(monkeypatch) -> None:
+    import httpx
+
+    def slow(*a, **k):  # noqa: ANN002, ANN003, ANN202
+        raise httpx.ReadTimeout("too slow")
+
+    monkeypatch.setattr(httpx, "post", slow)
+    from equity_scout.chat import ChatError, ask_ollama
+
+    with pytest.raises(ChatError, match="Kaltstart"):
+        ask_ollama("Frage?", "Kontext")

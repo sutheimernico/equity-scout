@@ -15,6 +15,10 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 # How long Ollama holds the model in RAM after a call (~5 GB for qwen2.5:7b).
 KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "24h")
 MAX_ANSWER_TOKENS = 400
+# A cold model needs ~90 s before the first token; the 2026-08-07 eval ran one question
+# into a 120 s ceiling and reported it as "server unreachable", which sent debugging in
+# entirely the wrong direction.
+REQUEST_TIMEOUT_SECONDS = 240.0
 
 SYSTEM_PROMPT = (
     "Du bist der Assistent von equity-scout, einem lokalen Recherche-Tool (Paper-Trading, "
@@ -155,7 +159,7 @@ def ask_ollama(
     *,
     model: str = OLLAMA_MODEL,
     host: str = OLLAMA_HOST,
-    timeout: float = 120.0,
+    timeout: float = REQUEST_TIMEOUT_SECONDS,
 ) -> str:
     import httpx
 
@@ -180,7 +184,12 @@ def ask_ollama(
             f"Ollama antwortet mit {exc.response.status_code}. Ist das Modell '{model}' geladen? "
             f"(`ollama pull {model}`)"
         ) from exc
-    except Exception as exc:  # connection refused, timeout, DNS …
+    except httpx.TimeoutException as exc:
+        raise ChatError(
+            f"Das Modell '{model}' hat nach {timeout:.0f}s noch nicht geantwortet "
+            "(meist ein Kaltstart). Nächster Versuch ist deutlich schneller."
+        ) from exc
+    except Exception as exc:  # connection refused, DNS …
         raise ChatError(
             f"Ollama ist unter {host} nicht erreichbar. Läuft `ollama serve`? "
             "Modell wählbar über die Umgebungsvariable OLLAMA_MODEL."
@@ -198,7 +207,7 @@ def stream_ollama(
     *,
     model: str = OLLAMA_MODEL,
     host: str = OLLAMA_HOST,
-    timeout: float = 120.0,
+    timeout: float = REQUEST_TIMEOUT_SECONDS,
 ):
     """Yield answer chunks as Ollama produces them. Same guardrails as ask_ollama —
     only the transport differs. Raises ChatError on connection problems BEFORE the
@@ -234,7 +243,39 @@ def stream_ollama(
         raise ChatError(
             f"Ollama antwortet mit {exc.response.status_code}. Ist das Modell '{model}' geladen?"
         ) from exc
+    except httpx.TimeoutException as exc:
+        raise ChatError(
+            f"Das Modell '{model}' hat nach {timeout:.0f}s noch nicht geantwortet "
+            "(meist ein Kaltstart)."
+        ) from exc
     except ChatError:
         raise
-    except Exception as exc:  # connection refused, timeout, DNS …
+    except Exception as exc:  # connection refused, DNS …
         raise ChatError(f"Ollama ist unter {host} nicht erreichbar.") from exc
+
+
+def warm_model(*, model: str = OLLAMA_MODEL, host: str = OLLAMA_HOST) -> bool:
+    """Load the model into RAM with a one-token request. Best effort: returns False on any
+    problem and never raises — a cold assistant is a slow assistant, not a broken service.
+
+    Called once at service start (api.create_app(warm_model=True)) so Nico's first question
+    of the day costs seconds instead of the measured 90-120 s cold start.
+    """
+    import httpx
+
+    try:
+        resp = httpx.post(
+            f"{host}/api/chat",
+            json={
+                "model": model,
+                "stream": False,
+                "keep_alive": KEEP_ALIVE,
+                "options": {"num_predict": 1},
+                "messages": [{"role": "user", "content": "ok"}],
+            },
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        resp.raise_for_status()
+    except Exception:  # noqa: BLE001 - warming is optional by definition
+        return False
+    return True
