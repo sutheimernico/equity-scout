@@ -14,12 +14,39 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 
 SYSTEM_PROMPT = (
-    "Du bist der Assistent von equity-scout, einem lokalen Recherche-Tool für systematische "
-    "Anlagestrategien (Paper-Trading, KEINE Anlageberatung). Beantworte Fragen anhand des DATEN-Kontexts "
-    "unten. Bei Fragen wie 'was soll ich kaufen' nenne konkret, welche Einzelaktien der Aktien-Screener "
-    "aktuell am höchsten rankt und wie die Strategien allokieren — als Recherche-Ergebnis aus den Daten, "
-    "stets mit dem klaren Hinweis, dass das KEINE Anlageberatung ist. Gibt der Kontext etwas nicht her, "
-    "sag das ehrlich. Keine Kursprognosen. Antworte knapp und auf Deutsch."
+    "Du bist der Assistent von equity-scout, einem lokalen Recherche-Tool (Paper-Trading, "
+    "keine Anlageberatung). Regeln, ohne Ausnahme:\n"
+    "1. Antworte NUR aus dem DATEN-Kontext unten. Steht etwas nicht darin, sage wörtlich, "
+    "dass es nicht im Datenbestand ist — erfinde nichts, auch keine Ticker oder Gründe.\n"
+    "2. Keine Empfehlungen, keine Ratschläge, keine Kursprognosen. Formulierungen wie "
+    "'es wäre ratsam' sind verboten.\n"
+    "3. Zahlen immer mit ihrer Quelle aus dem Kontext benennen (z.B. 'laut Watchlist', "
+    "'laut Analysten-Konsens').\n"
+    "4. Hausbegriffe bedeuten exakt das, was das GLOSSAR sagt — keine Lehrbuch-Definitionen.\n"
+    "Antworte knapp und auf Deutsch."
+)
+
+# Fixed answer for advice questions — served BEFORE the LLM (api.py), so the refusal can
+# never be watered down by a 7B model's helpfulness.
+REFUSAL_ANSWER = (
+    "Das entscheide ich nicht für dich: equity-scout gibt keine Anlageberatung und sagt "
+    "dir nie, ob du kaufen oder verkaufen sollst. Ich kann dir aber die Fakten zeigen — "
+    "frag z.B. »Wie bewertet das Modell den Einstieg bei X?« oder »Was sagen die "
+    "Analysten zu X?«."
+)
+
+# The house terms, defined ONCE — the measurement showed the model explaining
+# "Einstiegszone" from its training data instead of our definition.
+GLOSSARY = (
+    "GLOSSAR:\n"
+    "- Einstiegszone: Unterstützungs-Band aus den letzten Halte-Niveaus (Support-Levels) "
+    "einer Aktie — eine ZEITPUNKT-Aussage unseres Modells, kein Kursziel.\n"
+    "- Einstiegs-Score (0-100): wie attraktiv unser Modell den EinstiegsZEITPUNKT bewertet "
+    "(<40 schwach, 40-70 neutral, ab 70 attraktiv). Kein Kursversprechen.\n"
+    "- Potenzial: Abstand vom aktuellen Kurs zum Durchschnitts-Kursziel der Bank-Analysten "
+    "(Meinung Dritter, ~12 Monate) — nicht unsere Rechnung.\n"
+    "- Signal-Filter: lokal trainiertes ML-Modell, sortiert dieselben Signale nach (0-100).\n"
+    "- Verfallen: Pitch wurde zurückgezogen, weil der Titel die Watchlist verlassen hat."
 )
 
 

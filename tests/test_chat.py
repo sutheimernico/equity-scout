@@ -1,7 +1,12 @@
 """Chatbot context builder — folds the dashboard numbers into a compact prompt snapshot."""
 from __future__ import annotations
 
-from equity_scout.chat import build_dashboard_context
+from equity_scout.chat import (
+    GLOSSARY,
+    REFUSAL_ANSWER,
+    SYSTEM_PROMPT,
+    build_dashboard_context,
+)
 
 
 def test_context_includes_key_numbers_from_each_section() -> None:
@@ -38,3 +43,25 @@ def test_context_includes_key_numbers_from_each_section() -> None:
 
 def test_context_empty_when_no_data() -> None:
     assert build_dashboard_context(strategies=[], ml=None, research=None, forward=[]) == "Keine Daten verfügbar."
+
+
+def test_refusal_answer_is_a_hard_no_without_numbers() -> None:
+    assert "keine Anlageberatung" in REFUSAL_ANSWER
+    assert "kaufen" in REFUSAL_ANSWER.lower()
+    # Der feste Satz darf keine Platzhalter tragen, die je Frage variieren müssten.
+    assert "{" not in REFUSAL_ANSWER
+
+
+def test_system_prompt_forbids_guessing_and_advice() -> None:
+    for required in (
+        "nicht im Datenbestand",      # fehlende Daten benennen statt raten
+        "keine Anlageberatung",
+        "keine Kursprognosen",
+        "erfinde",                     # "erfinde nichts"
+    ):
+        assert required in SYSTEM_PROMPT, required
+
+
+def test_glossary_defines_the_house_terms() -> None:
+    for term in ("Einstiegszone", "Einstiegs-Score", "Potenzial", "Signal-Filter"):
+        assert term in GLOSSARY, term
