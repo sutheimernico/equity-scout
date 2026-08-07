@@ -1339,3 +1339,53 @@ was ist ein 13F, warum meldet ein Senator 820 Tage später.
 3. **`keep_alive: "24h"`** hält das Modell dauerhaft im RAM (~5 GB). Wenn die Box das
    nicht hergibt, sag Bescheid — dann drehen wir auf „30m" zurück und akzeptieren
    gelegentliche Kaltstarts.
+
+---
+
+## Outcome (2026-08-07, Nicos Auftrag „mach das in einer Loop")
+
+**Status: Teil A und Teil B umgesetzt** (Tasks 1–9, 12–17 fertig; Task 10/11 in dieser
+Runde mitgemacht). Gate grün, Messung 13/13 PASS gegen vorher 4/5 FAIL.
+
+### Was jetzt geht
+
+| Frage-Art | Woher die Antwort kommt |
+|---|---|
+| Kennzahlen (KGV, KBV, ROE, Marge, Wachstum, Vola, 52W) | `quote_cache` (7 778 Titel), dieselbe Quelle wie das Screener-Ranking |
+| Faktor-Perzentile, F-Score, Termin, Branche | `run_scores.breakdown`, `f_scores`, `earnings_dates`, `fundamentals` |
+| „Wer hat X gekauft" | `evidence_events` mit Namen, Partei, Kammer, Betrag, **Meldeverzug** |
+| „Was hat Person Y gekauft" | gezielter Personen-Block über alle Ticker + gemessene Trefferquote |
+| Einstieg, Zone, Pitches, Depots, Marktlage, Ergebnisse | Watchlist, Inbox, Lane-Depots, Regime-Cache, `proof.collect_proof_books` |
+| Kauf-/Verkaufsfrage | fester Satz, **ohne** LLM (0 s) |
+| Unbekanntes Symbol | ein 6-h-gecachter yfinance-Lookup, sonst „liegen keine Daten vor" |
+
+### Abweichungen vom Plan
+
+- **Task 3 index-basiert statt Regex-Sweep gebaut** (Task 12 hätte ihn sonst weggeworfen);
+  Test-Vertrag unverändert.
+- **Das Suffix-Regex aus dem Plan war falsch**: ohne Wortgrenze fraß `s.a.` das Ende von
+  „Vi**sa**" und `co` das von „Cis**co**" — beide Titel wären unauffindbar geblieben.
+  Regressionstest ergänzt.
+- **Symbol-Matching härter als geplant**: nicht nur kurze, sondern ALLE rein alphabetischen
+  Ticker matchen nur in ihrer Schreibweise. Live gegen 6 197 Titel gemessen kollidieren
+  4-Buchstaben-Ticker regelmäßig mit deutschen Wörtern („sagt" → SAGT, „mehr" → MEHR).
+  Preis: „nvda" klein getippt findet nichts mehr, „NVDA" und „Nvidia" schon.
+- **Personen-Erkennung hängt NICHT am Keyword-Routing** (wie im Plan skizziert): „Was hat
+  Tuberville zuletzt gekauft?" routet auf „gekauft" = Depot-Thema und hätte die Evidenz
+  nie erreicht. Sie läuft jetzt immer, wie die Ticker-Erkennung.
+- **Evidenz-Fenster 400 statt 30 Tage** (Plan Teil B) — bestätigt: im Bestand stehen
+  Meldeverzüge bis 867 Tage.
+- **Zwei Fixes, die der Plan nicht vorsah**, beide aus der Messung: `num_ctx` explizit
+  (Ollama schnitt sonst still ab) und `warm_model()` beim Start (Kaltstart lief ins
+  Timeout). Siehe Mess-Doku.
+
+### Offen / Needs Nico
+
+1. **Latenz bei Aktienfragen: 60–114 s bis zum ersten Wort.** Reine CPU-Inferenz. Optionen:
+   GPU, kleineres Modell (Qualität sinkt), bezahlte API (Kostengrenze → dein Go nötig).
+2. **`keep_alive: 24h`** hält ~5 GB RAM belegt. Wenn die Box das nicht mag: `OLLAMA_KEEP_ALIVE`
+   auf „30m" setzen, dann kostet die erste Frage nach einer Pause wieder den Kaltstart.
+3. **Schieflage der Offenlegungs-Daten** (654/890 von einem Filer, 164 aus der Exekutive) —
+   gehört in den nächsten Backfill-Durchgang, nicht in den Assistenten.
+4. **Handy-Smoke-Test** durch dich: eine Aktienfrage im Panel stellen und zusehen, wie die
+   Antwort entsteht.
