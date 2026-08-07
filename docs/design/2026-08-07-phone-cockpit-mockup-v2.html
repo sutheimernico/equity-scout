@@ -1,0 +1,1101 @@
+<title>Scout — Handy-Mockup</title>
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --page:#E7ECE9; --paper:#F6F8F7; --card:#FFFFFF; --card2:#EFF3F1;
+  --ink:#18211E; --muted:#5D6C66; --faint:#8B978F; --line:#DDE4E0;
+  --brand:#0E7A6B; --brand-ink:#0A5D52; --brand-soft:#DFEEE9;
+  --gain:#1B8F5F; --gain-soft:#DFF0E6; --loss:#C24C3B; --loss-soft:#F6E4E0;
+  --warn:#A87F14; --warn-soft:#F4EBD2;
+  --risk:#8A4FBF; --risk-soft:#EFE3F8;
+  --bezel:#10514A0D; --frame:#101514; --shadow:0 24px 60px rgba(20,40,34,.18);
+  --navbg:rgba(252,254,253,.94);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --page:#0B0F0E; --paper:#131A17; --card:#1B2320; --card2:#161D1A;
+    --ink:#E8EDEA; --muted:#9BA9A2; --faint:#6E7B75; --line:#2A332F;
+    --brand:#3CB9A0; --brand-ink:#7ED9C6; --brand-soft:#123129;
+    --gain:#46C98D; --gain-soft:#153426; --loss:#E5705F; --loss-soft:#3A211D;
+    --warn:#D9A83C; --warn-soft:#332A14;
+    --risk:#C79BEF; --risk-soft:#2C1F3A;
+    --frame:#000302; --shadow:0 24px 60px rgba(0,0,0,.5);
+    --navbg:rgba(22,29,26,.96);
+  }
+}
+:root[data-theme="dark"]{
+  --page:#0B0F0E; --paper:#131A17; --card:#1B2320; --card2:#161D1A;
+  --ink:#E8EDEA; --muted:#9BA9A2; --faint:#6E7B75; --line:#2A332F;
+  --brand:#3CB9A0; --brand-ink:#7ED9C6; --brand-soft:#123129;
+  --gain:#46C98D; --gain-soft:#153426; --loss:#E5705F; --loss-soft:#3A211D;
+  --warn:#D9A83C; --warn-soft:#332A14;
+  --frame:#000302; --shadow:0 24px 60px rgba(0,0,0,.5);
+  --navbg:rgba(22,29,26,.96);
+}
+
+/* ============ SHELL ============ */
+*{box-sizing:border-box}
+body{background:var(--page); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  margin:0; min-height:100vh;}
+.shell{display:flex; gap:48px; justify-content:center; align-items:flex-start;
+  padding:36px 24px 60px; max-width:1240px; margin:0 auto;}
+.stage{position:sticky; top:36px}
+.shellhead{max-width:1240px; margin:0 auto; padding:28px 24px 0}
+.shellhead h1{font-size:21px; margin:0 0 4px; letter-spacing:-.01em}
+.shellhead p{margin:0; color:var(--muted); font-size:13.5px}
+.shellhead .demo{display:inline-block; margin-left:10px; font-size:11px; font-weight:700;
+  letter-spacing:.06em; text-transform:uppercase; color:var(--warn);
+  background:var(--warn-soft); padding:3px 8px; border-radius:999px; vertical-align:2px}
+
+/* ============ PHONE ============ */
+.phone{width:min(402px,100%); height:min(844px,calc(100vh - 96px)); min-height:560px;
+  background:var(--paper); border:9px solid var(--frame); border-radius:52px;
+  box-shadow:var(--shadow); overflow:hidden; display:flex; flex-direction:column; position:relative}
+.statusbar{flex:none; display:flex; justify-content:space-between; align-items:center;
+  padding:14px 26px 6px; font-size:12.5px; font-weight:600; color:var(--muted)}
+.statusbar .pill{font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+  color:var(--warn); background:var(--warn-soft); padding:2px 8px; border-radius:999px}
+.viewport{flex:1; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin}
+.screen{display:none; padding:6px 16px 28px; animation:fade .18s ease}
+.screen.active{display:block}
+@keyframes fade{from{opacity:.4; transform:translateY(4px)} to{opacity:1; transform:none}}
+@media (prefers-reduced-motion: reduce){ .screen{animation:none} .sheet{transition:none!important} }
+
+/* app bar inside screens */
+.appbar{display:flex; align-items:baseline; justify-content:space-between; padding:10px 2px 2px}
+.appbar h2{font-size:24px; margin:0; letter-spacing:-.02em}
+.appbar .date{font-size:12.5px; color:var(--faint); font-weight:600}
+.subline{font-size:12.5px; color:var(--muted); padding:2px 2px 10px}
+.backrow{display:flex; align-items:center; gap:6px; padding:10px 0 4px}
+.backbtn{border:0; background:none; color:var(--brand); font-size:15px; font-weight:600;
+  cursor:pointer; padding:6px 8px 6px 0; display:flex; align-items:center; gap:2px}
+
+/* ============ CARDS & PRIMITIVES ============ */
+.card{background:var(--card); border:1px solid var(--line); border-radius:18px;
+  padding:14px 16px; margin-bottom:12px}
+.card.flat{background:var(--card2)}
+.sect{display:flex; align-items:baseline; justify-content:space-between; margin:18px 2px 8px}
+.sect h3{font-size:12px; margin:0; text-transform:uppercase; letter-spacing:.09em; color:var(--faint)}
+.sect a{font-size:13px; color:var(--brand); text-decoration:none; font-weight:600; cursor:pointer}
+.num{font-variant-numeric:tabular-nums}
+.chip{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700;
+  padding:3px 9px; border-radius:999px; white-space:nowrap}
+.chip.gain{color:var(--gain); background:var(--gain-soft)}
+.chip.loss{color:var(--loss); background:var(--loss-soft)}
+.chip.warn{color:var(--warn); background:var(--warn-soft)}
+.chip.brand{color:var(--brand-ink); background:var(--brand-soft)}
+.chip.mute{color:var(--muted); background:var(--card2); border:1px solid var(--line)}
+.chip.risk{color:var(--risk); background:var(--risk-soft)}
+.dot{width:8px; height:8px; border-radius:50%; display:inline-block}
+.dot.g{background:var(--gain)} .dot.y{background:var(--warn)} .dot.r{background:var(--loss)}
+
+.logo{width:40px; height:40px; border-radius:12px; background:var(--brand-soft); color:var(--brand-ink);
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex:none}
+
+/* stock rows */
+.stockcard{display:block; width:100%; text-align:left; border:1px solid var(--line);
+  background:var(--card); border-radius:18px; padding:13px 14px; margin-bottom:10px;
+  cursor:pointer; font:inherit; color:inherit}
+.stockcard:hover{border-color:var(--brand)}
+.stockcard:focus-visible, button:focus-visible, a:focus-visible{outline:2px solid var(--brand); outline-offset:2px}
+.srow{display:flex; gap:12px; align-items:center}
+.srow .grow{flex:1; min-width:0}
+.sname{font-weight:700; font-size:15px; display:flex; gap:8px; align-items:baseline}
+.sname small{color:var(--faint); font-weight:600; font-size:11.5px}
+.smeta{font-size:12px; color:var(--muted); margin-top:1px}
+.sright{text-align:right; flex:none}
+.sprice{font-weight:700; font-size:15px}
+.schg{font-size:12px; font-weight:700}
+.schg.up{color:var(--gain)} .schg.down{color:var(--loss)}
+.potline{display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap}
+.potbig{font-size:13px; font-weight:800; color:var(--gain)}
+.reason{font-size:12.5px; color:var(--muted); margin-top:8px; line-height:1.45}
+
+/* segmented control */
+.seg{display:flex; background:var(--card2); border:1px solid var(--line); border-radius:12px;
+  padding:3px; margin:8px 0 12px; gap:3px}
+.seg button{flex:1; border:0; background:none; padding:7px 4px; border-radius:9px; font-size:12.5px;
+  font-weight:700; color:var(--muted); cursor:pointer; font-family:inherit}
+.seg button.on{background:var(--card); color:var(--ink); box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.chiprow{display:flex; gap:8px; overflow-x:auto; padding-bottom:8px; scrollbar-width:none}
+.chiprow button{border:1px solid var(--line); background:var(--card); color:var(--muted);
+  border-radius:999px; padding:6px 13px; font-size:12.5px; font-weight:700; cursor:pointer;
+  white-space:nowrap; font-family:inherit}
+.chiprow button.on{background:var(--brand); border-color:var(--brand); color:#fff}
+
+/* key-value + bars */
+.kv{display:flex; justify-content:space-between; gap:12px; padding:7px 0; font-size:13.5px;
+  border-top:1px solid var(--line)}
+.kv:first-child{border-top:0}
+.kv .k{color:var(--muted)}
+.kv .v{font-weight:700; text-align:right}
+.kv .v small{display:block; font-weight:500; color:var(--faint); font-size:11.5px; margin-top:1px}
+.meter{height:6px; border-radius:4px; background:var(--card2); overflow:hidden; margin-top:6px}
+.meter i{display:block; height:100%; border-radius:4px; background:var(--brand)}
+.why{padding:9px 0; border-top:1px solid var(--line)}
+.why:first-of-type{border-top:0}
+.why .t{display:flex; justify-content:space-between; font-size:13.5px; font-weight:700}
+.why .d{font-size:12.5px; color:var(--muted); margin-top:3px; line-height:1.45}
+
+/* buttons */
+.btn{border:0; border-radius:12px; padding:11px 14px; font-size:14px; font-weight:700;
+  cursor:pointer; font-family:inherit}
+.btn.primary{background:var(--brand); color:#fff}
+.btn.ghost{background:var(--card2); color:var(--ink); border:1px solid var(--line)}
+.btn.small{padding:8px 12px; font-size:13px; border-radius:10px}
+.btnrow{display:flex; gap:8px; margin-top:12px}
+.btnrow .btn{flex:1}
+
+/* disclosure */
+details{border-top:1px solid var(--line); margin-top:10px; padding-top:8px}
+details summary{font-size:13px; font-weight:700; color:var(--brand); cursor:pointer; list-style:none}
+details summary::before{content:"▸ "; font-size:11px}
+details[open] summary::before{content:"▾ "}
+details .body{font-size:13px; color:var(--muted); line-height:1.55; padding:8px 0 2px}
+
+/* bottom nav */
+.bottomnav{flex:none; display:flex; border-top:1px solid var(--line); background:var(--navbg);
+  backdrop-filter:blur(10px); padding:8px 6px calc(10px + env(safe-area-inset-bottom))}
+.bottomnav button{flex:1; border:0; background:none; color:var(--faint); font-size:10.5px;
+  font-weight:700; cursor:pointer; display:flex; flex-direction:column; align-items:center;
+  gap:3px; padding:4px 0; font-family:inherit}
+.bottomnav button.on{color:var(--brand)}
+.bottomnav svg{width:23px; height:23px; stroke:currentColor; fill:none; stroke-width:1.9;
+  stroke-linecap:round; stroke-linejoin:round}
+
+/* sheet (Mehr) */
+.scrim{position:absolute; inset:0; background:rgba(8,14,12,.45); opacity:0; pointer-events:none;
+  transition:opacity .2s; z-index:8}
+.scrim.open{opacity:1; pointer-events:auto}
+.sheet{position:absolute; left:0; right:0; bottom:0; background:var(--card); z-index:9;
+  border-radius:26px 26px 0 0; padding:10px 16px 26px; transform:translateY(105%);
+  transition:transform .25s ease; box-shadow:0 -12px 40px rgba(0,0,0,.25)}
+.sheet.open{transform:none}
+.grabber{width:40px; height:4px; border-radius:3px; background:var(--line); margin:4px auto 12px}
+.sheetitem{display:flex; align-items:center; gap:13px; width:100%; text-align:left; border:0;
+  background:none; padding:11px 4px; cursor:pointer; font-family:inherit; color:var(--ink);
+  border-top:1px solid var(--line)}
+.sheetitem:first-of-type{border-top:0}
+.sheetitem .ico{width:38px; height:38px; border-radius:11px; background:var(--card2);
+  display:flex; align-items:center; justify-content:center; font-size:17px; flex:none}
+.sheetitem .tt{font-size:14.5px; font-weight:700}
+.sheetitem .dd{font-size:12px; color:var(--muted); margin-top:1px}
+
+/* toast */
+.toast{position:absolute; left:16px; right:16px; bottom:96px; z-index:20; background:var(--ink);
+  color:var(--paper); border-radius:12px; padding:12px 14px; font-size:13px; font-weight:600;
+  opacity:0; transform:translateY(8px); transition:all .25s; pointer-events:none; text-align:center}
+.toast.show{opacity:1; transform:none}
+
+/* assistant FAB + chat */
+.fab{position:absolute; right:14px; bottom:88px; z-index:7; width:52px; height:52px; border-radius:50%;
+  background:var(--brand); border:0; cursor:pointer; display:flex; align-items:center;
+  justify-content:center; box-shadow:0 8px 22px rgba(10,60,50,.35)}
+.fab svg{width:24px; height:24px; stroke:#fff; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+.chat{position:absolute; inset:0; z-index:12; background:var(--paper); display:none; flex-direction:column}
+.chat.open{display:flex}
+.chathead{display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line)}
+.chatbody{flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px}
+.msg{max-width:84%; border-radius:16px; padding:10px 13px; font-size:13.5px; line-height:1.5}
+.msg.user{align-self:flex-end; background:var(--brand); color:#fff; border-bottom-right-radius:6px}
+.msg.bot{align-self:flex-start; background:var(--card); border:1px solid var(--line); border-bottom-left-radius:6px}
+.sugg{display:flex; gap:8px; flex-wrap:wrap; padding:8px 16px}
+.sugg button{border:1px solid var(--line); background:var(--card); color:var(--brand); border-radius:999px;
+  padding:7px 12px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit}
+.chatinput{display:flex; gap:8px; padding:12px 14px 16px; border-top:1px solid var(--line)}
+.chatinput input{flex:1; border:1px solid var(--line); background:var(--card); color:var(--ink);
+  border-radius:12px; padding:10px 12px; font-size:14px; font-family:inherit}
+
+/* profile bits */
+.pothero{display:flex; gap:10px}
+.pothero .box{flex:1; background:var(--card2); border-radius:14px; padding:11px 12px}
+.pothero .lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); font-weight:800}
+.pothero .big{font-size:22px; font-weight:800; margin:2px 0; letter-spacing:-.01em}
+.pothero .sub{font-size:11.5px; color:var(--muted); line-height:1.4}
+.buyer{display:flex; gap:11px; padding:9px 0; border-top:1px solid var(--line); font-size:13px}
+.buyer:first-of-type{border-top:0}
+.buyer .em{flex:none; width:30px; height:30px; border-radius:9px; background:var(--card2);
+  display:flex; align-items:center; justify-content:center; font-size:14px}
+.buyer b{display:block; font-size:12.5px}
+.buyer span{color:var(--muted); font-size:12.5px; line-height:1.4}
+.newsline{padding:8px 0; border-top:1px solid var(--line); font-size:13px}
+.newsline:first-of-type{border-top:0}
+.newsline .src{font-size:11px; color:var(--faint); font-weight:700; margin-top:2px}
+.ainote{font-size:10.5px; color:var(--faint); text-transform:uppercase; letter-spacing:.07em;
+  font-weight:800; margin-bottom:6px}
+.actionbar{position:sticky; bottom:0; display:flex; gap:8px; padding:10px 0 4px;
+  background:linear-gradient(transparent, var(--paper) 30%)}
+.actionbar .btn{flex:1}
+
+/* funnel (Wie funktioniert's) */
+.funnel{display:flex; flex-direction:column; gap:5px; margin:10px 0 4px}
+.funnel .st{border-radius:9px; background:var(--brand-soft); color:var(--brand-ink);
+  font-size:12.5px; font-weight:700; padding:7px 12px; display:flex; justify-content:space-between}
+.funnel .st.dim{background:var(--card2); color:var(--muted)}
+
+/* ============ RATIONALE PANEL ============ */
+.panel{width:360px; flex:none; font-size:13.5px}
+.panel .pcard{background:var(--card); border:1px solid var(--line); border-radius:16px;
+  padding:16px 18px; margin-bottom:14px}
+.panel h2{font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--faint); margin:0 0 10px}
+.panel h3{font-size:15px; margin:0 0 8px}
+.panel p{margin:0 0 8px; color:var(--muted); line-height:1.55}
+.panel ul{margin:0; padding-left:18px; color:var(--muted); line-height:1.6}
+.panel li{margin-bottom:6px}
+.panel li b, .panel p b{color:var(--ink)}
+.jumprow{display:flex; flex-wrap:wrap; gap:6px; margin-top:4px}
+.jumprow button{border:1px solid var(--line); background:var(--card); color:var(--muted);
+  border-radius:999px; padding:5px 11px; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit}
+.jumprow button.on{background:var(--brand); border-color:var(--brand); color:#fff}
+.iamap{font-size:12.5px; line-height:1.6; color:var(--muted)}
+.iamap b{color:var(--ink)}
+.iamap .arr{color:var(--brand); font-weight:800}
+@media (max-width:1020px){ .panel{display:none} .shell{padding-top:20px} .stage{position:static} }
+@media (max-width:460px){
+  .shell{padding:0} .phone{border:0; border-radius:0; height:100vh; height:100dvh; box-shadow:none}
+  .shellhead{padding:14px 16px 6px}
+}
+</style>
+
+<div class="shellhead">
+  <h1>Aktien-Scout · Neues Handy-Cockpit <span class="demo">Mockup · Demo-Daten</span></h1>
+  <p>Klickbarer Entwurf der vereinfachten App — Bottom-Bar, Aktienprofil und „Mehr“ sind voll navigierbar. Alle Kurse, Namen von Käufern und News sind ausgedachte Demo-Daten.</p>
+  <p style="margin-top:4px"><b>v2 — Feedback eingearbeitet:</b> Risikoprofil (Defensiv/Ausgewogen/Aggressiv) überall sichtbar · volle Score-Tiefe als „Im Detail“-Drilldowns im Profil · Einstiegsplan mit Referenz-Marken · Termin der nächsten Quartalszahlen · Assistent als Chat-Button unten rechts auf jedem Screen.</p>
+</div>
+
+<div class="shell">
+  <!-- ==================== PHONE ==================== -->
+  <div class="stage">
+  <div class="phone">
+    <div class="statusbar"><span>9:41</span><span class="pill">Demo-Daten</span><span>▮▮▮▯ 87 %</span></div>
+    <div class="viewport" id="viewport">
+
+      <!-- ========== HEUTE ========== -->
+      <section class="screen active" id="s-heute">
+        <div class="appbar"><h2>Heute</h2><span class="date">Do., 7. August</span></div>
+        <div class="subline">Dein Überblick in drei Minuten.</div>
+
+        <div class="card">
+          <div style="display:flex; align-items:center; gap:9px">
+            <span class="dot g"></span>
+            <div style="flex:1">
+              <div style="font-weight:800; font-size:14.5px">Marktlage: freundlich</div>
+              <div style="font-size:12.5px; color:var(--muted); margin-top:2px">Der Markt trägt gerade. Gute Phase, um sich Vorschläge anzusehen.</div>
+            </div>
+          </div>
+          <details><summary>Woran wir das messen</summary>
+            <div class="body">Langfrist-Trend des US-Markts: <b>aufwärts</b> · Nervosität an der Börse (VIX): <b>niedrig</b> · 62 % der Branchen im Aufwärtstrend. Drei einfache Signale, jede Nacht neu geprüft.</div>
+          </details>
+        </div>
+
+        <div class="sect"><h3>Heute interessant</h3><a onclick="go('aktien')">Alle 30 ansehen →</a></div>
+        <div id="todayList"></div>
+
+        <div class="sect"><h3>Zu entscheiden</h3></div>
+        <button class="stockcard" onclick="go('entscheiden')">
+          <div class="srow">
+            <div class="logo" style="background:var(--warn-soft); color:var(--warn)">2</div>
+            <div class="grow">
+              <div class="sname">Vorschläge warten auf dich</div>
+              <div class="smeta">Der Scout hat 2 Kauf-Ideen für dein Depot „Du“ vorbereitet.</div>
+            </div>
+            <div class="sright" style="color:var(--brand); font-weight:800">›</div>
+          </div>
+        </button>
+
+        <div class="sect"><h3>Dein Autopilot</h3><a onclick="go('depot')">Zum Depot →</a></div>
+        <div class="card">
+          <div class="kv"><span class="k">Langfrist (ETFs)</span>
+            <span class="v num">+0,7 % <small>Markt: +3,0 % · läuft, bisher dahinter</small></span></div>
+          <div class="kv"><span class="k">Kurzfrist (Trading)</span>
+            <span class="v num" style="color:var(--loss)">−0,8 % <small>3 Taktiken · bisher kein Vorteil</small></span></div>
+          <div class="kv"><span class="k">Du (deine Käufe)</span>
+            <span class="v num" style="color:var(--gain)">+1,2 % <small>2 Positionen · vor dem Autopilot</small></span></div>
+        </div>
+
+        <div class="sect"><h3>Was passiert ist</h3></div>
+        <div class="card flat">
+          <div class="kv"><span class="k">Heute Nacht</span><span class="v" style="font-weight:600; font-size:12.5px">Screener-Lauf: 7.500 Aktien geprüft, 30 Vorschläge</span></div>
+          <div class="kv"><span class="k">Gestern</span><span class="v" style="font-weight:600; font-size:12.5px">US-Senator meldete Käufe bei Micron</span></div>
+          <div class="kv"><span class="k">Dienstag</span><span class="v" style="font-weight:600; font-size:12.5px">Autopilot hat Gold-ETF-Gewinne mitgenommen</span></div>
+        </div>
+      </section>
+
+      <!-- ========== AKTIEN ========== -->
+      <section class="screen" id="s-aktien">
+        <div class="appbar"><h2>Aktien</h2><span class="date">Stand: heute Nacht</span></div>
+        <div class="subline">30 Vorschläge, gefiltert aus 7.500 Aktien weltweit.</div>
+
+        <div class="seg" id="zoneSeg">
+          <button class="on" onclick="setZone('in',this)">Kaufbereit (3)</button>
+          <button onclick="setZone('near',this)">Fast (2)</button>
+          <button onclick="setZone('all',this)">Alle</button>
+        </div>
+        <div class="chiprow" id="styleChips">
+          <button class="on" onclick="setStyle('alle',this)">Alle Stile</button>
+          <button onclick="setStyle('defensiv',this)">Defensiv</button>
+          <button onclick="setStyle('ausgewogen',this)">Ausgewogen</button>
+          <button onclick="setStyle('aggressiv',this)">Aggressiv</button>
+        </div>
+
+        <div id="stockList"></div>
+        <div class="card flat" style="font-size:12.5px; color:var(--muted)">
+          <b style="color:var(--ink)">Kaufbereit</b> heißt: Der Kurs liegt gerade in dem Bereich, den der Scout als guten Einstieg berechnet. <a style="color:var(--brand); font-weight:700; cursor:pointer" onclick="go('wie')">Wie die Auswahl entsteht →</a>
+        </div>
+      </section>
+
+      <!-- ========== PROFIL ========== -->
+      <section class="screen" id="s-profil">
+        <div class="backrow"><button class="backbtn" onclick="go(backTarget)">‹ Zurück</button></div>
+        <div id="profilBody"></div>
+      </section>
+
+      <!-- ========== ENTSCHEIDEN ========== -->
+      <section class="screen" id="s-entscheiden">
+        <div class="appbar"><h2>Entscheiden</h2></div>
+        <div class="subline">Kauf-Ideen für dein Depot „Du“ — Papiergeld, echte Kurse.</div>
+
+        <div class="sect"><h3>🟢 Einstieg attraktiv</h3></div>
+        <div class="card" id="pitch-mu">
+          <div class="srow">
+            <div class="logo">MU</div>
+            <div class="grow">
+              <div class="sname">Micron <small>118,40 $</small></div>
+              <div class="potline" style="margin-top:3px"><span class="potbig num">Potenzial +28 %</span><span class="chip gain">Im Einstiegsbereich</span></div>
+            </div>
+          </div>
+          <div class="reason">Qualitätsfirma im Speicher-Aufschwung, Kurs 22 % unter dem Jahreshoch, Insider kaufen selbst. Kaufenswert.</div>
+          <details><summary>Ausführliche Begründung</summary>
+            <div class="body">Micron verdient wieder deutlich Geld, weil Speicherchips für KI-Rechenzentren knapp sind. Der Kurs ist trotzdem zurückgekommen und liegt jetzt im berechneten Einstiegsbereich (108–118 $). Analysten sehen im Schnitt 152 $. Zusätzlich: Der Finanzchef hat eigene Aktien gekauft, ein US-Senator ebenfalls. Absicherung: unter 99 $ wäre die Idee gescheitert.<br><br><a style="color:var(--brand); font-weight:700; cursor:pointer" onclick="openStock('MU','entscheiden')">Ganzes Aktienprofil ansehen →</a></div>
+          </details>
+          <div class="btnrow">
+            <button class="btn primary small" onclick="decide('pitch-mu','Gekauft — liegt jetzt im Depot „Du“ (Papiergeld)')">Kaufen</button>
+            <button class="btn ghost small" onclick="decide('pitch-mu','Auf „Später“ gelegt')">Später</button>
+            <button class="btn ghost small" onclick="decide('pitch-mu','Abgelehnt — fließt in die Messung ein')">Ablehnen</button>
+          </div>
+        </div>
+
+        <div class="sect"><h3>🟡 Beobachten</h3></div>
+        <div class="card" id="pitch-novo">
+          <div class="srow">
+            <div class="logo">NO</div>
+            <div class="grow">
+              <div class="sname">Novo Nordisk <small>88,10 €</small></div>
+              <div class="potline" style="margin-top:3px"><span class="potbig num">Potenzial +18 %</span><span class="chip warn">4 % über Einstieg</span></div>
+            </div>
+          </div>
+          <div class="reason">Starke Firma, aber der Kurs ist noch etwas zu hoch. Warten oder nur eine kleine Position.</div>
+          <details><summary>Ausführliche Begründung</summary>
+            <div class="body">Weltmarktführer bei Abnehm-Medikamenten, verlässlich profitabel. Der berechnete Einstiegsbereich liegt bei 79–85 € — aktuell 88,10 €. Fällt der Kurs dorthin, wird daraus ein grüner Vorschlag.<br><br><a style="color:var(--brand); font-weight:700; cursor:pointer" onclick="openStock('NOVO','entscheiden')">Ganzes Aktienprofil ansehen →</a></div>
+          </details>
+          <div class="btnrow">
+            <button class="btn primary small" onclick="decide('pitch-novo','Gekauft — liegt jetzt im Depot „Du“ (Papiergeld)')">Kaufen</button>
+            <button class="btn ghost small" onclick="decide('pitch-novo','Auf „Später“ gelegt')">Später</button>
+            <button class="btn ghost small" onclick="decide('pitch-novo','Abgelehnt — fließt in die Messung ein')">Ablehnen</button>
+          </div>
+        </div>
+
+        <div class="sect"><h3>Bereits entschieden</h3></div>
+        <div id="decidedList"><div class="card flat" id="decidedEmpty" style="font-size:13px; color:var(--muted)">Noch nichts entschieden. Jede Entscheidung wird gemessen — auch Ablehnen zählt.</div></div>
+      </section>
+
+      <!-- ========== DEPOT ========== -->
+      <section class="screen" id="s-depot">
+        <div class="appbar"><h2>Depot</h2><span class="chip warn">Papiergeld</span></div>
+        <div class="card" style="text-align:center; padding:18px">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--faint); font-weight:800">Gesamt über alle Depots</div>
+          <div class="num" style="font-size:30px; font-weight:800; margin:4px 0">131.240 $</div>
+          <div style="font-size:13px; color:var(--muted)"><b class="num" style="color:var(--gain)">+0,4 %</b> seit Start · Markt im selben Zeitraum: <b class="num">+2,9 %</b></div>
+        </div>
+
+        <div class="seg" id="depotSeg">
+          <button class="on" onclick="setDepot('lang',this)">Langfrist</button>
+          <button onclick="setDepot('kurz',this)">Kurzfrist</button>
+          <button onclick="setDepot('du',this)">Du</button>
+        </div>
+
+        <div id="depot-lang">
+          <div class="card">
+            <div style="font-weight:800; font-size:14px">Funktioniert es?</div>
+            <div style="font-size:12.5px; color:var(--muted); margin:4px 0 8px">Noch offen — der Autopilot ist an <b class="num">Messtag 43 von 60</b>. Bisher liegt er hinter dem Markt.</div>
+            <div class="meter"><i style="width:72%"></i></div>
+          </div>
+          <div class="card">
+            <div class="kv"><span class="k">Stand</span><span class="v num">100.650 $</span></div>
+            <div class="kv"><span class="k">Seit Start</span><span class="v num" style="color:var(--gain)">+0,7 %</span></div>
+            <div class="kv"><span class="k">Markt (Vergleich)</span><span class="v num">+3,0 %</span></div>
+            <div id="sparkLang" style="margin-top:8px"></div>
+          </div>
+          <div class="sect"><h3>Worin er investiert ist</h3></div>
+          <div class="card" id="etfAlloc"></div>
+          <div class="card flat" style="font-size:12.5px; color:var(--muted)">Der Langfrist-Autopilot verteilt automatisch auf ETFs nach festen Regeln — keine Einzelaktien, kein Bauchgefühl. Bei Marktstress fährt er von selbst Risiko herunter.</div>
+        </div>
+
+        <div id="depot-kurz" style="display:none">
+          <div class="card">
+            <div style="font-weight:800; font-size:14px">Funktioniert es?</div>
+            <div style="font-size:12.5px; color:var(--muted); margin-top:4px">Bisher <b>kein Vorteil</b> gegenüber einfach Abwarten. Genau dafür wird mit Papiergeld gemessen.</div>
+          </div>
+          <div class="card">
+            <div class="why"><div class="t"><span>Ereignis-Trades</span><span class="num" style="color:var(--gain)">+0,2 %</span></div>
+              <div class="d">Kauft nach überraschend guten Quartalszahlen, hält 1–5 Tage.</div></div>
+            <div class="why"><div class="t"><span>Tages-Handel</span><span class="num" style="color:var(--loss)">−1,7 %</span></div>
+              <div class="d">Handelt Ausbrüche nach Börsenstart, abends immer alles verkauft. Läuft über ein echtes Testkonto beim Broker.</div></div>
+            <div class="why"><div class="t"><span>Krypto</span><span class="num" style="color:var(--loss)">−0,9 %</span></div>
+              <div class="d">Folgt Ausbrüchen bei Bitcoin &amp; Co., rund um die Uhr.</div></div>
+          </div>
+          <div class="card flat" style="font-size:12.5px; color:var(--muted)">Jede Taktik startet mit 10.000 $ Papiergeld. Erst wenn eine über Monate beweisbar Gewinn macht, bekäme sie mehr — die Messlatte steht unter <b style="color:var(--ink)">Mehr → Ergebnisse</b>.</div>
+        </div>
+
+        <div id="depot-du" style="display:none">
+          <div class="card">
+            <div class="kv"><span class="k">Du</span><span class="v num" style="color:var(--gain)">+1,2 %</span></div>
+            <div class="kv"><span class="k">Autopilot (gleiche Regeln)</span><span class="v num" style="color:var(--gain)">+0,8 %</span></div>
+            <div class="kv"><span class="k">Markt</span><span class="v num" style="color:var(--gain)">+2,9 %</span></div>
+          </div>
+          <div class="card flat" style="font-size:12.5px; color:var(--muted)">Hier zählen nur Aktien, die <b style="color:var(--ink)">du</b> unter „Entscheiden“ oder im Aktienprofil gekauft hast. Gleiches Startkapital, gleiche Regeln wie der Autopilot — ein fairer Wettkampf.</div>
+          <div class="sect"><h3>Deine Positionen</h3></div>
+          <div id="duPositions"></div>
+          <button class="btn ghost" style="width:100%" onclick="go('aktien')">+ Neue Aktie finden</button>
+        </div>
+
+        <div class="card flat" style="margin-top:14px; font-size:13px">
+          <a style="color:var(--brand); font-weight:700; cursor:pointer" onclick="go('ergebnisse')">Ausführliche Auswertung → Ergebnisse</a>
+        </div>
+      </section>
+
+      <!-- ========== ERGEBNISSE (unter Mehr) ========== -->
+      <section class="screen" id="s-ergebnisse">
+        <div class="backrow"><button class="backbtn" onclick="go('heute')">‹ Zurück</button></div>
+        <div class="appbar"><h2>Ergebnisse</h2></div>
+        <div class="subline">Papiergeld, echte Kurse — wir messen ehrlich, ob die Ideen funktionieren. Erst danach wäre echtes Geld überhaupt ein Thema.</div>
+
+        <div class="card">
+          <div style="font-weight:800">Schlägt der Langfrist-Autopilot den Markt?</div>
+          <div style="font-size:13px; color:var(--muted); margin:5px 0 8px">Bisher nein: +0,7 % gegenüber +3,0 % Markt. Aussagekräftig wird das erst nach 60 Messtagen.</div>
+          <div class="meter"><i style="width:72%"></i></div>
+          <div style="font-size:11.5px; color:var(--faint); margin-top:4px" class="num">Messtag 43 von 60</div>
+        </div>
+        <div class="card">
+          <div style="font-weight:800">Bringt schnelles Trading überhaupt etwas?</div>
+          <div style="font-size:13px; color:var(--muted); margin:5px 0 8px">Bisher nicht — alle drei Taktiken zusammen liegen bei −0,8 %. Zwischenzeitlich waren maximal 2,9 % im Minus.</div>
+          <span class="chip mute">Zu früh für ein Urteil</span>
+        </div>
+        <div class="card">
+          <div style="font-weight:800">Bist du besser als der Autopilot?</div>
+          <div style="font-size:13px; color:var(--muted); margin:5px 0 8px">Aktuell ja: Du +1,2 %, Autopilot +0,8 %. Der Markt schlägt euch beide. 7 von 12 deiner Trades waren im Plus.</div>
+          <span class="chip gain">Du führst knapp</span>
+        </div>
+        <div class="card flat" style="font-size:12.5px; color:var(--muted)">
+          <b style="color:var(--ink)">Wann würde echtes Geld diskutabel?</b> Erst wenn eine Strategie mindestens 180 Tage läuft, nach Kosten klar besser ist als der Markt und zwischenzeitlich nie mehr als 15 % verliert. Das hat bisher keine geschafft — und genau das soll diese Seite ehrlich zeigen.
+        </div>
+      </section>
+
+      <!-- ========== WER KAUFT (unter Mehr) ========== -->
+      <section class="screen" id="s-werkauft">
+        <div class="backrow"><button class="backbtn" onclick="go('heute')">‹ Zurück</button></div>
+        <div class="appbar"><h2>Wer kauft?</h2></div>
+        <div class="subline">Pflichtmeldungen von Politikern, Insidern und Fonds — plus was bekannte Investoren öffentlich sagen.</div>
+        <div class="card">
+          <div class="buyer"><div class="em">🏛</div><div><b>Senator (Demo) · Kongress</b><span>Kaufte Micron für 15–50 T$ · gemeldet mit 12 Tagen Verzug · Trefferquote seiner letzten Käufe: 64 %</span></div></div>
+          <div class="buyer"><div class="em">👤</div><div><b>Finanzchef Micron · Insider</b><span>Kaufte eigene Aktien für 1,1 Mio $ (offizielle SEC-Meldung)</span></div></div>
+          <div class="buyer"><div class="em">🏦</div><div><b>Appaloosa · Fonds</b><span>Stockte Micron im 2. Quartal deutlich auf (13F-Meldung)</span></div></div>
+          <div class="buyer"><div class="em">🗣</div><div><b>Warren Buffett · Stimme</b><span>Sprach zuletzt positiv über japanische Handelshäuser — nur eine Aussage, kein Kauf</span></div></div>
+        </div>
+        <div class="card flat" style="font-size:12.5px; color:var(--muted)">Für jede Person misst der Scout, wie gut ihre früheren Käufe liefen — daraus entsteht die Trefferquote. Käufe tauchen auch direkt im jeweiligen Aktienprofil auf.</div>
+      </section>
+
+      <!-- ========== LABOR (unter Mehr) ========== -->
+      <section class="screen" id="s-labor">
+        <div class="backrow"><button class="backbtn" onclick="go('heute')">‹ Zurück</button></div>
+        <div class="appbar"><h2>Labor</h2></div>
+        <div class="subline">Für Neugierige: die Forschung hinter den Vorschlägen. Nichts hiervon brauchst du täglich.</div>
+        <div class="card"><div style="font-weight:800">ETF-Strategien im Rückspiegel</div><div style="font-size:12.5px; color:var(--muted); margin-top:3px">7 Regelwerke über 10+ Jahre zurückgerechnet, gegen ein einfaches Vergleichsdepot.</div></div>
+        <div class="card"><div style="font-weight:800">Modelle &amp; Lernkurven</div><div style="font-size:12.5px; color:var(--muted); margin-top:3px">Wird die KI-Zweitmeinung mit der Zeit wirklich besser? Tägliche Messung.</div></div>
+        <div class="card"><div style="font-weight:800">Auto-Research</div><div style="font-size:12.5px; color:var(--muted); margin-top:3px">Ein Suchlauf testet nachts neue Strategie-Ideen — mit strengen Hürden gegen Zufallstreffer.</div></div>
+      </section>
+
+      <!-- ========== WIE FUNKTIONIERT DAS ========== -->
+      <section class="screen" id="s-wie">
+        <div class="backrow"><button class="backbtn" onclick="go('heute')">‹ Zurück</button></div>
+        <div class="appbar"><h2>Wie funktioniert das?</h2></div>
+
+        <div class="card">
+          <div style="font-weight:800; margin-bottom:2px">Woher kommen die Aktien-Vorschläge?</div>
+          <div class="funnel">
+            <div class="st"><span>Aktien weltweit</span><span class="num">7.500</span></div>
+            <div class="st"><span>Daten vollständig &amp; verlässlich</span><span class="num">≈ 6.000</span></div>
+            <div class="st"><span>Qualitäts-Check: verdient die Firma solide Geld?</span><span class="num">≈ 300</span></div>
+            <div class="st"><span>Preis-Check: ist der Kurs gerade attraktiv?</span><span class="num">≈ 30</span></div>
+            <div class="st" style="background:var(--brand); color:#fff"><span>Deine Vorschläge heute</span><span class="num">30</span></div>
+          </div>
+          <div style="font-size:12.5px; color:var(--muted); margin-top:6px">Läuft jede Nacht automatisch. Kein Mensch wählt aus, keine bezahlten Empfehlungen.</div>
+        </div>
+
+        <div class="card">
+          <div style="font-weight:800">Was bedeutet „Potenzial“?</div>
+          <div style="font-size:13px; color:var(--muted); margin-top:4px; line-height:1.55">
+            <b style="color:var(--ink)">Analysten-Ziel:</b> der Durchschnitt der Kursziele von Banken-Analysten, die die Aktie beobachten.<br>
+            <b style="color:var(--ink)">Scout-Ziel:</b> unsere eigene Berechnung aus Kursverlauf und Firmenqualität — bewusst vorsichtiger.<br>
+            Beides sind Schätzungen, keine Versprechen. Deshalb steht daneben immer eine Absicherung (Stop): der Kurs, ab dem die Idee als gescheitert gilt.
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-weight:800">Was macht der Autopilot?</div>
+          <div style="font-size:13px; color:var(--muted); margin-top:4px; line-height:1.55">
+            <b style="color:var(--ink)">Langfrist:</b> verteilt Geld nach festen Regeln auf ETFs und schichtet monatlich um. Bei Marktstress reduziert er automatisch das Risiko.<br>
+            <b style="color:var(--ink)">Kurzfrist:</b> drei schnelle Handels-Taktiken mit je 10.000 $ Spielgeld — ein Experiment, das sich erst beweisen muss.
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-weight:800">Ist das echtes Geld?</div>
+          <div style="font-size:13px; color:var(--muted); margin-top:4px; line-height:1.55">Nein. Alles läuft mit <b style="color:var(--ink)">Papiergeld zu echten Kursen</b> — auch deine Käufe. Die App misst ehrlich, was funktioniert und was nicht (siehe „Ergebnisse“). Erst wenn eine Strategie 180 Tage lang überzeugt, wäre echtes Geld überhaupt ein Thema.</div>
+        </div>
+
+        <div class="card">
+          <div style="font-weight:800">Welche Modelle arbeiten im Hintergrund?</div>
+          <div style="font-size:13px; color:var(--muted); margin-top:4px; line-height:1.55">
+            Drei — und sie laufen immer, egal welche Seite du ansiehst:<br>
+            <b style="color:var(--ink)">1. Auswahl-Modell:</b> bewertet jede Nacht 7.500 Aktien nach Qualität und Preis — daraus entstehen die Vorschläge.<br>
+            <b style="color:var(--ink)">2. KI-Zweitmeinung:</b> lernt aus abgeschlossenen Fällen, welche Signale wirklich funktionieren, und gibt jeder Aktie 0–100 Punkte.<br>
+            <b style="color:var(--ink)">3. Auto-Research:</b> testet nachts neue Strategie-Ideen gegen strenge Hürden, damit kein Zufallstreffer durchrutscht.<br>
+            Ob sie mit der Zeit besser werden, kannst du unter <b style="color:var(--ink)">Mehr → Labor</b> beobachten.
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-weight:800">Woher weiß die App, wer kauft?</div>
+          <div style="font-size:13px; color:var(--muted); margin-top:4px; line-height:1.55">US-Politiker, Firmen-Insider und große Fonds müssen ihre Käufe offiziell melden (SEC-Pflichtmeldungen). Der Scout liest diese Meldungen automatisch und prüft rückwirkend, wessen Käufe sich bisher gelohnt haben.</div>
+        </div>
+      </section>
+
+    </div><!-- /viewport -->
+
+    <!-- Mehr sheet -->
+    <div class="scrim" id="scrim" onclick="closeSheet()"></div>
+    <div class="sheet" id="sheet">
+      <div class="grabber"></div>
+      <button class="sheetitem" onclick="closeSheet(); go('ergebnisse')"><div class="ico">📊</div><div><div class="tt">Ergebnisse</div><div class="dd">Funktioniert das alles? Die ehrliche Auswertung.</div></div></button>
+      <button class="sheetitem" onclick="closeSheet(); go('werkauft')"><div class="ico">🏛</div><div><div class="tt">Wer kauft?</div><div class="dd">Politiker, Insider, Fonds &amp; bekannte Stimmen.</div></div></button>
+      <button class="sheetitem" onclick="closeSheet(); go('wie')"><div class="ico">❓</div><div><div class="tt">Wie funktioniert das?</div><div class="dd">Die App in fünf einfachen Antworten.</div></div></button>
+      <button class="sheetitem" onclick="closeSheet(); go('labor')"><div class="ico">🧪</div><div><div class="tt">Labor</div><div class="dd">Strategien, Modelle, Lernkurven — für Neugierige.</div></div></button>
+      <button class="sheetitem" onclick="closeSheet(); openChat()"><div class="ico">💬</div><div><div class="tt">Assistent</div><div class="dd">Fragen zu deinen Zahlen — beantwortet von lokaler KI.</div></div></button>
+    </div>
+
+    <!-- Assistent: FAB + Chat-Overlay -->
+    <button class="fab" onclick="openChat()" aria-label="Assistent öffnen">
+      <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 01-8 8H5l-2 2V12a8 8 0 018-8h2a8 8 0 018 8z"/><path d="M8.5 11h.01M12.5 11h.01M16.5 11h.01"/></svg>
+    </button>
+    <div class="chat" id="chat" role="dialog" aria-label="Assistent">
+      <div class="chathead">
+        <button class="backbtn" onclick="closeChat()">‹ Schließen</button>
+        <div style="font-weight:800; flex:1; text-align:center">Assistent</div>
+        <span class="chip warn">Demo</span>
+      </div>
+      <div class="chatbody" id="chatbody">
+        <div class="msg bot">Hi! Ich bin dein Scout-Assistent — frag mich alles zu Vorschlägen, deinem Depot oder Begriffen. Ich antworte auf Basis deiner App-Daten.<br><br><i>Demo-Hinweis: Hier sind drei Beispielfragen verdrahtet; in der echten App antwortet die lokale KI live.</i></div>
+      </div>
+      <div class="sugg">
+        <button onclick="ask('warum')">Warum ist Micron ein Vorschlag?</button>
+        <button onclick="ask('depot')">Wie läuft mein Depot?</button>
+        <button onclick="ask('begriff')">Was heißt „Einstiegsbereich“?</button>
+      </div>
+      <div class="chatinput">
+        <input id="chatin" placeholder="Frag mich etwas…" onkeydown="if(event.key==='Enter')ask('frei')">
+        <button class="btn primary small" onclick="ask('frei')">Senden</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Bottom-Nav -->
+    <nav class="bottomnav" id="nav">
+      <button data-nav="heute" class="on" onclick="go('heute')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+        Heute</button>
+      <button data-nav="aktien" onclick="go('aktien')">
+        <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 6-8"/><path d="M15 6h3v3"/></svg>
+        Aktien</button>
+      <button data-nav="entscheiden" onclick="go('entscheiden')">
+        <svg viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M3.5 6l1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2"/></svg>
+        Entscheiden</button>
+      <button data-nav="depot" onclick="go('depot')">
+        <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M7 7V5a2 2 0 012-2h6a2 2 0 012 2v2M3 12h18"/></svg>
+        Depot</button>
+      <button data-nav="mehr" onclick="openSheet()">
+        <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+        Mehr</button>
+    </nav>
+  </div>
+  </div>
+
+  <!-- ==================== RATIONALE PANEL ==================== -->
+  <aside class="panel">
+    <div class="pcard">
+      <h2>Screens durchklicken</h2>
+      <div class="jumprow" id="jumprow">
+        <button data-j="heute" class="on" onclick="go('heute')">Heute</button>
+        <button data-j="aktien" onclick="go('aktien')">Aktien</button>
+        <button data-j="profil" onclick="openStock('MU','aktien')">Profil</button>
+        <button data-j="entscheiden" onclick="go('entscheiden')">Entscheiden</button>
+        <button data-j="depot" onclick="go('depot')">Depot</button>
+        <button data-j="ergebnisse" onclick="go('ergebnisse')">Ergebnisse</button>
+        <button data-j="wie" onclick="go('wie')">Wie funktioniert’s</button>
+      </div>
+    </div>
+
+    <div class="pcard">
+      <h2>Der User, für den das gebaut ist</h2>
+      <h3>Alex, 31</h3>
+      <p>Hat einen ETF-Sparplan und kauft 2–3× im Jahr eine Aktie aus dem Bauch. Kennt KGV ungefähr; Sharpe, ATR und AUC sagen Alex nichts — und das muss auch so bleiben dürfen.</p>
+      <p><b>Der tägliche Moment:</b> morgens 3 Minuten. Läuft alles? Gibt’s heute etwas Interessantes? Und wenn ja — warum, in zwei Sätzen?</p>
+    </div>
+
+    <div class="pcard">
+      <h2>Notizen zu diesem Screen</h2>
+      <div id="ratBody"></div>
+    </div>
+
+    <div class="pcard">
+      <h2>Was wohin wanderte (13 → 5 + Mehr)</h2>
+      <div class="iamap">
+        <b>Heute</b> <span class="arr">←</span> Heute + Autopilot-Status + Entscheiden-Teaser<br>
+        <b>Aktien</b> <span class="arr">←</span> Screener + Radar + Heute-Stockliste (eine Liste, „kaufbereit“ als Filter)<br>
+        <b>Aktienprofil</b> <span class="arr">←</span> NEU: vereint Drilldowns + Personen-Käufe + News + Kursziele<br>
+        <b>Entscheiden</b> <span class="arr">←</span> Inbox (Kern unverändert)<br>
+        <b>Depot</b> <span class="arr">←</span> Depots (7 Tabs → 3 Sichten) + Arena<br>
+        <b>Mehr/Ergebnisse</b> <span class="arr">←</span> Ergebnisse (raus aus der Bottom-Bar)<br>
+        <b>Mehr/Wer kauft?</b> <span class="arr">←</span> Personen + Stimmen (fusioniert)<br>
+        <b>Mehr/Labor</b> <span class="arr">←</span> Strategien + Entry-Modell + Signal-Filter + Lernkurven (4 → 1)<br>
+        <b>Mehr/Wie funktioniert das?</b> <span class="arr">←</span> NEU<br>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+/* ================= DEMO-DATEN (alles ausgedacht) ================= */
+const STOCKS = {
+  MU: { name:"Micron", full:"Micron Technology", sector:"Halbleiter · USA", cur:"$", price:118.40, chg:1.8,
+    style:"aggressiv", zone:"in", zoneLo:108, zoneHi:118, stop:99,
+    aUp:28, aTarget:152, aCount:38, sUp:19, sTarget:141,
+    reason:"Speicher-Zyklus dreht hoch, Kurs 22 % unter Jahreshoch, Insider kaufen.",
+    quality:8, qWhy:"Verdient stabil Geld, wenig Schulden, Bilanz-Check 7 von 9 Punkten.",
+    timing:7, tWhy:"22 % unter dem Jahreshoch, der Abwärtsdruck lässt spürbar nach.",
+    ki:76, kWhy:"In ähnlichen Situationen lief die Aktie danach überdurchschnittlich oft gut.",
+    buyers:[["🏛","Kongress","Senator (Demo) meldete im Juli Käufe von 15–50 T$ — Trefferquote seiner Käufe: 64 %"],
+            ["👤","Insider","Der Finanzchef kaufte eigene Aktien für 1,1 Mio $ (SEC-Meldung)"],
+            ["🏦","Fonds","Appaloosa stockte die Position im 2. Quartal deutlich auf"]],
+    ai:"Micron profitiert stark vom KI-Boom: Speicherchips für Rechenzentren sind knapp, die Preise ziehen an. Das Management hat die Gewinnprognose zuletzt angehoben. Risiko bleibt der Speichermarkt-Zyklus — er kann schnell drehen.",
+    news:[["Micron hebt Prognose an: KI-Nachfrage treibt Speicherpreise","Reuters · gestern"],
+          ["Analysten erhöhen reihenweise Kursziele für Speicher-Aktien","Bloomberg · Di."],
+          ["Neue Fabrik in Idaho: Baubeginn früher als geplant","WSJ · Mo."]],
+    facts:[["Bewertung (KGV)","12","günstiger als die meisten Chip-Firmen"],
+           ["Umsatzwachstum","+38 %","der Speicher-Zyklus dreht hoch"],
+           ["Gewinnmarge","28 %","sehr ordentlich für die Branche"],
+           ["Dividende","–","zahlt keine"]],
+    trend:.14, amp:.16 },
+  ASML: { name:"ASML", full:"ASML Holding", sector:"Chip-Maschinen · Niederlande", cur:"€", price:687.20, chg:-0.6,
+    style:"ausgewogen", zone:"in", zoneLo:650, zoneHi:700, stop:590,
+    aUp:22, aTarget:840, aCount:32, sUp:15, sTarget:790,
+    reason:"Monopolist bei Chip-Maschinen, Kurs nach Korrektur im Einstiegsbereich.",
+    quality:9, qWhy:"Faktisches Monopol, hohe Margen, volle Auftragsbücher. Bilanz-Check 8 von 9.",
+    timing:6, tWhy:"Nach der Korrektur zurück im berechneten Einstiegsbereich, noch ohne frischen Schwung.",
+    ki:68, kWhy:"Leicht positives Bild — ähnliche Rücksetzer wurden meist aufgeholt.",
+    buyers:[["🏦","Fonds","Zwei beobachtete Fonds hielten die Position im 2. Quartal stabil"]],
+    ai:"ASML ist der einzige Hersteller der modernsten Chip-Belichtungsmaschinen. Nach schwächeren Auftragszahlen aus China kam der Kurs zurück; das Grundgeschäft gilt als intakt. Die nächsten Quartalszahlen sind der wichtigste Termin.",
+    news:[["ASML: Auftragseingang enttäuscht, Ausblick bestätigt","Handelsblatt · Mi."],
+          ["EU-Chipförderung: Milliardenpaket vor der Entscheidung","FAZ · Mo."]],
+    facts:[["Bewertung (KGV)","31","teurer als der Markt — üblich für diese Qualität"],
+           ["Umsatzwachstum","+11 %","solide, aber unter den Boom-Jahren"],
+           ["Gewinnmarge","27 %","stark"],
+           ["Dividende","1,1 %","klein, aber wächst"]],
+    trend:-.02, amp:.13 },
+  NOVO: { name:"Novo Nordisk", full:"Novo Nordisk", sector:"Pharma · Dänemark", cur:"€", price:88.10, chg:0.9,
+    style:"defensiv", zone:"near", zoneLo:79, zoneHi:85, stop:71,
+    aUp:18, aTarget:104, aCount:29, sUp:12, sTarget:99,
+    reason:"Weltmarktführer bei Abnehm-Medikamenten — Kurs noch 4 % über dem Einstiegsbereich.",
+    quality:9, qWhy:"Extrem profitabel, kaum Schulden, planbares Geschäft. Bilanz-Check 8 von 9.",
+    timing:5, tWhy:"Noch 4 % über dem berechneten Einstiegsbereich — fast, aber noch nicht günstig.",
+    ki:61, kWhy:"Neutral bis leicht positiv.",
+    buyers:[["👤","Insider","Ein Vorstandsmitglied kaufte im Juni für 240 T€"]],
+    ai:"Novo dominiert mit Wegovy und Ozempic den Markt für Abnehm-Medikamente, bekommt aber Konkurrenz von Eli Lilly. Der Kurs hat sich nach dem Hype normalisiert. Die Frage ist, wie schnell die Produktion mit der Nachfrage mitwächst.",
+    news:[["Novo erhöht Produktionskapazität für Wegovy erneut","Reuters · Di."],
+          ["Preisdruck bei Abnehmspritzen: US-Versicherer verhandeln","FT · Mo."]],
+    facts:[["Bewertung (KGV)","24","fair für diese Qualität"],
+           ["Umsatzwachstum","+19 %","stark"],
+           ["Gewinnmarge","35 %","außergewöhnlich hoch"],
+           ["Dividende","1,6 %","verlässlich"]],
+    trend:.05, amp:.10 },
+  DTE: { name:"Dt. Telekom", full:"Deutsche Telekom", sector:"Telekom · Deutschland", cur:"€", price:27.80, chg:0.2,
+    style:"defensiv", zone:"in", zoneLo:26.5, zoneHi:28.5, stop:24,
+    aUp:12, aTarget:31.2, aCount:21, sUp:9, sTarget:30.3,
+    reason:"Langweilig im besten Sinne: stabile Erträge, verlässliche Dividende, fairer Preis.",
+    quality:7, qWhy:"Stabiles Geschäft, gut planbare Einnahmen, ordentliche Schuldenlage.",
+    timing:6, tWhy:"Kurs pendelt seit Monaten im Einstiegsbereich — kein Stress, kein Momentum.",
+    ki:58, kWhy:"Neutral.",
+    buyers:[],
+    ai:"Die Telekom verdient stabil — vor allem dank der US-Tochter T-Mobile. Wenig Überraschungspotenzial nach oben, dafür eine der verlässlichsten Dividenden im DAX.",
+    news:[["T-Mobile US wächst weiter schneller als die Konkurrenz","Reuters · Mi."]],
+    facts:[["Bewertung (KGV)","13","günstig"],["Umsatzwachstum","+3 %","stabil"],
+           ["Gewinnmarge","9 %","typisch Telekom"],["Dividende","3,2 %","verlässlich"]],
+    trend:.04, amp:.05 },
+  GOOG: { name:"Alphabet", full:"Alphabet (Google)", sector:"Internet · USA", cur:"$", price:196.40, chg:1.1,
+    style:"ausgewogen", zone:"above", zoneLo:172, zoneHi:184, stop:158,
+    aUp:10, aTarget:216, aCount:44, sUp:6, sTarget:208,
+    reason:"Top-Firma, aber der Kurs ist dem Einstiegsbereich davongelaufen (+7 % darüber).",
+    quality:9, qWhy:"Gelddruckmaschine mit Netto-Cash. Bilanz-Check 9 von 9.",
+    timing:3, tWhy:"7 % über dem Einstiegsbereich — nachlaufen lohnt selten.",
+    ki:55, kWhy:"Neutral — nach starkem Lauf oft Verschnaufpause.",
+    buyers:[["🏛","Kongress","Zwei Abgeordnete meldeten kleinere Käufe im Juli"]],
+    ai:"Alphabet wächst mit Cloud und Werbung zweistellig, die KI-Suche kannibalisiert das Kerngeschäft bislang nicht. Der Kurs ist zuletzt stark gelaufen.",
+    news:[["Alphabet-Cloud wächst 29 % — Aktie auf Rekordhoch","CNBC · Di."]],
+    facts:[["Bewertung (KGV)","24","fair"],["Umsatzwachstum","+14 %","stark für die Größe"],
+           ["Gewinnmarge","29 %","exzellent"],["Dividende","0,4 %","symbolisch"]],
+    trend:.18, amp:.09 },
+  ITX: { name:"Inditex", full:"Inditex (Zara)", sector:"Handel · Spanien", cur:"€", price:44.90, chg:-0.4,
+    style:"ausgewogen", zone:"near", zoneLo:41, zoneHi:44, stop:37,
+    aUp:14, aTarget:51.2, aCount:24, sUp:10, sTarget:49.4,
+    reason:"Zara-Mutter mit Netto-Cash und starken Margen — knapp über dem Einstiegsbereich.",
+    quality:8, qWhy:"Keine Schulden, hohe Lagerdrehung, krisenerprobt. Bilanz-Check 8 von 9.",
+    timing:5, tWhy:"2 % über dem Einstiegsbereich.",
+    ki:63, kWhy:"Leicht positiv.",
+    buyers:[],
+    ai:"Inditex (Zara) wächst profitabler als fast der gesamte Modehandel und sitzt auf einem Netto-Cash-Polster. Kurzfristig belasten Wechselkurse.",
+    news:[["Inditex: Sommerkollektion treibt Umsatz über Erwartungen","Expansión · Mo."]],
+    facts:[["Bewertung (KGV)","22","fair"],["Umsatzwachstum","+8 %","solide"],
+           ["Gewinnmarge","14 %","top im Handel"],["Dividende","2,4 %","solide"]],
+    trend:.07, amp:.08 }
+};
+
+const RAT = {
+  heute: `<h3>Heute = das 3-Minuten-Briefing</h3><ul>
+    <li><b>Antwortet auf Alex' Tagesfragen in fester Reihenfolge:</b> Wie ist die Lage? → Gibt's was Interessantes? → Muss ich was entscheiden? → Läuft mein Autopilot?</li>
+    <li>Marktampel nur noch als <b>Klartext-Satz</b>; „Risk-on“/VIX stecken hinter dem Aufklapper.</li>
+    <li>Autopilot-Status ist neu hier: <b>eine Zeile pro Depot</b> statt sieben Depot-Tabs — Details ein Tap entfernt.</li>
+    <li>„Was passiert ist“ übersetzt Evidenz-Alerts in Alltagssprache („US-Senator kaufte Micron“).</li></ul>`,
+  aktien: `<h3>Eine Liste statt drei — ohne Informationsverlust</h3><ul>
+    <li>Ersetzt <b>Screener + Radar + Heute-Stockliste</b> — bisher drei fast gleiche Kartenlisten mit je eigenem Score.</li>
+    <li>Der Timing-Aspekt (Radar-Zonen) wird zum <b>Filter „Kaufbereit / Fast / Alle“</b> statt zur eigenen Seite.</li>
+    <li><b>v2:</b> Das Risikoprofil ist jetzt nicht mehr nur Filter, sondern <b>Chip auf jeder Karte</b> — Defensiv (ruhig) vs. Aggressiv (High Risk/Reward) bleibt immer sichtbar, in eigener Farbe (violett), damit es nicht mit den Ampel-Farben kollidiert.</li>
+    <li>Jede Karte: ein Potenzial, ein Status-Chip, ein Risiko-Chip, ein Warum-Satz. Die volle Score-Tiefe steckt im Profil — nichts ist gelöscht, nur einsortiert.</li></ul>`,
+  profil: `<h3>Das Herzstück: ein Profil, volle Tiefe</h3><ul>
+    <li><b>Klarstellung zu v1:</b> Drilldowns gab es schon — aber drei verschiedene, je nach Herkunftsliste unterschiedlich tief. Das Profil ist jetzt <b>der eine, volle Drilldown</b> für alle Listen.</li>
+    <li><b>v2 — nichts geht verloren:</b> Unter jedem der drei Klartext-Balken sitzt ein „Im Detail“-Aufklapper: die <b>5 Faktor-Perzentile</b> (Ex-Screener), die <b>3 Timing-Signale</b> (Ex-Radar), die <b>Modell-Erklärung mit Trefferquote</b> (Ex-Signal-Filter).</li>
+    <li>Neu: <b>Risikoprofil-Zeile</b> unterm Kopf, <b>Einstiegsplan im Detail</b> (200-Tage-Schnitt, Fibonacci, Böden, Tranchen-Idee — der alte EntryPlan) und der <b>Termin der nächsten Quartalszahlen</b>.</li>
+    <li>Kursziele doppelt: Analysten-Ziel + Scout-Ziel, Stop als „Absicherung“.</li>
+    <li>„Wer kauft gerade“ + News mit Schlagzeilen direkt an der Aktie.</li></ul>`,
+  entscheiden: `<h3>Entscheiden bleibt — bewusst</h3><ul>
+    <li>Dein Inbox-Umbau (Bänder, ein Tipp pro Pitch) funktioniert für Laien schon gut — <b>Kern unverändert</b>.</li>
+    <li>Neu: jeder Pitch verlinkt ins <b>volle Aktienprofil</b>, statt alles in die Karte zu stopfen.</li>
+    <li>Kaufen/Später/Ablehnen bleibt die einzige Stelle mit „Pflicht“-Charakter — deshalb eigener Tab statt Unterseite.</li></ul>`,
+  depot: `<h3>7 Depot-Tabs → 3 Sichten</h3><ul>
+    <li><b>Langfrist / Kurzfrist / Du</b> — mehr Depots braucht Alex' Kopf nicht. Screener-Depot, Forward, ML-Bots wandern ins Labor bzw. in „Ergebnisse“.</li>
+    <li>Jede Sicht beginnt mit der ehrlichen Frage <b>„Funktioniert es?“</b> samt Messtag-Fortschritt — dein täglicher „läuft der Autotrader?“-Blick.</li>
+    <li>Lane-Namen übersetzt: Event-Swing → „Ereignis-Trades“, Session/ORB → „Tages-Handel“.</li>
+    <li>„Du“ zeigt den Arena-Wettkampf als simple Dreizeile: Du / Autopilot / Markt.</li></ul>`,
+  ergebnisse: `<h3>Ergebnisse: raus aus der Bar, rein in „Mehr“</h3><ul>
+    <li>Genau dein Wunsch — fürs tägliche Reinschauen reicht die „Funktioniert es?“-Zeile im Depot.</li>
+    <li>Die Leitfragen-Karten bleiben, plus ein neuer Block: <b>„Wann würde echtes Geld diskutabel?“</b> mit den drei Schwellen in Alltagssprache.</li></ul>`,
+  wie: `<h3>Neuer Tab: Wie funktioniert das?</h3><ul>
+    <li>Fünf Fragen, fünf Antworten — Trichter-Grafik statt Methodik-Prosa.</li>
+    <li>Erklärt genau die Begriffe, die überall auftauchen: Potenzial, Scout-Ziel, Autopilot, Papiergeld, Pflichtmeldungen.</li>
+    <li>Von jeder Stelle der App verlinkbar (z.&nbsp;B. unter der Aktienliste).</li></ul>`,
+  werkauft: `<h3>Personen + Stimmen = „Wer kauft?“</h3><ul>
+    <li>Zwei Tabs mit derselben Datenquelle (<code>/api/evidence</code>) werden eine Seite.</li>
+    <li>Wichtigste Änderung: Käufe erscheinen <b>zusätzlich direkt im Aktienprofil</b> — hierher geht nur, wer stöbern will.</li></ul>`,
+  labor: `<h3>Forschung → „Labor“</h3><ul>
+    <li>Strategien, Entry-Modell, Signal-Filter, Lernkurven: <b>vier Seiten → eine Sammelstelle</b> unter Mehr.</li>
+    <li><b>Wichtig:</b> Die Modelle selbst laufen unverändert im Hintergrund weiter — diese Seiten sind nur die Sichtfenster darauf. „Wie funktioniert das?“ erklärt sie laienhaft, das Labor behält die volle Monitoring-Tiefe (Lernkurven, Champion-Wechsel, Trefferquoten).</li></ul>`
+};
+
+/* ================= STATE & NAV ================= */
+let backTarget = "aktien";
+let zoneFilter = "in", styleFilter = "alle";
+const $ = s => document.querySelector(s);
+
+function go(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  $("#s-"+id).classList.add("active");
+  $("#viewport").scrollTop = 0;
+  const navMap = {heute:"heute", aktien:"aktien", entscheiden:"entscheiden", depot:"depot",
+    ergebnisse:"mehr", werkauft:"mehr", labor:"mehr", wie:"mehr"};
+  navMap.profil = navMap[backTarget] || "aktien";
+  document.querySelectorAll("#nav [data-nav]").forEach(b=>b.classList.toggle("on", b.dataset.nav===navMap[id]));
+  document.querySelectorAll("#jumprow [data-j]").forEach(b=>b.classList.toggle("on", b.dataset.j===id));
+  $("#ratBody").innerHTML = RAT[id] || RAT.heute;
+}
+function openSheet(){ $("#scrim").classList.add("open"); $("#sheet").classList.add("open"); }
+function closeSheet(){ $("#scrim").classList.remove("open"); $("#sheet").classList.remove("open"); }
+let toastTimer;
+function toast(msg){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove("show"), 2400);
+}
+
+/* ================= FORMAT & CHARTS ================= */
+const de = n => n.toLocaleString("de-DE", {minimumFractionDigits: n < 100 ? 2 : 0, maximumFractionDigits: n < 100 ? 2 : 0});
+function series(s){
+  const pts = []; const n = 52;
+  for(let i=0;i<n;i++){
+    const v = 1 + s.trend*(i/n) + s.amp*Math.sin(i/6.5 + 1.2) + s.amp*.55*Math.sin(i/2.3 + 4);
+    pts.push(v);
+  }
+  return pts;
+}
+function chartSVG(s, w, h){
+  const pts = series(s);
+  const min = Math.min(...pts), max = Math.max(...pts), pad = (max-min)*.12 || 1;
+  const y = v => h - ((v - min + pad) / (max - min + 2*pad)) * h;
+  const x = i => (i/(pts.length-1)) * w;
+  const line = pts.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const last = pts[pts.length-1];
+  const zl = y(s.zoneLo/s.price*last), zh = y(s.zoneHi/s.price*last);
+  return `<svg width="100%" viewBox="0 0 ${w} ${h}" role="img" aria-label="Kursverlauf 1 Jahr (Demo)">
+    <rect x="0" y="${Math.min(zl,zh).toFixed(1)}" width="${w}" height="${Math.abs(zl-zh).toFixed(1)}" fill="var(--gain)" opacity=".13"/>
+    <text x="4" y="${(Math.min(zl,zh)+11).toFixed(1)}" font-size="9" fill="var(--gain)" font-weight="700">Einstiegsbereich</text>
+    <polyline points="${line}" fill="none" stroke="var(--brand)" stroke-width="2"/>
+    <circle cx="${w}" cy="${y(last).toFixed(1)}" r="3" fill="var(--brand)"/>
+  </svg>`;
+}
+function sparkSVG(s, w, h){
+  const pts = series(s);
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const y = v => h-2 - ((v-min)/(max-min||1))*(h-4);
+  const x = i => (i/(pts.length-1))*w;
+  const line = pts.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${line}" fill="none" stroke="var(--brand)" stroke-width="1.6"/></svg>`;
+}
+
+/* ================= LISTEN ================= */
+const EARNINGS = {MU:"25. Sep.", ASML:"15. Okt.", NOVO:"5. Nov.", DTE:"12. Nov.", GOOG:"28. Okt.", ITX:"10. Sep."};
+const RISK = {
+  defensiv:   ["Defensiv","chip brand","Eher ruhig: etabliertes Geschäft, geringere Schwankungen — dafür meist kleineres Potenzial."],
+  ausgewogen: ["Ausgewogen","chip mute","Der Mittelweg: solide Firma, normale Kursschwankungen."],
+  aggressiv:  ["Aggressiv","chip risk","High Risk, High Reward: mehr Chance, aber deutlich stärkere Schwankungen möglich."]
+};
+function styleChip(s){ const r = RISK[s.style]; return `<span class="${r[1]}">${r[0]}</span>`; }
+function riskNote(s){ return RISK[s.style][2]; }
+const clampP = v => Math.max(5, Math.min(97, Math.round(v)));
+function factorRows(s){
+  const f = {
+    "Bewertung — wie günstig": clampP(35 + s.quality*4 + s.timing*2),
+    "Qualität — wie solide": clampP(s.quality*10 - 8),
+    "Kurs-Schwung (Momentum)": clampP(s.timing*9),
+    "Wachstum": clampP(30 + s.quality*4),
+    "Ruhiger Kursverlauf": clampP(s.style==="defensiv"?82:s.style==="ausgewogen"?55:28)
+  };
+  return Object.entries(f).map(([k,v])=>`<div class="kv"><span class="k">${k}</span><span class="v num">${v}. Perzentil<small>besser als ${v} % von 6.000 Aktien</small></span></div>`).join("");
+}
+function subRows(s){
+  const subs = [
+    ["Dip-Qualität", clampP(s.timing*9+6), "Ist der Rücksetzer gesund oder ein Absturz?"],
+    ["Bewertungslücke", clampP(s.timing*8+10), "Wie weit liegt der Kurs unter dem fairen Wert?"],
+    ["Verkaufsdruck lässt nach", clampP(s.timing*8-4), "Dreht der kurzfristige Trend?"]
+  ];
+  return subs.map(x=>`<div class="kv"><span class="k">${x[0]}</span><span class="v num">${x[1]}/100<small>${x[2]}</small></span></div>`).join("");
+}
+function levelBody(s){
+  const sma = (s.zoneLo+s.zoneHi)/2, fib = s.zoneLo*1.02, low = s.zoneLo*0.97, hi = s.price*(1+s.aUp/100)*1.05;
+  return `Der Einstiegsbereich hängt an echten Marken im Chart:<br>
+    • 200-Tage-Durchschnitt: <b class="num">${de(sma)} ${s.cur}</b><br>
+    • Letzter Boden: <b class="num">${de(low)} ${s.cur}</b><br>
+    • Typische Rücksetzer-Marke (Fibonacci 61,8 %): <b class="num">${de(fib)} ${s.cur}</b><br>
+    • 52-Wochen-Spanne: <b class="num">${de(s.stop*0.93)}–${de(hi)} ${s.cur}</b><br><br>
+    <b>Tranchen-Idee:</b> Die Hälfte im Einstiegsbereich kaufen, die zweite Hälfte erst nach einem weiteren Rücksetzer von rund 5 % — so wird ein fallender Kurs zum Vorteil statt zum Ärgernis.`;
+}
+function kiBody(s){
+  return `Das Modell schätzt die Chance, dass ${s.name} den US-Markt in den nächsten ~20 Handelstagen schlägt: <b class="num">${s.ki} von 100</b>. Es lernt ausschließlich aus ehrlich aufgelösten früheren Fällen; aktuelle Trefferquote rund 54 %. Werte über 60 sind Rückenwind — ein Hinweis, kein Versprechen. Ob das Modell mit der Zeit besser wird, siehst du unter Mehr → Labor.`;
+}
+function zoneChip(st){
+  if(st.zone==="in")   return `<span class="chip gain">Jetzt im Einstiegsbereich</span>`;
+  if(st.zone==="near") return `<span class="chip warn">Fast — noch etwas zu teuer</span>`;
+  return `<span class="chip mute">Über dem Einstiegsbereich</span>`;
+}
+function stockCard(key, from){
+  const s = STOCKS[key];
+  return `<button class="stockcard" onclick="openStock('${key}','${from}')">
+    <div class="srow">
+      <div class="logo">${key.slice(0,2)}</div>
+      <div class="grow">
+        <div class="sname">${s.name} <small>${s.sector}</small></div>
+        <div class="potline" style="margin-top:4px">
+          <span class="potbig num">Potenzial +${s.aUp} %</span>${zoneChip(s)}${styleChip(s)}
+        </div>
+      </div>
+      <div class="sright">
+        <div class="sprice num">${de(s.price)} ${s.cur}</div>
+        <div class="schg num ${s.chg>=0?'up':'down'}">${s.chg>=0?'+':''}${de(s.chg)} %</div>
+      </div>
+    </div>
+    <div class="reason">${s.reason}</div>
+  </button>`;
+}
+function renderToday(){
+  $("#todayList").innerHTML = ["MU","ASML","DTE"].map(k=>stockCard(k,"heute")).join("");
+}
+function renderStockList(){
+  const keys = Object.keys(STOCKS).filter(k=>{
+    const s = STOCKS[k];
+    const zOk = zoneFilter==="all" || s.zone===zoneFilter;
+    const stOk = styleFilter==="alle" || s.style===styleFilter;
+    return zOk && stOk;
+  });
+  $("#stockList").innerHTML = keys.length
+    ? keys.map(k=>stockCard(k,"aktien")).join("")
+    : `<div class="card flat" style="font-size:13px; color:var(--muted)">Kein Treffer mit diesen Filtern — Stil oder Status lockern.</div>`;
+}
+function setZone(z, btn){ zoneFilter = z; btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b===btn)); renderStockList(); }
+function setStyle(st, btn){ styleFilter = st; btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b===btn)); renderStockList(); }
+
+/* ================= PROFIL ================= */
+function openStock(key, from){
+  backTarget = from || "aktien";
+  const s = STOCKS[key];
+  const buyers = s.buyers.length
+    ? s.buyers.map(b=>`<div class="buyer"><div class="em">${b[0]}</div><div><b>${b[1]}</b><span>${b[2]}</span></div></div>`).join("")
+    : `<div style="font-size:13px; color:var(--muted); padding:4px 0">Keine gemeldeten Käufe in den letzten 30 Tagen.</div>`;
+  $("#profilBody").innerHTML = `
+    <div class="srow" style="margin:2px 0 12px">
+      <div class="logo" style="width:46px; height:46px; font-size:15px">${key.slice(0,2)}</div>
+      <div class="grow">
+        <div style="font-weight:800; font-size:19px">${s.full}</div>
+        <div class="smeta">${s.sector}</div>
+      </div>
+      <div class="sright">
+        <div class="sprice num" style="font-size:19px">${de(s.price)} ${s.cur}</div>
+        <div class="schg num ${s.chg>=0?'up':'down'}">${s.chg>=0?'+':''}${de(s.chg)} % heute</div>
+      </div>
+    </div>
+
+    <div class="card flat" style="display:flex; gap:10px; align-items:center; padding:10px 14px">
+      ${styleChip(s)}<span style="font-size:12.5px; color:var(--muted); line-height:1.4">${riskNote(s)}</span>
+    </div>
+
+    <div class="card">${chartSVG(s, 340, 130)}
+      <div style="font-size:11px; color:var(--faint); margin-top:4px">1 Jahr · Demo-Kurve · grün = berechneter Einstiegsbereich ${de(s.zoneLo)}–${de(s.zoneHi)} ${s.cur}</div>
+    </div>
+
+    <div class="card">
+      <div class="pothero">
+        <div class="box"><div class="lbl">Analysten sehen</div>
+          <div class="big num" style="color:var(--gain)">+${s.aUp} %</div>
+          <div class="sub num">Ziel ${de(s.aTarget)} ${s.cur} · Schnitt von ${s.aCount} Analysten</div></div>
+        <div class="box"><div class="lbl">Scout sieht</div>
+          <div class="big num" style="color:var(--brand)">+${s.sUp} %</div>
+          <div class="sub num">Ziel ${de(s.sTarget)} ${s.cur} · eigene Berechnung, bewusst vorsichtiger</div></div>
+      </div>
+      <div class="kv" style="margin-top:10px"><span class="k">Guter Einstieg</span>
+        <span class="v num">${de(s.zoneLo)}–${de(s.zoneHi)} ${s.cur}<small>${s.zone==="in"?"Kurs ist gerade mittendrin":s.zone==="near"?"Kurs knapp darüber":"Kurs deutlich darüber"}</small></span></div>
+      <div class="kv"><span class="k">Absicherung (Stop)</span>
+        <span class="v num">${de(s.stop)} ${s.cur}<small>darunter gilt die Idee als gescheitert</small></span></div>
+      <div class="kv"><span class="k">Nächste Quartalszahlen</span>
+        <span class="v num">${EARNINGS[key]}<small>wichtigster Termin — hier springen Kurse oft</small></span></div>
+      <details><summary>Einstiegsplan im Detail</summary>
+        <div class="body">${levelBody(s)}</div></details>
+      <details><summary>Was bedeuten diese Zahlen?</summary>
+        <div class="body">Kursziele sind Schätzungen, keine Versprechen. Das Analysten-Ziel ist der Durchschnitt der Profi-Schätzungen, das Scout-Ziel unsere eigene Berechnung aus Kursverlauf und Firmenqualität. Mehr unter „Wie funktioniert das?“.</div></details>
+    </div>
+
+    <div class="sect"><h3>Warum interessant</h3></div>
+    <div class="card">
+      <div class="why"><div class="t"><span>Qualität der Firma</span><span class="num">${s.quality}/10</span></div>
+        <div class="meter"><i style="width:${s.quality*10}%"></i></div><div class="d">${s.qWhy}</div>
+        <details><summary>Im Detail: die 5 Faktoren</summary>
+          <div class="body">${factorRows(s)}<div style="margin-top:6px">Perzentil = Platz im Vergleich mit ~6.000 geprüften Aktien weltweit. Aus diesen fünf Faktoren entsteht der Qualitäts-Score — je nach Risikoprofil unterschiedlich gewichtet.</div></div></details></div>
+      <div class="why"><div class="t"><span>Kurs-Timing</span><span class="num">${s.timing}/10</span></div>
+        <div class="meter"><i style="width:${s.timing*10}%"></i></div><div class="d">${s.tWhy}</div>
+        <details><summary>Im Detail: die 3 Timing-Signale</summary>
+          <div class="body">${subRows(s)}<div style="margin-top:6px">Timing sagt nichts über die Qualität der Firma — nur darüber, ob der Kurs gerade einen attraktiven Moment bietet.</div></div></details></div>
+      <div class="why"><div class="t"><span>KI-Zweitmeinung</span><span class="num">${s.ki}/100</span></div>
+        <div class="meter"><i style="width:${s.ki}%"></i></div><div class="d">${s.kWhy}</div>
+        <details><summary>Im Detail: was das Modell macht</summary>
+          <div class="body">${kiBody(s)}</div></details></div>
+    </div>
+
+    <div class="sect"><h3>Wer kauft gerade</h3><a onclick="go('werkauft')">Alle ansehen →</a></div>
+    <div class="card">${buyers}</div>
+
+    <div class="sect"><h3>News</h3></div>
+    <div class="card">
+      <div class="ainote">KI-Zusammenfassung · Stand heute Nacht</div>
+      <div style="font-size:13.5px; line-height:1.55; color:var(--muted)">${s.ai}</div>
+      <div style="margin-top:8px">
+        ${s.news.map(n=>`<div class="newsline"><div>${n[0]}</div><div class="src">${n[1]}</div></div>`).join("")}
+      </div>
+    </div>
+
+    <div class="sect"><h3>Zahlen im Klartext</h3></div>
+    <div class="card">
+      ${s.facts.map(f=>`<div class="kv"><span class="k">${f[0]}</span><span class="v num">${f[1]}<small>${f[2]}</small></span></div>`).join("")}
+    </div>
+
+    <div class="actionbar">
+      <button class="btn primary" onclick="toast('Gekauft im Papier-Depot „Du“ (Demo)')">Kaufen — Depot „Du“</button>
+      <button class="btn ghost" onclick="toast('Auf die Beobachtungsliste gesetzt (Demo)')">Beobachten</button>
+    </div>`;
+  go("profil");
+}
+
+/* ================= ENTSCHEIDEN ================= */
+function decide(cardId, msg){
+  const card = $("#"+cardId);
+  $("#decidedEmpty")?.remove();
+  const name = card.querySelector(".sname").childNodes[0].textContent.trim();
+  card.style.display = "none";
+  const done = document.createElement("div");
+  done.className = "card flat";
+  done.style.cssText = "font-size:13px; color:var(--muted)";
+  done.innerHTML = `<b style="color:var(--ink)">${name}</b> — ${msg.split("—")[0].trim()}`;
+  $("#decidedList").appendChild(done);
+  toast(msg);
+}
+
+/* ================= DEPOT ================= */
+function setDepot(which, btn){
+  btn.parentElement.querySelectorAll("button").forEach(b=>b.classList.toggle("on", b===btn));
+  ["lang","kurz","du"].forEach(k => $("#depot-"+k).style.display = (k===which ? "" : "none"));
+}
+function renderDepot(){
+  $("#sparkLang").innerHTML = sparkSVG({trend:.03, amp:.02, price:1, zoneLo:0, zoneHi:0}, 320, 44);
+  const alloc = [["Aktien Welt (ETF)",38],["US-Anleihen (ETF)",22],["Gold (ETF)",12],["Aktien Europa (ETF)",11],["Rohstoffe (ETF)",9],["Cash",8]];
+  $("#etfAlloc").innerHTML = alloc.map(a=>`
+    <div class="kv"><span class="k">${a[0]}</span><span class="v num">${a[1]} %</span></div>
+    <div class="meter" style="margin:2px 0 6px"><i style="width:${a[1]*2}%"></i></div>`).join("");
+  $("#duPositions").innerHTML = `
+    ${["MU","ITX"].map(k=>{
+      const s = STOCKS[k];
+      return `<button class="stockcard" onclick="openStock('${k}','depot')">
+        <div class="srow">
+          <div class="logo">${k.slice(0,2)}</div>
+          <div class="grow"><div class="sname">${s.name}</div><div class="smeta">gekauft über „Entscheiden“</div></div>
+          <div class="sright"><div class="sprice num">${de(s.price)} ${s.cur}</div>
+          <div class="schg num up">+${k==="MU"?"3,1":"0,8"} %</div></div>
+        </div></button>`;}).join("")}`;
+}
+
+/* ================= ASSISTENT ================= */
+const ANSWERS = {
+  warum:["Warum ist Micron ein Vorschlag?","Micron ist ein aggressiver Vorschlag: Qualität 8/10, Kurs im Einstiegsbereich (108–118 $), Analysten sehen +28 %, der Scout +19 %. Dazu kaufen gerade Insider und ein Senator. Risiko: Der Speichermarkt schwankt stark — deshalb die Absicherung bei 99 $."],
+  depot:["Wie läuft mein Depot?","Gesamt +0,4 % seit Start, der Markt liegt bei +2,9 %. Dein eigenes Depot „Du“ (+1,2 %) schlägt aktuell den Autopiloten (+0,8 %) — der Markt schlägt euch beide. Aussagekräftig wird das ab Messtag 60; heute ist Tag 43."],
+  begriff:["Was heißt „Einstiegsbereich“?","Die Preisspanne, in der eine Aktie nach unserer Berechnung attraktiv zu kaufen ist — hergeleitet aus Chart-Marken wie dem 200-Tage-Durchschnitt und typischen Rücksetzer-Niveaus. Liegt der Kurs darin, zeigt die App „kaufbereit“."],
+  frei:[null,"(Demo) In der echten App beantworte ich das live mit deinen Zahlen — im Mockup sind nur die drei Beispielfragen verdrahtet."]
+};
+function openChat(){ $("#chat").classList.add("open"); }
+function closeChat(){ $("#chat").classList.remove("open"); }
+function ask(k){
+  const a = ANSWERS[k], body = $("#chatbody");
+  const q = k==="frei" ? ($("#chatin").value.trim() || "…") : a[0];
+  body.insertAdjacentHTML("beforeend",
+    `<div class="msg user">${q.replace(/</g,"&lt;")}</div><div class="msg bot">${a[1]}</div>`);
+  if(k==="frei") $("#chatin").value = "";
+  body.scrollTop = body.scrollHeight;
+}
+
+/* ================= INIT ================= */
+renderToday(); renderStockList(); renderDepot();
+$("#ratBody").innerHTML = RAT.heute;
+</script>
