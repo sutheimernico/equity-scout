@@ -858,3 +858,40 @@ def test_chat_routing_keeps_unrelated_blocks_out_of_the_prompt(tmp_path, monkeyp
     # Eine Depotfrage braucht weder die Personen- noch die Ergebnis-Tafel.
     assert "PERSONEN" not in captured["context"]
     assert "ERGEBNISSE" not in captured["context"]
+
+
+def test_chat_stream_endpoint_streams_text(tmp_path, monkeypatch):
+    db = str(tmp_path / "chat6.db")
+    client = TestClient(create_app(db))
+    monkeypatch.setattr("equity_scout.chat.stream_ollama",
+                        lambda q, c, **k: iter(["Hal", "lo"]))
+    resp = client.post("/api/chat/stream", json={"question": "Wie ist die Marktlage?"})
+    assert resp.status_code == 200
+    assert resp.text == "Hallo"
+
+
+def test_chat_stream_refuses_advice_without_the_llm(tmp_path, monkeypatch):
+    db = str(tmp_path / "chat7.db")
+    client = TestClient(create_app(db))
+
+    def boom(*a, **k):
+        raise AssertionError("stream_ollama must not run for advice questions")
+
+    monkeypatch.setattr("equity_scout.chat.stream_ollama", boom)
+    resp = client.post("/api/chat/stream", json={"question": "Soll ich Micron kaufen?"})
+    assert "keine Anlageberatung" in resp.text
+
+
+def test_chat_stream_reports_an_unreachable_model_in_band(tmp_path, monkeypatch):
+    from equity_scout.chat import ChatError
+
+    db = str(tmp_path / "chat8.db")
+    client = TestClient(create_app(db))
+
+    def failing(q, c, **k):
+        raise ChatError("Ollama ist nicht erreichbar.")
+        yield  # pragma: no cover - generator marker
+
+    monkeypatch.setattr("equity_scout.chat.stream_ollama", failing)
+    resp = client.post("/api/chat/stream", json={"question": "Wie ist die Marktlage?"})
+    assert resp.status_code == 200 and "[Fehler:" in resp.text

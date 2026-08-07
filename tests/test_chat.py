@@ -1,6 +1,8 @@
 """Chatbot context builder — folds the dashboard numbers into a compact prompt snapshot."""
 from __future__ import annotations
 
+import pytest
+
 from equity_scout.chat import (
     GLOSSARY,
     REFUSAL_ANSWER,
@@ -102,3 +104,41 @@ def test_ask_ollama_keeps_the_model_warm_and_caps_length(monkeypatch) -> None:
     ask_ollama("Frage?", "Kontext")
     assert captured["keep_alive"] == "24h"
     assert captured["options"]["num_predict"] == 400
+
+
+def test_stream_ollama_yields_content_chunks(monkeypatch) -> None:
+    import json as jsonlib
+
+    class _StreamResp:
+        def raise_for_status(self) -> None:
+            pass
+
+        def iter_lines(self):  # noqa: ANN202
+            yield jsonlib.dumps({"message": {"content": "Hal"}, "done": False})
+            yield jsonlib.dumps({"message": {"content": "lo"}, "done": True})
+
+        def __enter__(self):  # noqa: ANN204
+            return self
+
+        def __exit__(self, *a) -> bool:  # noqa: ANN002
+            return False
+
+    import httpx
+
+    monkeypatch.setattr(httpx, "stream", lambda *a, **k: _StreamResp())
+    from equity_scout.chat import stream_ollama
+
+    assert list(stream_ollama("F?", "K")) == ["Hal", "lo"]
+
+
+def test_stream_ollama_reports_an_unreachable_server(monkeypatch) -> None:
+    import httpx
+
+    def boom(*a, **k):  # noqa: ANN002, ANN003, ANN202
+        raise httpx.ConnectError("nope")
+
+    monkeypatch.setattr(httpx, "stream", boom)
+    from equity_scout.chat import ChatError, stream_ollama
+
+    with pytest.raises(ChatError):
+        list(stream_ollama("F?", "K"))

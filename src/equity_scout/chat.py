@@ -190,3 +190,51 @@ def ask_ollama(
     if not content:
         raise ChatError("Ollama hat eine leere Antwort geliefert.")
     return content
+
+
+def stream_ollama(
+    question: str,
+    context: str,
+    *,
+    model: str = OLLAMA_MODEL,
+    host: str = OLLAMA_HOST,
+    timeout: float = 120.0,
+):
+    """Yield answer chunks as Ollama produces them. Same guardrails as ask_ollama —
+    only the transport differs. Raises ChatError on connection problems BEFORE the
+    first chunk; mid-stream errors end the generator (the client shows what arrived).
+
+    Perceived latency is the point: the measurement clocked 37-90 s to a full answer,
+    which reads as broken on a phone. First tokens arrive in a few seconds.
+    """
+    import json as jsonlib
+
+    import httpx
+
+    payload = {
+        "model": model,
+        "stream": True,
+        "keep_alive": KEEP_ALIVE,
+        "options": {"num_predict": MAX_ANSWER_TOKENS},
+        "messages": [
+            {"role": "system", "content": f"{SYSTEM_PROMPT}\n\nDATEN-Kontext:\n{context}"},
+            {"role": "user", "content": question},
+        ],
+    }
+    try:
+        with httpx.stream("POST", f"{host}/api/chat", json=payload, timeout=timeout) as resp:
+            resp.raise_for_status()
+            for line in resp.iter_lines():
+                if not line:
+                    continue
+                chunk = jsonlib.loads(line).get("message", {}).get("content", "")
+                if chunk:
+                    yield chunk
+    except httpx.HTTPStatusError as exc:
+        raise ChatError(
+            f"Ollama antwortet mit {exc.response.status_code}. Ist das Modell '{model}' geladen?"
+        ) from exc
+    except ChatError:
+        raise
+    except Exception as exc:  # connection refused, timeout, DNS …
+        raise ChatError(f"Ollama ist unter {host} nicht erreichbar.") from exc

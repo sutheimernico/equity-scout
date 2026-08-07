@@ -1213,6 +1213,31 @@ def create_app(
             return JSONResponse({"error": str(exc)}, status_code=503)
         return JSONResponse({"answer": answer, "disclaimer": DISCLAIMER})
 
+    @app.post("/api/chat/stream")
+    def chat_stream(body: dict):  # noqa: ANN202 - StreamingResponse | JSONResponse
+        import equity_scout.chat as chat_mod
+        from fastapi.responses import StreamingResponse
+
+        from equity_scout.chat import REFUSAL_ANSWER
+        from equity_scout.chat_retrieval import is_advice_question
+
+        question = str((body or {}).get("question", "")).strip()
+        if not question:
+            return JSONResponse({"error": "Keine Frage übergeben."}, status_code=400)
+        if is_advice_question(question):
+            return StreamingResponse(iter([REFUSAL_ANSWER]), media_type="text/plain")
+        context = _chat_context(question)
+
+        def _gen():  # noqa: ANN202
+            try:
+                yield from chat_mod.stream_ollama(question, context)
+            except chat_mod.ChatError as exc:
+                # Mid-stream the status code is already sent, so errors travel in-band —
+                # the panel shows whatever arrived plus this line, never a silent stop.
+                yield f"\n[Fehler: {exc}]"
+
+        return StreamingResponse(_gen(), media_type="text/plain")
+
     @app.get("/api/health")
     def health() -> JSONResponse:
         # Liveness only: the phone cockpit polls this every 30 s to tell live data from
