@@ -3188,3 +3188,99 @@ li.pd-alloc-row {
   color: var(--text-secondary);
   line-height: 1.55;
 }
+
+/* Heute: the stock-list panel and the market-state card sat flush on the phone
+   (Nico 2026-08-07: "die liegen direkt aufeinander") — the view has no global
+   section gap, each block spaces itself. */
+.only-phone .regime {
+  margin: var(--space-5) 0;
+}
+
+/* ===== Screener rebuild (2026-08-07) ===== */
+/* The card head is a real button (the whole-card onClick had no affordance and no
+   aria) — same grid grammar as .brief-main: rank · logo · name · potential · chevron. */
+.pick-main {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+/* The bucket tabs + three filter selects shared ONE flex row; at 390 px flex shrank the
+   tabs below their text width and every letter wrapped onto its own line ("D-e-f-e-n-s-i-v",
+   Nico 2026-08-07: "kein Fan von so vertikaler Schrift"). The row wraps, the filters take
+   the full width below the tabs, and each select shares it evenly. */
+@media (max-width: 720px) {
+  .tabbar {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+  .tab {
+    white-space: nowrap;
+  }
+  .filter {
+    margin-left: 0;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    padding-bottom: var(--space-3);
+  }
+  .filter select.region {
+    flex: 1 1 40%;
+    min-width: 0;
+  }
+}
+
+/* ===== Personen (person-centred evidence view, 2026-08-07) ===== */
+.person-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.person-name {
+  font-weight: 650;
+  color: var(--text-strong);
+}
+.person-score {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+.person-moves {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.person-date {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.person-company {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.person-delay {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+/* Screener head: the company name may take a second line (an ellipsised "Asian Pai…"
+   defeats the point of showing names); the ticker never breaks mid-symbol. */
+.pick-main .pitch-company {
+  white-space: normal;
+}
+.pick-main .pitch-ident .ticker {
+  white-space: nowrap;
+}

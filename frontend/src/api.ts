@@ -27,6 +27,17 @@ export interface Pick {
   breakdown: Breakdown;
   thesis: string | null;
   news?: NewsItem[];
+  // Screener-card context joined on by /api/latest (2026-08-07): the nightly insight +
+  // own chart, last close from that chart, and the analyst view. All null until the
+  // nightly run has covered the ticker — the card says so instead of embedding an
+  // external chart widget that silently failed on international tickers.
+  insight?: StockInsight | null;
+  chart?: StockChart | null;
+  price?: number | null;
+  currency?: string | null;
+  analyst_target?: number | null;
+  analyst_count?: number | null;
+  analyst_upside_pct?: number | null;
 }
 
 export interface GateStats {
@@ -995,6 +1006,9 @@ export interface EvidenceResponse {
   recent_alerts: EvidenceAlert[];
   stats_by_source: Record<string, Record<string, unknown>>;
   person_scores: PersonScore[];
+  /** {ticker: company name} from the server's known-names sources — a bare "V" means
+   *  nothing; missing tickers stay nameless rather than guessed. */
+  names: Record<string, string>;
   disclaimer: string;
 }
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { fetchBriefs, type StockBrief } from "../api";
 import { shortCompanyName } from "../company";
 import { shortVerdict, splitSections } from "../stocklist";
+import { InsightBlock } from "./InsightBlock";
 import { MethodNote } from "./MethodNote";
 import { MiniYearChart } from "./MiniYearChart";
 import { PotentialBlock } from "./PotentialBlock";
@@ -40,51 +41,6 @@ function ZoneChip({ brief }: { brief: StockBrief }) {
   );
 }
 
-/** The two AI texts. Labelled as machine-written, because they are — and dated, because
- *  a summary of last week's headlines read as today's news would be misleading. */
-function BriefInsight({ brief }: { brief: StockBrief }) {
-  const insight = brief.insight;
-  if (!insight) {
-    return (
-      <p className="brief-muted brief-insight">
-        Noch keine KI-Zusammenfassung erzeugt (läuft im 18:00-Lauf).
-      </p>
-    );
-  }
-  const when = new Date(insight.generated_at).toLocaleDateString("de-DE", {
-    day: "2-digit",
-    month: "2-digit",
-  });
-  // German one-liners when the generator produced them; the English wire titles are the
-  // fallback for rows from before that existed (Nico 2026-08-06: "ich kann nichts mit
-  // 'Yamato Holding Stock Faces Profit Strain Behind A Premium PE' anfangen").
-  const headlines =
-    insight.headlines_de.length > 0 ? insight.headlines_de : insight.headlines;
-  return (
-    <div className="brief-insight">
-      {insight.business && <p className="brief-insight-business">{insight.business}</p>}
-      {insight.news_summary ? (
-        <p className="brief-insight-news">📰 {insight.news_summary}</p>
-      ) : (
-        <p className="brief-muted">Keine aktuellen Schlagzeilen gefunden.</p>
-      )}
-      {headlines.length > 0 && (
-        <>
-          <p className="brief-headlines-head">Schlagzeilen</p>
-          <ul className="brief-headlines">
-            {headlines.map((title) => (
-              <li key={title}>{title}</li>
-            ))}
-          </ul>
-        </>
-      )}
-      <p className="brief-muted brief-insight-foot">
-        KI-Zusammenfassung ({insight.model ?? "lokal"}) vom {when} — keine Empfehlung.
-      </p>
-    </div>
-  );
-}
-
 function BriefRow({ brief }: { brief: StockBrief }) {
   const [open, setOpen] = useState(false);
   const business = [brief.sector, brief.industry].filter(Boolean).join(" · ");
@@ -115,7 +71,7 @@ function BriefRow({ brief }: { brief: StockBrief }) {
           <MiniYearChart chart={brief.chart} currency={brief.currency} />
           {/* News before the figures (Nico 2026-08-06: "Ich find die News jetzt nicht mehr
               beim Aufklappen") — behind the five-row table they sat below the fold. */}
-          <BriefInsight brief={brief} />
+          <InsightBlock insight={brief.insight} />
           <ZoneBar brief={brief} />
           <p className={brief.in_zone ? "brief-good brief-verdict" : "brief-warn brief-verdict"}>
             {brief.in_zone ? "✓" : "⚠"} {brief.zone_verdict}

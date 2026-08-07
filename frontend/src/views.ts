@@ -3,6 +3,7 @@ export type View =
   | "funnel"
   | "radar"
   | "voices"
+  | "people"
   | "inbox"
   | "depots"
   | "proof"
@@ -30,6 +31,7 @@ export const NAV: { key: View; label: string; group: Group }[] = [
   { key: "funnel", label: "Screener", group: "signale" },
   { key: "radar", label: "Radar", group: "signale" },
   { key: "voices", label: "Stimmen", group: "signale" },
+  { key: "people", label: "Personen", group: "signale" },
   { key: "inbox", label: "Inbox", group: "entscheiden" },
   { key: "depots", label: "Depots", group: "entscheiden" },
   { key: "proof", label: "Ergebnisse", group: "entscheiden" },

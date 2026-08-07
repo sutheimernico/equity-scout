@@ -12,6 +12,7 @@ import { ModelPanel } from "./components/ModelPanel";
 import { RadarPanel } from "./components/RadarPanel";
 import { StrategyDashboard } from "./components/StrategyDashboard";
 import { TodayView } from "./components/TodayView";
+import { PeoplePanel } from "./components/PeoplePanel";
 import { VoicesPanel } from "./components/VoicesPanel";
 import { BottomNav } from "./components/BottomNav";
 import { GROUP_LABELS, NAV, parseView, type View } from "./views";
@@ -106,6 +107,7 @@ export default function App() {
             {view === "funnel" && <FunnelView />}
             {view === "radar" && <RadarPanel />}
             {view === "voices" && <VoicesPanel />}
+            {view === "people" && <PeoplePanel />}
             {view === "inbox" && <InboxPanel />}
             {view === "depots" && <DepotsView />}
             {view === "proof" && <ProofView />}

@@ -16,29 +16,47 @@ function voiceRows(eventsByTicker: Record<string, EvidenceEvent[]>): EvidenceEve
   );
 }
 
-function VoiceRow({ event }: { event: EvidenceEvent }) {
+// What the headline MEANS, said out loud (Nico 2026-08-07: "ich will selber nicht
+// unnötig nachdenken müssen — heißt die Schlagzeile: kauft die Aktie oder verkauft?").
+// The direction comes from the deterministic verb match, never from an LLM — so the
+// label states the recorded direction, not an interpretation of ours.
+function toneOf(event: EvidenceEvent): { label: string; explain: string } {
+  const kind = String(event.details.kind ?? "context");
+  if (kind === "context") {
+    return {
+      label: "nur Erwähnung",
+      explain: "Die Person wird nur im Zusammenhang genannt — keine erkennbare Kauf- oder Verkaufsrichtung.",
+    };
+  }
+  if (String(event.details.direction ?? "") === "bullish") {
+    return {
+      label: "🟢 Richtung Kauf",
+      explain:
+        "Die Schlagzeile meldet Kauf, Aufstockung oder Empfehlung. Diese Aussage bekommt einen Track-Record — wir messen später, ob sie recht hatte.",
+    };
+  }
+  return {
+    label: "🔴 Richtung Verkauf",
+    explain:
+      "Die Schlagzeile meldet Verkauf, Short oder eine Warnung. Wird angezeigt, zählt aber noch nicht in die Statistik (Auflösung für Short-Richtung fehlt noch).",
+  };
+}
+
+function VoiceRow({ event, names }: { event: EvidenceEvent; names: Record<string, string> }) {
   const details = event.details;
-  const kind = String(details.kind ?? "context");
-  const direction = String(details.direction ?? "");
-  const tone =
-    kind === "context" ? "Erwähnung" : direction === "bullish" ? "positiv" : "negativ";
+  const tone = toneOf(event);
+  const company = names[event.ticker];
   return (
     <article className="panel voice-row">
       <div className="voice-head">
-        <span className="ticker">{event.ticker}</span>
+        <span className="pitch-company">{company ?? event.ticker}</span>
+        {company && <span className="ticker">{event.ticker}</span>}
         <Chip>{String(details.speaker ?? "unbekannt")}</Chip>
-        <Chip>{tone}</Chip>
+        <Chip>{tone.label}</Chip>
         <span className="muted tnum">{String(details.published ?? event.event_date)}</span>
       </div>
       <p className="voice-headline">»{String(details.headline ?? "?")}«</p>
-      {kind !== "context" && (
-        <p className="muted">
-          Messbarer Call (Name vor Richtungs-Verb, eindeutiger Ticker).{" "}
-          {kind === "call"
-            ? "Geht in Ledger und Personen-Track-Record ein."
-            : "Short-Richtung: wird angezeigt und alarmiert, zählt aber nicht in die Statistik, bis vorzeichenrichtige Auflösung existiert."}
-        </p>
-      )}
+      <p className="muted">{tone.explain}</p>
     </article>
   );
 }
@@ -92,7 +110,11 @@ export function VoicesPanel() {
       ) : (
         <div className="voice-grid">
           {rows.map((event) => (
-            <VoiceRow key={`${event.ticker}-${event.event_key}`} event={event} />
+            <VoiceRow
+              key={`${event.ticker}-${event.event_key}`}
+              event={event}
+              names={data.names ?? {}}
+            />
           ))}
         </div>
       )}

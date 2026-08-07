@@ -1,15 +1,27 @@
 import { useState } from "react";
 
 import type { Pick } from "../api";
+import { shortCompanyName } from "../company";
 import { FACTOR_LABELS, FACTOR_ORDER, toPercent } from "../format";
 import { EntryPlanBlock } from "./EntryPlanBlock";
-import { StockChart } from "./StockChart";
+import { InsightBlock } from "./InsightBlock";
+import { MiniYearChart } from "./MiniYearChart";
+import { PotentialBlock } from "./PotentialBlock";
+import { StockLogo } from "./StockLogo";
 import { Badge } from "./ui/Badge";
 import { Bar } from "./ui/Bar";
+import { Chevron } from "./ui/Chevron";
 
-// One pick. Click toggles a transparency drilldown: for each factor we show its percentile, the
-// bucket weight, and the contribution (percentile × weight). The composite is their sum — so the
-// headline score is fully traceable.
+function money(value: number, currency: string | null | undefined): string {
+  const formatted = value.toLocaleString("de-DE", { maximumFractionDigits: 2 });
+  return currency ? `${formatted} ${currency}` : formatted;
+}
+
+// One pick, same head grammar as every other stock card (2026-08-07 rebuild): company
+// first, today's price + analyst target in the meta line, the chevron says the card
+// opens. The drilldown keeps the factor transparency table (percentile × weight =
+// contribution, summing to the headline score) and now uses OUR chart + the summarised
+// news — the TradingView embed silently rendered nothing for many international tickers.
 export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string, number> }) {
   const [open, setOpen] = useState(false);
 
@@ -19,22 +31,56 @@ export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string
     return { factor, percentile, weight, contribution: percentile * weight };
   });
   const compositeFromParts = contributions.reduce((sum, c) => sum + c.contribution, 0);
-  const news = pick.news ?? [];
 
   return (
-    <div className="card" onClick={() => setOpen((isOpen) => !isOpen)}>
-      <div className="card-head">
+    <div className="card">
+      <button className="pick-main" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
         <span className="rank tnum">{pick.rank}</span>
-        <span className="ticker">{pick.instrument.ticker}</span>
-        <Badge tone="region">{pick.instrument.region}</Badge>
-        {news.length > 0 && <Badge tone="news">📰 {news.length}</Badge>}
-        <span className="composite tnum">{toPercent(pick.composite)}</span>
-      </div>
-      <div className="name">{pick.instrument.name}</div>
+        <StockLogo ticker={pick.instrument.ticker} name={pick.instrument.name} />
+        <span className="pitch-ident">
+          <span className="pitch-company">{shortCompanyName(pick.instrument.name)}</span>
+          <span className="ticker">
+            {pick.instrument.ticker} <Badge tone="region">{pick.instrument.region}</Badge>
+          </span>
+        </span>
+        <PotentialBlock
+          upsidePct={pick.analyst_upside_pct ?? null}
+          analystCount={pick.analyst_count ?? null}
+        />
+        <Chevron />
+      </button>
+
+      <p className="radar-score-label">
+        Faktor-Score <b className="tnum">{toPercent(pick.composite)}/100</b> — unser Modell,
+        Rang {pick.rank} im Bucket
+      </p>
       <Bar value={pick.composite} max={1} />
+
+      {/* Price and analyst target in one line — "es gibt keine Kursziele bei vielen"
+          (Nico 2026-08-07): where a consensus target exists it is SHOWN, where none
+          exists the absence is said, never padded with a model number we don't have. */}
+      <div className="pitch-meta">
+        {pick.price !== null && pick.price !== undefined && (
+          <span className="nobr">
+            Kurs <span className="tnum">{money(pick.price, pick.currency)}</span>
+          </span>
+        )}
+        <span className="nobr">
+          Analysten-Ziel{" "}
+          {pick.analyst_target !== null && pick.analyst_target !== undefined ? (
+            <span className="tnum">{money(pick.analyst_target, pick.currency)}</span>
+          ) : (
+            "— keine Schätzung"
+          )}
+        </span>
+      </div>
 
       {open && (
         <div className="drill">
+          <MiniYearChart chart={pick.chart ?? null} currency={pick.currency ?? null} />
+
+          <InsightBlock insight={pick.insight} />
+
           <div className="drill-head">
             <span>Faktor</span>
             <span>Perzentil</span>
@@ -54,37 +100,9 @@ export function PickCard({ pick, weights }: { pick: Pick; weights: Record<string
             <span className="tnum">{toPercent(compositeFromParts)}</span>
           </div>
 
-          <div onClick={(e) => e.stopPropagation()}>
-            <StockChart ticker={pick.instrument.ticker} />
-          </div>
-
-          <div onClick={(e) => e.stopPropagation()}>
-            <EntryPlanBlock ticker={pick.instrument.ticker} />
-          </div>
+          <EntryPlanBlock ticker={pick.instrument.ticker} />
 
           {pick.thesis && <p className="thesis">{pick.thesis}</p>}
-
-          {news.length > 0 && (
-            <div className="news-list">
-              <div className="news-head">Aktuelle News</div>
-              {news.map((item, i) => (
-                <a
-                  className="news-item"
-                  key={i}
-                  href={item.link || undefined}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <span className="news-title">{item.title}</span>
-                  <span className="news-meta tnum">
-                    {item.publisher}
-                    {item.published ? ` · ${item.published}` : ""}
-                  </span>
-                </a>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>
