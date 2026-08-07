@@ -1,93 +1,25 @@
 import { useEffect, useState } from "react";
 
-import { fetchEvidence, type EvidenceEvent, type EvidenceResponse, type PersonScore } from "../api";
+import { fetchEvidence, type EvidenceResponse, type PersonScore } from "../api";
 import { shortCompanyName } from "../company";
+import {
+  buildBuckets,
+  congressByStock,
+  delayNote,
+  moveLabel,
+  type PersonBucket,
+} from "../people";
 import { Chip } from "./ui/Chip";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
 import { Explain } from "./ui/Explain";
 
 // Person-centred view over the evidence events (Nico 2026-08-07: "eine Page für die
 // Kongressmitglieder oder die Person, die Aktien grad gekauft haben — Michael Burry,
-// Warren Buffett …"). The ticker-centred data already exists (/api/evidence, 30-day
-// window); this only regroups it by WHO — no new signal, no new fetch.
+// Warren Buffett …"). Two projections of the same 30-day window: by person, and the
+// congress buys regrouped by STOCK ("einfach screenen, welche Aktien die gekauft haben").
+// No new signal, no new fetch — /api/evidence regrouped.
 
 const MAX_MOVES_SHOWN = 6;
-
-interface PersonBucket {
-  person: string;
-  role: string; // "Kongress (Senat, R)" | "Investor" | "Insider" | "Fonds"
-  events: EvidenceEvent[];
-  newest: string;
-}
-
-function roleOf(event: EvidenceEvent): string {
-  const details = event.details;
-  if (event.source === "congress") {
-    const chamber = details.chamber === "senate" ? "Senat" : "Repräsentantenhaus";
-    const party = details.party ? `, ${String(details.party)}` : "";
-    return `Kongress (${chamber}${party})`;
-  }
-  if (event.source === "insider") return "Insider (Führungskraft)";
-  if (event.source === "13f") return "Fonds";
-  return "Investor / Stimme";
-}
-
-function personOf(event: EvidenceEvent): string | null {
-  const details = event.details;
-  const raw = details.politician ?? details.insider ?? details.fund ?? details.speaker;
-  return raw ? String(raw) : null;
-}
-
-/** What this person DID, in one plain clause — from the recorded facts only. */
-function moveLabel(event: EvidenceEvent): string {
-  const details = event.details;
-  if (event.source === "congress") {
-    const amount = details.amount_range ? ` (${String(details.amount_range)})` : "";
-    return `hat gekauft${amount}`;
-  }
-  if (event.source === "insider") return "hat als Insider gekauft";
-  if (event.source === "13f") {
-    return details.change === "new" ? "neue Position gemeldet" : "Position aufgestockt";
-  }
-  const kind = String(details.kind ?? "context");
-  if (kind === "context") return "wird in der Presse erwähnt";
-  return details.direction === "bullish"
-    ? "äußert sich positiv (Kauf/Empfehlung)"
-    : "äußert sich negativ (Verkauf/Short/Warnung)";
-}
-
-/** The reporting delay, said out loud: a congress trade from March filed in August is
- *  history, not news — hiding that would turn a disclosure into a fake signal. */
-function delayNote(event: EvidenceEvent): string | null {
-  const days = event.details.days_to_file;
-  if (typeof days !== "number" || days <= 0) return null;
-  return days >= 45
-    ? `erst ${days} Tage nach dem Handel gemeldet`
-    : `${days} Tage nach dem Handel gemeldet`;
-}
-
-function buildBuckets(eventsByTicker: Record<string, EvidenceEvent[]>): PersonBucket[] {
-  const byPerson = new Map<string, PersonBucket>();
-  for (const events of Object.values(eventsByTicker)) {
-    for (const event of events) {
-      const person = personOf(event);
-      if (!person) continue;
-      const bucket = byPerson.get(person) ?? {
-        person,
-        role: roleOf(event),
-        events: [],
-        newest: "",
-      };
-      bucket.events.push(event);
-      byPerson.set(person, bucket);
-    }
-  }
-  for (const bucket of byPerson.values()) {
-    bucket.events.sort((a, b) => String(b.event_date).localeCompare(String(a.event_date)));
-    bucket.newest = String(bucket.events[0]?.event_date ?? "");
-  }
-  return [...byPerson.values()].sort((a, b) => b.newest.localeCompare(a.newest));
-}
 
 function PersonCard({
   bucket,
@@ -140,9 +72,53 @@ function PersonCard({
   );
 }
 
+/** Congress buys as a stock screen: which names are members of congress buying. */
+function CongressStockList({
+  data,
+  names,
+}: {
+  data: EvidenceResponse;
+  names: Record<string, string>;
+}) {
+  const rows = congressByStock(data.events_by_ticker);
+  if (rows.length === 0) {
+    return <p className="state">Keine Kongress-Käufe in den letzten 30 Tagen gemeldet.</p>;
+  }
+  return (
+    <div className="voice-grid">
+      {rows.map((row) => {
+        const name = names[row.ticker];
+        const shownBuyers = row.buyers.slice(0, 3).join(", ");
+        const moreBuyers = row.buyers.length - Math.min(3, row.buyers.length);
+        return (
+          <article className="panel person-card" key={row.ticker}>
+            <div className="person-head">
+              <span className="person-name">
+                {name ? shortCompanyName(name) : row.ticker}
+              </span>
+              <span className="ticker">{row.ticker}</span>
+              <Chip>
+                {row.buys} {row.buys === 1 ? "Kauf" : "Käufe"} ·{" "}
+                {row.buyers.length} {row.buyers.length === 1 ? "Mitglied" : "Mitglieder"}
+              </Chip>
+            </div>
+            <p className="person-score">
+              {shownBuyers}
+              {moreBuyers > 0 ? ` +${moreBuyers} weitere` : ""} — letzte Meldung{" "}
+              <span className="tnum">{row.latest}</span>. Gezählt werden Pflichtmeldungen,
+              keine Empfehlungen.
+            </p>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 export function PeoplePanel() {
   const [data, setData] = useState<EvidenceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<"personen" | "kongress">("personen");
 
   useEffect(() => {
     let ignore = false;
@@ -163,6 +139,7 @@ export function PeoplePanel() {
 
   const buckets = buildBuckets(data.events_by_ticker);
   const scoreByPerson = new Map(data.person_scores.map((s) => [s.person, s]));
+  const names = data.names ?? {};
 
   return (
     <>
@@ -183,7 +160,24 @@ export function PeoplePanel() {
         deshalb an jeder Zeile.
       </Explain>
 
-      {buckets.length === 0 ? (
+      <div className="tabbar">
+        <button
+          className={tab === "personen" ? "tab active" : "tab"}
+          onClick={() => setTab("personen")}
+        >
+          Nach Person
+        </button>
+        <button
+          className={tab === "kongress" ? "tab active" : "tab"}
+          onClick={() => setTab("kongress")}
+        >
+          Kongress: welche Aktien
+        </button>
+      </div>
+
+      {tab === "kongress" ? (
+        <CongressStockList data={data} names={names} />
+      ) : buckets.length === 0 ? (
         <p className="state">Keine personenbezogenen Ereignisse in den letzten 30 Tagen.</p>
       ) : (
         <div className="voice-grid">
@@ -191,7 +185,7 @@ export function PeoplePanel() {
             <PersonCard
               key={bucket.person}
               bucket={bucket}
-              names={data.names ?? {}}
+              names={names}
               score={scoreByPerson.get(bucket.person)}
             />
           ))}
