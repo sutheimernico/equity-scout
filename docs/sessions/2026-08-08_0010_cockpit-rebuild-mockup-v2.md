@@ -44,6 +44,36 @@ Quote-Cache, Pitch-Kontext mit bucket.
    morgen prüfen.
 4. **merge nach main** wie immer deine Entscheidung; autopilot/work ist grün.
 
+## Nachtrag gleiche Session (Nico live im Chat, 4 Aufträge)
+
+1. **Insider-Käufe wieder screenen** → Root Cause war KEIN Rate-Limit: Die SEC liefert
+   `primaryDocument` inzwischen als `xslF345X06/primarydocument.xml` (HTML-Rendering) —
+   der Collector scheiterte seit Tagen an JEDEM US-Ticker. Fix: XSL-Präfix strippen
+   (rohes XML liegt an der Accession-Wurzel), Regressionstest, Live-Lauf: 17/30 Ticker
+   sauber, erstes Insider-Event in der DB (PKBK, CEO-Kauf ~44 T$).
+2. **„Kann nichts kaufen/ablehnen"** → kein Bug: 0 offene Pitches (28 unter der
+   Qualitätsschwelle am 07.08., 1 gekauft, 27 verfallen). UI-Fix: ehrliche
+   Leerzustand-Karte in Entscheiden (warum nichts offen ist + Link zu Aktien).
+3. **Autopilot-Verwirrung** → jede Depot-Sicht erklärt jetzt, wonach ihr Automat kauft
+   (Langfrist: ETF-Regeln, nie Einzelaktien; Kurzfrist: 3 feste Taktiken; „Du": der
+   Vergleichs-Zwilling, der jeden In-Zone-Scout-Vorschlag automatisch kauft);
+   „Wie funktioniert das?" benennt alle drei.
+4. **Assistent soll empfehlen (Policy-Wende!):** Nicos Direktive — private App, er WILL
+   Empfehlungen. Feste Ablehnung raus; Advice-Fragen laufen durchs LLM mit
+   EMPFEHLUNGS-AUFTRAG (Urteil + Fakten + Risiko + Kipp-Bedingung) und offenen Pitches
+   im Kontext; System-Prompt erlaubt begründete Favoriten; kuratiertes
+   KNOWLEDGE_STRATEGIES (Maßstab „beste" + Einordnung aller 8 Regelwerke). Live-Eval:
+   3/3 Empfehlungs-Fragen PASS, Strategie-Antwort nennt Favorit Multi-Strategie-Mix mit
+   Begründung + ehrlichem „Forward-Track zu jung". Eval-Cases an den neuen Vertrag
+   angepasst. Hinweis: README-Framing („research assistant, not investment advice")
+   bleibt fürs öffentliche Repo bestehen — die Empfehlungs-Funktion ist Nicos privater
+   Betrieb.
+
+Gates nach dem Nachtrag: 1741 Backend- + 110 Frontend-Tests, Build, deployt.
+Kaltstart nach Service-Neustart gemessen: 228 s bis zum 1. Token (Modell-Reload),
+warm 75–101 s bei Empfehlungs-Fragen (längerer Kontext) — die GPU/API-Frage wird
+mit dem Empfehlungs-Modus noch relevanter.
+
 ## Einstieg für die nächste Session
 Branch `autopilot/work`, alles committet und deployt. Der Cockpit-Hook ist stumm
 (Outcome: DONE). Parallelstrang v15 (P2/P3) wartet weiter auf Nicos Go — Koordination
