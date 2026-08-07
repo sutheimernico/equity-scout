@@ -89,9 +89,9 @@
 
 **Files:** Create `scripts/run_history_backfill.py`.
 
-- [ ] **Step 1:** Script with `--source {congress,form4,statements}` + `--apply` (dry-run default prints would-insert counts), threading `now` once from `main()`, per-source cursors. `main() -> int`, `sys.exit(main())`, docstring-as-description — the repo script template.
-- [ ] **Step 2 (live, requires network):** Run congress + statements fully, form4 for the two most recent quarters (full 2006→ run is a multi-hour resumable job — kick it off, note progress in the Outcome). Then `run_history_resolve.py --apply` in batches, then `run_history_report.py`.
-- [ ] **Step 3:** Full gate; commit; fill this plan's Outcome section with: row counts per source, coverage/survivorship percentages, and the first base-rate table. **The report's numbers go to Nico for the P2 lane-design decisions — they are evidence, not an automatic go.**
+- [x] **Step 1:** Script with `--source {congress,form4,statements}` + `--apply` (dry-run default prints would-insert counts), threading `now` once from `main()`, per-source cursors. `main() -> int`, `sys.exit(main())`, docstring-as-description — the repo script template. *(Done: a52be5b, 26 module tests, gate 1718.)*
+- [x] **Step 2 (live, requires network):** Run congress + statements fully, form4 for the two most recent quarters (full 2006→ run is a multi-hour resumable job — kick it off, note progress in the Outcome). Then `run_history_resolve.py --apply` in batches, then `run_history_report.py`. *(Done — form4 ran to completion, not just two quarters. Resolution is the blocker, see Outcome P0.)*
+- [x] **Step 3:** Full gate; commit; fill this plan's Outcome section with: row counts per source, coverage/survivorship percentages, and the first base-rate table. **The report's numbers go to Nico for the P2 lane-design decisions — they are evidence, not an automatic go.**
 
 ---
 
@@ -101,4 +101,127 @@ After Task 7, `docs/research/history-study-report.json` exists with n, coverage,
 
 ## Outcome
 
-(filled after execution)
+**Status: ingestion COMPLETE, resolution BLOCKED at 2.9% coverage.** All three collectors ran
+live against their real sources and the store now holds 50,955 point-in-time events spanning
+2006-01-03 → 2026-08-05. The forward-return resolver, however, converged after two full passes
+with only 2.9% of those events measured and **96.7% never evaluated at all** — not buried, not
+counted as survivorship, simply never looked at. The cause is a single Task-5 constant and is
+written up as P0 below. **The
+base-rate table further down is therefore NOT decision-grade for the P2 lane design.**
+
+### Row counts per source (live runs, 2026-08-07)
+
+| Source | Ingested | Detail |
+|---|---|---|
+| congress & executive filers | **23,274** events | 440 filers from the full index, 0 failed, 65,859 transaction rows read; discarded: no ticker 7,925, not a stock purchase 2,137, duplicate 1,575, malformed 0, no date 0 |
+| insider clusters (form4) | **27,681** events | **82/82 quarters ok, 2006q1 → 2026q2 — the full 2006→ walk finished** (~7 min, not the estimated multi-hour job); 0 event_key collisions, 3,564 quarter-boundary candidates (structurally invisible, Decision 8), 61 mixed-issuer clusters. Cursor `history_form4_cursor = 2026q2`, i.e. caught up. No `fetch_failed` on the newest quarter — Decision 7's publication lag did not materialise this run |
+| statements | **0** events (dry-run only) | Decision 9 enforced by the runner: 78,728 corpus rows (twitter 54,324 + truth_social 24,404) → 132 candidates → 10 raw events → **0 genuine**, `published: false`. Re-measured live, never written. Coverage gap confirmed: Twitter ends 2021-01-08, Truth Social starts 2022-02-14 |
+
+`--apply --source statements` exits 2 without touching the database, with the burial reason in
+both the refusal message and `--help`.
+
+### Delisting probe (Decision 11 + the Task-5 review flag) — PASSED
+
+15 known delisted/acquired tickers with t0 set 6–14 months before their delisting, plus 2 live
+CONTROLS and 25 live FILLER names (so the dead share per chunk stays under the resolver's 30%
+threshold), in a throwaway scratchpad DB. Result:
+
+* **14/15 dead names → `unresolvable_no_price_history`** (Yahoo carries no history at all for
+  them: FRC, SIVB, ATVI, TWTR, SGEN, SPLK, VMW, MON, TIF, ETFC, WORK, XLNX, MXIM, ALXN).
+* **1/15 → `resolved_then_buried`** (JUNO: r_1w +11.91% and three more horizons genuinely
+  measured, r_12m buried as `no_price_history`) — exactly Decision 4's partially-measured case.
+* **0 fabricated tails.** No dead name reached `resolved_fully`, and none carried five horizons.
+* Controls AAPL/MSFT → `resolved_fully` (5 horizons each); filler 25/25 `resolved_fully`. The
+  probe therefore fails in both directions, not just one.
+
+`mask_stale_tail=True` does what the Task-5 review claimed it does. Resolution `--apply` was
+released on this evidence.
+
+### P0 — the resolver cannot measure a 20-year universe (blocks the study, not the ingestion)
+
+`run_history_resolve` groups the open queue into alphabetical chunks of 50 tickers and skips a
+whole chunk when more than `MAX_MISSING_SHARE = 0.30` of its tickers come back without a price
+column, on the reasoning that "mass failure smells like throttling, not like 20 simultaneous
+delistings" (`run_history_resolve.py:167`). That reasoning holds for the live lanes. It does not
+hold for a 2006→ universe, where **32%–94% of the tickers in a given alphabetical range really
+are delisted**. Measured over the two passes:
+
+| | Pass 1 (50,945 open) | Pass 2 (49,870 open) |
+|---|---|---|
+| chunks measured | 4 / 180 | **0 / 177** |
+| chunks skipped, `>30% ohne Spalte` | 111 (31,583 events) | 129 |
+| chunks skipped, `Benchmark SPY fehlt` | 65 (18,084 events) | 47 |
+| newly resolved | 991 | **0** |
+
+The second pass resolved nothing and the structural guard fired on *more* chunks than the first
+(129 vs 111), because every live name that resolves leaves the queue and raises the dead share of
+what remains. **The loop diverges: re-running makes coverage worse, never better.** The
+`Benchmark SPY fehlt` chunks are genuine transient Yahoo throttling and would self-heal; the
+`>30%` chunks never will.
+
+Consequence for the numbers below: the measured slice is not a random sample of the corpus. It is
+precisely those alphabetical ticker ranges that happened to contain the *fewest* delistings — a
+survivorship bias on top of the one the report's disclaimer already states. Treat the effect sizes
+as an upper bound of an upper bound.
+
+Not fixed here on purpose: `MAX_MISSING_SHARE` is Task 5's constant, reviewed and ratified, and
+Task 7's scope is the runner plus the first run. Needs Nico / the controller. The plausible fix is
+an additive resolver parameter (default = live behaviour unchanged) that raises or disables the
+share guard for the history job, keeping the per-ticker re-check as the burial gate — the re-check
+is what actually distinguishes a throttle from a delisting, and the probe shows it works.
+
+### Coverage / survivorship (from `docs/research/history-study-report.json`)
+
+Columns are disjoint and sum to the event count (a partially-measured row counts as measured,
+not as untouched — it is also still `open`, which is why the report's `offen` is larger).
+
+| Class | Events | r_1w measured | all 5 measured | unresolvable | never evaluated |
+|---|---|---|---|---|---|
+| congress & executive | 23,274 | 1,027 (4.4%) | 448 (1.9%) | 35 (`no_price_history` 33, `benchmark_self` 2) | 22,212 (95.4%) |
+| insider clusters | 27,681 | 454 (1.6%) | 439 (1.6%) | 163 (`no_price_history` 100, `panel_gap` 63) | 27,064 (97.8%) |
+| statements | 0 | — | — | — | measured negative result, not a gap |
+| **total** | **50,955** | **1,481 (2.9%)** | **887 (1.7%)** | **198 (0.4%)** | **49,276 (96.7%)** |
+
+The `unresolvable` column — the survivorship bucket this study exists to count honestly — is
+**0.4%**, which is far too small to be believable for a 2006→ universe and is itself an artefact
+of the P0: the delisted names are sitting in the never-evaluated column instead of being counted.
+The probe proves they *would* be counted correctly if the chunks were ever measured.
+
+### First base-rate table (relative to SPY, entry = close of first panel date ≥ t0)
+
+> **Caveat, carried inline per the Task-6 review:** "N cells with direction agreement" is **not**
+> a P2 go/no-go input — the gate is a sign comparison, not a significance test. The report emits
+> 54 gated cell-horizons, 38 direction-agreeing, ~27 expected from pure noise. The decision-grade
+> outputs are the coverage block above and the effect sizes against their stderr below. On 1.7%
+> coverage from a non-random slice, neither supports a lane decision yet.
+
+| Class | Horizon | n | hit rate (fit / validate) | Ø rel. return ± stderr |
+|---|---|---|---|---|
+| congress | r_1w | 1,027 | 58.3% (49.4 / 62.5) | **+0.74% ± 0.12pp** |
+| congress | r_1m | 1,005 | 46.1% (45.1 / 46.5) | +0.42% ± 0.30pp |
+| congress | r_3m | 535 | 42.4% (42.6 / 42.1) | **−1.68% ± 0.61pp** |
+| congress | r_6m | 495 | 40.6% (39.0 / 43.8) | **−2.44% ± 0.90pp** |
+| congress | r_12m | 448 | 41.3% (42.3 / 38.5) | **−3.52% ± 1.50pp** |
+| insider clusters | r_1w | 454 | 52.2% (55.4 / 44.9) | +1.29% ± 0.59pp |
+| insider clusters | r_1m | 454 | 51.8% (53.8 / 47.1) | +0.81% ± 0.85pp (directions disagree) |
+| insider clusters | r_3m | 451 | 50.1% (50.6 / 48.9) | +6.25% ± 3.16pp |
+| insider clusters | r_6m | 448 | 48.7% (52.2 / 40.2) | +12.70% ± 6.60pp |
+| insider clusters | r_12m | 439 | 43.3% (50.0 / 26.0) | +11.45% ± 6.86pp (directions disagree) |
+
+Read with the caveat above, the only effects clearing ~2 stderr are congress's **negative** medium-
+horizon means (r_3m −2.8σ, r_6m −2.7σ, r_12m −2.3σ) alongside a small positive r_1w (+6σ, but on a
+0.74% mean — plausibly the filing-day drift, not a tradable edge after costs). Congress purchases
+under-performing SPY over 3–12 months would kill that lane cheaply, which the plan explicitly
+names as a valid result — but not on 1.9% coverage of a slice selected for survivorship. The
+insider r_6m/r_12m means are large and entirely inside their own stderr, and their fit/validate
+hit rates diverge hard (52.2 → 40.2, 50.0 → 26.0), i.e. no stable direction.
+
+### Verdict
+
+Ingestion and enforcement are done and correct. The study is **not** ready to inform P2: it needs
+the P0 resolved and a re-run, after which the coverage block is the first thing to re-read. No
+lane should be designed or killed on this table.
+
+*(Done: a52be5b runner + 26 tests, gate 1718 green; report JSON + this Outcome in the follow-up
+commit. Live runs 2026-08-07: congress 23,274, form4 82/82 quarters → 27,681, statements 0/10
+buried, probe PASSED, resolve 1,481 measured of 50,955.)*
