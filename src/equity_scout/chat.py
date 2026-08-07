@@ -12,6 +12,9 @@ import os
 
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
+# How long Ollama holds the model in RAM after a call (~5 GB for qwen2.5:7b).
+KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "24h")
+MAX_ANSWER_TOKENS = 400
 
 SYSTEM_PROMPT = (
     "Du bist der Assistent von equity-scout, einem lokalen Recherche-Tool (Paper-Trading, "
@@ -159,6 +162,11 @@ def ask_ollama(
     payload = {
         "model": model,
         "stream": False,
+        # Keep the model resident for a day: the 2026-08-07 measurement paid a 90 s cold
+        # start on the first question. Costs RAM while idle, saves ~80 s per first answer.
+        "keep_alive": KEEP_ALIVE,
+        # A phone answer needs ~10 lines, not an essay; shorter generation = faster done.
+        "options": {"num_predict": MAX_ANSWER_TOKENS},
         "messages": [
             {"role": "system", "content": f"{SYSTEM_PROMPT}\n\nDATEN-Kontext:\n{context}"},
             {"role": "user", "content": question},

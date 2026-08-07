@@ -78,3 +78,27 @@ def test_glossary_explains_the_key_figures_and_filings() -> None:
 def test_system_prompt_rules_comparisons_without_a_winner() -> None:
     assert "Kennzahl für Kennzahl" in SYSTEM_PROMPT
     assert "Sieger" in SYSTEM_PROMPT
+
+
+def test_ask_ollama_keeps_the_model_warm_and_caps_length(monkeypatch) -> None:
+    captured: dict = {}
+
+    class _Resp:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict:
+            return {"message": {"content": "ok"}}
+
+    def fake_post(url, json=None, timeout=None):  # noqa: ANN001, ANN202
+        captured.update(json)
+        return _Resp()
+
+    import httpx
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    from equity_scout.chat import ask_ollama
+
+    ask_ollama("Frage?", "Kontext")
+    assert captured["keep_alive"] == "24h"
+    assert captured["options"]["num_predict"] == 400
