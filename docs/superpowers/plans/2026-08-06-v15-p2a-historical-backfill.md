@@ -216,7 +216,7 @@ names as a valid result — but not on 1.9% coverage of a slice selected for sur
 insider r_6m/r_12m means are large and entirely inside their own stderr, and their fit/validate
 hit rates diverge hard (52.2 → 40.2, 50.0 → 26.0), i.e. no stable direction.
 
-### Verdict
+### Verdict (superseded — see the post-fix rerun below)
 
 Ingestion and enforcement are done and correct. The study is **not** ready to inform P2: it needs
 the P0 resolved and a re-run, after which the coverage block is the first thing to re-read. No
@@ -225,3 +225,44 @@ lane should be designed or killed on this table.
 *(Done: a52be5b runner + 26 tests, gate 1718 green; report JSON + this Outcome in the follow-up
 commit. Live runs 2026-08-07: congress 23,274, form4 82/82 quarters → 27,681, statements 0/10
 buried, probe PASSED, resolve 1,481 measured of 50,955.)*
+
+### Post-fix rerun — 2026-08-07 19:36–20:26 CEST (final)
+
+After `e65cf4e` (history-mode guard overrides) the driver (`scripts/drive_history_resolve.sh`,
+`--max-missing-share 1.0 --max-rechecks 50`) converged in **two passes** (~50 min): pass 1
+resolved 33,167 events (28,583 fully, 4,542 partially, 42 partially+delisted) and buried 16,050
+(13,710 `no_price_history` — the survivorship bucket the old guard hid in "never evaluated" —
+2,286 `panel_gap`, 54 `benchmark_self`); pass 2 moved nothing → converged. 5,237 stay open
+legitimately (young events / capped rechecks, drain on future runs).
+
+**Coverage per class:** congress & executive filers 23,274 events, 2,411 unresolvable, 4,505 open,
+~16–21k measured per horizon; insider clusters 27,681 events, 13,837 unresolvable (insider
+mortality is real: half the 2006→ cluster names are gone), 732 open, ~13–14k measured per horizon.
+Multiplicity header: **162 cell-horizons gated, 92 direction-agreeing, ~81 expected from noise.**
+
+| Class | Horizon | n | hit (fit / val) | Ø rel. return ± stderr |
+|---|---|---|---|---|
+| congress | r_1w | 20,792 | 50.5 (49.5 / 51.5) | +0.15% ± 0.03pp (directions disagree) |
+| congress | r_1m | 20,114 | 47.7 (48.0 / 47.3) | +0.06% ± 0.07pp |
+| congress | r_3m | 19,218 | 46.4 (47.8 / 44.7) | −0.22% ± 0.13pp |
+| congress | r_6m | 18,544 | 45.0 (46.4 / 43.1) | −0.63% ± 0.19pp |
+| congress | r_12m | 16,358 | 43.7 (45.9 / 39.7) | −0.39% ± 0.33pp (directions disagree) |
+| insider clusters | r_1w | 13,856 | 51.6 (51.7 / 51.0) | **+2.08% ± 0.97pp** |
+| insider clusters | r_1m | 13,856 | 48.4 (49.0 / 46.4) | +10.49% ± 8.15pp (outlier-driven stderr) |
+| insider clusters | r_3m | 13,694 | 47.0 (48.3 / 42.9) | **+2.55% ± 0.67pp** |
+| insider clusters | r_6m | 13,492 | 44.7 (46.3 / 39.6) | +4.12% ± 1.15pp (directions disagree) |
+| insider clusters | r_12m | 13,112 | 43.3 (46.2 / 32.9) | +7.91% ± 1.64pp |
+
+**Reading (with the standing caveats — direction agreement is a sign test, not significance; 162
+gated cells expect ~81 spurious agreements):** full coverage substantially revises the biased
+1.9% slice above — congress's "strong negative" medium horizons shrink to −0.2…−0.6% (tiny, and
+r_12m directions disagree); the congress lane shows **no economically meaningful edge in either
+direction** on 16–21k measurements per horizon. Insider clusters keep positive means clearing
+2–3 stderr on r_1w/r_3m/r_12m, but validate hit rates decay hard with horizon (51.0 → 32.9),
+and the means sit far above the hit rates — outlier-carried, not broad-based. **Decision-grade
+inputs for P2 are this coverage block and the effect sizes vs stderr — Nico's call, not the
+loop's.** Statement class: measured dead (0/10 genuine), published as an explicit negative.
+
+*(Rerun commits: e65cf4e resolver overrides, 3724227 runner hardening; report JSON refreshed by
+the driver and committed with this Outcome. Full form4 walk was ~7 min, not multi-hour as planned
+— the SEC ZIPs are small; the resolve pass dominated at ~48 min.)*
