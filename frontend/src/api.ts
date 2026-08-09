@@ -1173,3 +1173,59 @@ export async function fetchCompany(ticker: string): Promise<CompanyResponse> {
   if (!response.ok) throw new Error(`/api/company returned ${response.status}`);
   return response.json();
 }
+
+// --- Manual chain triggers (src/equity_scout/api.py → /api/jobs) ---
+// The cockpit refresh buttons. "blocked" is what an UNFORCED start would run into:
+// the chain's own day/week marker, or the daily chain's weekday guard.
+export interface JobProgress {
+  current: string | null;
+  current_since: string | null;
+  done_count: number;
+  expected_total: number;
+  failed: string[];
+  started_at: string | null;
+}
+
+export interface JobState {
+  key: string;
+  label: string;
+  running: boolean;
+  blocked: "already_ran" | "weekend" | null;
+  last_run: string | null;
+  progress: JobProgress;
+  tail: string[];
+  // Full refresh only: when each of its three phases last ran.
+  sub_runs?: Record<string, string | null>;
+}
+
+export interface JobsResponse {
+  jobs: JobState[];
+  disclaimer: string;
+}
+
+export async function fetchJobs(): Promise<JobsResponse> {
+  // no-store: the service worker's stale-while-revalidate cache would serve a finished
+  // run's status while a chain is live, which is the one thing this view must not do.
+  const response = await fetch("/api/jobs", { cache: "no-store" });
+  if (!response.ok) throw new Error(`/api/jobs returned ${response.status}`);
+  return response.json();
+}
+
+export interface StartJobResponse {
+  started?: boolean;
+  forced?: boolean;
+  reason?: "already_ran" | "weekend";
+  error?: string;
+  job?: JobState;
+  status: number; // 200 started/blocked · 404 unknown key · 409 a chain holds the lock
+}
+
+export async function startJob(key: string, force: boolean): Promise<StartJobResponse> {
+  const response = await fetch(`/api/jobs/${encodeURIComponent(key)}/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ force }),
+  });
+  const body = (await response.json()) as Omit<StartJobResponse, "status">;
+  return { ...body, status: response.status };
+}
