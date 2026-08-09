@@ -6,6 +6,7 @@ import json
 import hmac
 import os
 import re
+import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
@@ -1516,6 +1517,74 @@ def create_app(
         # Return the updated row so the dashboard can update in place without a refetch.
         return JSONResponse(
             {"ok": True, "pitch": get_pitch(db_path, pitch_id), "disclaimer": DISCLAIMER}
+        )
+
+    # --- Manual chain triggers (cockpit refresh buttons, 2026-08-09) ---
+    # The module is imported lazily and its functions are looked up through the module
+    # object on every call, so tests can monkeypatch start_job/busy_lock/blocked_reason.
+    @app.get("/api/jobs")
+    def jobs_status() -> JSONResponse:
+        from equity_scout import jobs as jobs_mod
+
+        now = datetime.now()
+        return JSONResponse(
+            {
+                "jobs": [
+                    jobs_mod.job_status(spec, jobs_mod.REPO_ROOT, now=now)
+                    for spec in jobs_mod.JOBS.values()
+                ],
+                "disclaimer": DISCLAIMER,
+            }
+        )
+
+    @app.post("/api/jobs/{key}/start")
+    def jobs_start(key: str, body: dict) -> JSONResponse:
+        from equity_scout import jobs as jobs_mod
+
+        spec = jobs_mod.JOBS.get(key)
+        if spec is None:
+            return JSONResponse({"error": "Unbekannter Job."}, status_code=404)
+        force = bool((body or {}).get("force"))
+        root = jobs_mod.REPO_ROOT
+
+        # The lock is never bypassed, not even by force: all chains write the same
+        # SQLite databases, so concurrency is an integrity guard, not a policy one.
+        busy = jobs_mod.busy_lock(spec, root)
+        if busy is not None:
+            return JSONResponse(
+                {
+                    "error": f"Läuft bereits ({busy}).",
+                    "job": jobs_mod.job_status(spec, root, now=datetime.now()),
+                },
+                status_code=409,
+            )
+
+        # datetime.now().date() and not date.today(): a module-level `date` import is
+        # shadowed by a loop variable further up this file (ruff F402).
+        reason = jobs_mod.blocked_reason(spec, root, today=datetime.now().date())
+        if reason is not None and not force:
+            # Nothing started, and the panel says so — an unforced start would have been
+            # a quiet no-op inside the wrapper, which is exactly what must not happen
+            # behind a button.
+            return JSONResponse(
+                {
+                    "started": False,
+                    "reason": reason,
+                    "job": jobs_mod.job_status(spec, root, now=datetime.now()),
+                }
+            )
+
+        try:
+            jobs_mod.start_job(spec, root, force=force)
+        except (subprocess.CalledProcessError, OSError) as exc:
+            detail = getattr(exc, "stderr", None) or str(exc)
+            return JSONResponse({"error": f"Start fehlgeschlagen: {detail}"}, status_code=500)
+        return JSONResponse(
+            {
+                "started": True,
+                "forced": force,
+                "job": jobs_mod.job_status(spec, root, now=datetime.now()),
+            }
         )
 
     @app.get("/api/arena")
