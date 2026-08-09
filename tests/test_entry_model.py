@@ -211,7 +211,9 @@ def test_score_row_refuses_a_row_missing_a_fitted_feature_column():
     y = pd.Series([0, 1] * 20)
     model = train_entry_model(X, y, model="elastic_net")
 
-    with pytest.raises(ValueError, match="missing"):
+    # "fitted on" is unique to the guard's own message (sklearn's NaN ValueError also says
+    # "missing", so matching that word alone would stay green even with the guard removed).
+    with pytest.raises(ValueError, match="fitted on"):
         model.score_row({"a": 0.5})
 
     assert 0 <= model.score_row({"a": 0.5, "b": 0.5, "unused": 9.9}) <= 100
