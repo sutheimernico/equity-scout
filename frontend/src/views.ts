@@ -49,7 +49,7 @@ export const SHEET_NOTES: Record<string, string> = {
   ergebnisse: "Funktioniert das alles? Die ehrliche Auswertung.",
   werkauft: "Politiker, Insider, Fonds & bekannte Stimmen.",
   wie: "Die App in sechs einfachen Antworten.",
-  labor: "Strategien, Modelle, Lernkurven — für Neugierige.",
+  labor: "Strategien, Modelle, Lernkurven — und Daten aktualisieren.",
 };
 
 /** Pre-v7 view keys → their new home, so old Telegram deep links keep landing

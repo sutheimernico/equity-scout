@@ -8,9 +8,11 @@ import { MLSection } from "./MLSection";
 import { ModelPanel } from "./ModelPanel";
 import { Portfolio } from "./Portfolio";
 import { RadarPanel } from "./RadarPanel";
+import { RefreshPanel } from "./RefreshPanel";
 import { StrategyDashboard } from "./StrategyDashboard";
 
 type LaborTab =
+  | "aktualisieren"
   | "strategien"
   | "modell"
   | "filter"
@@ -24,6 +26,8 @@ type LaborTab =
 // was deleted in the rebuild: the raw Screener and Radar views and the research paper
 // depots (Screener-Depot, Strategie-Forward, ML-Bots) moved here from the old nav.
 const TABS: { key: LaborTab; label: string }[] = [
+  // First: the one tab you come here to DO something in, not to read.
+  { key: "aktualisieren", label: "Aktualisieren" },
   { key: "strategien", label: "Strategien" },
   { key: "modell", label: "Entry-Modell" },
   { key: "filter", label: "Signal-Filter" },
@@ -95,6 +99,7 @@ export function LaborView() {
         ))}
       </div>
 
+      {tab === "aktualisieren" && <RefreshPanel />}
       {tab === "strategien" && <StrategyDashboard />}
       {tab === "modell" && <ModelPanel />}
       {tab === "filter" && <MLSection />}

@@ -3675,3 +3675,98 @@ li.pd-alloc-row {
   white-space: normal;
   text-align: right;
 }
+
+/* Cockpit refresh panel (Labor → Aktualisieren, 2026-08-09) */
+.refresh-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.refresh-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.refresh-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.refresh-card-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.refresh-state {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.refresh-state.running {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.refresh-note,
+.refresh-last,
+.refresh-blocked,
+.refresh-message {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.refresh-blocked {
+  color: var(--warning);
+}
+
+.refresh-subruns {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.refresh-subruns li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.15rem 0;
+}
+
+.refresh-button {
+  align-self: flex-start;
+  min-height: 44px; /* phone tap target */
+  padding: 0 1.1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-raised);
+  color: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.refresh-button:disabled {
+  opacity: 0.55;
+}
+
+.refresh-log pre {
+  max-height: 40vh;
+  overflow: auto;
+  padding: 0.5rem;
+  background: var(--bg-inset);
+  border-radius: 8px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
