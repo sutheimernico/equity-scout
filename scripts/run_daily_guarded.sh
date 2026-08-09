@@ -7,14 +7,20 @@
 # skip by design — the holder records its acquire time/PID/trigger in the lock
 # file (appended fd, separate truncating write) so a stuck run is identifiable
 # from copilot.log alone.
+# EQUITY_SCOUT_FORCE=1 is the cockpit's explicit "start it anyway" (2026-08-09).
+# Test seams: EQUITY_SCOUT_DAILY_STATE overrides the state dir, EQUITY_SCOUT_DAILY_LOG
+# the log.
 set -u
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LOG="$REPO_DIR/copilot.log"
-STATE_DIR="$REPO_DIR/.state"
+LOG="${EQUITY_SCOUT_DAILY_LOG:-$REPO_DIR/copilot.log}"
+STATE_DIR="${EQUITY_SCOUT_DAILY_STATE:-$REPO_DIR/.state}"
 MARKER="$STATE_DIR/daily_last_run"
 LOCK="$STATE_DIR/daily.lock"
 CHAIN="${EQUITY_SCOUT_CHAIN:-$REPO_DIR/scripts/daily_copilot.sh}"
+# The cockpit "Trotzdem starten" tap (2026-08-09): skips the marker and the weekend
+# guard, never the flock — those two are policy, the lock is data integrity.
+FORCE="${EQUITY_SCOUT_FORCE:-0}"
 mkdir -p "$STATE_DIR"
 
 # Weekdays only: a Saturday WSL start must not catch up Friday's missed slot.
@@ -22,7 +28,7 @@ mkdir -p "$STATE_DIR"
 # after a missed Friday) still stamps systemd's own timestamp file, permanently
 # consuming that Friday catch-up — that's intended (weekends are never made up),
 # but it must be diagnosable from copilot.log instead of vanishing silently.
-if [ "$(date +%u)" -gt 5 ]; then
+if [ "$FORCE" != "1" ] && [ "$(date +%u)" -gt 5 ]; then
   echo "[$(date -Is)] guarded: weekend trigger (${1:-unspecified}) — skipped by design, missed weekday slots are not made up on weekends" >> "$LOG"
   exit 0
 fi
@@ -38,7 +44,9 @@ fi
 printf '%s pid=%s trigger=%s\n' "$(date -Is)" "$$" "${1:-unspecified}" > "$LOCK"
 
 TODAY="$(date +%F)"
-if [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$TODAY" ]; then
+if [ "$FORCE" = "1" ]; then
+  echo "[$(date -Is)] guarded: FORCED run (trigger: ${1:-unspecified}) — marker and weekend guard bypassed" >> "$LOG"
+elif [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$TODAY" ]; then
   exit 0  # already ran today — quiet skip; redundant triggers are by design
 fi
 
