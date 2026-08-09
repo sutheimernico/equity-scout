@@ -214,17 +214,37 @@ def test_first_model_above_baseline_quality_bootstraps(tmp_path):
     assert entry_champion(db)[0] == v1
 
 
-def test_no_edge_challenger_blocked_even_with_large_apparent_delta(tmp_path):
-    """F2: the no-edge gate is checked independently of the AUC-delta gate. A weak-but-non-no-edge
-    champion (0.30 — the symmetric band only cares about distance from 0.5, direction is a separate,
-    pre-existing concern outside F2's scope) must not be displaceable by a no-edge challenger (0.50)
-    just because the raw numbers show a large gap."""
+def test_anti_predictive_challenger_never_displaces_legitimate_champion(tmp_path):
+    """F2 (one-sided `_no_edge`): a strongly anti-predictive challenger (0.30) must not displace an
+    existing LEGITIMATE champion (0.70), no matter how large the raw numeric gap looks.
+
+    Repurposed from a pre-fix version of this test that used an ANTI-PREDICTIVE value (0.30) as
+    the CHAMPION itself and asserted it bootstrapped successfully — that assertion embodied the
+    symmetric-`_no_edge` hole (I1): the old `abs(auc - 0.5)` check mistook "far from 0.5" for "has
+    a demonstrated edge" regardless of direction, so 0.30 cleared the band and became a fake
+    champion. Under the one-sided fix a 0.30 candidate can no longer become champion at all (see
+    `test_first_model_with_anti_predictive_auc_does_not_bootstrap`), so this test now demonstrates
+    the same "no-edge blocks regardless of apparent numeric gap" property one step later — against
+    an already-legitimate incumbent instead of via a hole-exploiting bootstrap."""
     db = str(tmp_path / "reg.db")
-    v1 = register_challenger(db, _model(1), metrics=_metrics(0.30), n_train=20, now=NOW)
+    v1 = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=20, now=NOW)
     assert promote_if_better(db, v1) is True
-    v2 = register_challenger(db, _model(2), metrics=_metrics(0.50), n_train=20, now=NOW)
-    assert promote_if_better(db, v2) is False  # no-edge, despite a nominal +0.20 "delta"
+    v2 = register_challenger(db, _model(2), metrics=_metrics(0.30), n_train=20, now=NOW)
+    assert promote_if_better(db, v2) is False  # anti-predictive: blocked outright, no delta fight
     assert entry_champion(db)[0] == v1
+
+
+def test_first_model_with_anti_predictive_auc_does_not_bootstrap(tmp_path):
+    """F2 (I1 fix): `_no_edge` is one-sided now — a candidate must clear 0.5 + NO_EDGE_BAND, not
+    just be far from 0.5 in EITHER direction. An anti-predictive AUC (0.44, distance 0.06 >=
+    NO_EDGE_BAND, which the old symmetric check would have crowned a champion) must not bootstrap
+    a fake champion just because the arena is empty. Anti-predictive models stay visible as
+    registered challengers (information for research) but never as champion — nothing downstream
+    (ModelPanel, /api/model/history) inverts scores to trade on the anti-predictive direction."""
+    db = str(tmp_path / "reg.db")
+    v1 = register_challenger(db, _model(1), metrics=_metrics(0.44), n_train=20, now=NOW)
+    assert promote_if_better(db, v1) is False
+    assert entry_champion(db) is None
 
 
 def test_registry_summary_shape_newest_first(tmp_path):

@@ -3,9 +3,10 @@
 Every trained model is registered as an immutable versioned row (the fitted model pickled into
 `artifact`, with its OOS metrics). Exactly one row is the champion. Promotion (`promote_if_better`)
 is gated on two things (F2, since nightly retrains are nightly trials and noise alone must not be
-able to swap the champion): (1) baseline quality — the metric clears the no-edge band (see
-`_no_edge`) and rests on at least `MIN_OOS_N` out-of-sample rows; a model that fails this is never
-promoted, not even as the FIRST champion — an empty arena has no champion rather than a fake one.
+able to swap the champion): (1) baseline quality — the metric clears the no-edge band on the
+PREDICTIVE side (see `_no_edge`) and rests on at least `MIN_OOS_N` out-of-sample rows; a model
+that fails this — including an anti-predictive one — is never promoted, not even as the FIRST
+champion — an empty arena has no champion rather than a fake one.
 (2) once a champion exists, a challenger must beat it by at least `MIN_AUC_DELTA`; a tie or a
 smaller improvement keeps the incumbent. An un-scored challenger (metric `None`, treated as −inf)
 never wins. The champion flip (unset old, set new) happens in one transaction.
@@ -38,9 +39,12 @@ MIN_AUC_DELTA = 0.01
 # too noisy to act on — the model registers as a challenger but never becomes champion.
 MIN_OOS_N = 200
 
-# |auc - 0.5| below this band = no demonstrated ranking edge (a coin flip). `_no_edge` below is the
-# single source of truth: it blocks promotion here AND is imported by the CLI (run_train_entry.py)
-# to explain a non-promotion honestly instead of silently going quiet.
+# auc below 0.5 + this band = no demonstrated PREDICTIVE ranking edge. One-sided on purpose: an
+# anti-predictive auc well below 0.5 is real information for research, but nothing downstream
+# inverts scores to trade on it, so it must not become — or displace — a champion any more than a
+# genuine coin flip would. `_no_edge` below is the single source of truth: it blocks promotion here
+# AND is imported by the CLI (run_train_entry.py) to explain a non-promotion honestly instead of
+# silently going quiet.
 NO_EDGE_BAND = 0.05
 
 
@@ -174,9 +178,14 @@ def _min_auc_delta(n_candidates: int) -> float:
 
 
 def _no_edge(auc: float | None) -> bool:
-    """No demonstrated ranking edge: AUC undefined/non-finite, or within a coin-flip band of 0.5.
-    Enforced here (not just printed by the CLI) so a null result can never become champion."""
-    return auc is None or abs(auc - 0.5) < NO_EDGE_BAND
+    """No demonstrated PREDICTIVE ranking edge: AUC undefined/non-finite, or not clearly above the
+    coin-flip line (< 0.5 + NO_EDGE_BAND). One-sided on purpose, not `abs(auc - 0.5)`: an
+    anti-predictive AUC is real information for research — it is still registered as a challenger
+    and visible there — but it must never become, or displace, a champion, because nothing
+    downstream (ModelPanel, /api/model/history) inverts scores to trade on the anti-predictive
+    direction. Enforced here (not just printed by the CLI) so a null OR anti-predictive result can
+    never become champion, first or not."""
+    return auc is None or auc < 0.5 + NO_EDGE_BAND
 
 
 def _n_oos(metrics_json: str) -> int:
@@ -212,9 +221,10 @@ def promote_if_better(
 ) -> bool:
     """Promote `version` to champion iff it clears the promotion gate (F2):
 
-    1. Baseline quality — its OOS `metric_key` is not a no-edge result (`_no_edge`) and rests on at
-       least `MIN_OOS_N` OOS rows. Applies even to the very first model: an empty arena has no
-       champion rather than a fake one bootstrapped off an undemonstrated edge.
+    1. Baseline quality — its OOS `metric_key` is not a no-edge result (`_no_edge`, one-sided: an
+       anti-predictive value fails this too) and rests on at least `MIN_OOS_N` OOS rows. Applies
+       even to the very first model: an empty arena has no champion rather than a fake one
+       bootstrapped off an undemonstrated — or anti-predictive — edge.
     2. If a champion already exists, `version` must beat it by at least `_min_auc_delta(n_candidates)`
        — nightly retrains are nightly trials, so noise alone (a tie or a marginally-better score)
        must not be able to swap the champion.
