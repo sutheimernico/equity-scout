@@ -357,8 +357,9 @@ realisiertem P&L/Win-Rate/Kosten als First-Class-Werten (`shortterm.db`), long-o
 Surfaces: Dashboard-Tab "Kurzfrist-Arena", /api/shortterm, Digest-Block "⚡". Framing
 unverändert ehrlich: Erwartung nach Kosten negativ — die Arena misst, sie verspricht nichts.
 - [ ] Backlog: Shorts in den Lanes erst mit Borrow/Margin-Realismus
-- [ ] Backlog: Session-Lane auf Alpaca-IEX-Echtzeit (kostenloser Key) umstellbar — würde das
+- [x] Backlog: Session-Lane auf Alpaca-IEX-Echtzeit (kostenloser Key) umstellbar — würde das
       Delay-Modell überflüssig machen; Needs Nico (Account)
+      DONE 2026-08-06: Lane läuft live auf Alpaca Paper, das Delay-Modell ist raus.
 
 ## Phase: Vision v12 — "One Autotrader" (2026-07-20) — DONE 2026-07-21
 Spec/Plan: `docs/superpowers/{specs,plans}/2026-07-20-vision-v12-one-autotrader.md`. Nico-Direktive
@@ -457,8 +458,32 @@ die beiden Zeiträume sind keine Serie. Fünf Defekte fand erst der Live-Betrieb
 Regressionstest gefixt): Exit für nie eröffnete Position; `pending_new` ist die EINZIGE
 Order-Antwort (der „filled"-Zweig war unerreichbar, 4 Orders liefen ungebucht); Menge nach dem
 Fill neu abgeleitet statt gebucht; jeder Exit wäre an `held_for_orders` gescheitert; Teilfüllung
-spaltete Buch und Broker. Offen: Verify einer vollen Session (Entry-Latenz eines
-cron-platzierten Fills), und ein „Session-Ende (flat)"-Exit ist live weiterhin unbelegt.
+spaltete Buch und Broker. Verify erledigt: 07.08. lief eine volle Session (324 Cron-Ticks,
+~5 s Entry-Latenz auf dem einen echten Cron-Fill), und der „Session-Ende (flat)"-Exit ist seit
+07.08. 15:45 ET live belegt (NFLX +6.08, TSLA −9.30 über den eigenen Flatten-Pfad).
+
+## Phase: Bracket-Leg-Fills zurücklesen (2026-08-09) — DONE 2026-08-09
+Sechster Live-Defekt derselben Familie, gefunden beim Nachlesen des 07.08.-Logs. Die
+Bracket-Legs liegen im Markt und feuern ohne uns (genau ihr Zweck, 21.07.-Ausfallmechanik) —
+aber das Buch las diese Fills NIE zurück: es führte die Position weiter, bis die eigenen Bars
+ein Exit-Signal erzeugten, dann lief `_close_position` in ein 404 und buchte den SIGNALPREIS.
+Messung am Live-Konto: **alle sechs Stop-Exits des 07.08.** so gebucht, jeder besser als der
+Markt gab (+1.26 USD auf 10k = 1.3 bps/Tag, systematisch einseitig), und keiner davon in
+`st_executions` — die Slippage-Statistik sah nur die selbst platzierten Orders.
+`session_reconcile.resolve_book_only` löst jetzt eine `book_only`-Abweichung über die
+Fill-Historie auf und bucht den echten Exit (Preis, Zeit, Menge) plus Execution-Zeile gegen
+den Preis, den das Leg wollte — erste Messung der Stop-Slippage überhaupt (META wollte 592.08,
+bekam 591.965 = −1.9 bps). Läuft vor Stale-Flatten, vor `decide()` UND vor dem Nachlauf-Sweep,
+der denselben Defekt durch die eigene Tür hatte. Grenze bleibt: `broker_only` und
+`qty_mismatch` werden nie geheilt, ein Fill vor der Positionseröffnung oder einer, der die
+Menge nicht deckt, löst zu nichts auf — Melden schlägt Raten. Zeitstempel werden als Instant
+verglichen (Buch stempelt New York, Alpaca antwortet UTC; als String sortiert ein 18:00Z-Fill
+hinter einen 15:45-04:00-Entry, den er in Wahrheit um vier Stunden unterschreitet).
+Replay gegen die echte Order-Historie: alle 6 Abweichungen lösen korrekt auf.
+- [ ] Nicht rückwirkend korrigiert: die 6 Trades vom 07.08. bleiben zum Signalpreis gebucht
+      (1.26 USD Bewertungsunschärfe, Präzedenz v13 15:57-Lauf). Rekonstruierbar wäre es —
+      die Kaskade über Cash/Valuations/Proof-Metriken ist das Risiko nicht wert. Falls doch:
+      die 6 fehlenden `st_executions`-Zeilen wären additiv nachtragbar.
 
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
