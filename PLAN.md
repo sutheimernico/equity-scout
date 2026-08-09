@@ -485,6 +485,25 @@ Replay gegen die echte Order-Historie: alle 6 Abweichungen lösen korrekt auf.
       die Kaskade über Cash/Valuations/Proof-Metriken ist das Risiko nicht wert. Falls doch:
       die 6 fehlenden `st_executions`-Zeilen wären additiv nachtragbar.
 
+## Phase: v15 P2 — Insider-Cluster-Schattenlane (2026-08-09) — DONE 2026-08-09
+Spec/Plan: `docs/superpowers/plans/2026-08-07-v15-p2-insider-shadow-lane.md` (Outcome dort).
+Die EINZIGE Evidenzklasse, die die P2a-Studie überlebt hat, bekommt eine vorab registrierte
+Vorwärtsspur — ohne Kapital: Detection (≥3 verschiedene Insider, `evidence/insider_shadow.py`),
+Runner (`scripts/run_insider_shadow.py`), Status-JSON, eigener Cron 18:45 Mo–Fr. Eine offene
+Vorhersage pro Ticker, EIN Horizont (63 Handelstage), Prior trägt die Out-of-Sample-Schwäche
+(+0,77 % ± 0,79pp) auf jeder Oberfläche mit. **Die Kongress-Lane ist auf den Zahlen tot** und
+bleibt reine Annotation. Zwei geerbte Wave-1-Defekte im Evidenz-Ledger mitgefixt: Kalender-
+statt Handelstag-Stempel (Zeilen wurden ~30 Tage zu früh „fällig") und ein Resolver, der ein
+VERSCHOBENES Fenster maß und als Ergebnis buchte (Test bewies `resolved: 1` vor dem Fix).
+1833 Tests, 25 neu.
+- [ ] Beobachten: die Lane hat 0 Zeilen registriert, weil `evidence_events` in der GESAMTEN
+      Historie nur 1 Insider-Ereignis hält (congress zum Vergleich: 671 in 30 Tagen). Ursachen
+      gemessen: Form-4-Kollektor war bis 08.08. defekt und lief seitdem durch keinen
+      Werktags-Lauf (erster: Mo 10.08. 18:00); nur 17 der 30 Watchlist-Titel sind überhaupt
+      Form-4-fähig (13 sind nicht-US), und die 17 sind Small Caps/Closed-End-Fonds. Ab Montag
+      prüfen, ob Filings ankommen — bleibt es leer, ist die Sichtfeld-Grenze das Thema,
+      nicht die Lane.
+
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
   `./scripts/install_dash_service.sh` erneut ausführen (Unit ist gestaged, aktiviert sich nur mit
