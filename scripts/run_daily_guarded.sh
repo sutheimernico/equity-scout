@@ -63,3 +63,8 @@ if [ "$rc" -eq 0 ]; then
 else
   echo "[$(date -Is)] guarded: chain FAILED (rc=$rc) — day NOT marked, next trigger will retry" >> "$LOG"
 fi
+
+# Propagate the chain's result (2026-08-09) — see run_weekly_guarded.sh for why: a skip
+# still exits 0 above, only a chain that actually ran reports its own rc, and
+# run_full_refresh.sh turns that into an honest FAILED phase in the cockpit.
+exit "$rc"

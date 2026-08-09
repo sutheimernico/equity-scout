@@ -85,3 +85,15 @@ def test_forced_run_ignores_the_week_marker(tmp_path) -> None:
     _run_forced(tmp_path, chain)   # cockpit "Trotzdem starten"
     assert _runs(tmp_path) == 2
     assert "FORCED" in (tmp_path / "scout_full.log").read_text()
+
+
+def test_failed_chain_propagates_its_exit_code(tmp_path) -> None:
+    # run_full_refresh.sh reads this rc to log the phase as FAILED instead of OK.
+    result = _run(tmp_path, _chain(tmp_path, exit_code=4))
+    assert result.returncode == 4
+
+
+def test_a_quiet_skip_still_exits_zero(tmp_path) -> None:
+    chain = _chain(tmp_path)
+    _run(tmp_path, chain)
+    assert _run(tmp_path, chain).returncode == 0  # marker skip is success, not failure

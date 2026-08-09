@@ -52,3 +52,9 @@ if [ "$rc" -eq 0 ]; then
 else
   echo "[$(date -Is)] weekly-guarded: full scout FAILED (rc=$rc) — week NOT marked, next trigger will retry" >> "$LOG"
 fi
+
+# Propagate the chain's result (2026-08-09). A skip still exits 0 above; only a chain that
+# actually ran reports its own rc. run_full_refresh.sh needs this to log a failed phase as
+# FAILED instead of OK — a cockpit that shows a green scout it never got is worse than no
+# cockpit at all.
+exit "$rc"
