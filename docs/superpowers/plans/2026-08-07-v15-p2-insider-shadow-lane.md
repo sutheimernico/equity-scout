@@ -1405,3 +1405,85 @@ Checked before this plan was handed over; findings fixed inline rather than left
 11. **Time-bomb check on the tests:** the two `main()` tests use the wall clock, so their fixtures are dated relative to today (`_seed_cluster_today`); everything else injects `now`. No test can start failing on a calendar date.
 
 ## Outcome
+
+**Ausgeführt 2026-08-09 (Sonntag), Branch `autopilot/work`. Alle 6 Tasks umgesetzt, Gate je Commit grün.**
+
+### Commits
+| Task | Commit | Inhalt |
+|---|---|---|
+| 1 | `005f209` | Detection-Modul + `SOURCE_INSIDER_SHADOW` (9 Tests) |
+| 2a | `eee23cc` | Handelstag-Stempel + `open_tickers`/`resolved_returns`, `_resolve_after` → `resolve_after_stamp` (4 Tests) |
+| 2b | `cc1f15f` | Resolver misst kein verschobenes Fenster mehr + `not_observable`-Zähler (1 Test) |
+| 3 | `dd5e6aa` | Runner (8 Tests) |
+| 4 | `41bf660` | Status-JSON mit Prior, Track-Stderr, Review-Vorbedingungen (3 Tests) |
+| 5 | `9772e7c` | Cron-Wrapper + README |
+
+Gate am Ende: **1833 pytest grün**, ruff repo-weit sauber. 25 neue Tests.
+
+### Task 2b: der Defekt war real und ist bewiesen
+Der neue Test `test_panel_starting_after_created_at_leaves_the_row_open` schlug vor dem Fix
+mit `{'resolved': 1}` fehl — der Resolver hat also tatsächlich ein verschobenes Fenster
+gemessen und als Ergebnis der Zeile gebucht. Jetzt bleibt die Zeile offen und zählt als
+`not_observable`.
+
+### Live-Läufe (Task 6)
+Dry-Run, echter Lauf und zweiter Lauf (Idempotenz) alle `[ok]`, Exit 0:
+
+```
+Insider-Schatten-Lane [ok]: 1 Insider-Ereignis(se) im 30-Tage-Fenster -> 0 Cluster;
+neu registriert: 0 (0 mit offener Vorhersage übersprungen).
+```
+
+**Registriert: 0 Zeilen.** Es gibt derzeit kein einziges 3-Insider-Cluster, also auch keine
+`resolve_after`-Daten. Das ist kein Defekt der Lane, sondern der Zustand ihres Inputs —
+und der ist der eigentliche Befund dieser Runde:
+
+### Befund: der Input ist fast leer (nicht im Plan vorhergesehen)
+`evidence_events` enthält in der **gesamten Historie genau 1** Insider-Ereignis
+(30.07.2026). Zum Vergleich, dieselben 30 Tage: congress 671, news_theme 216, voice 207,
+edgar_8k 38. Drei Ursachen, gemessen statt vermutet:
+
+1. **Der Form-4-Kollektor war bis 2026-08-08 defekt** (SEC-xsl-Präfix im `primaryDocument`,
+   gefixt in der Nacht 07.→08.08.). Der Fix ist bis heute durch **keinen** Werktags-Lauf
+   gegangen: 08.08. war Samstag, 09.08. Sonntag, die Daily-Chain läuft Mo–Fr 18:00. Der
+   erste echte Sammellauf mit funktionierendem Kollektor ist **Montag, 10.08., 18:00**.
+2. **Live-Verify des Kollektors (2026-08-09, gegen echtes EDGAR):** Status `ok`,
+   „5/12 Ticker geprüft → 0 Ereignisse; 0 ohne CIK-Mapping; 7 nicht-US übersprungen;
+   0 PIT-Verstöße verworfen". Der Kollektor läuft also, er findet nur nichts.
+3. **Strukturelle Sichtfeld-Grenze:** 17 der 30 Watchlist-Titel sind US-Emittenten und
+   damit überhaupt Form-4-fähig (57 %); 13 sind es nicht (`.NS`, `.T`, `.SA`, `.L`, `.AX`,
+   `.BR`). Die 17 US-Titel sind überwiegend Small Caps und Closed-End-Fonds (GLU, GGN, GAM,
+   ETO, PKBK, CNOB, FRST …), wo drei *verschiedene* Insider-Käufe innerhalb von 30 Tagen
+   selten sind. Die im Status-JSON als `universe` benannte Abdeckungsgrenze ist in der
+   Praxis also deutlich bindender, als der Plan sie angenommen hat.
+
+**Konsequenz für die Erwartungshaltung:** die Lane wird voraussichtlich sehr wenige
+Vorhersagen registrieren. Bis 30 aufgelöste Vorhersagen (die Review-Vorbedingung im
+Status-JSON) zusammenkommen, kann es bei dieser Watchlist sehr lange dauern — die erste
+Auflösung überhaupt kann frühestens ~93 Kalendertage nach der ersten Registrierung landen,
+und die erste Registrierung steht noch aus. Das ist eine Messung der Datenlage, keine
+Aussage über die Güte des Signals.
+
+### Cron
+Installiert am 2026-08-09, additiv geprüft: 10 equity-scout-Zeilen vorher, 11 nachher,
+Differenz exakt 1, die anderen unangetastet.
+`45 18 * * 1-5 flock -n /tmp/equity-scout-insider-shadow.lock …/scripts/insider_shadow_lane.sh >> …/insider_shadow.log 2>&1`
+
+### Beweis „kann nicht handeln"
+`grep` über `evidence/insider_shadow.py` + `scripts/run_insider_shadow.py` findet die Wörter
+`alpaca`/`place_bracket`/`close_position`/`LaneBook`/`promotion` ausschließlich in
+Kommentaren und Statustexten — kein Import eines Broker-, Order-, Positions- oder
+Promotion-Moduls. Status-JSON verifiziert: `shadow_only: true`, `capital: 0`,
+`broker_orders: 0`, `promotion.implemented: false`, `decision_owner: "Nico"`, Prior mit
+`n_measured: 13694` und Disclaimer vorhanden, `track.stderr: null` solange nichts aufgelöst ist.
+
+### Abweichungen vom Plan
+1. **`--dry-run` schreibt die Status-Datei trotzdem.** Der Plan erwartet in Task 6 Step 1
+   nur eine Ausgabezeile, der Code schreibt zusätzlich `Status: …`. Bewusst so belassen:
+   die Status-Datei ist Laufzeit-State (`.state/`, gitignored), kein Ledger-Eintrag — der
+   Dry-Run registriert weiterhin nichts.
+2. **Erwartete Testzahlen im Plan stimmen nicht** (1741/1745/1746/1754/1757). Der Plan wurde
+   gegen 1732 Tests geschrieben; der Basisstand war zum Ausführungszeitpunkt 1759 (u. a.
+   durch den Session-Lane-Fix desselben Tages). Die *Differenzen* stimmen exakt: +9/+4/+1/+8/+3.
+3. **Task 6 Step 3/4 konnten nichts zeigen**, weil 0 Zeilen registriert wurden — statt der
+   `resolve_after`-Prüfung an echten Zeilen steht die Abdeckungsmessung oben.
