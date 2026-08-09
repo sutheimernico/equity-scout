@@ -25,6 +25,7 @@ from equity_scout.alpaca_broker import (
     AlpacaBrokerError,
     await_fill,
     close_position,
+    fetch_fills,
 )
 from equity_scout.alpaca_broker import fetch_positions as fetch_broker_positions
 from equity_scout.alpaca_broker import place_bracket, settle_or_cancel
@@ -48,7 +49,7 @@ from equity_scout.shortterm_book import (
     sell,
     valuation,
 )
-from equity_scout.session_reconcile import reconcile
+from equity_scout.session_reconcile import reconcile, resolve_book_only
 from equity_scout.shortterm_storage import (
     DEFAULT_SHORTTERM_DB_PATH,
     get_lane_state,
@@ -306,6 +307,61 @@ def _close_position(db: str, book: LaneBook, action, *, feed: str) -> tuple[Lane
     return sell(book, action.ticker, price, action.at, reason=action.reason, slippage_bps=0.0)
 
 
+def _absorb_broker_exits(db: str, book: LaneBook, *, now: datetime) -> LaneBook:
+    """Report every divergence, and book back the ones the broker can explain.
+
+    The bracket legs fire in the market without us — that is why they are there (2026-07-21:
+    the machine was down for two days). The consequence stayed unhandled until 2026-08-07:
+    when a stop leg filled, the book went on holding a position the broker no longer had, and
+    when our own bars finally produced the exit signal, `_close_position` got a 404 and booked
+    the SIGNAL price. All six stop exits of that day were booked that way, every one of them
+    better than the market gave.
+
+    So the fill is read back from the order history and booked as what it is. This does not
+    weaken the broker-is-truth rule, it applies it: an unexplained divergence still only gets
+    reported, and nothing here ever moves the broker's side.
+    """
+    fills = []
+    for divergence in reconcile(book, fetch_broker_positions()):
+        print(f"ABWEICHUNG {divergence.describe()} — Buch und Broker laufen auseinander.",
+              file=sys.stderr)
+        position = book.positions.get(divergence.ticker)
+        if position is None:
+            continue
+        try:
+            history = fetch_fills(divergence.ticker, after=position.opened_at)
+        except AlpacaBrokerError as error:
+            # Loud: a failed lookup is not "no fill found", and the difference decides
+            # whether the position below is a ghost or real.
+            print(f"Fill-Historie ({divergence.ticker}) nicht lesbar: {error} — "
+                  f"Abweichung bleibt offen.", file=sys.stderr)
+            continue
+        exit_ = resolve_book_only(divergence, history, opened_at=position.opened_at)
+        if exit_ is None:
+            continue
+        book, fill = sell(book, exit_.ticker, exit_.price, exit_.at,
+                          reason="Broker-Bracket (nachgebucht)", slippage_bps=0.0)
+        if fill is None:
+            continue
+        record_execution(db, lane="session", ticker=exit_.ticker, side="sell",
+                         signalled_at=exit_.at,
+                         # The leg's own price is the expectation; without one there is
+                         # nothing to measure against and the fill stands for itself.
+                         # Absence, not falsiness — as in `parse_order`.
+                         expected_price=(exit_.price if exit_.requested_price is None
+                                         else exit_.requested_price),
+                         actual_price=exit_.price, qty=exit_.qty,
+                         order_id=exit_.order_ids[-1])
+        fills.append(fill)
+        print(f"Nachgebucht: {exit_.ticker} {exit_.qty:g} @ {exit_.price:.4f} "
+              f"(Broker-Bracket, {exit_.at}).", file=sys.stderr)
+    if fills:
+        # Persisted here rather than handed to the caller's step: a run that finds no bars
+        # returns before that step, and a booked exit must not depend on the feed being up.
+        persist_lane_step(db, book, updated_at=now.isoformat(timespec="seconds"), trades=fills)
+    return book
+
+
 def _session_overnight_sweep(db: str, book: LaneBook, *, now: datetime,
                              feed: str = "yfinance") -> None:
     """Flatten anything still open once the session is over. The last session bar (15:45 ET)
@@ -379,7 +435,13 @@ def run_session(db: str, *, now: datetime, feed: str = "alpaca") -> None:
     if not within_market_window(now):
         book = load_book(db, "session")
         if book is not None and book.positions:
-            _session_overnight_sweep(db, book, now=now, feed=feed)
+            if feed == "alpaca":
+                # Before the sweep, for the same reason as in-session: a position the broker
+                # already stopped out would otherwise be "flattened" at the last bar's close,
+                # against a broker that answers 404 (measured 2026-08-07).
+                book = _absorb_broker_exits(db, book, now=now)
+            if book.positions:
+                _session_overnight_sweep(db, book, now=now, feed=feed)
         # Silent otherwise: outside the window with a flat book is the normal state for
         # most of the day, and on a one-minute cron it would be ~1,380 lines of it.
         return
@@ -389,11 +451,10 @@ def run_session(db: str, *, now: datetime, feed: str = "alpaca") -> None:
     tickers = sorted({*SESSION_UNIVERSE, *book.positions})
     all_bars, range_bars, gate = _session_bars(tickers, now=now, feed=feed)
     if feed == "alpaca":
-        # The broker is the truth. A divergence is reported, never silently merged — a
-        # position the book does not know about would be managed by nobody.
-        for divergence in reconcile(book, fetch_broker_positions()):
-            print(f"ABWEICHUNG {divergence.describe()} — Buch und Broker laufen auseinander.",
-                  file=sys.stderr)
+        # The broker is the truth. Runs BEFORE the stale-position flatten and before decide():
+        # a position the broker already closed must not be managed, force-flattened at today's
+        # open, or exited a second time on our own bars.
+        book = _absorb_broker_exits(db, book, now=now)
     if not all_bars:
         print("Keine Intraday-Bars verfügbar — Lauf übersprungen.")
         return

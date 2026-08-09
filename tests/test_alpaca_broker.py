@@ -6,12 +6,14 @@ import pytest
 
 from equity_scout.alpaca_broker import (
     AlpacaBrokerError,
+    BrokerFill,
     BrokerOrder,
     await_fill,
     BrokerPosition,
     bracket_payload,
     close_position,
     open_order_ids,
+    parse_fills,
     parse_order,
     parse_positions,
     settle_or_cancel,
@@ -38,6 +40,66 @@ def test_bracket_payload_rounds_quantity_down_to_whole_shares() -> None:
 def test_bracket_payload_rejects_a_position_below_one_share() -> None:
     with pytest.raises(AlpacaBrokerError, match="unter einer ganzen Aktie"):
         bracket_payload("AAPL", qty=0.4, stop_price=1.0, target_price=2.0)
+
+
+def test_parse_fills_keeps_only_what_actually_traded() -> None:
+    """A bracket answers with three orders — entry, stop and target — of which at most two
+    ever fill. The unfilled leg is not an execution and must not become one."""
+    fills = parse_fills([
+        {"id": "entry", "symbol": "META", "side": "buy", "status": "filled",
+         "filled_qty": "2", "filled_avg_price": "597.67",
+         "filled_at": "2026-08-07T14:45:07.1Z"},
+        {"id": "target", "symbol": "META", "side": "sell", "status": "canceled",
+         "filled_qty": "0", "filled_avg_price": None, "filled_at": None},
+        {"id": "stop", "symbol": "META", "side": "sell", "status": "filled",
+         "filled_qty": "2", "filled_avg_price": "591.965",
+         "filled_at": "2026-08-07T17:03:11.4Z", "stop_price": "592.08"},
+    ])
+    assert [f.order_id for f in fills] == ["entry", "stop"]
+    assert fills[1] == BrokerFill(order_id="stop", ticker="META", side="sell", qty=2.0,
+                                  price=591.965, at="2026-08-07T17:03:11.4Z",
+                                  requested_price=592.08)
+
+
+def test_parse_fills_reads_the_price_the_leg_asked_for() -> None:
+    """A resting leg carries its own expectation: the stop its stop price, the target its
+    limit price. That expectation minus the fill is the only honest slippage number for an
+    order nobody placed by hand — the live META stop asked 592.08 and got 591.965."""
+    stop, target, market = parse_fills([
+        {"id": "s", "symbol": "META", "side": "sell", "status": "filled", "filled_qty": "2",
+         "filled_avg_price": "591.965", "filled_at": "2026-08-07T17:03:11Z",
+         "stop_price": "592.08", "limit_price": None},
+        {"id": "t", "symbol": "AAPL", "side": "sell", "status": "filled", "filled_qty": "1",
+         "filled_avg_price": "320.10", "filled_at": "2026-08-07T17:04:11Z",
+         "stop_price": None, "limit_price": "320.00"},
+        {"id": "m", "symbol": "TSLA", "side": "sell", "status": "filled", "filled_qty": "4",
+         "filled_avg_price": "327.455", "filled_at": "2026-08-07T19:46:11Z"},
+    ])
+    assert stop.requested_price == 592.08
+    assert target.requested_price == 320.00
+    # A market order asked for no price at all — inventing one would fake a slippage of zero.
+    assert market.requested_price is None
+
+
+def test_parse_fills_orders_them_by_fill_time() -> None:
+    """Partial fills are matched against a book quantity in sequence, so the sequence has to
+    be the market's, not the listing's."""
+    fills = parse_fills([
+        {"id": "second", "symbol": "AAPL", "side": "sell", "status": "filled",
+         "filled_qty": "1", "filled_avg_price": "312.0", "filled_at": "2026-08-07T15:34:41Z"},
+        {"id": "first", "symbol": "AAPL", "side": "sell", "status": "filled",
+         "filled_qty": "3", "filled_avg_price": "313.0", "filled_at": "2026-08-07T15:34:39Z"},
+    ])
+    assert [f.order_id for f in fills] == ["first", "second"]
+
+
+def test_parse_fills_ignores_a_fill_without_a_timestamp() -> None:
+    """Without a fill time nothing can decide whether the fill belongs to the position the
+    book still holds — booking it would be a guess."""
+    assert parse_fills([
+        {"id": "x", "symbol": "AAPL", "side": "sell", "status": "filled",
+         "filled_qty": "1", "filled_avg_price": "310.0", "filled_at": None},
+    ]) == []
 
 
 def test_parse_positions_maps_symbol_to_qty_and_price() -> None:

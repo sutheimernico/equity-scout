@@ -50,6 +50,26 @@ class BrokerOrder:
     filled_avg_price: float | None  # None until something actually filled
 
 
+@dataclass(frozen=True)
+class BrokerFill:
+    """One execution that actually happened at the venue.
+
+    Distinct from `BrokerOrder` because it carries the two fields only a COMPLETED trade has:
+    a fill time and a side. The bracket legs fill without us (that is their whole point — see
+    the module docstring), so the fill time is what tells the book which of its positions the
+    trade belongs to.
+    """
+    order_id: str
+    ticker: str
+    side: str
+    qty: float
+    price: float
+    at: str  # ISO timestamp as the venue reported it (UTC)
+    # What the resting leg asked for — a stop's stop price, a target's limit price. None for
+    # a market order, which asked for no price and therefore has no slippage to measure.
+    requested_price: float | None = None
+
+
 def auth_headers() -> dict[str, str]:
     key, secret = os.getenv("ALPACA_API_KEY_ID"), os.getenv("ALPACA_API_SECRET_KEY")
     if not key or not secret:
@@ -107,6 +127,41 @@ def parse_order(row: dict) -> BrokerOrder:
     )
 
 
+def _leg_price(row: dict) -> float | None:
+    """What this order asked for: a stop leg its stop price, a target leg its limit price."""
+    for key in ("stop_price", "limit_price"):
+        value = row.get(key)
+        if value not in (None, ""):
+            return float(value)
+    return None
+
+
+def parse_fills(rows: list[dict]) -> list[BrokerFill]:
+    """Every row of an /v2/orders listing that actually traded, oldest fill first.
+
+    A bracket submits three orders and at most two of them ever fill; the rest are cancelled
+    by the OCO link. Only a row with a fill price AND a fill time is an execution — a fill
+    without a timestamp cannot be placed in time, and matching it to a position would be a
+    guess (see `session_reconcile.resolve_book_only`).
+    """
+    fills = [
+        BrokerFill(
+            order_id=row["id"],
+            ticker=row["symbol"],
+            side=row["side"],
+            qty=float(row.get("filled_qty") or 0.0),
+            price=float(row["filled_avg_price"]),
+            at=row["filled_at"],
+            requested_price=_leg_price(row),
+        )
+        for row in rows
+        if row.get("status") == "filled"
+        and row.get("filled_avg_price") not in (None, "")
+        and row.get("filled_at")
+    ]
+    return sorted(fills, key=lambda fill: fill.at)
+
+
 def _client():  # noqa: ANN202 - httpx.Client, lazily imported to keep tests offline
     import httpx
 
@@ -122,6 +177,25 @@ def fetch_positions() -> dict[str, BrokerPosition]:
             f"GET /v2/positions -> {response.status_code}: {response.text[:300]}"
         )
     return parse_positions(response.json())
+
+
+def fetch_fills(ticker: str, *, after: str) -> list[BrokerFill]:
+    """Executions of one symbol since `after` (network).
+
+    `after` is passed to the venue rather than filtered here: the account's order history
+    grows without bound, and the caller only ever asks about a position opened today.
+    """
+    with _client() as client:
+        response = client.get(
+            f"{PAPER_BASE}/orders",
+            params={"status": "closed", "symbols": ticker, "after": after,
+                    "limit": 100, "direction": "asc"},
+        )
+    if response.status_code != 200:
+        raise AlpacaBrokerError(
+            f"GET /v2/orders ({ticker}) -> {response.status_code}: {response.text[:300]}"
+        )
+    return parse_fills(response.json())
 
 
 def place_bracket(ticker: str, *, qty: float, stop_price: float,

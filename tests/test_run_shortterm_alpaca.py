@@ -4,6 +4,7 @@ than any entry rule."""
 from __future__ import annotations
 
 import sys
+from dataclasses import replace
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -11,7 +12,12 @@ import pandas as pd
 import pytest
 
 import scripts.run_shortterm as runner
-from equity_scout.alpaca_broker import BrokerOrder, BrokerPosition
+from equity_scout.alpaca_broker import (
+    AlpacaBrokerError,
+    BrokerFill,
+    BrokerOrder,
+    BrokerPosition,
+)
 from equity_scout.alpaca_data import RANGE_BAR_MINUTES, TRIGGER_BAR_MINUTES
 from equity_scout.shortterm_storage import init_shortterm_db, load_executions, set_lane_state
 
@@ -351,3 +357,128 @@ def test_the_book_holds_exactly_what_the_broker_filled(tmp_path, monkeypatch):
 
     book = load_book(db_path, "session")
     assert book is not None and book.positions["AAPL"].qty == 4.0
+
+
+def _held_book(db_path: str, *, qty: float = 2.0, entry: float = 103.0) -> None:
+    """A book holding TSLA from earlier in the session, as after a bracket entry.
+
+    TSLA deliberately: the fake feed only serves AAPL, so `decide` never touches this
+    position and the test measures the healing path instead of an ordinary bar exit.
+    """
+    from equity_scout.shortterm_book import LaneBook, LanePosition
+    from equity_scout.shortterm_storage import persist_lane_step
+
+    book = LaneBook.fresh("session", benchmark_ticker="SPY")
+    book = replace(
+        book,
+        cash=book.cash - qty * entry,
+        positions={"TSLA": LanePosition(qty=qty, entry_price=entry,
+                                        opened_at="2026-08-04T10:03:00-04:00")},
+    )
+    persist_lane_step(db_path, book, updated_at="2026-08-04T10:03:00-04:00")
+
+
+def test_a_bracket_leg_that_filled_in_the_market_is_booked_back(tmp_path, monkeypatch):
+    """The 2026-08-07 META defect. The stop leg fires at the venue without us; the book kept
+    holding a position the broker had closed, and eventually closed it at the SIGNAL price.
+    The broker's own fill is the trade that happened, so that is what the book books."""
+    from equity_scout.shortterm_storage import load_book, load_executions, load_trades
+
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    _held_book(db_path)
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)  # broker is flat
+    monkeypatch.setattr(runner, "fetch_fills", lambda ticker, *, after: [
+        BrokerFill(order_id="stop-1", ticker="TSLA", side="sell", qty=2.0, price=101.94,
+                   at="2026-08-04T14:20:11Z", requested_price=102.0),
+    ])
+
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+
+    book = load_book(db_path, "session")
+    assert book is not None and "TSLA" not in book.positions
+    booked = [t for t in load_trades(db_path, lane="session") if t["side"] == "sell"]
+    assert len(booked) == 1
+    assert booked[0]["price"] == pytest.approx(101.94)  # the broker's price, not the signal's
+    assert booked[0]["executed_at"] == "2026-08-04T14:20:11Z"
+    executions = [e for e in load_executions(db_path, lane="session") if e["side"] == "sell"]
+    assert len(executions) == 1
+    # The leg asked 102.00 and got 101.94 — the slippage that was invisible until now.
+    assert executions[0]["expected_price"] == pytest.approx(102.0)
+    assert executions[0]["actual_price"] == pytest.approx(101.94)
+    assert executions[0]["order_id"] == "stop-1"
+
+
+def test_the_overnight_sweep_books_the_brokers_exit_too(tmp_path, monkeypatch):
+    """Same defect, second door. After the close the sweep flattens whatever is still open —
+    and if the broker's stop had already closed it, the sweep's own flatten answers 404 and
+    the book records the last bar's close. The healing has to run on this path as well."""
+    from equity_scout.shortterm_storage import load_book, load_trades
+
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    _held_book(db_path)
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)
+    monkeypatch.setattr(runner, "fetch_fills", lambda ticker, *, after: [
+        BrokerFill(order_id="stop-9", ticker="TSLA", side="sell", qty=2.0, price=101.94,
+                   at="2026-08-04T19:20:11Z", requested_price=102.0),
+    ])
+
+    # 17:10 New York — outside the market window, the sweep's slot.
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 17, 10, tzinfo=NY), feed="alpaca")
+
+    book = load_book(db_path, "session")
+    assert book is not None and "TSLA" not in book.positions
+    sells = [t for t in load_trades(db_path, lane="session") if t["side"] == "sell"]
+    assert len(sells) == 1
+    assert sells[0]["price"] == pytest.approx(101.94)
+    assert sells[0]["reason"] == "Broker-Bracket (nachgebucht)"
+
+
+def test_an_unexplained_divergence_is_reported_and_not_healed(tmp_path, monkeypatch, capsys):
+    """No matching fill means nobody knows what happened to the position. Reporting is the
+    honest answer; closing the book on a guessed price is how a track record starts lying."""
+    from equity_scout.shortterm_storage import load_book
+
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    _held_book(db_path)
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)
+    monkeypatch.setattr(runner, "fetch_fills", lambda ticker, *, after: [])
+
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+
+    assert "ABWEICHUNG" in capsys.readouterr().err
+    book = load_book(db_path, "session")
+    assert book is not None and "TSLA" in book.positions
+
+
+def test_a_broker_lookup_failure_leaves_the_book_untouched(tmp_path, monkeypatch, capsys):
+    """The healer runs before every decision of the session. A broker hiccup in it must not
+    take the lane down — nor silently look like 'no fill found'."""
+    from equity_scout.shortterm_storage import load_book
+
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    _held_book(db_path)
+
+    def boom(ticker, *, after):
+        raise AlpacaBrokerError("GET /v2/orders -> 500: boom")
+
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)
+    monkeypatch.setattr(runner, "fetch_fills", boom)
+
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+
+    err = capsys.readouterr().err
+    assert "ABWEICHUNG" in err and "500" in err
+    book = load_book(db_path, "session")
+    assert book is not None and "TSLA" in book.positions
