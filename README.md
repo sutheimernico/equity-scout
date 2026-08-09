@@ -209,6 +209,37 @@ buyer count (across all four sources) grows past the last SENT alert breaks thro
 cooldown — a 2-buyer alert must never silence the 4-buyer cluster that follows a week later.
 The alert text marks the escalation.
 
+### Insider-Cluster-Schattenlane (v15 P2)
+
+Die historische Studie (P2a, `docs/research/history-study-report.json`, Stand 2026-08-07)
+hat 50.955 punktgenaue Ereignisse 2006→2026 aufgelöst. Ergebnis in einem Satz: **Kongress-
+und Executive-Käufe zeigen auf 16–21k Messungen pro Horizont keinen wirtschaftlich
+relevanten Vorsprung** (r_1w +0,15 % ± 0,03pp bis r_12m −0,39 % ± 0,33pp, Richtungen an
+beiden Enden uneins) — deshalb gibt es **keine Kongress-Lane**, die Quelle bleibt reine
+Annotation. Übrig bleiben **Insider-Cluster**: r_3m +2,55 % ± 0,67pp auf 13.694 Messungen —
+out of sample aber nur noch +0,77 % ± 0,79pp bei 42,9 % Trefferquote, also von Ausreißern
+getragen und unter einer Standardabweichung.
+
+Genau dafür gibt es diese Lane — und sie handelt **nichts**:
+
+```bash
+# Frische >=3-Insider-Cluster erkennen und je EINE Vorhersage vorab registrieren
+uv run python scripts/run_insider_shadow.py --db equity_scout.db          # schreibt
+uv run python scripts/run_insider_shadow.py --dry-run                      # nur zeigen
+```
+
+- **Kein Kapital, keine Orders, keine Position, keine automatische Beförderung.** Die Lane
+  registriert pro Cluster eine Vorhersage im bestehenden Evidenz-Ledger (Quelle
+  `insider_shadow`, Horizont **63 Handelstage**, vorab festgelegt) und lässt sie vom
+  ohnehin täglich laufenden `run_resolve_evidence.py` gegen echte Kurse vs SPY auflösen.
+- **Eine offene Vorhersage pro Ticker**: dasselbe Cluster morgen erneut zu registrieren
+  würde n mit fast identischen Ergebnissen aufblähen.
+- **Ein Horizont, eine Hypothese.** r_1w bleibt ungetestet, damit ein Treffer etwas heißt.
+- Status nach jedem Lauf: `.state/insider_shadow_status.json` (Prior, Lauf-Zähler, Track
+  mit Mittelwert + Stderr + Trefferquote, Review-Vorbedingungen, Disclaimer).
+- Ob daraus je Kapital wird, entscheidet **Nico** nach ≥60 Tagen Schattenspur und ≥30
+  aufgelösten Vorhersagen. Es gibt keinen Codepfad, der das automatisch tut.
+
 ## Auto-Depot (vision v10)
 
 ONE automatically traded **paper** depot that combines every strategy lane: the rule-based
@@ -489,6 +520,20 @@ Auto-Depot) has the same three-layer guarantee via `scripts/run_nightly_guarded.
 cron 02:30, persistent systemd timer 02:35 (catch-up at WSL start), optional Windows
 task 02:40 (`./scripts/install_windows_task.sh`, starts WSL if down) — so the
 Auto-Depot keeps its track record even when the box slept through the night slot.
+
+**Insider-Schattenlane (v15 P2).** Eigene Cron-Zeile, bewusst NICHT in
+`install_crontab.sh` aufgenommen (der Installer verwaltet nur die Kern-Chains und lässt
+unbekannte Zeilen unangetastet). Einmalig installieren:
+
+```bash
+LINE="45 18 * * 1-5 flock -n /tmp/equity-scout-insider-shadow.lock $PWD/scripts/insider_shadow_lane.sh >> $PWD/insider_shadow.log 2>&1"
+crontab -l 2>/dev/null | grep -qF "insider_shadow_lane.sh" \
+  || (crontab -l 2>/dev/null; echo "$LINE") | crontab -
+crontab -l | grep insider_shadow
+```
+
+18:45 Mo–Fr, also nach der Tages-Chain (18:00), die die frischen Form-4-Filings sammelt.
+Ein verpasster Abend kostet nichts — die Lane ist idempotent.
 
 **Dashboard.** The React dashboard leads with the four copilot surfaces — **Arena** (Du vs.
 Autopilot vs. Markt, the default view), **Radar** (watchlist entry zones), **Inbox** (one-tap
