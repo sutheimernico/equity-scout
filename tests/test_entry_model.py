@@ -199,3 +199,19 @@ def test_model_pickled_without_calibrator_field_still_scores():
     object.__delattr__(model, "calibrator")  # simulate the legacy pickle layout
     scores = model.score_many(X.head(5))
     assert ((scores >= 0) & (scores <= 100)).all()
+
+
+def test_score_row_refuses_a_row_missing_a_fitted_feature_column():
+    """v15 P3: models with different feature sets now coexist in one registry.
+    `pd.DataFrame([features], columns=...)` would NaN-fill a missing column and score it
+    silently — the one path that could fabricate a number. Extra keys stay fine."""
+    import pytest  # only test in this module that needs it
+
+    X = pd.DataFrame({"a": np.linspace(0.0, 1.0, 40), "b": np.linspace(1.0, 0.0, 40)})
+    y = pd.Series([0, 1] * 20)
+    model = train_entry_model(X, y, model="elastic_net")
+
+    with pytest.raises(ValueError, match="missing"):
+        model.score_row({"a": 0.5})
+
+    assert 0 <= model.score_row({"a": 0.5, "b": 0.5, "unused": 9.9}) <= 100

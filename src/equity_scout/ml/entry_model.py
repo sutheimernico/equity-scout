@@ -90,7 +90,17 @@ class EntryModel:
         return np.rint(self._proba(X) * 100.0).astype(int)
 
     def score_row(self, features: dict) -> int:
-        """Score a single feature dict (keys must cover `feature_columns`)."""
+        """Score a single feature dict. Every column the model was FITTED on must be present:
+        `pd.DataFrame([features], columns=...)` would otherwise fill a missing one with NaN and
+        score it silently. Since v15 P3 the registry holds models with different feature sets
+        (evidence-featured challengers next to price-only ones), so handing the wrong block to
+        the wrong model must fail loudly. Extra keys are ignored, exactly as before."""
+        missing = [column for column in self.feature_columns if column not in features]
+        if missing:
+            raise ValueError(
+                f"feature row is missing {len(missing)} column(s) the model was fitted on: "
+                f"{missing}"
+            )
         row = pd.DataFrame([features], columns=list(self.feature_columns))
         return int(self.score_many(row)[0])
 
