@@ -39,14 +39,20 @@ def _realized_relative_return(
     panel: PricePanel, ticker: str, created_at: str, horizon_days: int
 ) -> float | None:
     """Ticker-minus-SPY forward return over `horizon_days` trading days from the first
-    panel date on/after created_at; None (row stays open) if the panel lacks the ticker
-    or the full forward window."""
+    panel date on/after created_at; None (row stays open) if the panel lacks the ticker,
+    starts after created_at, or does not carry the full forward window."""
     closes = panel.closes
     symbol = yf_symbol(ticker)
     if symbol not in closes.columns or BENCHMARK not in closes.columns:
         return None
     pair = closes[[symbol, BENCHMARK]].dropna()
-    on_or_after = pair.index[pair.index >= _as_of_timestamp(created_at)]
+    as_of = _as_of_timestamp(created_at)
+    if len(pair) == 0 or pair.index[0] > as_of:
+        # Panel does not reach back to the day the row was created: measuring from its
+        # first date would silently score a SHIFTED window (Wave-1 finding, see
+        # plans/2026-08-05-v15-wave1-resolve-honesty.md). Stay open.
+        return None
+    on_or_after = pair.index[pair.index >= as_of]
     if len(on_or_after) == 0:
         return None
     return relative_forward_return(
@@ -60,9 +66,12 @@ def run_resolve_evidence(
     now: str,
     fetch_prices: Callable[[list[str], str], PricePanel],
 ) -> dict:
-    """Resolve every due evidence row. Returns {resolved, still_open}."""
+    """Resolve every due evidence row. Returns {resolved, not_observable, still_open};
+    `not_observable` counts due rows the panel could not measure yet — a silent no-op is
+    how the entry ledger hid a 26-day outage (Wave 1), so this one counts out loud."""
     due = due_evidence(db_path, now)
     resolved = 0
+    not_observable = 0
     if due:
         tickers = sorted({yf_symbol(d["ticker"]) for d in due} | {BENCHMARK})
         start = min(_as_of_timestamp(d["created_at"]) for d in due).date().isoformat()
@@ -72,13 +81,14 @@ def run_resolve_evidence(
                 panel, row["ticker"], row["created_at"], row["horizon_days"]
             )
             if rel is None:
+                not_observable += 1
                 continue  # forward window not yet fully observable — resolve later
             if resolve_evidence(
                 db_path, row["id"], realized_relative_return=rel, resolved_at=now
             ):
                 resolved += 1
     still_open = sum(entry["n_open"] for entry in stats_by_source(db_path).values())
-    return {"resolved": resolved, "still_open": still_open}
+    return {"resolved": resolved, "not_observable": not_observable, "still_open": still_open}
 
 
 def _fetch_price_panel(tickers: list[str], start: str) -> PricePanel:
@@ -96,7 +106,8 @@ def main() -> int:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     result = run_resolve_evidence(args.db, now=now, fetch_prices=_fetch_price_panel)
     print(
-        f"Evidenz aufgelöst: {result['resolved']} Zeile(n);"
+        f"Evidenz aufgelöst: {result['resolved']} Zeile(n)"
+        f" ({result['not_observable']} fällig, aber ohne volles Vorwärtsfenster);"
         f" noch offen: {result['still_open']}."
     )
     return 0

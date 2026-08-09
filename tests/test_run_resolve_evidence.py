@@ -49,7 +49,7 @@ def test_resolve_evidence_resolves_due_and_leaves_not_yet_due_open(tmp_path):
         db, now="2026-03-01T00:00:00+00:00", fetch_prices=_fetch(_panel())
     )
 
-    assert result == {"resolved": 1, "still_open": 1}
+    assert result == {"resolved": 1, "not_observable": 0, "still_open": 1}
     stats = stats_by_source(db)[SOURCE_CONGRESS]
     assert stats["n_resolved"] == 1 and stats["n_open"] == 1
     assert stats["hit_rate"] == 1.0  # AAA beat SPY in the synthetic panel
@@ -64,7 +64,7 @@ def test_resolve_evidence_leaves_unknown_ticker_open(tmp_path):
     result = run_resolve_evidence(
         db, now="2026-03-01T00:00:00+00:00", fetch_prices=_fetch(_panel())
     )
-    assert result == {"resolved": 0, "still_open": 1}
+    assert result == {"resolved": 0, "not_observable": 1, "still_open": 1}
 
 
 def test_resolve_evidence_main_exits_zero(tmp_path, monkeypatch, capsys):
@@ -77,3 +77,15 @@ def test_resolve_evidence_main_exits_zero(tmp_path, monkeypatch, capsys):
     assert main() == 0
     assert stats_by_source(db)[SOURCE_CONGRESS]["n_resolved"] == 1
     assert "Evidenz aufgelöst: 1" in capsys.readouterr().out
+
+
+def test_panel_starting_after_created_at_leaves_the_row_open(tmp_path):
+    """Wave-1 lesson: a panel that begins AFTER the row was created would measure a
+    shifted window and call it this row's outcome. Stay open instead."""
+    db = str(tmp_path / "ev.db")
+    log_evidence(db, [_event("AAA", "early")], now="2024-01-02T00:00:00+00:00",
+                 horizon_days=HORIZON)
+    result = run_resolve_evidence(
+        db, now="2026-03-01T00:00:00+00:00", fetch_prices=_fetch(_panel())
+    )
+    assert result == {"resolved": 0, "not_observable": 1, "still_open": 1}
