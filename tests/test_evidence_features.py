@@ -5,6 +5,7 @@ import sqlite3
 from datetime import date
 
 import pandas as pd
+import pytest
 
 from equity_scout.evidence.base import SOURCE_CONGRESS, SOURCE_INSIDER
 from equity_scout.evidence.historical_storage import (
@@ -96,7 +97,29 @@ def test_max_size_is_the_max_inside_the_window_not_the_latest():
     assert features["ev_insider_count_365d"] == 2.0
 
 
-def test_loader_reads_only_insider_clusters_from_the_store(tmp_path):
+def test_tz_aware_as_of_raises_instead_of_silently_shifting_the_date():
+    """A tz-aware timestamp maps to a different plain date depending on the zone — verified:
+    2026-02-02 20:00 America/New_York is 2026-02-03 UTC. Picking one silently would make the
+    same cluster visible or invisible depending on which zone happened to be passed in."""
+    index = _index(_cluster("AAA", "2026-02-02", 4))
+    tz_aware = pd.Timestamp("2026-02-02 20:00", tz="America/New_York")
+    with pytest.raises(ValueError, match="tz-naive"):
+        index.features("AAA", tz_aware)
+
+
+def test_none_as_of_always_raises_regardless_of_ticker():
+    """Same caller bug regardless of whether the ticker happens to have cluster history — before
+    the fix, an unknown ticker's empty loop swallowed a None `as_of` into silent zeros while a
+    known ticker raised TypeError deep inside a date comparison. Both paths must now raise
+    ValueError up front."""
+    index = _index(_cluster("AAA", "2026-01-02", 4))
+    with pytest.raises(ValueError):
+        index.features("AAA", None)
+    with pytest.raises(ValueError):
+        index.features("ZZZ", None)
+
+
+def test_loader_reads_only_insider_clusters_from_the_store(tmp_path, capsys):
     db = str(tmp_path / "hist.db")
     record_historical_events(
         db,
@@ -109,6 +132,30 @@ def test_loader_reads_only_insider_clusters_from_the_store(tmp_path):
     index = load_evidence_index(db)
     assert index.features("AAA", pd.Timestamp("2026-02-01"))["ev_insider_cluster_91d"] == 1.0
     assert index.features("BBB", pd.Timestamp("2026-02-01"))["ev_insider_cluster_91d"] == 0.0
+    assert "WARNUNG" not in capsys.readouterr().out  # AAA is a real insider row — no false alarm
+
+
+def test_missing_table_raises_instead_of_reading_as_nobody_ever_bought(tmp_path):
+    """A path that was never backfilled must fail loudly, not silently produce an index that
+    scores every ticker's insider evidence as zero."""
+    db = str(tmp_path / "never_touched.db")
+    with pytest.raises(ValueError, match="wrong db_path"):
+        load_evidence_index(db)
+
+
+def test_zero_insider_rows_warns_and_returns_empty_index(tmp_path, capsys):
+    """Table exists (congress backfill ran) but has no insider rows at all — a real, if
+    suspicious, situation: warn loudly instead of raising, then return the correctly empty
+    index."""
+    db = str(tmp_path / "hist.db")
+    record_historical_events(
+        db, [_cluster("BBB", "2026-01-02", 7, source=SOURCE_CONGRESS)], now=NOW
+    )
+    index = load_evidence_index(db)
+    assert index.clusters == {}
+    captured = capsys.readouterr()
+    assert "WARNUNG" in captured.out
+    assert "0 Insider-Cluster" in captured.out
 
 
 def test_forward_returns_can_never_reach_a_feature(tmp_path):
@@ -132,15 +179,19 @@ def test_unresolvable_rows_stay_in_the_index(tmp_path):
     assert features["ev_insider_cluster_91d"] == 1.0
 
 
-def test_malformed_rows_are_skipped_never_guessed(tmp_path):
+def test_malformed_rows_are_skipped_never_guessed(tmp_path, capsys):
     db = str(tmp_path / "hist.db")
     record_historical_events(
         db,
         [
             HistoricalEvent(SOURCE_INSIDER, "", "AAA", "k1", "not-a-date", {"n_insiders": 4}),
             HistoricalEvent(SOURCE_INSIDER, "", "BBB", "k2", "2026-01-02", {"insiders": ["x"]}),
+            # A fractional insider count is a measurement error, not a cluster size — strict
+            # `isinstance(int)` (excluding bool) must reject it, not silently truncate via int().
+            HistoricalEvent(SOURCE_INSIDER, "", "CCC", "k3", "2026-01-02", {"n_insiders": 3.9}),
         ],
         now=NOW,
     )
     index = load_evidence_index(db)
     assert index.clusters == {}
+    assert "3 von 3 Insider-Zeilen übersprungen" in capsys.readouterr().out
