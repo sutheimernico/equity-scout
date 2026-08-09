@@ -58,8 +58,13 @@ def init_ledger_db(db_path: str = DEFAULT_DB_PATH) -> None:
 RESOLVE_BUFFER_DAYS = 4
 
 
-def _resolve_after(now: str, horizon_days: int) -> str:
-    """The TRADING-day horizon as a calendar date — deliberately late, never early."""
+def resolve_after_stamp(now: str, horizon_days: int) -> str:
+    """The TRADING-day horizon as a calendar date — deliberately late, never early.
+
+    Public because the evidence ledger needs the identical conversion (v15 P2): the
+    rule must exist exactly once, or the two ledgers drift apart the way the keep-rules
+    did in P2a.
+    """
     calendar_days = math.ceil(horizon_days * 7 / 5) + RESOLVE_BUFFER_DAYS
     return (datetime.fromisoformat(now) + timedelta(days=calendar_days)).isoformat()
 
@@ -76,7 +81,7 @@ def log_predictions(
     horizon to calendar days (~1.4x) plus a buffer, so `due` can never fire before the forward
     window is observable. `now` is injected (no wall clock here)."""
     init_ledger_db(db_path)
-    resolve_after = _resolve_after(now, horizon_days)
+    resolve_after = resolve_after_stamp(now, horizon_days)
     with sqlite3.connect(db_path) as conn:
         conn.executemany(
             "INSERT INTO entry_predictions"

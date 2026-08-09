@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 import sqlite3
 
-from equity_scout.ml.prediction_ledger import _resolve_after
+from equity_scout.ml.prediction_ledger import resolve_after_stamp
 
 
 def main() -> None:
@@ -26,9 +26,9 @@ def main() -> None:
         " WHERE resolved_at IS NULL"
     ).fetchall()
     changes = [
-        (_resolve_after(created, horizon), row_id)
+        (resolve_after_stamp(created, horizon), row_id)
         for row_id, created, horizon, old in rows
-        if _resolve_after(created, horizon) != old
+        if resolve_after_stamp(created, horizon) != old
     ]
     print(f"Offene Predictions: {len(rows)}, neu zu stempeln: {len(changes)}")
     if args.apply and changes:

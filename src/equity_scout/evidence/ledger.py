@@ -14,8 +14,17 @@ from datetime import datetime, timedelta
 
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.evidence.base import EvidenceEvent
+from equity_scout.ml.prediction_ledger import resolve_after_stamp
 
 DEFAULT_HORIZON_DAYS = 60  # calendar days — deliberate over-estimate of the trading window
+
+# `horizon_days` is measured in TRADING days by the resolver (relative_forward_return
+# counts index positions), but historically stamped in CALENDAR days here — so rows went
+# due before they were measurable and were retried mutely (the Wave-1 finding, applied to
+# this ledger). The unit is now explicit and ADDITIVE: "calendar" keeps every existing
+# source's stamps byte-identical, "trading" makes `due` mean "measurable" for new lanes.
+HORIZON_UNIT_CALENDAR = "calendar"
+HORIZON_UNIT_TRADING = "trading"
 
 
 def init_evidence_ledger(db_path: str = DEFAULT_DB_PATH) -> None:
@@ -43,11 +52,17 @@ def log_evidence(
     *,
     now: str,
     horizon_days: int = DEFAULT_HORIZON_DAYS,
+    horizon_unit: str = HORIZON_UNIT_CALENDAR,
 ) -> int:
     """Append one open row per event; the UNIQUE key makes re-logging a no-op, so a
     re-collected fact can never inflate the sample. Returns the number of new rows."""
     init_evidence_ledger(db_path)
-    resolve_after = (datetime.fromisoformat(now) + timedelta(days=horizon_days)).isoformat()
+    if horizon_unit == HORIZON_UNIT_TRADING:
+        resolve_after = resolve_after_stamp(now, horizon_days)
+    elif horizon_unit == HORIZON_UNIT_CALENDAR:
+        resolve_after = (datetime.fromisoformat(now) + timedelta(days=horizon_days)).isoformat()
+    else:
+        raise ValueError(f"unknown horizon_unit: {horizon_unit!r}")
     logged = 0
     with sqlite3.connect(db_path) as conn:
         for event in events:
@@ -146,3 +161,32 @@ def stats_by_source(db_path: str) -> dict[str, dict]:
                 sum(ret for ret, _ in returns) / len(returns), 4
             )
     return stats
+
+
+def open_tickers(db_path: str, *, source: str) -> set[str]:
+    """Tickers with a still-OPEN row for that source — the shadow lane's duplicate guard
+    (one open prediction per ticker; see evidence/insider_shadow.shadow_events)."""
+    init_evidence_ledger(db_path)
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT ticker FROM evidence_predictions"
+            " WHERE source = ? AND resolved_at IS NULL",
+            (source,),
+        ).fetchall()
+    return {row[0] for row in rows}
+
+
+def resolved_returns(db_path: str, *, source: str) -> list[float]:
+    """Realized relative returns of that source's RESOLVED rows, oldest first.
+
+    `stats_by_source` reports the mean; a track whose prior is "positive mean, sub-50%
+    hit rate" is not readable without a stderr, and a stderr needs the raw values.
+    """
+    init_evidence_ledger(db_path)
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT realized_relative_return FROM evidence_predictions"
+            " WHERE source = ? AND resolved_at IS NOT NULL ORDER BY id",
+            (source,),
+        ).fetchall()
+    return [float(row[0]) for row in rows]
