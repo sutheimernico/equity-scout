@@ -62,6 +62,9 @@ def test_train_cli_first_run_with_insufficient_oos_data_does_not_promote(tmp_pat
     assert set(result["metrics"]) == {
         "auc", "brier", "rank_ic", "n_oos", "n_splits_used", "feature_importance",
         "horizon_days", "calibrated", "feature_means", "is_auc", "wfe",
+        # v15 P3: always present, so "trained without evidence" is a recorded fact, not an
+        # absent key that a later reader has to guess about.
+        "evidence_features", "evidence_coverage",
     }
     assert entry_champion(db) is None
 
@@ -235,3 +238,80 @@ def test_filter_short_history_all_young_raises_instead_of_empty_panel():
     closes.loc[idx[950]:, "IPO2"] = 30.0
     with pytest.raises(RuntimeError, match="ohne Aktien-Ticker"):
         train_mod._filter_short_history(closes)
+
+
+def test_plain_run_records_that_no_evidence_features_were_used(tmp_path):
+    db = str(tmp_path / "train.db")
+    result = run_train_entry(db, panel=_panel(), tickers=["AAA", "BBB"], now=NOW)
+    assert result["metrics"]["evidence_features"] == []
+    assert result["metrics"]["evidence_coverage"] is None
+
+
+def test_evidence_run_records_columns_and_coverage(tmp_path, capsys):
+    """The coverage share is a first-class output: a feature set that is zero on ~every
+    training row cannot possibly beat the champion, and must say so before anyone believes a
+    promotion."""
+    from datetime import date
+
+    from equity_scout.ml.evidence_features import EVIDENCE_FEATURE_COLUMNS, EvidenceIndex
+
+    db = str(tmp_path / "train.db")
+    index = EvidenceIndex({"AAA": [(date(2020, 6, 1), 7)]})
+    result = run_train_entry(
+        db, panel=_panel_with_vol(), tickers=["AAA", "BBB"], now=NOW,
+        family="entry_tb", barrier_config=BarrierConfig(), evidence_index=index,
+    )
+    assert result["metrics"]["evidence_features"] == list(EVIDENCE_FEATURE_COLUMNS)
+    assert 0.0 < result["metrics"]["evidence_coverage"] < 1.0
+    assert "Evidence-Features aktiv" in capsys.readouterr().out
+
+
+def test_evidence_variant_only_doubles_entry_tb_and_its_candidate_count(tmp_path, monkeypatch):
+    """Ruling 1: the evidence block competes inside entry_tb only. Ruling 7: the extra
+    challengers must raise that family's multiple-testing count — testing twice as many
+    presets against the same champion without raising the bar is exactly the noise-promotion
+    hole `_min_auc_delta` exists to close."""
+    from datetime import date
+
+    from equity_scout.ml.evidence_features import EvidenceIndex
+    from scripts.run_train_entry import run_train_entry_all
+
+    calls: list[tuple] = []
+
+    def _fake(db_path, **kwargs):
+        calls.append(
+            (kwargs["family"], kwargs["model"], kwargs["evidence_index"] is not None,
+             kwargs["n_candidates"])
+        )
+        return {"version": len(calls), "metrics": {}, "promoted": False, "n_train": 1}
+
+    monkeypatch.setattr(train_mod, "run_train_entry", _fake)
+    run_train_entry_all(
+        str(tmp_path / "train.db"), panel=_panel(), tickers=["AAA"], now=NOW,
+        models=("random_forest", "elastic_net"),
+        evidence_index=EvidenceIndex({"AAA": [(date(2020, 6, 1), 7)]}),
+    )
+
+    by_family: dict[str, list[tuple]] = {}
+    for family, model, with_evidence, n_candidates in calls:
+        by_family.setdefault(family, []).append((model, with_evidence, n_candidates))
+
+    assert [c[1] for c in by_family["entry"]] == [False, False]
+    assert {c[2] for c in by_family["entry"]} == {2}  # unchanged: 2 presets, 1 variant
+    assert [c[1] for c in by_family["entry_short"]] == [False, False]
+    assert sorted(c[1] for c in by_family["entry_tb"]) == [False, False, True, True]
+    assert {c[2] for c in by_family["entry_tb"]} == {4}  # 2 presets x 2 variants
+
+
+def test_cli_without_the_flag_loads_no_evidence_index(tmp_path, monkeypatch):
+    """The nightly chain calls `run_train_entry.py` bare — it must stay evidence-free."""
+    seen: dict = {}
+
+    monkeypatch.setattr(train_mod, "_load_panel", lambda tickers, start: _panel())
+    monkeypatch.setattr(
+        train_mod, "run_train_entry_all",
+        lambda db, **kwargs: seen.update(kwargs) or [],
+    )
+    monkeypatch.setattr(sys, "argv", ["run_train_entry.py", "--db", str(tmp_path / "x.db")])
+    assert main() == 0
+    assert seen["evidence_index"] is None

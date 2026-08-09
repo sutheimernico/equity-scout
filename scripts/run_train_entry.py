@@ -33,6 +33,13 @@ from equity_scout.ml.entry_model import (
     train_entry_model,
     walk_forward_evaluate,
 )
+from equity_scout.ml.evidence_features import (
+    EVIDENCE_ACTIVE_COLUMN,
+    EVIDENCE_FEATURE_COLUMNS,
+    SHORT_WINDOW_DAYS,
+    EvidenceIndex,
+    load_evidence_index,
+)
 from equity_scout.ml.labeling import BarrierConfig
 from equity_scout.ml.model_registry import (
     MIN_OOS_N,
@@ -50,6 +57,11 @@ ENTRY_SNAPSHOT = "data/prices/entry_panel.csv"
 MAX_PANEL_SPAN_LOSS = 0.30
 # Fallback universe when neither --tickers nor a stored watchlist supplies one.
 FALLBACK_TICKERS = ("AAPL", "MSFT", "JPM", "XOM", "JNJ", "PG")
+# v15 P3: the evidence block trains as EXTRA challengers of THIS family only. entry_tb is the
+# safe host: its champion is read for `barrier_config` alone (api.py, run_notify.py) and never
+# scores anything, so a champion flip has no live scoring surface. entry/entry_short DO score
+# live (strategies/ml_bot.py) and stay price-only until a live evidence feed exists.
+EVIDENCE_FAMILY = "entry_tb"
 
 
 def _fmt(value: float | None) -> str:
@@ -86,6 +98,7 @@ def run_train_entry(
     family: str = "entry",
     barrier_config: BarrierConfig | None = None,
     n_candidates: int = 1,
+    evidence_index: EvidenceIndex | None = None,
 ) -> dict:
     """Build the backfill, evaluate OUT-OF-SAMPLE, fit on the full set (with OOS isotonic
     calibration when the sample supports it), register the challenger and promote it iff it clears
@@ -108,7 +121,12 @@ def run_train_entry(
     the config), so the persisted config can never disagree with the actual training horizon.
     Every family is registered and promoted in its OWN registry partition with the same gate
     constants — families never compare against each other (AUC across different label definitions
-    is not comparable)."""
+    is not comparable).
+
+    `evidence_index` (additive, default None = the pre-P3 behaviour): when given, the backfill
+    dataset carries `EVIDENCE_FEATURE_COLUMNS` on top of the price block. The promotion path is
+    unchanged — the variant is just another challenger that must beat the same champion through
+    `promote_if_better`; the caller is responsible for counting it in `n_candidates`."""
     label_direction = FAMILY_LABEL_DIRECTION.get(family, "beats")
     tb_config = barrier_config if barrier_config is not None else BarrierConfig()
     if family == "entry_tb":
@@ -119,6 +137,7 @@ def run_train_entry(
     X, y, meta = build_backfill_dataset(
         panel, tickers, benchmark=benchmark, horizon_days=horizon_days,
         label_direction=label_direction, barrier_config=tb_config,
+        evidence_index=evidence_index,
     )
     n_train = len(X)
     if n_train == 0:
@@ -135,6 +154,19 @@ def run_train_entry(
     # Training feature means feed the live drift snapshot (/api/model) — the registry stores the
     # model, not the training matrix, so the means must ride along in the metrics.
     metrics["feature_means"] = {c: round(float(X[c].mean()), 6) for c in X.columns}
+    # v15 P3: recorded on EVERY run (empty/None when off) so a registry row always states which
+    # feature set it was fitted on — an absent key would leave later readers guessing.
+    metrics["evidence_features"] = (
+        list(EVIDENCE_FEATURE_COLUMNS) if evidence_index is not None else []
+    )
+    # Coverage reality check: the share of training rows that actually carry an active cluster.
+    # A feature set that is ~0 everywhere cannot beat the champion, and saying so up front is
+    # cheaper than reading an AUC that never moved.
+    metrics["evidence_coverage"] = (
+        round(float((X[EVIDENCE_ACTIVE_COLUMN] > 0).mean()), 4)
+        if evidence_index is not None
+        else None
+    )
     if family == "entry_tb":  # MUST be retrievable so a follow-up task can derive target/stop
         metrics["barrier_config"] = tb_config.as_dict()
     fitted = train_entry_model(X, y, model=model, calibrator=calibrator)
@@ -145,6 +177,17 @@ def run_train_entry(
 
     label = FAMILY_PRINT_LABEL.get(family, f"{family}-Modell")
     print(f"{label} v{version} ({model}) auf {n_train} Zeilen trainiert.")
+    if evidence_index is not None:
+        coverage = metrics["evidence_coverage"]
+        share = "n/a" if coverage is None else f"{coverage:.1%}".replace(".", ",")
+        print(
+            f"Evidence-Features aktiv ({len(EVIDENCE_FEATURE_COLUMNS)} Spalten): Anteil "
+            f"Trainingszeilen mit Insider-Cluster in den letzten {SHORT_WINDOW_DAYS} Tagen: "
+            f"{share}."
+        )
+        active_tickers = int(meta.loc[X[EVIDENCE_ACTIVE_COLUMN] > 0, "ticker"].nunique())
+        print(f"Evidence-Abdeckung: {active_tickers} von {meta['ticker'].nunique()} "
+              f"Trainings-Tickern mit aktivem Cluster-Fenster.")
     print(
         f"Out-of-Sample: AUC {_fmt(metrics['auc'])}, Brier {_fmt(metrics['brier'])}, "
         f"Rank-IC {_fmt(metrics['rank_ic'])}, WFE {_fmt(metrics.get('wfe'))} "
@@ -194,6 +237,7 @@ def run_train_entry_all(
     benchmark: str = BENCHMARK,
     horizon_days: int = HORIZON_DAYS,
     barrier_config: BarrierConfig | None = None,
+    evidence_index: EvidenceIndex | None = None,
 ) -> list[dict]:
     """Train every preset in `models` for every family in `families`; the registry gate alone
     decides which (if any) ends up champion per family. The short family trains on its own shorter
@@ -206,28 +250,39 @@ def run_train_entry_all(
     C2 multiple-testing guard: `len(models)` presets compete against the SAME champion within each
     family (families never compare against each other — each has its own champion track), so
     `len(models)` — not `len(models) * len(families)` — is the candidate count passed to every
-    `promote_if_better` call via `run_train_entry`'s `n_candidates`."""
+    `promote_if_better` call via `run_train_entry`'s `n_candidates`.
+
+    `evidence_index` (v15 P3): when given, `EVIDENCE_FAMILY` (entry_tb) trains each preset TWICE
+    — once price-only, once with the evidence block — and that family's `n_candidates` doubles
+    accordingly. Twice as many presets competing for the same champion slot without a higher bar
+    is exactly the noise-promotion hole `_min_auc_delta`'s sqrt(N) scaling exists to close. Other
+    families are untouched: they score live, and no live evidence feed exists yet."""
     tb_config = barrier_config if barrier_config is not None else BarrierConfig()
     family_horizon = {"entry": horizon_days, "entry_short": SHORT_HORIZON_DAYS}
-    n_candidates = len(models)
     results = []
     for family in families:
-        for model in models:
-            try:
-                results.append(
-                    run_train_entry(
-                        db_path, panel=panel, tickers=tickers, now=now, model=model,
-                        benchmark=benchmark,
-                        horizon_days=family_horizon.get(family, horizon_days),
-                        family=family, barrier_config=tb_config, n_candidates=n_candidates,
+        variants: tuple[EvidenceIndex | None, ...] = (None,)
+        if evidence_index is not None and family == EVIDENCE_FAMILY:
+            variants = (None, evidence_index)
+        n_candidates = len(models) * len(variants)
+        for variant in variants:
+            for model in models:
+                try:
+                    results.append(
+                        run_train_entry(
+                            db_path, panel=panel, tickers=tickers, now=now, model=model,
+                            benchmark=benchmark,
+                            horizon_days=family_horizon.get(family, horizon_days),
+                            family=family, barrier_config=tb_config,
+                            n_candidates=n_candidates, evidence_index=variant,
+                        )
                     )
-                )
-            except Exception as err:  # noqa: BLE001 — one broken preset is a report, not a crash
-                print(f"Preset {family}/{model} fehlgeschlagen: {err}")
-                results.append(
-                    {"version": None, "metrics": {}, "promoted": False, "model": model,
-                     "family": family}
-                )
+                except Exception as err:  # noqa: BLE001 — a broken preset is a report, not a crash
+                    print(f"Preset {family}/{model} fehlgeschlagen: {err}")
+                    results.append(
+                        {"version": None, "metrics": {}, "promoted": False, "model": model,
+                         "family": family}
+                    )
     return results
 
 
@@ -286,6 +341,14 @@ def main() -> int:
     parser.add_argument("--family", default="all", help="all, entry, entry_short or entry_tb")
     parser.add_argument("--start", default="2007-01-01")
     parser.add_argument("--horizon", type=int, default=HORIZON_DAYS)
+    parser.add_argument(
+        "--with-evidence",
+        action="store_true",
+        help=(
+            "additionally train entry_tb challengers carrying the historical insider-cluster"
+            " features (raises that family's multiple-testing candidate count accordingly)"
+        ),
+    )
     args = parser.parse_args()
 
     stock_tickers = _resolve_tickers(args.db, args.tickers)
@@ -295,9 +358,10 @@ def main() -> int:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     models = ENTRY_PRESETS if args.model == "all" else (args.model,)
     families = ("entry", "entry_short", "entry_tb") if args.family == "all" else (args.family,)
+    evidence_index = load_evidence_index(args.db) if args.with_evidence else None
     run_train_entry_all(
         args.db, panel=panel, tickers=stock_tickers, now=now, models=models,
-        families=families, horizon_days=args.horizon,
+        families=families, horizon_days=args.horizon, evidence_index=evidence_index,
     )
     return 0
 
