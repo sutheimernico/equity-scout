@@ -64,7 +64,7 @@ def test_train_cli_first_run_with_insufficient_oos_data_does_not_promote(tmp_pat
         "horizon_days", "calibrated", "feature_means", "is_auc", "wfe",
         # v15 P3: always present, so "trained without evidence" is a recorded fact, not an
         # absent key that a later reader has to guess about.
-        "evidence_features", "evidence_coverage",
+        "evidence_features", "evidence_coverage_91d",
     }
     assert entry_champion(db) is None
 
@@ -244,7 +244,7 @@ def test_plain_run_records_that_no_evidence_features_were_used(tmp_path):
     db = str(tmp_path / "train.db")
     result = run_train_entry(db, panel=_panel(), tickers=["AAA", "BBB"], now=NOW)
     assert result["metrics"]["evidence_features"] == []
-    assert result["metrics"]["evidence_coverage"] is None
+    assert result["metrics"]["evidence_coverage_91d"] is None
 
 
 def test_evidence_run_records_columns_and_coverage(tmp_path, capsys):
@@ -262,7 +262,7 @@ def test_evidence_run_records_columns_and_coverage(tmp_path, capsys):
         family="entry_tb", barrier_config=BarrierConfig(), evidence_index=index,
     )
     assert result["metrics"]["evidence_features"] == list(EVIDENCE_FEATURE_COLUMNS)
-    assert 0.0 < result["metrics"]["evidence_coverage"] < 1.0
+    assert 0.0 < result["metrics"]["evidence_coverage_91d"] < 1.0
     assert "Evidence-Features aktiv" in capsys.readouterr().out
 
 

@@ -159,10 +159,11 @@ def run_train_entry(
     metrics["evidence_features"] = (
         list(EVIDENCE_FEATURE_COLUMNS) if evidence_index is not None else []
     )
-    # Coverage reality check: the share of training rows that actually carry an active cluster.
-    # A feature set that is ~0 everywhere cannot beat the champion, and saying so up front is
-    # cheaper than reading an AUC that never moved.
-    metrics["evidence_coverage"] = (
+    # Coverage reality check: the share of training rows with an active cluster in the SHORT
+    # (91d) window specifically — named so a registry reader isn't left guessing which window a
+    # generic "coverage" key meant; rows with ANY ev_* signal (the 365d count included) run ~4x
+    # higher, and a feature set that is ~0 everywhere in its OWN window cannot beat the champion.
+    metrics["evidence_coverage_91d"] = (
         round(float((X[EVIDENCE_ACTIVE_COLUMN] > 0).mean()), 4)
         if evidence_index is not None
         else None
@@ -178,8 +179,8 @@ def run_train_entry(
     label = FAMILY_PRINT_LABEL.get(family, f"{family}-Modell")
     print(f"{label} v{version} ({model}) auf {n_train} Zeilen trainiert.")
     if evidence_index is not None:
-        coverage = metrics["evidence_coverage"]
-        share = "n/a" if coverage is None else f"{coverage:.1%}".replace(".", ",")
+        coverage_91d = metrics["evidence_coverage_91d"]
+        share = "n/a" if coverage_91d is None else f"{coverage_91d:.1%}".replace(".", ",")
         print(
             f"Evidence-Features aktiv ({len(EVIDENCE_FEATURE_COLUMNS)} Spalten): Anteil "
             f"Trainingszeilen mit Insider-Cluster in den letzten {SHORT_WINDOW_DAYS} Tagen: "
@@ -256,7 +257,13 @@ def run_train_entry_all(
     — once price-only, once with the evidence block — and that family's `n_candidates` doubles
     accordingly. Twice as many presets competing for the same champion slot without a higher bar
     is exactly the noise-promotion hole `_min_auc_delta`'s sqrt(N) scaling exists to close. Other
-    families are untouched: they score live, and no live evidence feed exists yet."""
+    families are untouched: they score live, and no live evidence feed exists yet.
+
+    Caveat: the sqrt(N) correction counts candidates PER RUN of this function against the SAME
+    champion — it has no memory across calls. Running the bare nightly (N=len(models)) and then a
+    manual --with-evidence run (N=2*len(models)) on the same day is really 3*len(models) trials
+    against that one champion, of which each call only ever sees and corrects for its own share;
+    an extra same-day run therefore systematically understates the true trial count."""
     tb_config = barrier_config if barrier_config is not None else BarrierConfig()
     family_horizon = {"entry": horizon_days, "entry_short": SHORT_HORIZON_DAYS}
     results = []
@@ -346,7 +353,8 @@ def main() -> int:
         action="store_true",
         help=(
             "additionally train entry_tb challengers carrying the historical insider-cluster"
-            " features (raises that family's multiple-testing candidate count accordingly)"
+            " features (raises that family's multiple-testing candidate count accordingly)."
+            " Requires a populated historical_events store in --db (raises otherwise)."
         ),
     )
     args = parser.parse_args()
@@ -354,11 +362,13 @@ def main() -> int:
     stock_tickers = _resolve_tickers(args.db, args.tickers)
     # SPY is the relative-return benchmark; dedup so a SPY already in the universe isn't doubled.
     panel_tickers = list(dict.fromkeys(stock_tickers + [BENCHMARK]))
+    # Loaded before the network fetch below so a wrong/empty --db fails fast on a cheap DB read
+    # instead of after the expensive panel download.
+    evidence_index = load_evidence_index(args.db) if args.with_evidence else None
     panel = _load_panel(panel_tickers, args.start)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     models = ENTRY_PRESETS if args.model == "all" else (args.model,)
     families = ("entry", "entry_short", "entry_tb") if args.family == "all" else (args.family,)
-    evidence_index = load_evidence_index(args.db) if args.with_evidence else None
     run_train_entry_all(
         args.db, panel=panel, tickers=stock_tickers, now=now, models=models,
         families=families, horizon_days=args.horizon, evidence_index=evidence_index,
