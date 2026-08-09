@@ -21,15 +21,19 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import statistics
 from datetime import datetime, timezone
+from pathlib import Path
 
-from equity_scout.constants import DEFAULT_DB_PATH
+from equity_scout.constants import DEFAULT_DB_PATH, DISCLAIMER
 from equity_scout.evidence.base import SOURCE_INSIDER, SOURCE_INSIDER_SHADOW
 from equity_scout.evidence.edgar import resolve_user_agent
 from equity_scout.evidence.insider_shadow import (
     DEFAULT_WINDOW_DAYS,
     SHADOW_HORIZON_TRADING_DAYS,
+    STUDY_PRIOR,
     detect_clusters,
     shadow_events,
 )
@@ -37,6 +41,8 @@ from equity_scout.evidence.ledger import (
     HORIZON_UNIT_TRADING,
     log_evidence,
     open_tickers,
+    resolved_returns,
+    stats_by_source,
 )
 from equity_scout.evidence.storage import events_in_window
 
@@ -102,9 +108,100 @@ def run_insider_shadow(
     }
 
 
+# Runtime state, not a report: .state/ is gitignored, so a daily rewrite creates no repo
+# churn and no dashboard depends on it (the frontend belongs to another strand).
+DEFAULT_STATUS_OUT = ".state/insider_shadow_status.json"
+
+# Review PRECONDITIONS, not a promotion rule: they say when it is worth LOOKING at the
+# track, never what to conclude. The arena gate's trade/PF criteria do not apply — this
+# lane has no trades and no P&L, only resolved predictions.
+MIN_RESOLVED_FOR_REVIEW = 30
+MIN_DAYS_FOR_REVIEW = 60
+
+
+def build_status(result: dict, *, now: str, db_path: str) -> dict:
+    """The lane's whole public surface: what it is, what it registered, what it measured.
+
+    The track block reports mean AND stderr AND hit rate together on purpose — the prior
+    is "positive mean at a sub-50% hit rate", so any one of the three alone would mislead.
+    """
+    returns = resolved_returns(db_path, source=SOURCE_INSIDER_SHADOW)
+    stats = stats_by_source(db_path).get(SOURCE_INSIDER_SHADOW, {})
+    stderr = (
+        round(statistics.stdev(returns) / len(returns) ** 0.5, 4) if len(returns) >= 2 else None
+    )
+    return {
+        "lane": SOURCE_INSIDER_SHADOW,
+        "generated_at": now,
+        "shadow_only": True,
+        "capital": 0,
+        "broker_orders": 0,
+        "what_this_is": (
+            "Papier-Schattenlane: registriert vorab festgelegte Vorhersagen zu Insider-"
+            "Clustern (>= 3 unabhängige Käufer) und misst sie gegen SPY. Kein Kapital, "
+            "keine Orders, keine automatische Beförderung."
+        ),
+        "universe": (
+            "die Ticker, die der Live-Form-4-Kollektor abdeckt (aktuelle Watchlist, "
+            "evidence/form4.py) — keine Vollabdeckung des Universums"
+        ),
+        "pre_registration": {
+            "horizon_trading_days": SHADOW_HORIZON_TRADING_DAYS,
+            "n_hypotheses": 1,
+            "why_one": (
+                "Nur die r_3m-Zelle ist registriert. r_1w (+2,08 % ± 0,97pp) bleibt "
+                "bewusst ungetestet: zwei Horizonte pro Ereignis verdoppeln die Tests "
+                "für ein Signal und halbieren die Aussage eines Treffers."
+            ),
+            "prior": STUDY_PRIOR,
+        },
+        "last_run": {
+            "status": result["status"],
+            "detail": result["detail"],
+            "insider_events": result["insider_events"],
+            "clusters": result["clusters"],
+            "skipped_open": result["skipped_open"],
+            "registered": result["registered"],
+            "registered_tickers": result["registered_tickers"],
+        },
+        "track": {
+            "n_resolved": stats.get("n_resolved", 0),
+            "n_open": stats.get("n_open", 0),
+            "hit_rate": stats.get("hit_rate"),
+            "mean_relative_return": stats.get("mean_relative_return"),
+            "stderr": stderr,
+            "reading_note": (
+                "Mittelwert, Stderr und Trefferquote gehören zusammen gelesen: ein "
+                "positiver Mittelwert bei einer Trefferquote unter 50 % heißt "
+                "Ausreißer-getragen, nicht breit verdient."
+            ),
+        },
+        "promotion": {
+            "implemented": False,
+            "decision_owner": "Nico",
+            "min_resolved_for_review": MIN_RESOLVED_FOR_REVIEW,
+            "min_days_for_review": MIN_DAYS_FOR_REVIEW,
+            "note": (
+                "Diese Lane kann sich nicht selbst befördern — es gibt keinen Codepfad "
+                "dafür. Die Schwellen sagen, ab wann ein Blick lohnt, nicht was folgt. "
+                "Erste Auflösungen frühestens ~93 Kalendertage nach der ersten "
+                "Registrierung (63 Handelstage Horizont)."
+            ),
+        },
+        "disclaimer": DISCLAIMER,
+    }
+
+
+def write_status(path: str, status: dict) -> None:
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default=DEFAULT_DB_PATH)
+    parser.add_argument("--status-out", default=DEFAULT_STATUS_OUT)
     parser.add_argument("--window-days", type=int, default=DEFAULT_WINDOW_DAYS)
     parser.add_argument(
         "--dry-run", action="store_true", help="detect and report, register nothing"
@@ -123,6 +220,8 @@ def main() -> int:
     )
     if result["registered_tickers"]:
         print("Registriert (Papier, ohne Kapital): " + ", ".join(result["registered_tickers"]))
+    write_status(args.status_out, build_status(result, now=now, db_path=args.db))
+    print(f"Status: {args.status_out}")
     return 0
 
 
