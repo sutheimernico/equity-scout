@@ -216,7 +216,8 @@ def run_train_entry(
     print(f"Als Champion übernommen: {'ja' if promoted else 'nein'}.")
     if _no_edge(metrics["auc"]):
         print(
-            "Kein belastbarer Vorteil nachgewiesen (AUC ~ 0,5 oder nicht bestimmbar). "
+            "Kein belastbarer Vorteil nachgewiesen (AUC nicht klar über 0,5 oder nicht "
+            "bestimmbar). "
             "Das ist ein valides, ehrliches Ergebnis — keine Kauf-/Verkaufsempfehlung."
         )
     elif metrics["n_oos"] < MIN_OOS_N:

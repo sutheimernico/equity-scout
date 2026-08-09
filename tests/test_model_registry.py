@@ -224,8 +224,11 @@ def test_anti_predictive_challenger_never_displaces_legitimate_champion(tmp_path
     a demonstrated edge" regardless of direction, so 0.30 cleared the band and became a fake
     champion. Under the one-sided fix a 0.30 candidate can no longer become champion at all (see
     `test_first_model_with_anti_predictive_auc_does_not_bootstrap`), so this test now demonstrates
-    the same "no-edge blocks regardless of apparent numeric gap" property one step later — against
-    an already-legitimate incumbent instead of via a hole-exploiting bootstrap."""
+    that an anti-predictive challenger never displaces a legitimate incumbent. (The old "no-edge
+    blocks despite a large positive delta" scenario is structurally unreachable after the fix:
+    every champion is >= 0.55, every no-edge candidate < 0.55, so the delta here is negative and
+    the delta gate alone would already block — this test pins the outcome, not which of the two
+    gates fires first.)"""
     db = str(tmp_path / "reg.db")
     v1 = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=20, now=NOW)
     assert promote_if_better(db, v1) is True
