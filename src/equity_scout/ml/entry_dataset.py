@@ -6,8 +6,10 @@ For each ticker and each monthly `rebalance_dates` sample, build the price-deriv
 full-horizon label exist — no partial rows, no peeking past the panel end. Rows are sorted by
 (as_of, ticker) so downstream walk-forward splits on the as_of dates are reproducible.
 
-Strictly price-derived (the features carry no fundamentals; the label is a forward relative return),
-so the whole backfill is free of look-ahead — see `entry_features` for the honesty invariant.
+Strictly price-derived by default (the features carry no fundamentals; the label is a forward
+relative return), so the whole backfill is free of look-ahead — see `entry_features` for the
+honesty invariant. With an `evidence_index` the point-in-time insider block is appended — see
+below.
 """
 from __future__ import annotations
 
@@ -43,7 +45,8 @@ def build_backfill_dataset(
 ) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
     """Assemble aligned (X, y, meta) from a stock+benchmark `PricePanel`.
 
-    X: features, columns == FEATURE_COLUMNS. y: 0/1 labels (meaning depends on `label_direction`).
+    X: features, columns == FEATURE_COLUMNS (+ EVIDENCE_FEATURE_COLUMNS with an evidence_index).
+    y: 0/1 labels (meaning depends on `label_direction`).
     meta: ticker/as_of/relative_return per row (for Rank-IC and attribution, ALWAYS vs `benchmark`
     regardless of label_direction). Rows lacking a full feature row or a full-horizon label are
     dropped; the result is sorted by (as_of, ticker).
@@ -134,6 +137,14 @@ def build_backfill_dataset(
     if evidence_index is not None:
         columns += list(EVIDENCE_FEATURE_COLUMNS)
     X = pd.DataFrame([r[2] for r in rows], columns=columns)
+    # No-op today by construction (every row's feature dict is already complete before it lands
+    # in `rows`, verified 0 NaN on real data) — but `pd.DataFrame(..., columns=...)` silently
+    # NaN-fills any column missing from a row dict, so a future change above this point (e.g. a
+    # feature builder returning a partial dict) would otherwise corrupt training rows instead of
+    # failing loudly. Mirrors the honesty stance of `EntryModel.score_row`'s missing-column guard.
+    nan_columns = list(X.columns[X.isna().any()])
+    if nan_columns:
+        raise ValueError(f"build_backfill_dataset produced NaN in columns {nan_columns!r}")
     y = pd.Series([r[3] for r in rows], dtype=int)
     meta = pd.DataFrame(
         {

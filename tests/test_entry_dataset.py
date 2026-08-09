@@ -222,3 +222,13 @@ def test_evidence_index_appends_its_block_point_in_time():
     assert (flag[before] == 0.0).all()
     assert inside.any() and (flag[inside] == 1.0).all()
     assert (X.loc[inside, "ev_insider_max_size_91d"] == 7.0).all()
+
+
+def test_evidence_feature_columns_do_not_collide_with_price_features():
+    """pandas silently accepts a duplicated column name — `list(X.columns) == ...` above would
+    stay green even if a name collided, since the duplicate would just overwrite in place. Guard
+    the two blocks' namespaces directly so a future EVIDENCE_FEATURE_COLUMNS addition can't pick a
+    name FEATURE_COLUMNS already owns."""
+    from equity_scout.ml.evidence_features import EVIDENCE_FEATURE_COLUMNS
+
+    assert not set(FEATURE_COLUMNS) & set(EVIDENCE_FEATURE_COLUMNS)
