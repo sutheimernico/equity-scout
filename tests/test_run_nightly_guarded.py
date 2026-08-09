@@ -63,3 +63,24 @@ def test_failed_chain_leaves_the_day_unmarked_for_retry(tmp_path) -> None:
     ok = _chain(tmp_path)
     _run(tmp_path, ok)
     assert marker.exists()
+
+
+def _run_forced(tmp_path: Path, chain: Path) -> subprocess.CompletedProcess:
+    env = dict(
+        os.environ,
+        EQUITY_SCOUT_NIGHTLY_CHAIN=str(chain),
+        EQUITY_SCOUT_NIGHTLY_STATE=str(tmp_path / "state"),
+        EQUITY_SCOUT_NIGHTLY_LOG=str(tmp_path / "train.log"),
+        EQUITY_SCOUT_FORCE="1",
+    )
+    return subprocess.run(
+        ["bash", str(WRAPPER), "test"], env=env, capture_output=True, text=True, timeout=30
+    )
+
+
+def test_forced_run_ignores_the_day_marker(tmp_path) -> None:
+    chain = _chain(tmp_path)
+    _run(tmp_path, chain)          # marks the day
+    _run_forced(tmp_path, chain)   # cockpit "Trotzdem starten"
+    assert _runs(tmp_path) == 2
+    assert "FORCED" in (tmp_path / "train.log").read_text()

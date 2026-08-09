@@ -16,6 +16,8 @@ STATE_DIR="${EQUITY_SCOUT_NIGHTLY_STATE:-$REPO_DIR/.state}"
 MARKER="$STATE_DIR/nightly_last_run"
 LOCK="$STATE_DIR/nightly.lock"
 CHAIN="${EQUITY_SCOUT_NIGHTLY_CHAIN:-$REPO_DIR/scripts/nightly_train.sh}"
+# Cockpit "Trotzdem starten" (2026-08-09): marker bypass only, never the flock.
+FORCE="${EQUITY_SCOUT_FORCE:-0}"
 mkdir -p "$STATE_DIR"
 
 exec 9>>"$LOCK"
@@ -29,7 +31,9 @@ fi
 printf '%s pid=%s trigger=%s\n' "$(date -Is)" "$$" "${1:-unspecified}" > "$LOCK"
 
 TODAY="$(date +%F)"
-if [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$TODAY" ]; then
+if [ "$FORCE" = "1" ]; then
+  echo "[$(date -Is)] nightly-guarded: FORCED run (trigger: ${1:-unspecified}) — marker bypassed" >> "$LOG"
+elif [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$TODAY" ]; then
   exit 0  # already ran today — quiet skip; redundant triggers are by design
 fi
 

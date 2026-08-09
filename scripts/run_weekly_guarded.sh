@@ -16,6 +16,8 @@ STATE_DIR="${EQUITY_SCOUT_WEEKLY_STATE:-$REPO_DIR/.state}"
 MARKER="$STATE_DIR/weekly_last_run"
 LOCK="$STATE_DIR/weekly.lock"
 CHAIN="${EQUITY_SCOUT_WEEKLY_CHAIN:-$REPO_DIR/scripts/scheduled_run.sh}"
+# Cockpit "Trotzdem starten" (2026-08-09): marker bypass only, never the flock.
+FORCE="${EQUITY_SCOUT_FORCE:-0}"
 mkdir -p "$STATE_DIR"
 
 exec 9>>"$LOCK"
@@ -32,7 +34,9 @@ printf '%s pid=%s trigger=%s\n' "$(date -Is)" "$$" "${1:-unspecified}" > "$LOCK"
 # belongs to the ISO year that owns it, so late-December/early-January triggers can
 # never alias onto the same marker value.
 THIS_WEEK="$(date +%G-W%V)"
-if [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$THIS_WEEK" ]; then
+if [ "$FORCE" = "1" ]; then
+  echo "[$(date -Is)] weekly-guarded: FORCED run (trigger: ${1:-unspecified}) — marker bypassed" >> "$LOG"
+elif [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$THIS_WEEK" ]; then
   exit 0  # already ran this week — quiet skip; redundant triggers are by design
 fi
 
