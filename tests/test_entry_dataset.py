@@ -176,3 +176,49 @@ def test_triple_barrier_horizon_comes_from_barrier_config_not_param():
     # and the config horizon is genuinely in effect: end-of-panel cropping follows 40, not 20
     pair = panel.closes[["AAA", "SPY"]].dropna()
     assert meta_wrong["as_of"].max() <= pair.index[-1 - config.horizon_days]
+
+
+def test_default_call_is_unchanged_by_the_additive_evidence_param():
+    """Regression: `evidence_index=None` must reproduce today's exact layout — the nightly
+    chain calls this without the parameter and must not move an inch."""
+    panel = _panel()
+    X, y, meta = build_backfill_dataset(panel, ["AAA", "BBB"], horizon_days=HORIZON_DAYS)
+    X2, y2, meta2 = build_backfill_dataset(
+        panel, ["AAA", "BBB"], horizon_days=HORIZON_DAYS, evidence_index=None
+    )
+    assert list(X.columns) == list(FEATURE_COLUMNS)
+    pd.testing.assert_frame_equal(X, X2)
+    pd.testing.assert_series_equal(y, y2)
+    pd.testing.assert_frame_equal(meta, meta2)
+
+
+def test_evidence_index_appends_its_block_point_in_time():
+    """With an index, X carries FEATURE_COLUMNS + EVIDENCE_FEATURE_COLUMNS, and the flag is 0
+    for every as_of at or before the cluster's t0 and 1 inside the window after it."""
+    from datetime import date
+
+    from equity_scout.ml.evidence_features import EVIDENCE_FEATURE_COLUMNS, EvidenceIndex
+
+    panel = _panel()
+    cluster_day = date(2020, 6, 1)
+    index = EvidenceIndex({"AAA": [(cluster_day, 7)]})
+    X, _, meta = build_backfill_dataset(
+        panel, ["AAA", "BBB"], horizon_days=HORIZON_DAYS, evidence_index=index
+    )
+    assert list(X.columns) == list(FEATURE_COLUMNS) + list(EVIDENCE_FEATURE_COLUMNS)
+
+    as_of = pd.to_datetime(meta["as_of"])
+    is_aaa = meta["ticker"] == "AAA"
+    flag = X["ev_insider_cluster_91d"]
+    # BBB has no clusters at all -> the whole block is zero for it.
+    assert (X.loc[~is_aaa.to_numpy(), list(EVIDENCE_FEATURE_COLUMNS)] == 0.0).all().all()
+    # AAA before the filing day: invisible. Inside the 91-day window after it: visible.
+    before = is_aaa.to_numpy() & (as_of.dt.date <= cluster_day).to_numpy()
+    inside = (
+        is_aaa.to_numpy()
+        & (as_of.dt.date > cluster_day).to_numpy()
+        & (as_of.dt.date <= date(2020, 8, 1)).to_numpy()
+    )
+    assert (flag[before] == 0.0).all()
+    assert inside.any() and (flag[inside] == 1.0).all()
+    assert (X.loc[inside, "ev_insider_max_size_91d"] == 7.0).all()

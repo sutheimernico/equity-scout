@@ -26,6 +26,7 @@ from equity_scout.ml.entry_features import (
     build_feature_row,
     market_context,
 )
+from equity_scout.ml.evidence_features import EVIDENCE_FEATURE_COLUMNS, EvidenceIndex
 from equity_scout.ml.labeling import BarrierConfig
 
 
@@ -38,6 +39,7 @@ def build_backfill_dataset(
     min_history: int = MIN_HISTORY,
     label_direction: str = "beats",
     barrier_config: BarrierConfig | None = None,
+    evidence_index: EvidenceIndex | None = None,
 ) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
     """Assemble aligned (X, y, meta) from a stock+benchmark `PricePanel`.
 
@@ -66,7 +68,14 @@ def build_backfill_dataset(
     (`closes[[ticker, benchmark]].dropna()`), so both legs' forward horizons end on the SAME date.
     A global universe carries interior NaN from differing exchange calendars; aligning drops those
     dates from both legs instead of fabricating a mismatched (and often spuriously 0) label. Feature
-    building stays on the stock's OWN history — it is as-of and already leak-free."""
+    building stays on the stock's OWN history — it is as-of and already leak-free.
+
+    `evidence_index` (v15 P3, additive — default None reproduces the pre-P3 layout exactly):
+    when given, every row's feature dict is extended by `EVIDENCE_FEATURE_COLUMNS`, appended
+    after the price block, so X's columns become FEATURE_COLUMNS + EVIDENCE_FEATURE_COLUMNS. The
+    block is point-in-time by construction (`EvidenceIndex.features` only sees events strictly
+    before `as_of`) and never returns None, so it can add columns but can never drop a row —
+    which keeps the with/without comparison an apples-to-apples one on the SAME sample."""
     if label_direction not in ("beats", "lags", "triple_barrier"):
         raise ValueError(
             f"label_direction must be 'beats', 'lags' or 'triple_barrier', got {label_direction!r}"
@@ -99,6 +108,8 @@ def build_backfill_dataset(
             )
             if features is None:
                 continue
+            if evidence_index is not None:
+                features = {**features, **evidence_index.features(ticker, as_of)}
             if as_of not in pair.index:  # benchmark gap on the decision day — cannot label honestly
                 continue
             if label_direction == "triple_barrier":
@@ -119,7 +130,10 @@ def build_backfill_dataset(
 
     rows.sort(key=lambda r: (r[0], r[1]))  # deterministic: as_of then ticker
 
-    X = pd.DataFrame([r[2] for r in rows], columns=list(FEATURE_COLUMNS))
+    columns = list(FEATURE_COLUMNS)
+    if evidence_index is not None:
+        columns += list(EVIDENCE_FEATURE_COLUMNS)
+    X = pd.DataFrame([r[2] for r in rows], columns=columns)
     y = pd.Series([r[3] for r in rows], dtype=int)
     meta = pd.DataFrame(
         {
