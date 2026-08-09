@@ -74,6 +74,10 @@ from equity_scout.st_swing import MAX_POSITIONS, check_exits, pick_entries
 
 SWING_SNAPSHOT = "data/prices/st_swing_panel.csv"
 CRYPTO_SLIPPAGE_BPS = 10.0
+# Kraken Pro spot taker, lowest tier (<$5M 30-day volume), per side — checked 2026-08-09
+# (kraken.com/features/fee-schedule). Donchian breakouts fill as market orders, so the taker
+# rate is the honest floor; DEFAULT_FEE_BPS=0 is a stock-broker fact that never applied here.
+CRYPTO_FEE_BPS = 80.0
 EVENTS_SEEN_KEY = "events_seen_until"
 SESSION_STATE_KEY = "session_state"
 
@@ -546,10 +550,11 @@ def run_crypto(db: str, *, now: datetime, fetch=fetch_ohlc) -> bool:
             if action.kind == "buy":
                 book, fill = buy(book, symbol, action.price, action.at,
                                  fraction=CRYPTO_FRACTION, reason=action.reason,
-                                 slippage_bps=CRYPTO_SLIPPAGE_BPS)
+                                 fee_bps=CRYPTO_FEE_BPS, slippage_bps=CRYPTO_SLIPPAGE_BPS)
             else:
                 book, fill = sell(book, symbol, action.price, action.at,
-                                  reason=action.reason, slippage_bps=CRYPTO_SLIPPAGE_BPS)
+                                  reason=action.reason, fee_bps=CRYPTO_FEE_BPS,
+                                  slippage_bps=CRYPTO_SLIPPAGE_BPS)
             if fill:
                 fills.append(fill)
         if marker:

@@ -55,6 +55,22 @@ def test_crypto_lane_books_a_breakout_and_is_idempotent(db) -> None:
     assert len(load_trades(db, "crypto")) == 1
 
 
+def test_crypto_fills_carry_the_kraken_taker_fee(db) -> None:
+    """The lane simulates Kraken; its lowest published taker tier is 0.80% per side. A 0-fee
+    book would measure a strategy that no reachable venue offers (found 2026-08-09: the lane
+    had been charged slippage only, understating round-trip costs by ~160 bps)."""
+    bars = _crypto_bars([100.0] * 21 + [105.0, 106.0])
+    runner.run_crypto(db, now=NOW, fetch=lambda pair: bars if pair == "XBTUSD" else None)
+    trade = load_trades(db, "crypto")[0]
+    spend = 10_000.0 * runner.CRYPTO_FRACTION
+    fee = spend * runner.CRYPTO_FEE_BPS / 10_000.0
+    effective = 105.0 * (1.0 + runner.CRYPTO_SLIPPAGE_BPS / 10_000.0)
+    slip_cost = trade["qty"] * (effective - 105.0)
+    assert fee > 0
+    assert trade["qty"] == pytest.approx((spend - fee) / effective)
+    assert trade["fees"] == pytest.approx(fee + slip_cost)
+
+
 def test_crypto_lane_skips_honestly_when_feed_is_down(db) -> None:
     runner.run_crypto(db, now=NOW, fetch=lambda pair: None)
     assert load_book(db, "crypto") is None
