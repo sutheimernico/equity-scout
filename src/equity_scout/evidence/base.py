@@ -21,6 +21,12 @@ SOURCE_8K = "edgar_8k"
 # public statement (tweet/Truth Social post), not a third-party news mention about
 # them -- deliberately distinct from SOURCE_VOICE, which is third-party reporting.
 SOURCE_STATEMENT = "statement"
+# v15 P2 shadow lane (evidence/insider_shadow.py): pre-registered PAPER predictions on
+# Form-4 insider CLUSTERS. Its own source string on purpose — `stats_by_source` keeps
+# the lane's forward track separate from the per-filing `insider` track, so a lane's
+# numbers can never be mixed into the collector's (spec: no silent identity changes to
+# existing tracks). Nothing under this source ever touches capital.
+SOURCE_INSIDER_SHADOW = "insider_shadow"
 
 STATUS_OK = "ok"
 STATUS_UNCONFIGURED = "unconfigured"
