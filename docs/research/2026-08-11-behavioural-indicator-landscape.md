@@ -39,9 +39,9 @@ sagen, wie sie positioniert sind, was sie versichern.
 
 | Quelle | Was sie über Verhalten sagt | Evidenzlage | Frei? | Status |
 |---|---|---|---|---|
-| **Volumen** | wie viele Menschen gehandelt haben | solide als Teilnahmemaß | ✅ | **gebaut** (v17) |
-| **VIX-Terminstruktur** (VIX9D/VIX/VIX3M) | wie teuer Absicherung *jetzt* vs. *später* ist → Panik oder Ruhe | Backwardation als Stressmarker gut belegt | ✅ **verifiziert erreichbar** | **nächster Schritt** |
-| **Marktbreite** (Advance/Decline, % über 200d) | tragen viele Titel die Bewegung oder wenige? | robust, klassisch | ✅ aus eigenen Panels | teilweise da (`pct_above_200d`) |
+| **Volumen** | wie viele Menschen gehandelt haben | solide als Teilnahmemaß | ✅ | **gebaut** (v17); W0: kein eigener Beitrag zur Vorhersage |
+| **VIX-Terminstruktur** (VIX9D/VIX/VIX3M) | wie teuer Absicherung *jetzt* vs. *später* ist → Panik oder Ruhe | Backwardation als Stressmarker gut belegt | ✅ **verifiziert erreichbar** | **W0 gemessen: gestrichen** — sagt nichts, was der VIX-Level nicht schon sagt |
+| **Marktbreite** (Advance/Decline, % über 200d) | tragen viele Titel die Bewegung oder wenige? | robust, klassisch | ✅ aus eigenen Panels | **W0 gemessen: bester Nicht-Vola-Prädiktor**, schon verbaut (`pct_above_200d`) |
 | **AAII-Sentiment-Umfrage** | was Privatanleger *erwarten* | **extreme Bearishness → überdurchschnittliche 12-Monats-Renditen** | ✅ wöchentlich (Do) | Abruf offen |
 | **Put/Call-Ratio (CBOE)** | Absicherungs- vs. Spekulationsdruck | kontrazyklisch, gut untersucht | ⚠️ **CSV-Endpunkt gibt 403** | Quelle nötig |
 | **Short Interest** (FINRA/CBOE) | wie viele gegen einen Titel wetten | **extrem hohes SI → überdurchschnittliche Folgerenditen** (Squeeze) | ✅ 2×/Monat | Abruf offen |
@@ -64,6 +64,15 @@ Exposure drosseln, wenn die Stimmung überhitzt, aber nicht symmetrisch aufdrehe
 schlecht ist. Genau die Sorte einseitiges Gate, die dieses Projekt beim `_no_edge`-Band der
 ML-Champions schon einmal aus demselben Grund gebaut hat.
 
+> **Nachtrag W0 (2026-08-11) — diese Ableitung hat die Messung nicht bestätigt.** An unseren
+> Daten wirkt die **Panik**-Seite, nicht die Euphorie-Seite: schwache Marktbreite geht mit
+> +13,19 Prozentpunkten Folgevolatilität einher (p < 0,0001), starke Breite mit nichts
+> (p = 0,37). Einordnung: Baker-Wurgler sprechen über *Renditen*, gemessen ist hier *Risiko* —
+> und in der Renditedimension war der Effekt zu klein, um überhaupt auflösbar zu sein
+> (erkennbar erst ab 3,47 % im Monat, Baker-Wurgler berichten 0,9 %). Die Asymmetrie-Annahme ist
+> damit weder bestätigt noch widerlegt, sondern **an unseren Daten nicht prüfbar** — und ein Gate
+> darauf zu bauen hieße, eine ungeprüfte Fremdannahme in die Exposure-Steuerung zu schreiben.
+
 ## Kategorie C — nicht frei
 
 SentimenTrader (20.000+ Indikatoren mit API), Optionsflow in der Tiefe, Level-2-Orderbuchdaten.
@@ -84,42 +93,50 @@ sondern an zwei andere Stellen:
 Das ist ein anderer Wirkmechanismus als „ein Feature mehr im Klassifikator", und es ist der
 Grund, warum diese Runde nicht im selben Nullbefund enden muss wie die letzten zwei.
 
-## Wochenplan
+## Wochenplan — nach W0 revidiert (2026-08-11)
 
-> **W0 blockiert alles Weitere — Nicos ausdrückliche Anweisung (2026-08-10):
-> jeder Indikator wird gegen die Historie geprüft, bevor er eingebaut wird.**
+> **W0 ist gelaufen und hat den Plan umgeworfen.** Vollständige Auswertung:
+> [`2026-08-11-w0-historical-check-behavioural-indicators.md`](2026-08-11-w0-historical-check-behavioural-indicators.md).
+> Die drei Sätze, die zählen:
 >
-> Diese Landkarte stützt sich bisher auf **Fremdevidenz** (Literatur) plus einen
-> Erreichbarkeitstest. Das ist keine Messung an unseren Daten. Der aktuelle VIX-Stand
-> 12,77/15,46/18,98 ist eine Momentaufnahme, kein Backtest. Ob VIX-Backwardation in UNSEREM
-> Universum und über UNSERE Historie etwas vorhersagt, ist offen — und Literaturbefunde
-> übertragen sich nachweislich nicht automatisch: derselbe Skip-Month, der für US-Einzelaktien
-> gut belegt ist, verlor auf unseren 21 Index-ETFs (v16, `skip_months=0` gewann).
+> 1. **Kein Kandidat sagt die Marktrendite voraus** — 7 Signale × 3 Horizonte über bis zu 19
+>    Jahre, kein Treffer.
+> 2. Was trägt, sagt **Risiko** voraus — und stammt ausnahmslos aus Signalen, die die Ampel
+>    schon führt (VIX-Level, Marktbreite).
+> 3. **Nach Abzug dieser Bestandssignale bleibt bei keinem Kandidaten etwas übrig** (0 von 35
+>    inkrementellen Tests). Die VIX-Terminstruktur fällt von Rank-IC 0,51 auf 0,08.
+>
+> Genau der Fall, für den Nico das Gate angeordnet hat: W1 sah in Literatur und
+> Erreichbarkeitstest gut aus und wäre eine neue Datenquelle plus laufende Wartung für null
+> Informationsgewinn gewesen.
 
-- [ ] **W0 Historischer Abgleich (Gate für alle folgenden Tasks)** — je Kandidat: gegen die
-      vorhandene Panel-Historie testen, identisches Sample, Walk-Forward, `significance.py` für
-      die Frage „reicht n überhaupt". Zusätzlich die Baker-Wurgler-Asymmetrie separat prüfen —
-      wirkt das Signal nur in einer Richtung? Maßstab ist der Volumen-Test vom 2026-08-11:
-      dessen Nullbefund (AUC 0,4982 → 0,4973 bei 100 % Coverage) ist das Format, in dem auch ein
-      negatives Ergebnis berichtet wird. **Kein Einbau in Ampel, Depot oder Strategie ohne
-      diesen Schritt.**
-- [ ] **W1 VIX-Terminstruktur** — verifiziert erreichbar (^VIX9D/^VIX/^VIX3M über yfinance, alle
-      drei liefern Daten). Kontango vs. Backwardation als Stressmarker, in die Ampel.
-      Aktueller Live-Stand: 12,77 / 15,46 / 18,98 = sauberes Kontango, also Ruhe.
-- [ ] **W2 Marktbreite ausbauen** — Advance/Decline-Linie und Neue-Hochs-minus-Tiefs aus dem
-      vorhandenen Panel. Kostet keine neue Datenquelle.
-- [ ] **W3 Sentiment-Gate im Depot** — einseitig nach Baker-Wurgler: drosselt bei
-      Stimmungs-Überhitzung, dreht bei Pessimismus nicht auf. Mit markiertem Track-Bruch.
-- [ ] **W4 Put/Call-Quelle finden** — der CBOE-CSV-Endpunkt gibt 403. Alternativen prüfen
-      (andere CBOE-Pfade, Nasdaq-Datenportal, yfinance-Optionsketten als Eigenberechnung).
-      Wenn keine freie Quelle trägt: ehrlich als „nicht verfügbar" dokumentieren statt
-      ersetzen.
-- [ ] **W5 Short Interest** — FINRA veröffentlicht zweimal monatlich; als Einzeltitel-Signal für
-      die Watchlist, nicht fürs Entry-Modell.
-- [ ] **W6 AAII-Sentiment** — wöchentlich. Erst klären, ob es einen stabilen freien Abruf gibt;
-      ein wöchentlicher Wert ist für tägliche Entscheidungen ohnehin grob.
+- [x] **W0 Historischer Abgleich (Gate für alle folgenden Tasks)** — **erledigt 2026-08-11.**
+      `scripts/run_behaviour_study.py`, Werkzeug `behaviour_study.py` (26 Tests), Rohzahlen in
+      `data/behaviour_study.json`. Nebenbefunde: der OBV-Treffer entpuppte sich im
+      Startpunkt-Test als Artefakt (hielt bei 9 % der 22 gleichwertigen Stichproben-Startpunkte),
+      und das Volumen-Panel war ohne Not elf Jahre zu kurz — jetzt ab 2007 statt 2018.
+- [x] **W1 VIX-Terminstruktur — GESTRICHEN.** Gemessen: trägt roh (Vola 21T Spread +11,02 %,
+      p < 0,0001), aber **nichts über den VIX-Level hinaus**, der bereits in der Ampel steht
+      (Rest-p = 0,027 gegen α = 0,0006). Eine zweite Datenquelle für dieselbe Aussage.
+- [ ] **W2 Marktbreite ausbauen — herabgestuft.** Die Breite ist der beste
+      Nicht-Volatilitäts-Prädiktor im Test (Rank-IC −0,48 auf Folgevola) und **schon verbaut**.
+      A/D-Linie und Neue-Hochs-minus-Tiefs sind Varianten derselben Beobachtung; sie müssten
+      erst inkrementell gegen die vorhandene Breite antreten.
+- [ ] **W3 Sentiment-Gate im Depot — Grundlage entfallen.** Es sollte einseitig nach
+      Baker-Wurgler wirken („drosseln bei Überhitzung"). Gemessen wirkt die **Panik**-Seite
+      (schwache Breite → +13,19 Pp Folgevola, p < 0,0001), die Euphorie-Seite nicht (p = 0,37).
+      Falls ein Gate kommt: auf der gemessenen Seite und mit Risiko-, nicht mit Renditebegründung.
+- [ ] **W4 Put/Call**, **W5 Short Interest**, **W6 AAII** — **jetzt die einzigen sinnvollen
+      Kandidaten.** Sie bringen als Einzige eine wirklich unabhängige Beobachtung mit
+      (Optionsmarkt, Leerverkaufspositionen, Umfrage) statt einer weiteren Transformation von
+      Kurs und Volatilität — und haben damit als Einzige eine Chance, Runde 2 zu bestehen.
+      Gate gilt unverändert. Bei W6 (wöchentlich) vor dem Abruf klären, ob n überhaupt reicht.
 
-Reihenfolge nach verifizierter Erreichbarkeit und Wirkmechanismus, nicht nach Popularität.
+**Die harte Grenze, die W0 aufgedeckt hat:** Auflösbar sind hier erst Rendite-Unterschiede ab
+**3,47 %** pro Monat (80 % Testmacht, korrigiertes Niveau). Der Baker-Wurgler-Effekt beträgt
+−0,9 % — er wäre in unseren Daten **grundsätzlich unsichtbar**, dafür bräuchte es ~275 Jahre
+Historie. Die Rendite-Frage ist an unseren Daten also nicht entscheidbar; die Risiko-Frage ist es.
+Jedes künftige Verhaltenssignal muss sich über die Risiko-Schiene rechtfertigen.
 
 ## Quellen
 

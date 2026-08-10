@@ -1,0 +1,5046 @@
+{
+  "n_tests": 84,
+  "alpha": 0.0005952380952380953,
+  "studies": [
+    {
+      "signal": "VIX-Level",
+      "target": "SPY-Rendite 5T",
+      "horizon_days": 5,
+      "n_overlapping": 4926,
+      "n_independent": 821,
+      "rank_ic_overlapping": 0.082,
+      "rank_ic_independent": 0.083,
+      "spread": 0.001231453289198648,
+      "spread_p": 0.5821537922423127,
+      "walk_forward_spreads": [
+        -0.0014137799335377378,
+        0.0042697905375120365,
+        0.00363222640082815
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 274,
+          "signal_lo": 9.140000343322754,
+          "signal_hi": 15.270000457763672,
+          "mean_target": 0.0020515637738405174,
+          "median_target": 0.0027653589960578984
+        },
+        {
+          "label": "mittel",
+          "n": 274,
+          "signal_lo": 15.270000457763672,
+          "signal_hi": 20.71999931335449,
+          "mean_target": 0.0009983287216496193,
+          "median_target": 0.0031665551718237372
+        },
+        {
+          "label": "hoch",
+          "n": 273,
+          "signal_lo": 20.71999931335449,
+          "signal_hi": 76.44999694824219,
+          "mean_target": 0.0032830170630391655,
+          "median_target": 0.007572034867515898
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.008676985715267531,
+      "high_extreme": {
+        "n": 165,
+        "mean_in_tail": 0.003426239460660053,
+        "mean_middle": 0.0019234098795416455,
+        "difference": 0.0015028295811184073,
+        "p_value": 0.6483666148581635
+      },
+      "low_extreme": {
+        "n": 165,
+        "mean_in_tail": 0.0013467299400614122,
+        "mean_middle": 0.0019234098795416455,
+        "difference": -0.0005766799394802333,
+        "p_value": 0.6549875217793055
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.12%, p=0.582 bei α=0.0006 — auf 821 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 0.87% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Level",
+      "target": "SPY-Rendite 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4910,
+      "n_independent": 224,
+      "rank_ic_overlapping": 0.1535,
+      "rank_ic_independent": 0.2473,
+      "spread": 0.02010723962718965,
+      "spread_p": 0.0193819059775607,
+      "walk_forward_spreads": [
+        0.009085166500305723,
+        0.0251127608208737,
+        0.027426172739281194
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 9.220000267028809,
+          "signal_hi": 15.289999961853027,
+          "mean_target": 0.001539568483293497,
+          "median_target": 0.007974511810526108
+        },
+        {
+          "label": "mittel",
+          "n": 75,
+          "signal_lo": 15.34000015258789,
+          "signal_hi": 20.649999618530277,
+          "mean_target": 0.007806425001178024,
+          "median_target": 0.018850646859429387
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 20.700000762939453,
+          "signal_hi": 82.69000244140625,
+          "mean_target": 0.021646808110483147,
+          "median_target": 0.04150411680730448
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.03465559347436434,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.030937130632694383,
+        "mean_middle": 0.00531233960625367,
+        "difference": 0.02562479102644071,
+        "p_value": 0.02162798125587867
+      },
+      "low_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.004417531684486178,
+        "mean_middle": 0.00531233960625367,
+        "difference": -0.0008948079217674914,
+        "p_value": 0.8739350948689228
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +2.01%, p=0.019 bei α=0.0006 — auf 224 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 3.47% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Level",
+      "target": "SPY-Rendite 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4870,
+      "n_independent": 77,
+      "rank_ic_overlapping": 0.1912,
+      "rank_ic_independent": 0.248,
+      "spread": 0.03579832605080591,
+      "spread_p": 0.14820548844576462,
+      "walk_forward_spreads": [
+        -0.027853714479696597,
+        0.021596543710879025,
+        0.08972096551896748
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 10.449999809265137,
+          "signal_hi": 14.5600004196167,
+          "mean_target": 0.015226842823463956,
+          "median_target": 0.02898874006343788
+        },
+        {
+          "label": "mittel",
+          "n": 26,
+          "signal_lo": 14.619999885559082,
+          "signal_hi": 19.61000061035156,
+          "mean_target": 0.015900188707454768,
+          "median_target": 0.03179918129210535
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 19.850000381469727,
+          "signal_hi": 61.66999816894531,
+          "mean_target": 0.05102516887426987,
+          "median_target": 0.06663923410466976
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.09911570319279653,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.03778827349836632,
+        "mean_middle": 0.02786985092765354,
+        "difference": 0.009918422570712779,
+        "p_value": 0.7630021692683036
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.014136023371397695,
+        "mean_middle": 0.02786985092765354,
+        "difference": -0.013733827556255844,
+        "p_value": 0.5415541945325132
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +3.58%, p=0.148 bei α=0.0006 — auf 77 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 9.91% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Level",
+      "target": "SPY-Vola 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4910,
+      "n_independent": 224,
+      "rank_ic_overlapping": 0.654,
+      "rank_ic_independent": 0.6512,
+      "spread": 0.11695931682891757,
+      "spread_p": 4.80013095488917e-09,
+      "walk_forward_spreads": [
+        0.17285058788913898,
+        0.05318787260798735,
+        0.08859168886769667
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 9.220000267028809,
+          "signal_hi": 15.289999961853027,
+          "mean_target": 0.11188553307972872,
+          "median_target": 0.09732299076183026
+        },
+        {
+          "label": "mittel",
+          "n": 75,
+          "signal_lo": 15.34000015258789,
+          "signal_hi": 20.649999618530277,
+          "mean_target": 0.13942113578049767,
+          "median_target": 0.12922604325475262
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 20.700000762939453,
+          "signal_hi": 82.69000244140625,
+          "mean_target": 0.2288448499086463,
+          "median_target": 0.20377406853167546
+        }
+      ],
+      "offset_share_significant": 1.0,
+      "minimum_detectable": 0.07842302535600089,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.2584634687165835,
+        "mean_middle": 0.1464075120051502,
+        "difference": 0.11205595671143329,
+        "p_value": 3.263347301859252e-05
+      },
+      "low_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.10073458570712042,
+        "mean_middle": 0.1464075120051502,
+        "difference": -0.045672926298029784,
+        "p_value": 8.747241301753873e-06
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "trägt",
+      "note": "Spread +11.70% (p=0.000, α=0.0006) über 224 unabhängige Fenster, Vorzeichen in allen Zeitblöcken gleich, robust über 100% der Startpunkte: hohe Signalwerte gehen mit höheren Folgewerten einher."
+    },
+    {
+      "signal": "VIX-Level",
+      "target": "SPY-Drawdown 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4910,
+      "n_independent": 224,
+      "rank_ic_overlapping": -0.4205,
+      "rank_ic_independent": -0.3925,
+      "spread": -0.025070708629818292,
+      "spread_p": 0.00038229573689852196,
+      "walk_forward_spreads": [
+        -0.041881439840942954,
+        -0.008502321539924307,
+        -0.016997037495192505
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 9.220000267028809,
+          "signal_hi": 15.289999961853027,
+          "mean_target": -0.03023147556999877,
+          "median_target": -0.020817101606126487
+        },
+        {
+          "label": "mittel",
+          "n": 75,
+          "signal_lo": 15.34000015258789,
+          "signal_hi": 20.649999618530277,
+          "mean_target": -0.03678275107400573,
+          "median_target": -0.028736320999520282
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 20.700000762939453,
+          "signal_hi": 82.69000244140625,
+          "mean_target": -0.05530218419981706,
+          "median_target": -0.04378609298406072
+        }
+      ],
+      "offset_share_significant": 0.9090909090909091,
+      "minimum_detectable": 0.027840440324655893,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": -0.05995050090050436,
+        "mean_middle": -0.03898410478496499,
+        "difference": -0.020966396115539375,
+        "p_value": 0.018762307552185286
+      },
+      "low_extreme": {
+        "n": 45,
+        "mean_in_tail": -0.026595245497306567,
+        "mean_middle": -0.03898410478496499,
+        "difference": 0.01238885928765842,
+        "p_value": 0.00726641109513348
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "trägt",
+      "note": "Spread -2.51% (p=0.000, α=0.0006) über 224 unabhängige Fenster, Vorzeichen in allen Zeitblöcken gleich, robust über 91% der Startpunkte: hohe Signalwerte gehen mit niedrigeren Folgewerten einher."
+    },
+    {
+      "signal": "VIX-Level",
+      "target": "SPY-Vola 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4870,
+      "n_independent": 77,
+      "rank_ic_overlapping": 0.5647,
+      "rank_ic_independent": 0.5465,
+      "spread": 0.09070713685657317,
+      "spread_p": 0.002572589547925903,
+      "walk_forward_spreads": [
+        0.17936758418102097,
+        0.01054743504355421,
+        0.03587793752876339
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 10.449999809265137,
+          "signal_hi": 14.5600004196167,
+          "mean_target": 0.12669062147472016,
+          "median_target": 0.11274147865142281
+        },
+        {
+          "label": "mittel",
+          "n": 26,
+          "signal_lo": 14.619999885559082,
+          "signal_hi": 19.61000061035156,
+          "mean_target": 0.15541559808335903,
+          "median_target": 0.13432038740177094
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 19.850000381469727,
+          "signal_hi": 61.66999816894531,
+          "mean_target": 0.21739775833129332,
+          "median_target": 0.1694497180416511
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.1153124497747266,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.2604100725936753,
+        "mean_middle": 0.1439631745823209,
+        "difference": 0.11644689801135441,
+        "p_value": 0.0027585008594801915
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.13280010306807152,
+        "mean_middle": 0.1439631745823209,
+        "difference": -0.01116307151424939,
+        "p_value": 0.6686594004140727
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +9.07%, p=0.003 bei α=0.0006 — auf 77 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 11.53% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Level",
+      "target": "SPY-Drawdown 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4870,
+      "n_independent": 77,
+      "rank_ic_overlapping": -0.3275,
+      "rank_ic_independent": -0.3156,
+      "spread": -0.03572019055276022,
+      "spread_p": 0.054061970570101425,
+      "walk_forward_spreads": [
+        -0.08750359576483911,
+        0.004170884692100724,
+        0.0017693446914651828
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 10.449999809265137,
+          "signal_hi": 14.5600004196167,
+          "mean_target": -0.059269027684295865,
+          "median_target": -0.0457737154788842
+        },
+        {
+          "label": "mittel",
+          "n": 26,
+          "signal_lo": 14.619999885559082,
+          "signal_hi": 19.61000061035156,
+          "mean_target": -0.07229783077846327,
+          "median_target": -0.06011365653378875
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 19.850000381469727,
+          "signal_hi": 61.66999816894531,
+          "mean_target": -0.09498921823705608,
+          "median_target": -0.07184649288481915
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07275079921739099,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": -0.11846065005155931,
+        "mean_middle": -0.06433583179075672,
+        "difference": -0.05412481826080259,
+        "p_value": 0.020621746067804453
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": -0.06281162153432121,
+        "mean_middle": -0.06433583179075672,
+        "difference": 0.0015242102564355098,
+        "p_value": 0.9319120071094139
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -3.57%, p=0.054 bei α=0.0006 — auf 77 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.28% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M)",
+      "target": "SPY-Rendite 5T",
+      "horizon_days": 5,
+      "n_overlapping": 4915,
+      "n_independent": 820,
+      "rank_ic_overlapping": 0.0781,
+      "rank_ic_independent": 0.0757,
+      "spread": 0.0018223890134965938,
+      "spread_p": 0.4128387844379999,
+      "walk_forward_spreads": [
+        -0.00465426492408952,
+        0.003804301744817192,
+        0.0022346034163328917
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 274,
+          "signal_lo": 0.7359098459885096,
+          "signal_hi": 0.8668098099996077,
+          "mean_target": 0.0009243572253062535,
+          "median_target": 0.0011662643883273427
+        },
+        {
+          "label": "mittel",
+          "n": 273,
+          "signal_lo": 0.8670842127610916,
+          "signal_hi": 0.9291432950280506,
+          "mean_target": 0.0026800133639966217,
+          "median_target": 0.00532788691887931
+        },
+        {
+          "label": "hoch",
+          "n": 273,
+          "signal_lo": 0.9292204900508645,
+          "signal_hi": 1.4004044273321783,
+          "mean_target": 0.0027467462388028473,
+          "median_target": 0.006183783096052942
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.00866598317585488,
+      "high_extreme": {
+        "n": 164,
+        "mean_in_tail": 0.0031207667102198067,
+        "mean_middle": 0.002148396304540042,
+        "difference": 0.0009723704056797647,
+        "p_value": 0.7564439132104647
+      },
+      "low_extreme": {
+        "n": 164,
+        "mean_in_tail": 0.0010119666401732907,
+        "mean_middle": 0.002148396304540042,
+        "difference": -0.0011364296643667513,
+        "p_value": 0.4247490927801207
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.18%, p=0.413 bei α=0.0006 — auf 820 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 0.87% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M)",
+      "target": "SPY-Rendite 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4909,
+      "n_independent": 224,
+      "rank_ic_overlapping": 0.1229,
+      "rank_ic_independent": 0.2041,
+      "spread": 0.014341389295930007,
+      "spread_p": 0.07145864649078817,
+      "walk_forward_spreads": [
+        0.006566699910089525,
+        0.019612273587090393,
+        0.01673401462486101
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 0.7568807350916521,
+          "signal_hi": 0.8651066707386528,
+          "mean_target": 0.008794333468754972,
+          "median_target": 0.010352814821294798
+        },
+        {
+          "label": "mittel",
+          "n": 75,
+          "signal_lo": 0.8671824378325486,
+          "signal_hi": 0.9283088175139486,
+          "mean_target": -0.000946554429580854,
+          "median_target": 0.016290022280704752
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 0.9309655239335997,
+          "signal_hi": 1.2214181118002734,
+          "mean_target": 0.02313572276468498,
+          "median_target": 0.029798661151423267
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.03466283857204713,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.026702554337727037,
+        "mean_middle": 0.004981934398537844,
+        "difference": 0.021720619939189195,
+        "p_value": 0.0460947570298353
+      },
+      "low_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.009587394620510215,
+        "mean_middle": 0.004981934398537844,
+        "difference": 0.0046054602219723715,
+        "p_value": 0.39926711798364434
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +1.43%, p=0.071 bei α=0.0006 — auf 224 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 3.47% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M)",
+      "target": "SPY-Rendite 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4870,
+      "n_independent": 77,
+      "rank_ic_overlapping": 0.1083,
+      "rank_ic_independent": 0.2269,
+      "spread": 0.03651913449917691,
+      "spread_p": 0.16053879145196337,
+      "walk_forward_spreads": [
+        -0.06941905797219114,
+        0.01762176654529274,
+        0.12592843724251054
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 0.7838214540806486,
+          "signal_hi": 0.8532772276898406,
+          "mean_target": 0.004574644387324014,
+          "median_target": 0.029283291641770126
+        },
+        {
+          "label": "mittel",
+          "n": 26,
+          "signal_lo": 0.8571429274054626,
+          "signal_hi": 0.9249623025351195,
+          "mean_target": 0.03610180059337255,
+          "median_target": 0.043798369743032195
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 0.9254422714899501,
+          "signal_hi": 1.2975460191726789,
+          "mean_target": 0.041093778886500926,
+          "median_target": 0.06070835250222051
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.09911570319279653,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.043088323105082524,
+        "mean_middle": 0.03357530541196214,
+        "difference": 0.009513017693120386,
+        "p_value": 0.7669034224492163
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": -0.007210616972436426,
+        "mean_middle": 0.03357530541196214,
+        "difference": -0.040785922384398564,
+        "p_value": 0.09521634024440637
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +3.65%, p=0.161 bei α=0.0006 — auf 77 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 9.91% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M)",
+      "target": "SPY-Vola 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4909,
+      "n_independent": 224,
+      "rank_ic_overlapping": 0.5026,
+      "rank_ic_independent": 0.511,
+      "spread": 0.11024711150032823,
+      "spread_p": 1.7624520837671172e-08,
+      "walk_forward_spreads": [
+        0.14615329782361577,
+        0.04706429651237108,
+        0.09861215520726616
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 0.7568807350916521,
+          "signal_hi": 0.8651066707386528,
+          "mean_target": 0.11098093007735729,
+          "median_target": 0.10163489033452258
+        },
+        {
+          "label": "mittel",
+          "n": 75,
+          "signal_lo": 0.8671824378325486,
+          "signal_hi": 0.9283088175139486,
+          "mean_target": 0.1478256444079684,
+          "median_target": 0.13136228339393805
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 0.9309655239335997,
+          "signal_hi": 1.2214181118002734,
+          "mean_target": 0.22122804157768552,
+          "median_target": 0.19495284423954284
+        }
+      ],
+      "offset_share_significant": 1.0,
+      "minimum_detectable": 0.07842297312035915,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.2462904340267518,
+        "mean_middle": 0.14868173776939742,
+        "difference": 0.09760869625735438,
+        "p_value": 0.0005179929807982935
+      },
+      "low_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.1061099060187793,
+        "mean_middle": 0.14868173776939742,
+        "difference": -0.042571831750618114,
+        "p_value": 2.3071368285487068e-05
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "trägt",
+      "note": "Spread +11.02% (p=0.000, α=0.0006) über 224 unabhängige Fenster, Vorzeichen in allen Zeitblöcken gleich, robust über 100% der Startpunkte: hohe Signalwerte gehen mit höheren Folgewerten einher."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M)",
+      "target": "SPY-Drawdown 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4909,
+      "n_independent": 224,
+      "rank_ic_overlapping": -0.3298,
+      "rank_ic_independent": -0.3154,
+      "spread": -0.025207218053428168,
+      "spread_p": 9.961669080000562e-05,
+      "walk_forward_spreads": [
+        -0.03438478373682483,
+        -0.009115177197926927,
+        -0.024472250890846564
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 0.7568807350916521,
+          "signal_hi": 0.8651066707386528,
+          "mean_target": -0.02731100928979751,
+          "median_target": -0.021593581068364176
+        },
+        {
+          "label": "mittel",
+          "n": 75,
+          "signal_lo": 0.8671824378325486,
+          "signal_hi": 0.9283088175139486,
+          "mean_target": -0.042450054786043835,
+          "median_target": -0.029201966966435955
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 0.9309655239335997,
+          "signal_hi": 1.2214181118002734,
+          "mean_target": -0.05251822734322568,
+          "median_target": -0.03813730938742621
+        }
+      ],
+      "offset_share_significant": 0.8636363636363636,
+      "minimum_detectable": 0.027840440324655893,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": -0.05685588742126292,
+        "mean_middle": -0.04050177614505304,
+        "difference": -0.01635411127620988,
+        "p_value": 0.0732255710334124
+      },
+      "low_extreme": {
+        "n": 45,
+        "mean_in_tail": -0.025170570926508033,
+        "mean_middle": -0.04050177614505304,
+        "difference": 0.015331205218545009,
+        "p_value": 0.0002453671226408194
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "trägt",
+      "note": "Spread -2.52% (p=0.000, α=0.0006) über 224 unabhängige Fenster, Vorzeichen in allen Zeitblöcken gleich, robust über 86% der Startpunkte: hohe Signalwerte gehen mit niedrigeren Folgewerten einher."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M)",
+      "target": "SPY-Vola 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4870,
+      "n_independent": 77,
+      "rank_ic_overlapping": 0.4162,
+      "rank_ic_independent": 0.4008,
+      "spread": 0.0680965107124055,
+      "spread_p": 0.029628266452398525,
+      "walk_forward_spreads": [
+        0.15505051474224052,
+        0.004913263824289138,
+        -0.010845304163347502
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 0.7838214540806486,
+          "signal_hi": 0.8532772276898406,
+          "mean_target": 0.14566412878124543,
+          "median_target": 0.11224803555187102
+        },
+        {
+          "label": "mittel",
+          "n": 26,
+          "signal_lo": 0.8571429274054626,
+          "signal_hi": 0.9249623025351195,
+          "mean_target": 0.13993932042841292,
+          "median_target": 0.13014899428700077
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 0.9254422714899501,
+          "signal_hi": 1.2975460191726789,
+          "mean_target": 0.21376063949365093,
+          "median_target": 0.17269672770491679
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.1153124497747266,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.2393870532354016,
+        "mean_middle": 0.1463939896674175,
+        "difference": 0.09299306356798409,
+        "p_value": 0.021568231369711758
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.14698645499951113,
+        "mean_middle": 0.1463939896674175,
+        "difference": 0.0005924653320936168,
+        "p_value": 0.9829282345706346
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +6.81%, p=0.030 bei α=0.0006 — auf 77 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 11.53% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M)",
+      "target": "SPY-Drawdown 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4870,
+      "n_independent": 77,
+      "rank_ic_overlapping": -0.2546,
+      "rank_ic_independent": -0.2132,
+      "spread": -0.02399490867337424,
+      "spread_p": 0.22667467093814875,
+      "walk_forward_spreads": [
+        -0.08975809158272928,
+        -0.001664906251472309,
+        0.03997988208864742
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 0.7838214540806486,
+          "signal_hi": 0.8532772276898406,
+          "mean_target": -0.07115710858059708,
+          "median_target": -0.043992246740406415
+        },
+        {
+          "label": "mittel",
+          "n": 26,
+          "signal_lo": 0.8571429274054626,
+          "signal_hi": 0.9249623025351195,
+          "mean_target": -0.06025321236589743,
+          "median_target": -0.05823242446126414
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 0.9254422714899501,
+          "signal_hi": 1.2975460191726789,
+          "mean_target": -0.09515201725397132,
+          "median_target": -0.07184649288481915
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07275079921739099,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": -0.10496879654987548,
+        "mean_middle": -0.06530408746438916,
+        "difference": -0.03966470908548632,
+        "p_value": 0.09605925776120935
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": -0.07358025595391378,
+        "mean_middle": -0.06530408746438916,
+        "difference": -0.008276168489524616,
+        "p_value": 0.6744354394930097
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -2.40%, p=0.227 bei α=0.0006 — auf 77 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.28% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX)",
+      "target": "SPY-Rendite 5T",
+      "horizon_days": 5,
+      "n_overlapping": 3907,
+      "n_independent": 652,
+      "rank_ic_overlapping": 0.0733,
+      "rank_ic_independent": 0.0998,
+      "spread": 0.0016038473955125505,
+      "spread_p": 0.424636163078734,
+      "walk_forward_spreads": [
+        0.0002759420046851925,
+        0.0018062053919161423,
+        0.00710443067704003
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 218,
+          "signal_lo": 0.6994027986260001,
+          "signal_hi": 0.9008620228977194,
+          "mean_target": 0.001508551343411096,
+          "median_target": 0.001946331327141837
+        },
+        {
+          "label": "mittel",
+          "n": 217,
+          "signal_lo": 0.9009008980862702,
+          "signal_hi": 0.9822047102743962,
+          "mean_target": 0.0035756100878022333,
+          "median_target": 0.005505977332057821
+        },
+        {
+          "label": "hoch",
+          "n": 217,
+          "signal_lo": 0.9824929968715074,
+          "signal_hi": 1.4166666666666667,
+          "mean_target": 0.0031123987389236464,
+          "median_target": 0.005522201288868045
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.00857361785060555,
+      "high_extreme": {
+        "n": 131,
+        "mean_in_tail": 0.002062537422455673,
+        "mean_middle": 0.004070163416144577,
+        "difference": -0.002007625993688904,
+        "p_value": 0.4767884438997493
+      },
+      "low_extreme": {
+        "n": 131,
+        "mean_in_tail": -0.0005907940944652186,
+        "mean_middle": 0.004070163416144577,
+        "difference": -0.004660957510609796,
+        "p_value": 0.00304808527808605
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.16%, p=0.425 bei α=0.0006 — auf 652 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 0.86% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX)",
+      "target": "SPY-Rendite 21T",
+      "horizon_days": 21,
+      "n_overlapping": 3901,
+      "n_independent": 178,
+      "rank_ic_overlapping": 0.1066,
+      "rank_ic_independent": 0.1155,
+      "spread": 0.009355534188955732,
+      "spread_p": 0.19771532066879946,
+      "walk_forward_spreads": [
+        0.0054087921351710245,
+        0.01742473954799377,
+        0.008081252876285016
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 60,
+          "signal_lo": 0.7018319463185579,
+          "signal_hi": 0.9030496482777823,
+          "mean_target": 0.011099965927415228,
+          "median_target": 0.018294230425060398
+        },
+        {
+          "label": "mittel",
+          "n": 59,
+          "signal_lo": 0.9033742616946754,
+          "signal_hi": 0.9691455432966997,
+          "mean_target": 0.00734596644259875,
+          "median_target": 0.016081513430401317
+        },
+        {
+          "label": "hoch",
+          "n": 59,
+          "signal_lo": 0.9700023984898668,
+          "signal_hi": 1.3899392839841986,
+          "mean_target": 0.02045550011637096,
+          "median_target": 0.027594152346001932
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.030883201112767284,
+      "high_extreme": {
+        "n": 36,
+        "mean_in_tail": 0.015369825699823382,
+        "mean_middle": 0.012251452194948536,
+        "difference": 0.0031183735048748457,
+        "p_value": 0.729583505547369
+      },
+      "low_extreme": {
+        "n": 36,
+        "mean_in_tail": 0.012619911799053894,
+        "mean_middle": 0.012251452194948536,
+        "difference": 0.00036845960410535755,
+        "p_value": 0.9495518531723466
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.94%, p=0.198 bei α=0.0006 — auf 178 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 3.09% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX)",
+      "target": "SPY-Rendite 63T",
+      "horizon_days": 63,
+      "n_overlapping": 3862,
+      "n_independent": 61,
+      "rank_ic_overlapping": 0.1351,
+      "rank_ic_independent": 0.2934,
+      "spread": 0.039499886551539916,
+      "spread_p": 0.013470999456837628,
+      "walk_forward_spreads": [
+        0.03517413923052391,
+        0.04276405235053983,
+        0.07074264768626833
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 21,
+          "signal_lo": 0.7522970515764726,
+          "signal_hi": 0.910846130584383,
+          "mean_target": 0.030941577266130012,
+          "median_target": 0.04075361268321753
+        },
+        {
+          "label": "mittel",
+          "n": 20,
+          "signal_lo": 0.9111951273504333,
+          "signal_hi": 0.9712493851966008,
+          "mean_target": 0.01649401911797858,
+          "median_target": 0.013426480562243492
+        },
+        {
+          "label": "hoch",
+          "n": 20,
+          "signal_lo": 0.9718845068503673,
+          "signal_hi": 1.3185463005590132,
+          "mean_target": 0.07044146381766993,
+          "median_target": 0.06458951460810403
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07752188012505071,
+      "high_extreme": {
+        "n": 13,
+        "mean_in_tail": 0.08198039693612093,
+        "mean_middle": 0.02584245399653684,
+        "difference": 0.05613794293958409,
+        "p_value": 0.0039422665549392255
+      },
+      "low_extreme": {
+        "n": 13,
+        "mean_in_tail": 0.03217321009641068,
+        "mean_middle": 0.02584245399653684,
+        "difference": 0.006330756099873838,
+        "p_value": 0.652054100853697
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +3.95%, p=0.013 bei α=0.0006 — auf 61 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.75% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX)",
+      "target": "SPY-Vola 21T",
+      "horizon_days": 21,
+      "n_overlapping": 3901,
+      "n_independent": 178,
+      "rank_ic_overlapping": 0.3138,
+      "rank_ic_independent": 0.266,
+      "spread": 0.06259516447974167,
+      "spread_p": 0.0007606596191936345,
+      "walk_forward_spreads": [
+        0.055014484265531016,
+        0.060317136786152,
+        0.06629661014677124
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 60,
+          "signal_lo": 0.7018319463185579,
+          "signal_hi": 0.9030496482777823,
+          "mean_target": 0.11953991176427273,
+          "median_target": 0.1047577436072103
+        },
+        {
+          "label": "mittel",
+          "n": 59,
+          "signal_lo": 0.9033742616946754,
+          "signal_hi": 0.9691455432966997,
+          "mean_target": 0.13036513047578943,
+          "median_target": 0.11529173968058161
+        },
+        {
+          "label": "hoch",
+          "n": 59,
+          "signal_lo": 0.9700023984898668,
+          "signal_hi": 1.3899392839841986,
+          "mean_target": 0.1821350762440144,
+          "median_target": 0.1456745284206214
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07085009613589782,
+      "high_extreme": {
+        "n": 36,
+        "mean_in_tail": 0.1976286078176669,
+        "mean_middle": 0.13488010872271106,
+        "difference": 0.06274849909495583,
+        "p_value": 0.019145853061923585
+      },
+      "low_extreme": {
+        "n": 36,
+        "mean_in_tail": 0.11661070823003909,
+        "mean_middle": 0.13488010872271106,
+        "difference": -0.018269400492671964,
+        "p_value": 0.052536438995952804
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +6.26%, p=0.001 bei α=0.0006 — auf 178 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.09% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX)",
+      "target": "SPY-Drawdown 21T",
+      "horizon_days": 21,
+      "n_overlapping": 3901,
+      "n_independent": 178,
+      "rank_ic_overlapping": -0.2024,
+      "rank_ic_independent": -0.1829,
+      "spread": -0.014408612775195593,
+      "spread_p": 0.013510006601955133,
+      "walk_forward_spreads": [
+        -0.016647657264425273,
+        -0.005319951056468597,
+        -0.01658255555635466
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 60,
+          "signal_lo": 0.7018319463185579,
+          "signal_hi": 0.9030496482777823,
+          "mean_target": -0.02964904945288602,
+          "median_target": -0.022642608826858146
+        },
+        {
+          "label": "mittel",
+          "n": 59,
+          "signal_lo": 0.9033742616946754,
+          "signal_hi": 0.9691455432966997,
+          "mean_target": -0.033390745653108136,
+          "median_target": -0.02497665324045517
+        },
+        {
+          "label": "hoch",
+          "n": 59,
+          "signal_lo": 0.9700023984898668,
+          "signal_hi": 1.3899392839841986,
+          "mean_target": -0.044057662228081614,
+          "median_target": -0.03768537390616111
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.023387671813399395,
+      "high_extreme": {
+        "n": 36,
+        "mean_in_tail": -0.047204526610053935,
+        "mean_middle": -0.03401809576747515,
+        "difference": -0.013186430842578784,
+        "p_value": 0.07971098925808072
+      },
+      "low_extreme": {
+        "n": 36,
+        "mean_in_tail": -0.028975497856918036,
+        "mean_middle": -0.03401809576747515,
+        "difference": 0.005042597910557115,
+        "p_value": 0.19600820190815813
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -1.44%, p=0.014 bei α=0.0006 — auf 178 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 2.34% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX)",
+      "target": "SPY-Vola 63T",
+      "horizon_days": 63,
+      "n_overlapping": 3862,
+      "n_independent": 61,
+      "rank_ic_overlapping": 0.2421,
+      "rank_ic_independent": 0.2135,
+      "spread": 0.044021389732266325,
+      "spread_p": 0.11605130254190879,
+      "walk_forward_spreads": [
+        -0.01007382981267152,
+        0.09059142951463492,
+        0.070763109191776
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 21,
+          "signal_lo": 0.7522970515764726,
+          "signal_hi": 0.910846130584383,
+          "mean_target": 0.12345609849690425,
+          "median_target": 0.12647327826525645
+        },
+        {
+          "label": "mittel",
+          "n": 20,
+          "signal_lo": 0.9111951273504333,
+          "signal_hi": 0.9712493851966008,
+          "mean_target": 0.1533317893495829,
+          "median_target": 0.1344763236865122
+        },
+        {
+          "label": "hoch",
+          "n": 20,
+          "signal_lo": 0.9718845068503673,
+          "signal_hi": 1.3185463005590132,
+          "mean_target": 0.16747748822917058,
+          "median_target": 0.12422765313315348
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.10634304989806138,
+      "high_extreme": {
+        "n": 13,
+        "mean_in_tail": 0.1890206199539411,
+        "mean_middle": 0.14201111600137595,
+        "difference": 0.047009503952565146,
+        "p_value": 0.23711400377374384
+      },
+      "low_extreme": {
+        "n": 13,
+        "mean_in_tail": 0.1216235769662052,
+        "mean_middle": 0.14201111600137595,
+        "difference": -0.02038753903517075,
+        "p_value": 0.16556806438557706
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +4.40%, p=0.116 bei α=0.0006 — auf 61 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 10.63% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX)",
+      "target": "SPY-Drawdown 63T",
+      "horizon_days": 63,
+      "n_overlapping": 3862,
+      "n_independent": 61,
+      "rank_ic_overlapping": -0.1455,
+      "rank_ic_independent": -0.0619,
+      "spread": -0.010832975363898809,
+      "spread_p": 0.5065638140124378,
+      "walk_forward_spreads": [
+        0.018982809734242427,
+        -0.04706127086704394,
+        -0.012075927248944338
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 21,
+          "signal_lo": 0.7522970515764726,
+          "signal_hi": 0.910846130584383,
+          "mean_target": -0.055827661733899844,
+          "median_target": -0.04705305279769578
+        },
+        {
+          "label": "mittel",
+          "n": 20,
+          "signal_lo": 0.9111951273504333,
+          "signal_hi": 0.9712493851966008,
+          "mean_target": -0.07012376633272863,
+          "median_target": -0.07085695211983006
+        },
+        {
+          "label": "hoch",
+          "n": 20,
+          "signal_lo": 0.9718845068503673,
+          "signal_hi": 1.3185463005590132,
+          "mean_target": -0.06666063709779865,
+          "median_target": -0.04404766773958707
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.06304130011653408,
+      "high_extreme": {
+        "n": 13,
+        "mean_in_tail": -0.07745347167159738,
+        "mean_middle": -0.06268977067217771,
+        "difference": -0.014763700999419677,
+        "p_value": 0.4921063995454625
+      },
+      "low_extreme": {
+        "n": 13,
+        "mean_in_tail": -0.05438706613580436,
+        "mean_middle": -0.06268977067217771,
+        "difference": 0.00830270453637335,
+        "p_value": 0.4312925784646785
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -1.08%, p=0.507 bei α=0.0006 — auf 61 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 6.30% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio",
+      "target": "SPY-Rendite 5T",
+      "horizon_days": 5,
+      "n_overlapping": 4915,
+      "n_independent": 820,
+      "rank_ic_overlapping": -0.0169,
+      "rank_ic_independent": -0.0232,
+      "spread": -0.0029450794870095344,
+      "spread_p": 0.14932018485365584,
+      "walk_forward_spreads": [
+        -0.005699723834304416,
+        0.0005774921592204235,
+        -0.003965804950852975
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 274,
+          "signal_lo": 0.38980188081094436,
+          "signal_hi": 0.8638017089235488,
+          "mean_target": 0.002881837996983812,
+          "median_target": 0.003442924824691218
+        },
+        {
+          "label": "mittel",
+          "n": 273,
+          "signal_lo": 0.8651644675356381,
+          "signal_hi": 1.1188734384885692,
+          "mean_target": 0.002686110422101341,
+          "median_target": 0.004610329027160409
+        },
+        {
+          "label": "hoch",
+          "n": 273,
+          "signal_lo": 1.1189543525054413,
+          "signal_hi": 4.4181163068203,
+          "mean_target": -6.324149002572269e-05,
+          "median_target": 0.004050224135380587
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.008488536025149554,
+      "high_extreme": {
+        "n": 164,
+        "mean_in_tail": -5.1375553719783284e-05,
+        "mean_middle": 0.0016481758614914574,
+        "difference": -0.0016995514152112407,
+        "p_value": 0.4656302068770616
+      },
+      "low_extreme": {
+        "n": 164,
+        "mean_in_tail": 0.004287743271868633,
+        "mean_middle": 0.0016481758614914574,
+        "difference": 0.0026395674103771756,
+        "p_value": 0.17831900651950736
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.29%, p=0.149 bei α=0.0006 — auf 820 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 0.85% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio",
+      "target": "SPY-Rendite 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4899,
+      "n_independent": 223,
+      "rank_ic_overlapping": 0.0041,
+      "rank_ic_independent": -0.1686,
+      "spread": -0.01355894228476451,
+      "spread_p": 0.0768430897045082,
+      "walk_forward_spreads": [
+        -0.008296270087771972,
+        -0.0055665975647612945,
+        -0.03013232569273113
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 0.4806679610052337,
+          "signal_hi": 0.8785068582660154,
+          "mean_target": 0.012474741041955912,
+          "median_target": 0.018285882180764546
+        },
+        {
+          "label": "mittel",
+          "n": 74,
+          "signal_lo": 0.8806089485710608,
+          "signal_hi": 1.1580895405244596,
+          "mean_target": 0.014821899327952847,
+          "median_target": 0.017781629628737305
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 1.1588622426561892,
+          "signal_hi": 4.4181163068203,
+          "mean_target": -0.0010842012428085984,
+          "median_target": 0.005945071026554727
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.029576807415700526,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": -0.005896665838967231,
+        "mean_middle": 0.009119667634269564,
+        "difference": -0.015016333473236795,
+        "p_value": 0.10331762869084418
+      },
+      "low_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.022325097863178694,
+        "mean_middle": 0.009119667634269564,
+        "difference": 0.01320543022890913,
+        "p_value": 0.05177418793053451
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -1.36%, p=0.077 bei α=0.0006 — auf 223 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 2.96% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio",
+      "target": "SPY-Rendite 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4860,
+      "n_independent": 76,
+      "rank_ic_overlapping": 0.0261,
+      "rank_ic_independent": 0.0011,
+      "spread": 0.0009794650494745726,
+      "spread_p": 0.9686235767132053,
+      "walk_forward_spreads": [
+        0.023469475291606076,
+        -0.013235549334765097,
+        -0.021961877200640315
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 0.5033403907475227,
+          "signal_hi": 0.8809347074782017,
+          "mean_target": 0.02986858953691316,
+          "median_target": 0.043543696002373955
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": 0.8844943546050257,
+          "signal_hi": 1.1632116849756609,
+          "mean_target": 0.011556507403624607,
+          "median_target": 0.035247941061761434
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 1.1846155970873284,
+          "signal_hi": 3.3943576338052166,
+          "mean_target": 0.030848054586387733,
+          "median_target": 0.050642572051594836
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.10370848343918994,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.03334202735934152,
+        "mean_middle": 0.022968563670451272,
+        "difference": 0.010373463688890246,
+        "p_value": 0.6269799482303828
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.01828800865379565,
+        "mean_middle": 0.022968563670451272,
+        "difference": -0.004680555016655621,
+        "p_value": 0.8750903684611723
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.10%, p=0.969 bei α=0.0006 — auf 76 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 10.37% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio",
+      "target": "SPY-Vola 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4899,
+      "n_independent": 223,
+      "rank_ic_overlapping": 0.1118,
+      "rank_ic_independent": 0.1435,
+      "spread": 0.03559142517250111,
+      "spread_p": 0.07906490980630715,
+      "walk_forward_spreads": [
+        0.06423821330874385,
+        0.012710997860516146,
+        0.018761685031604802
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 0.4806679610052337,
+          "signal_hi": 0.8785068582660154,
+          "mean_target": 0.1515396589031656,
+          "median_target": 0.13327546003651253
+        },
+        {
+          "label": "mittel",
+          "n": 74,
+          "signal_lo": 0.8806089485710608,
+          "signal_hi": 1.1580895405244596,
+          "mean_target": 0.1370281468376978,
+          "median_target": 0.11314008968957943
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 1.1588622426561892,
+          "signal_hi": 4.4181163068203,
+          "mean_target": 0.1871310840756667,
+          "median_target": 0.1415331437169345
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.08095669174883653,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.18885582931501912,
+        "mean_middle": 0.15361065197617393,
+        "difference": 0.03524517733884519,
+        "p_value": 0.18419259632523768
+      },
+      "low_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.14276729940709773,
+        "mean_middle": 0.15361065197617393,
+        "difference": -0.010843352569076203,
+        "p_value": 0.5026968685227645
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +3.56%, p=0.079 bei α=0.0006 — auf 223 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 8.10% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio",
+      "target": "SPY-Drawdown 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4899,
+      "n_independent": 223,
+      "rank_ic_overlapping": -0.0871,
+      "rank_ic_independent": -0.1889,
+      "spread": -0.014579875485528741,
+      "spread_p": 0.0348310792954683,
+      "walk_forward_spreads": [
+        -0.01680988510041384,
+        -0.006479783691095715,
+        -0.017702602176571554
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 0.4806679610052337,
+          "signal_hi": 0.8785068582660154,
+          "mean_target": -0.037902703787100214,
+          "median_target": -0.02768408337496331
+        },
+        {
+          "label": "mittel",
+          "n": 74,
+          "signal_lo": 0.8806089485710608,
+          "signal_hi": 1.1580895405244596,
+          "mean_target": -0.031713938169296615,
+          "median_target": -0.023115379677603465
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 1.1588622426561892,
+          "signal_hi": 4.4181163068203,
+          "mean_target": -0.052482579272628956,
+          "median_target": -0.03955727449972246
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.02659548015075138,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": -0.054291759852060355,
+        "mean_middle": -0.038527678924172075,
+        "difference": -0.01576408092788828,
+        "p_value": 0.08183127212885548
+      },
+      "low_extreme": {
+        "n": 45,
+        "mean_in_tail": -0.03346521298838682,
+        "mean_middle": -0.038527678924172075,
+        "difference": 0.005062465935785257,
+        "p_value": 0.34351771314585744
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -1.46%, p=0.035 bei α=0.0006 — auf 223 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 2.66% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio",
+      "target": "SPY-Vola 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4860,
+      "n_independent": 76,
+      "rank_ic_overlapping": 0.0644,
+      "rank_ic_independent": -0.0758,
+      "spread": -0.030924766160664807,
+      "spread_p": 0.2274343376481456,
+      "walk_forward_spreads": [
+        -0.08337808027295865,
+        0.018862690564807175,
+        -0.003388447018588092
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 0.5033403907475227,
+          "signal_hi": 0.8809347074782017,
+          "mean_target": 0.1682623074151774,
+          "median_target": 0.13802871863577665
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": 0.8844943546050257,
+          "signal_hi": 1.1632116849756609,
+          "mean_target": 0.1867480064430283,
+          "median_target": 0.14615635880244648
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 1.1846155970873284,
+          "signal_hi": 3.3943576338052166,
+          "mean_target": 0.13733754125451259,
+          "median_target": 0.12172549025241866
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.1192140315857934,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.1382376694323388,
+        "mean_middle": 0.1637287672133071,
+        "difference": -0.02549109778096828,
+        "p_value": 0.18139187627230546
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.1913181385581376,
+        "mean_middle": 0.1637287672133071,
+        "difference": 0.0275893713448305,
+        "p_value": 0.4728809879975369
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -3.09%, p=0.227 bei α=0.0006 — auf 76 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 11.92% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio",
+      "target": "SPY-Drawdown 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4860,
+      "n_independent": 76,
+      "rank_ic_overlapping": -0.0365,
+      "rank_ic_independent": 0.0773,
+      "spread": 0.011254180009202489,
+      "spread_p": 0.5119380408914171,
+      "walk_forward_spreads": [
+        0.0409878643106068,
+        -0.019828579941375005,
+        -0.004596512236912778
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 0.5033403907475227,
+          "signal_hi": 0.8809347074782017,
+          "mean_target": -0.07426106651362224,
+          "median_target": -0.061926962310050626
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": 0.8844943546050257,
+          "signal_hi": 1.1632116849756609,
+          "mean_target": -0.09206880547854189,
+          "median_target": -0.07184649288481915
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 1.1846155970873284,
+          "signal_hi": 3.3943576338052166,
+          "mean_target": -0.06300688650441975,
+          "median_target": -0.041370881677580296
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07982076675558576,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": -0.06077842193720623,
+        "mean_middle": -0.07789888170232283,
+        "difference": 0.0171204597651166,
+        "p_value": 0.2306033984990034
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": -0.0879796551894197,
+        "mean_middle": -0.07789888170232283,
+        "difference": -0.010080773487096878,
+        "p_value": 0.6639591330742944
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +1.13%, p=0.512 bei α=0.0006 — auf 76 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.98% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-OBV-Trend",
+      "target": "SPY-Rendite 5T",
+      "horizon_days": 5,
+      "n_overlapping": 4915,
+      "n_independent": 820,
+      "rank_ic_overlapping": -0.059,
+      "rank_ic_independent": -0.0222,
+      "spread": -0.00036598317952756584,
+      "spread_p": 0.8617889464034767,
+      "walk_forward_spreads": [
+        0.0033816685085842494,
+        -0.0005699853822735787,
+        -0.0034290101853951148
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 274,
+          "signal_lo": -17.594484963150087,
+          "signal_hi": -1.1840536804949555,
+          "mean_target": 0.001770018269339292,
+          "median_target": 0.003924832339279316
+        },
+        {
+          "label": "mittel",
+          "n": 273,
+          "signal_lo": -1.1749572059505007,
+          "signal_hi": 2.9719943651039658,
+          "mean_target": 0.002334726169643374,
+          "median_target": 0.0038290970034911
+        },
+        {
+          "label": "hoch",
+          "n": 273,
+          "signal_lo": 2.9878298244647294,
+          "signal_hi": 13.807800360763977,
+          "mean_target": 0.001404035089811726,
+          "median_target": 0.003849317411809494
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.008488536025149554,
+      "high_extreme": {
+        "n": 164,
+        "mean_in_tail": 0.0024058328008154145,
+        "mean_middle": 0.0009470751413651583,
+        "difference": 0.0014587576594502563,
+        "p_value": 0.35018947019876806
+      },
+      "low_extreme": {
+        "n": 164,
+        "mean_in_tail": 0.003933837077712332,
+        "mean_middle": 0.0009470751413651583,
+        "difference": 0.002986761936347174,
+        "p_value": 0.2735756712329972
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.04%, p=0.862 bei α=0.0006 — auf 820 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 0.85% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-OBV-Trend",
+      "target": "SPY-Rendite 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4899,
+      "n_independent": 223,
+      "rank_ic_overlapping": -0.1255,
+      "rank_ic_independent": 0.0311,
+      "spread": 0.0033757249215794517,
+      "spread_p": 0.5925659907889008,
+      "walk_forward_spreads": [
+        0.006109846659323185,
+        -0.00743303429437471,
+        0.011950492779739013
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": -12.450523884873625,
+          "signal_hi": -1.333725617677941,
+          "mean_target": 0.010023481232114755,
+          "median_target": 0.017421312856103155
+        },
+        {
+          "label": "mittel",
+          "n": 74,
+          "signal_lo": -1.2786150063621708,
+          "signal_hi": 2.8444288578928267,
+          "mean_target": 0.0028228768738566205,
+          "median_target": 0.013435778150333033
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 2.8531047217607193,
+          "signal_hi": 13.847110679466587,
+          "mean_target": 0.013399206153694207,
+          "median_target": 0.013561067806690974
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.029576807415700526,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.013602010876707865,
+        "mean_middle": 0.007859359520497875,
+        "difference": 0.00574265135620999,
+        "p_value": 0.31314997333903405
+      },
+      "low_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.006551331794873256,
+        "mean_middle": 0.007859359520497875,
+        "difference": -0.0013080277256246192,
+        "p_value": 0.8785923957269535
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.34%, p=0.593 bei α=0.0006 — auf 223 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 2.96% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-OBV-Trend",
+      "target": "SPY-Rendite 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4860,
+      "n_independent": 76,
+      "rank_ic_overlapping": -0.103,
+      "rank_ic_independent": -0.1864,
+      "spread": -0.02131357759989282,
+      "spread_p": 0.37347165143806826,
+      "walk_forward_spreads": [
+        -0.02526137671922113,
+        0.012797024211999103,
+        -0.05955148273444205
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": -9.294075562889722,
+          "signal_hi": -1.116830798196991,
+          "mean_target": 0.037667313823222595,
+          "median_target": 0.06114367022329681
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -1.0693089691752968,
+          "signal_hi": 2.951536260619812,
+          "mean_target": 0.017940152508920754,
+          "median_target": 0.035247941061761434
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 3.3054268546546033,
+          "signal_hi": 13.593054254358474,
+          "mean_target": 0.016353736223329775,
+          "median_target": 0.03329963497893296
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.10370848343918994,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": -0.00836076952498467,
+        "mean_middle": 0.030800646102406924,
+        "difference": -0.039161415627391595,
+        "p_value": 0.14823011195548438
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.03845257885024381,
+        "mean_middle": 0.030800646102406924,
+        "difference": 0.007651932747836883,
+        "p_value": 0.7452510464422871
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -2.13%, p=0.373 bei α=0.0006 — auf 76 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 10.37% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-OBV-Trend",
+      "target": "SPY-Vola 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4899,
+      "n_independent": 223,
+      "rank_ic_overlapping": -0.2172,
+      "rank_ic_independent": -0.2717,
+      "spread": -0.07121317162058766,
+      "spread_p": 0.0003031945644563001,
+      "walk_forward_spreads": [
+        -0.08794660595903395,
+        -0.029359363637178573,
+        -0.0705015617800917
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": -12.450523884873625,
+          "signal_hi": -1.333725617677941,
+          "mean_target": 0.19780390555911034,
+          "median_target": 0.15228769814408954
+        },
+        {
+          "label": "mittel",
+          "n": 74,
+          "signal_lo": -1.2786150063621708,
+          "signal_hi": 2.8444288578928267,
+          "mean_target": 0.15067905779651936,
+          "median_target": 0.13255369376285578
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 2.8531047217607193,
+          "signal_hi": 13.847110679466587,
+          "mean_target": 0.1265907339385227,
+          "median_target": 0.10911084315153288
+        }
+      ],
+      "offset_share_significant": 0.09090909090909091,
+      "minimum_detectable": 0.08095669174883653,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.12416850001588514,
+        "mean_middle": 0.15201360330139732,
+        "difference": -0.02784510328551218,
+        "p_value": 0.026791361105355984
+      },
+      "low_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.2121747947894603,
+        "mean_middle": 0.15201360330139732,
+        "difference": 0.06016119148806298,
+        "p_value": 0.025345216820966198
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "offset-abhängig",
+      "note": "Spread -7.12% ist am gewählten Startpunkt signifikant (p=0.000), hält aber nur bei 9% der gleichwertigen Startpunkte der Stichprobe. Der Befund ist eine Eigenschaft dieser Wahl, nicht des Marktes."
+    },
+    {
+      "signal": "SPY-OBV-Trend",
+      "target": "SPY-Drawdown 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4899,
+      "n_independent": 223,
+      "rank_ic_overlapping": 0.1242,
+      "rank_ic_independent": 0.254,
+      "spread": 0.020808952425550552,
+      "spread_p": 0.0004708889737020963,
+      "walk_forward_spreads": [
+        0.022750730202291694,
+        0.007216779739146865,
+        0.027006448426171774
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": -12.450523884873625,
+          "signal_hi": -1.333725617677941,
+          "mean_target": -0.05070092300700231,
+          "median_target": -0.04186180362192249
+        },
+        {
+          "label": "mittel",
+          "n": 74,
+          "signal_lo": -1.2786150063621708,
+          "signal_hi": 2.8444288578928267,
+          "mean_target": -0.04133337873219467,
+          "median_target": -0.03045855222460253
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 2.8531047217607193,
+          "signal_hi": 13.847110679466587,
+          "mean_target": -0.02989197058145176,
+          "median_target": -0.020450756950009308
+        }
+      ],
+      "offset_share_significant": 0.045454545454545456,
+      "minimum_detectable": 0.02659548015075138,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": -0.028907201754012662,
+        "mean_middle": -0.03975141195090465,
+        "difference": 0.010844210196891985,
+        "p_value": 0.01851750597569863
+      },
+      "low_extreme": {
+        "n": 45,
+        "mean_in_tail": -0.05523296014075824,
+        "mean_middle": -0.03975141195090465,
+        "difference": -0.015481548189853596,
+        "p_value": 0.057225399116760965
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "offset-abhängig",
+      "note": "Spread +2.08% ist am gewählten Startpunkt signifikant (p=0.000), hält aber nur bei 5% der gleichwertigen Startpunkte der Stichprobe. Der Befund ist eine Eigenschaft dieser Wahl, nicht des Marktes."
+    },
+    {
+      "signal": "SPY-OBV-Trend",
+      "target": "SPY-Vola 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4860,
+      "n_independent": 76,
+      "rank_ic_overlapping": -0.1613,
+      "rank_ic_independent": -0.1954,
+      "spread": -0.01190915887376609,
+      "spread_p": 0.6666465578443683,
+      "walk_forward_spreads": [
+        -0.0574894203483452,
+        -0.039410408752143605,
+        0.003152903384736977
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": -9.294075562889722,
+          "signal_hi": -1.116830798196991,
+          "mean_target": 0.16904906357755037,
+          "median_target": 0.14035447561200803
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -1.0693089691752968,
+          "signal_hi": 2.951536260619812,
+          "mean_target": 0.16612741658488875,
+          "median_target": 0.13045265009842574
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 3.3054268546546033,
+          "signal_hi": 13.593054254358474,
+          "mean_target": 0.15713990470378428,
+          "median_target": 0.12160230683540442
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.1192140315857934,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.15597779977253193,
+        "mean_middle": 0.156861457032136,
+        "difference": -0.0008836572596040704,
+        "p_value": 0.9780945073872901
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.192463111216165,
+        "mean_middle": 0.156861457032136,
+        "difference": 0.035601654184029,
+        "p_value": 0.22960393990718597
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -1.19%, p=0.667 bei α=0.0006 — auf 76 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 11.92% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-OBV-Trend",
+      "target": "SPY-Drawdown 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4860,
+      "n_independent": 76,
+      "rank_ic_overlapping": 0.0736,
+      "rank_ic_independent": 0.0846,
+      "spread": -0.0009679373073731984,
+      "spread_p": 0.9583918761926289,
+      "walk_forward_spreads": [
+        0.012192220525327799,
+        0.0318954935411981,
+        -0.015482015962977519
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": -9.294075562889722,
+          "signal_hi": -1.116830798196991,
+          "mean_target": -0.07460374403794942,
+          "median_target": -0.05000075022592759
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -1.0693089691752968,
+          "signal_hi": 2.951536260619812,
+          "mean_target": -0.07914762601233877,
+          "median_target": -0.06362377080893422
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 3.3054268546546033,
+          "signal_hi": 13.593054254358474,
+          "mean_target": -0.07557168134532262,
+          "median_target": -0.051141156141671695
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07982076675558576,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": -0.07832387459079204,
+        "mean_middle": -0.07489927770864896,
+        "difference": -0.0034245968821430828,
+        "p_value": 0.8811864241852065
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": -0.07868311351843701,
+        "mean_middle": -0.07489927770864896,
+        "difference": -0.0037838358097880553,
+        "p_value": 0.829406404431897
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.10%, p=0.958 bei α=0.0006 — auf 76 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.98% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil",
+      "target": "SPY-Rendite 5T",
+      "horizon_days": 5,
+      "n_overlapping": 4915,
+      "n_independent": 820,
+      "rank_ic_overlapping": 0.0065,
+      "rank_ic_independent": 0.0807,
+      "spread": 0.002352218946971382,
+      "spread_p": 0.2500296368288549,
+      "walk_forward_spreads": [
+        0.004068983609298745,
+        -0.00011927950169898522,
+        0.006937157216397206
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 274,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": 0.0010554023802373904,
+          "median_target": 0.0036508482763283334
+        },
+        {
+          "label": "mittel",
+          "n": 273,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": 0.0010483734619676506,
+          "median_target": 0.0034189059782838704
+        },
+        {
+          "label": "hoch",
+          "n": 273,
+          "signal_lo": 0.0,
+          "signal_hi": 100.0,
+          "mean_target": 0.0034076213272087722,
+          "median_target": 0.005527908300589912
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.008488536025149554,
+      "high_extreme": null,
+      "low_extreme": null,
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.24%, p=0.250 bei α=0.0006 — auf 820 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 0.85% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil",
+      "target": "SPY-Rendite 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4899,
+      "n_independent": 223,
+      "rank_ic_overlapping": 0.0195,
+      "rank_ic_independent": -0.0797,
+      "spread": -0.006814691971259021,
+      "spread_p": 0.33659420804802237,
+      "walk_forward_spreads": [
+        -0.0070030271021622155,
+        -0.005389532425739701,
+        0.005502309031774587
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": 0.010985828873327661,
+          "median_target": 0.01637393494106698
+        },
+        {
+          "label": "mittel",
+          "n": 74,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": 0.011075593786415053,
+          "median_target": 0.013291248069537076
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 0.0,
+          "signal_hi": 85.71428571428571,
+          "mean_target": 0.004171136902068641,
+          "median_target": 0.011554586751826301
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.029576807415700526,
+      "high_extreme": null,
+      "low_extreme": null,
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.68%, p=0.337 bei α=0.0006 — auf 223 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 2.96% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil",
+      "target": "SPY-Rendite 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4860,
+      "n_independent": 76,
+      "rank_ic_overlapping": 0.0141,
+      "rank_ic_independent": 0.0132,
+      "spread": 0.004797284696296507,
+      "spread_p": 0.8586482055516086,
+      "walk_forward_spreads": [
+        0.07539159027857542,
+        -0.028826115758793666,
+        -0.030860084508987654
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": 0.015557938164096554,
+          "median_target": 0.035627657171227844
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": 0.03693241655734855,
+          "median_target": 0.05084532411219822
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 0.0,
+          "signal_hi": 85.71428571428571,
+          "mean_target": 0.02035522286039306,
+          "median_target": 0.040302065620652305
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.10370848343918994,
+      "high_extreme": null,
+      "low_extreme": null,
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.48%, p=0.859 bei α=0.0006 — auf 76 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 10.37% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil",
+      "target": "SPY-Vola 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4899,
+      "n_independent": 223,
+      "rank_ic_overlapping": 0.0681,
+      "rank_ic_independent": 0.1257,
+      "spread": 0.01788306852479271,
+      "spread_p": 0.39821592382263993,
+      "walk_forward_spreads": [
+        -0.012576327819090072,
+        0.02135443181229066,
+        -0.015314950142934297
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": 0.15574319704018771,
+          "median_target": 0.1274447504669778
+        },
+        {
+          "label": "mittel",
+          "n": 74,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": 0.14627262264194263,
+          "median_target": 0.12885618750182526
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 0.0,
+          "signal_hi": 85.71428571428571,
+          "mean_target": 0.17362626556498043,
+          "median_target": 0.1364950574134825
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.08095669174883653,
+      "high_extreme": null,
+      "low_extreme": null,
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +1.79%, p=0.398 bei α=0.0006 — auf 223 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 8.10% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil",
+      "target": "SPY-Drawdown 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4899,
+      "n_independent": 223,
+      "rank_ic_overlapping": -0.0427,
+      "rank_ic_independent": -0.1294,
+      "spread": -0.0099124969485926,
+      "spread_p": 0.14679575750204796,
+      "walk_forward_spreads": [
+        -0.002783005293309028,
+        -0.010419546960723305,
+        0.0065030249233217485
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": -0.03775220301580831,
+          "median_target": -0.027732610557507087
+        },
+        {
+          "label": "mittel",
+          "n": 74,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": -0.03668435204302323,
+          "median_target": -0.027344566956870153
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 0.0,
+          "signal_hi": 85.71428571428571,
+          "mean_target": -0.04766469996440091,
+          "median_target": -0.03500806929712058
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.02659548015075138,
+      "high_extreme": null,
+      "low_extreme": null,
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.99%, p=0.147 bei α=0.0006 — auf 223 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 2.66% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil",
+      "target": "SPY-Vola 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4860,
+      "n_independent": 76,
+      "rank_ic_overlapping": 0.0549,
+      "rank_ic_independent": 0.0108,
+      "spread": -0.009657780125283677,
+      "spread_p": 0.7632067104594012,
+      "walk_forward_spreads": [
+        -0.08895745635861163,
+        0.018915044905482778,
+        0.010571515281401517
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": 0.17651776649748435,
+          "median_target": 0.1268307877640052
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": 0.14863988387974097,
+          "median_target": 0.14573776235510652
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 0.0,
+          "signal_hi": 85.71428571428571,
+          "mean_target": 0.16685998637220067,
+          "median_target": 0.12705867351867853
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.1192140315857934,
+      "high_extreme": null,
+      "low_extreme": null,
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.97%, p=0.763 bei α=0.0006 — auf 76 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 11.92% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil",
+      "target": "SPY-Drawdown 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4860,
+      "n_independent": 76,
+      "rank_ic_overlapping": -0.0317,
+      "rank_ic_independent": 0.012,
+      "spread": 0.0047779237329647894,
+      "spread_p": 0.8225064708054062,
+      "walk_forward_spreads": [
+        0.06965740772780978,
+        -0.02417700795429962,
+        -0.020506297677079843
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": -0.08412648457732154,
+          "median_target": -0.060997198383329565
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": 0.0,
+          "signal_hi": 0.0,
+          "mean_target": -0.0654670963523576,
+          "median_target": -0.05591237194837417
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 0.0,
+          "signal_hi": 85.71428571428571,
+          "mean_target": -0.07934856084435675,
+          "median_target": -0.04188502120643023
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07982076675558576,
+      "high_extreme": null,
+      "low_extreme": null,
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.48%, p=0.823 bei α=0.0006 — auf 76 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.98% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Marktbreite (% über 200d)",
+      "target": "SPY-Rendite 5T",
+      "horizon_days": 5,
+      "n_overlapping": 4911,
+      "n_independent": 819,
+      "rank_ic_overlapping": -0.0475,
+      "rank_ic_independent": -0.0456,
+      "spread": -0.00037450857455886616,
+      "spread_p": 0.8688592370230894,
+      "walk_forward_spreads": [
+        0.005639328555193489,
+        -0.00421671524725291,
+        -0.005165065560894722
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 273,
+          "signal_lo": 0.0,
+          "signal_hi": 62.295081967213115,
+          "mean_target": 0.0029677232785984514,
+          "median_target": 0.006321070741483581
+        },
+        {
+          "label": "mittel",
+          "n": 273,
+          "signal_lo": 62.903225806451616,
+          "signal_hi": 77.41935483870968,
+          "mean_target": 0.0011804140052535874,
+          "median_target": 0.0039701680852679555
+        },
+        {
+          "label": "hoch",
+          "n": 273,
+          "signal_lo": 77.41935483870968,
+          "signal_hi": 98.38709677419355,
+          "mean_target": 0.0025932147040395852,
+          "median_target": 0.0035595362038496337
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.008910307594504735,
+      "high_extreme": {
+        "n": 165,
+        "mean_in_tail": 0.0033454069179027603,
+        "mean_middle": 0.0015923191958756597,
+        "difference": 0.0017530877220271006,
+        "p_value": 0.23088941869195026
+      },
+      "low_extreme": {
+        "n": 165,
+        "mean_in_tail": 0.003089411299740971,
+        "mean_middle": 0.0015923191958756597,
+        "difference": 0.0014970921038653113,
+        "p_value": 0.6456256820238788
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.04%, p=0.869 bei α=0.0006 — auf 819 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 0.89% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Marktbreite (% über 200d)",
+      "target": "SPY-Rendite 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4895,
+      "n_independent": 223,
+      "rank_ic_overlapping": -0.0527,
+      "rank_ic_independent": -0.0359,
+      "spread": 0.002796222893491982,
+      "spread_p": 0.7539692638761195,
+      "walk_forward_spreads": [
+        0.014299294613226082,
+        -0.004960226367782053,
+        -0.00031997475747311613
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 0.0,
+          "signal_hi": 61.40350877192983,
+          "mean_target": 0.006952644056731899,
+          "median_target": 0.01162673364202349
+        },
+        {
+          "label": "mittel",
+          "n": 74,
+          "signal_lo": 62.295081967213115,
+          "signal_hi": 77.41935483870968,
+          "mean_target": 0.00714509587806326,
+          "median_target": 0.011630954687110173
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 77.41935483870968,
+          "signal_hi": 98.11320754716981,
+          "mean_target": 0.00974886695022388,
+          "median_target": 0.012536563886216046
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.03430762607789594,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.009521892529615075,
+        "mean_middle": 0.007695038318495401,
+        "difference": 0.001826854211119674,
+        "p_value": 0.7600716845337666
+      },
+      "low_extreme": {
+        "n": 46,
+        "mean_in_tail": 0.007116768079871074,
+        "mean_middle": 0.007695038318495401,
+        "difference": -0.0005782702386243265,
+        "p_value": 0.9626126145853101
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.28%, p=0.754 bei α=0.0006 — auf 223 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 3.43% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Marktbreite (% über 200d)",
+      "target": "SPY-Rendite 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4853,
+      "n_independent": 76,
+      "rank_ic_overlapping": -0.0431,
+      "rank_ic_independent": -0.0093,
+      "spread": 0.01197397154438262,
+      "spread_p": 0.5959706162742113,
+      "walk_forward_spreads": [
+        0.056136433870605476,
+        -0.03804609227710392,
+        0.0024800224786262343
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 1.8867924528301887,
+          "signal_hi": 61.29032258064516,
+          "mean_target": 0.01538878264334216,
+          "median_target": 0.04189332189453421
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": 61.29032258064516,
+          "signal_hi": 75.80645161290323,
+          "mean_target": 0.03607297444854108,
+          "median_target": 0.03429867021395827
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 75.80645161290323,
+          "signal_hi": 96.7741935483871,
+          "mean_target": 0.02736275418772478,
+          "median_target": 0.03732430321684266
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.09096995486934684,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.02137336469064556,
+        "mean_middle": 0.03250514590302856,
+        "difference": -0.011131781212383,
+        "p_value": 0.5697073372475769
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.013362581865622322,
+        "mean_middle": 0.03250514590302856,
+        "difference": -0.01914256403740624,
+        "p_value": 0.5260409512078719
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +1.20%, p=0.596 bei α=0.0006 — auf 76 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 9.10% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Marktbreite (% über 200d)",
+      "target": "SPY-Vola 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4895,
+      "n_independent": 223,
+      "rank_ic_overlapping": -0.4959,
+      "rank_ic_independent": -0.4847,
+      "spread": -0.1149984965675067,
+      "spread_p": 8.386346268360359e-09,
+      "walk_forward_spreads": [
+        -0.15920428526036545,
+        -0.09484634889964387,
+        -0.09121617671279987
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 0.0,
+          "signal_hi": 61.40350877192983,
+          "mean_target": 0.2308097581715326,
+          "median_target": 0.19057880846069178
+        },
+        {
+          "label": "mittel",
+          "n": 74,
+          "signal_lo": 62.295081967213115,
+          "signal_hi": 77.41935483870968,
+          "mean_target": 0.1285687521740718,
+          "median_target": 0.10961314178268851
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 77.41935483870968,
+          "signal_hi": 98.11320754716981,
+          "mean_target": 0.1158112616040259,
+          "median_target": 0.1070207098194221
+        }
+      ],
+      "offset_share_significant": 1.0,
+      "minimum_detectable": 0.07797630688588644,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": 0.12444711785916843,
+        "mean_middle": 0.13330659871025047,
+        "difference": -0.008859480851082041,
+        "p_value": 0.37339161706166063
+      },
+      "low_extreme": {
+        "n": 46,
+        "mean_in_tail": 0.26517959889192455,
+        "mean_middle": 0.13330659871025047,
+        "difference": 0.13187300018167408,
+        "p_value": 4.435395126340789e-06
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "trägt",
+      "note": "Spread -11.50% (p=0.000, α=0.0006) über 223 unabhängige Fenster, Vorzeichen in allen Zeitblöcken gleich, robust über 100% der Startpunkte: hohe Signalwerte gehen mit niedrigeren Folgewerten einher."
+    },
+    {
+      "signal": "Marktbreite (% über 200d)",
+      "target": "SPY-Drawdown 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4895,
+      "n_independent": 223,
+      "rank_ic_overlapping": 0.3286,
+      "rank_ic_independent": 0.2904,
+      "spread": 0.029420179857193873,
+      "spread_p": 4.0250170564626593e-05,
+      "walk_forward_spreads": [
+        0.03838851574413734,
+        0.028087769432668875,
+        0.022892102042881644
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 75,
+          "signal_lo": 0.0,
+          "signal_hi": 61.40350877192983,
+          "mean_target": -0.058114644006962285,
+          "median_target": -0.04624642106483556
+        },
+        {
+          "label": "mittel",
+          "n": 74,
+          "signal_lo": 62.295081967213115,
+          "signal_hi": 77.41935483870968,
+          "mean_target": -0.03462462040195943,
+          "median_target": -0.024086485344096076
+        },
+        {
+          "label": "hoch",
+          "n": 74,
+          "signal_lo": 77.41935483870968,
+          "signal_hi": 98.11320754716981,
+          "mean_target": -0.028694464149768412,
+          "median_target": -0.02466272404901354
+        }
+      ],
+      "offset_share_significant": 1.0,
+      "minimum_detectable": 0.027984762479878248,
+      "high_extreme": {
+        "n": 45,
+        "mean_in_tail": -0.03252011174439117,
+        "mean_middle": -0.03405837243491838,
+        "difference": 0.0015382606905272114,
+        "p_value": 0.7248077323749366
+      },
+      "low_extreme": {
+        "n": 46,
+        "mean_in_tail": -0.0670673992922435,
+        "mean_middle": -0.03405837243491838,
+        "difference": -0.033009026857325124,
+        "p_value": 0.001271950433557253
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "trägt",
+      "note": "Spread +2.94% (p=0.000, α=0.0006) über 223 unabhängige Fenster, Vorzeichen in allen Zeitblöcken gleich, robust über 100% der Startpunkte: hohe Signalwerte gehen mit höheren Folgewerten einher."
+    },
+    {
+      "signal": "Marktbreite (% über 200d)",
+      "target": "SPY-Vola 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4853,
+      "n_independent": 76,
+      "rank_ic_overlapping": -0.4422,
+      "rank_ic_independent": -0.3916,
+      "spread": -0.0792269447332363,
+      "spread_p": 0.015142565822893892,
+      "walk_forward_spreads": [
+        -0.14289137692759962,
+        0.03189462497256482,
+        -0.07255070288617793
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 1.8867924528301887,
+          "signal_hi": 61.29032258064516,
+          "mean_target": 0.22732039816234018,
+          "median_target": 0.2032979821060002
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": 61.29032258064516,
+          "signal_hi": 75.80645161290323,
+          "mean_target": 0.12068957580754561,
+          "median_target": 0.11246572775097508
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 75.80645161290323,
+          "signal_hi": 96.7741935483871,
+          "mean_target": 0.14809345342910388,
+          "median_target": 0.1225514332212509
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.12728512144496829,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.155754797059028,
+        "mean_middle": 0.14067120780495415,
+        "difference": 0.015083589254073854,
+        "p_value": 0.6357002483815314
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": 0.24676851167341574,
+        "mean_middle": 0.14067120780495415,
+        "difference": 0.10609730386846158,
+        "p_value": 0.012298175639696582
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -7.92%, p=0.015 bei α=0.0006 — auf 76 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 12.73% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Marktbreite (% über 200d)",
+      "target": "SPY-Drawdown 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4853,
+      "n_independent": 76,
+      "rank_ic_overlapping": 0.3033,
+      "rank_ic_independent": 0.2605,
+      "spread": 0.035449011473841344,
+      "spread_p": 0.07472006534281919,
+      "walk_forward_spreads": [
+        0.0660806005588264,
+        -0.02149592304695569,
+        0.03231330887037254
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 26,
+          "signal_lo": 1.8867924528301887,
+          "signal_hi": 61.29032258064516,
+          "mean_target": -0.10237174935497259,
+          "median_target": -0.09423338229131545
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": 61.29032258064516,
+          "signal_hi": 75.80645161290323,
+          "mean_target": -0.054578268734525065,
+          "median_target": -0.03908345999646157
+        },
+        {
+          "label": "hoch",
+          "n": 25,
+          "signal_lo": 75.80645161290323,
+          "signal_hi": 96.7741935483871,
+          "mean_target": -0.06692273788113125,
+          "median_target": -0.05113281904483502
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07781221684178324,
+      "high_extreme": {
+        "n": 16,
+        "mean_in_tail": -0.07399908717263545,
+        "mean_middle": -0.06123035820907457,
+        "difference": -0.012768728963560884,
+        "p_value": 0.5296530218450508
+      },
+      "low_extreme": {
+        "n": 16,
+        "mean_in_tail": -0.1138168432912029,
+        "mean_middle": -0.06123035820907457,
+        "difference": -0.05258648508212833,
+        "p_value": 0.03652611906773247
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +3.54%, p=0.075 bei α=0.0006 — auf 76 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.78% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M) [inkrementell]",
+      "target": "SPY-Rendite 5T",
+      "horizon_days": 5,
+      "n_overlapping": 4723,
+      "n_independent": 788,
+      "rank_ic_overlapping": 0.0275,
+      "rank_ic_independent": 0.0103,
+      "spread": -0.002075225033007893,
+      "spread_p": 0.29400613175573265,
+      "walk_forward_spreads": [
+        -0.0029417137965877032,
+        0.0024858625557938243,
+        0.0048212848332368705
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 263,
+          "signal_lo": -0.6685629643317451,
+          "signal_hi": -0.08908005936283658,
+          "mean_target": 0.0021620911885644194,
+          "median_target": 0.0035442723341545523
+        },
+        {
+          "label": "mittel",
+          "n": 263,
+          "signal_lo": -0.08859773761663564,
+          "signal_hi": 0.10734574238593797,
+          "mean_target": 0.0038864539087380117,
+          "median_target": 0.004411840277460222
+        },
+        {
+          "label": "hoch",
+          "n": 262,
+          "signal_lo": 0.10743277849234512,
+          "signal_hi": 0.5763147800471351,
+          "mean_target": 8.686615555652664e-05,
+          "median_target": 0.0035752191570930236
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.008947294865774941,
+      "high_extreme": {
+        "n": 158,
+        "mean_in_tail": 0.001703176234130089,
+        "mean_middle": 0.0024095029462552217,
+        "difference": -0.0007063267121251327,
+        "p_value": 0.7426767313408054
+      },
+      "low_extreme": {
+        "n": 158,
+        "mean_in_tail": 0.001311006694438803,
+        "mean_middle": 0.0024095029462552217,
+        "difference": -0.0010984962518164186,
+        "p_value": 0.5475017608645376
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.21%, p=0.294 bei α=0.0006 — auf 788 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 0.89% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M) [inkrementell]",
+      "target": "SPY-Rendite 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4717,
+      "n_independent": 215,
+      "rank_ic_overlapping": 0.029,
+      "rank_ic_independent": 0.0868,
+      "spread": 0.0010273999771096285,
+      "spread_p": 0.8918377614509325,
+      "walk_forward_spreads": [
+        -0.010139742211239052,
+        0.0013407074617942383,
+        0.021201777105885656
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 72,
+          "signal_lo": -0.6246061795121869,
+          "signal_hi": -0.11790738640406112,
+          "mean_target": 0.006772178305760506,
+          "median_target": 0.011972501849163764
+        },
+        {
+          "label": "mittel",
+          "n": 72,
+          "signal_lo": -0.11608938185038628,
+          "signal_hi": 0.1065896541888568,
+          "mean_target": 0.014125113781093983,
+          "median_target": 0.0180280918681629
+        },
+        {
+          "label": "hoch",
+          "n": 71,
+          "signal_lo": 0.1072104207306605,
+          "signal_hi": 0.5478767577216623,
+          "mean_target": 0.007799578282870134,
+          "median_target": 0.018175601669171204
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.03239240723757964,
+      "high_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.013327145458464128,
+        "mean_middle": 0.009648982796332889,
+        "difference": 0.003678162662131239,
+        "p_value": 0.6090847278532683
+      },
+      "low_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.00559509425340472,
+        "mean_middle": 0.009648982796332889,
+        "difference": -0.004053888542928169,
+        "p_value": 0.6212428814476816
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.10%, p=0.892 bei α=0.0006 — auf 215 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 3.24% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M) [inkrementell]",
+      "target": "SPY-Rendite 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4678,
+      "n_independent": 74,
+      "rank_ic_overlapping": 0.0078,
+      "rank_ic_independent": 0.0757,
+      "spread": 0.005000976542990535,
+      "spread_p": 0.8441474602904747,
+      "walk_forward_spreads": [
+        -0.07375277734062699,
+        0.024632983731365736,
+        0.06676036065369091
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 25,
+          "signal_lo": -0.484344046867199,
+          "signal_hi": -0.096813050472496,
+          "mean_target": 0.025373003251150467,
+          "median_target": 0.03473496775733165
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -0.09418571639531112,
+          "signal_hi": 0.1064054064736456,
+          "mean_target": 0.02420308390870377,
+          "median_target": 0.04143042133150865
+        },
+        {
+          "label": "hoch",
+          "n": 24,
+          "signal_lo": 0.10812173694269361,
+          "signal_hi": 0.33440708952096476,
+          "mean_target": 0.030373979794141002,
+          "median_target": 0.040381378971774406
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.10308217157836826,
+      "high_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.01935422921844317,
+        "mean_middle": 0.029664692024062536,
+        "difference": -0.010310462805619366,
+        "p_value": 0.7278752612628278
+      },
+      "low_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.024854520448022707,
+        "mean_middle": 0.029664692024062536,
+        "difference": -0.004810171576039829,
+        "p_value": 0.8268434791462413
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.50%, p=0.844 bei α=0.0006 — auf 74 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 10.31% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M) [inkrementell]",
+      "target": "SPY-Vola 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4717,
+      "n_independent": 215,
+      "rank_ic_overlapping": 0.0964,
+      "rank_ic_independent": 0.0832,
+      "spread": 0.04686681170375498,
+      "spread_p": 0.026475170587627637,
+      "walk_forward_spreads": [
+        0.04547537959786069,
+        0.08008772278242914,
+        0.012336862217445593
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 72,
+          "signal_lo": -0.6246061795121869,
+          "signal_hi": -0.11790738640406112,
+          "mean_target": 0.1402318413986824,
+          "median_target": 0.12423574559510807
+        },
+        {
+          "label": "mittel",
+          "n": 72,
+          "signal_lo": -0.11608938185038628,
+          "signal_hi": 0.1065896541888568,
+          "mean_target": 0.1580818762287068,
+          "median_target": 0.13229213800677828
+        },
+        {
+          "label": "hoch",
+          "n": 71,
+          "signal_lo": 0.1072104207306605,
+          "signal_hi": 0.5478767577216623,
+          "mean_target": 0.18709865310243737,
+          "median_target": 0.13417068345777114
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.08167866925671236,
+      "high_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.14936006140877342,
+        "mean_middle": 0.17233520586760606,
+        "difference": -0.02297514445883264,
+        "p_value": 0.18614320221735767
+      },
+      "low_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.14206669399875899,
+        "mean_middle": 0.17233520586760606,
+        "difference": -0.030268511868847076,
+        "p_value": 0.035492695129448325
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +4.69%, p=0.026 bei α=0.0006 — auf 215 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 8.17% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M) [inkrementell]",
+      "target": "SPY-Drawdown 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4717,
+      "n_independent": 215,
+      "rank_ic_overlapping": -0.0856,
+      "rank_ic_independent": -0.086,
+      "spread": -0.01288230972535813,
+      "spread_p": 0.06703455261080576,
+      "walk_forward_spreads": [
+        -0.014918807375592952,
+        -0.022428917082693837,
+        0.003241514743668246
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 72,
+          "signal_lo": -0.6246061795121869,
+          "signal_hi": -0.11790738640406112,
+          "mean_target": -0.0354314187534182,
+          "median_target": -0.024877338878181166
+        },
+        {
+          "label": "mittel",
+          "n": 72,
+          "signal_lo": -0.11608938185038628,
+          "signal_hi": 0.1065896541888568,
+          "mean_target": -0.03808413191769662,
+          "median_target": -0.033859347721244604
+        },
+        {
+          "label": "hoch",
+          "n": 71,
+          "signal_lo": 0.1072104207306605,
+          "signal_hi": 0.5478767577216623,
+          "mean_target": -0.04831372847877633,
+          "median_target": -0.031993768476379025
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.027200965035561162,
+      "high_extreme": {
+        "n": 43,
+        "mean_in_tail": -0.03681720571615312,
+        "mean_middle": -0.04316662622425231,
+        "difference": 0.006349420508099189,
+        "p_value": 0.2548586249313118
+      },
+      "low_extreme": {
+        "n": 43,
+        "mean_in_tail": -0.036552552130005925,
+        "mean_middle": -0.04316662622425231,
+        "difference": 0.006614074094246386,
+        "p_value": 0.23463360655793605
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -1.29%, p=0.067 bei α=0.0006 — auf 215 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 2.72% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M) [inkrementell]",
+      "target": "SPY-Vola 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4678,
+      "n_independent": 74,
+      "rank_ic_overlapping": 0.0366,
+      "rank_ic_independent": 0.067,
+      "spread": 0.0397922059245997,
+      "spread_p": 0.16856004265962898,
+      "walk_forward_spreads": [
+        0.10941979876487243,
+        0.058324799538951394,
+        -0.02724975599784729
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 25,
+          "signal_lo": -0.484344046867199,
+          "signal_hi": -0.096813050472496,
+          "mean_target": 0.1474696226244026,
+          "median_target": 0.13540663045085688
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -0.09418571639531112,
+          "signal_hi": 0.1064054064736456,
+          "mean_target": 0.16678073965898293,
+          "median_target": 0.13168776941001437
+        },
+        {
+          "label": "hoch",
+          "n": 24,
+          "signal_lo": 0.10812173694269361,
+          "signal_hi": 0.33440708952096476,
+          "mean_target": 0.1872618285490023,
+          "median_target": 0.146127487768934
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.11961419901050963,
+      "high_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.15916129920845495,
+        "mean_middle": 0.1773252235261304,
+        "difference": -0.01816392431767544,
+        "p_value": 0.5290444642705304
+      },
+      "low_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.1440542412656088,
+        "mean_middle": 0.1773252235261304,
+        "difference": -0.03327098226052158,
+        "p_value": 0.1317245879779612
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +3.98%, p=0.169 bei α=0.0006 — auf 74 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 11.96% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX-Terminstruktur (VIX/VIX3M) [inkrementell]",
+      "target": "SPY-Drawdown 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4678,
+      "n_independent": 74,
+      "rank_ic_overlapping": -0.0371,
+      "rank_ic_independent": 0.004,
+      "spread": -0.011302602128275552,
+      "spread_p": 0.5234695155793953,
+      "walk_forward_spreads": [
+        -0.06178316282101573,
+        -0.02223818814444469,
+        0.033758310055243976
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 25,
+          "signal_lo": -0.484344046867199,
+          "signal_hi": -0.096813050472496,
+          "mean_target": -0.06879247455269001,
+          "median_target": -0.04494652583696357
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -0.09418571639531112,
+          "signal_hi": 0.1064054064736456,
+          "mean_target": -0.07879362378126446,
+          "median_target": -0.06206763225690681
+        },
+        {
+          "label": "hoch",
+          "n": 24,
+          "signal_lo": 0.10812173694269361,
+          "signal_hi": 0.33440708952096476,
+          "mean_target": -0.08009507668096556,
+          "median_target": -0.05919491731091886
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07545170937785739,
+      "high_extreme": {
+        "n": 15,
+        "mean_in_tail": -0.07508143579864049,
+        "mean_middle": -0.07923559865014015,
+        "difference": 0.004154162851499665,
+        "p_value": 0.8494190049520318
+      },
+      "low_extreme": {
+        "n": 15,
+        "mean_in_tail": -0.06662309474041743,
+        "mean_middle": -0.07923559865014015,
+        "difference": 0.012612503909722725,
+        "p_value": 0.4159815778464268
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -1.13%, p=0.523 bei α=0.0006 — auf 74 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.55% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX) [inkrementell]",
+      "target": "SPY-Rendite 5T",
+      "horizon_days": 5,
+      "n_overlapping": 3907,
+      "n_independent": 652,
+      "rank_ic_overlapping": 0.0196,
+      "rank_ic_independent": 0.0366,
+      "spread": 0.00037302969214335607,
+      "spread_p": 0.857025664664149,
+      "walk_forward_spreads": [
+        -0.002415894059938551,
+        -0.002151604494569467,
+        0.0056397064600104095
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 218,
+          "signal_lo": -0.6361288598886777,
+          "signal_hi": -0.1290757332328325,
+          "mean_target": 0.0017877427216314431,
+          "median_target": 0.0021724240515125226
+        },
+        {
+          "label": "mittel",
+          "n": 217,
+          "signal_lo": -0.12539734920954088,
+          "signal_hi": 0.13578807529067072,
+          "mean_target": 0.004246758438517736,
+          "median_target": 0.004824324580179118
+        },
+        {
+          "label": "hoch",
+          "n": 217,
+          "signal_lo": 0.13614657105548478,
+          "signal_hi": 0.5933300825919475,
+          "mean_target": 0.002160772413774799,
+          "median_target": 0.0039701680852679555
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.00857361785060555,
+      "high_extreme": {
+        "n": 131,
+        "mean_in_tail": 0.0019450702463506828,
+        "mean_middle": 0.003711867910415554,
+        "difference": -0.001766797664064871,
+        "p_value": 0.46160311179498076
+      },
+      "low_extreme": {
+        "n": 131,
+        "mean_in_tail": 0.0005933543582376297,
+        "mean_middle": 0.003711867910415554,
+        "difference": -0.0031185135521779243,
+        "p_value": 0.09722382202652192
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.04%, p=0.857 bei α=0.0006 — auf 652 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 0.86% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX) [inkrementell]",
+      "target": "SPY-Rendite 21T",
+      "horizon_days": 21,
+      "n_overlapping": 3901,
+      "n_independent": 178,
+      "rank_ic_overlapping": 0.0211,
+      "rank_ic_independent": 0.024,
+      "spread": 0.0059871280065870135,
+      "spread_p": 0.43460390579987007,
+      "walk_forward_spreads": [
+        -0.0025853682390307112,
+        0.0115365418724289,
+        0.016388191025109196
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 60,
+          "signal_lo": -0.622982488242776,
+          "signal_hi": -0.16113026996570168,
+          "mean_target": 0.010645389961377306,
+          "median_target": 0.020954362673049176
+        },
+        {
+          "label": "mittel",
+          "n": 59,
+          "signal_lo": -0.1564958478855097,
+          "signal_hi": 0.11562976409633147,
+          "mean_target": 0.011631229234433788,
+          "median_target": 0.01701621337182413
+        },
+        {
+          "label": "hoch",
+          "n": 59,
+          "signal_lo": 0.11611546724056587,
+          "signal_hi": 0.5933300825919475,
+          "mean_target": 0.01663251796796432,
+          "median_target": 0.02101550697098875
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.030883201112767284,
+      "high_extreme": {
+        "n": 36,
+        "mean_in_tail": 0.013468961866209387,
+        "mean_middle": 0.011752477937934708,
+        "difference": 0.001716483928274679,
+        "p_value": 0.8329571271153461
+      },
+      "low_extreme": {
+        "n": 36,
+        "mean_in_tail": 0.015989977611653043,
+        "mean_middle": 0.011752477937934708,
+        "difference": 0.004237499673718335,
+        "p_value": 0.5286047643199814
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.60%, p=0.435 bei α=0.0006 — auf 178 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 3.09% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX) [inkrementell]",
+      "target": "SPY-Rendite 63T",
+      "horizon_days": 63,
+      "n_overlapping": 3862,
+      "n_independent": 61,
+      "rank_ic_overlapping": 0.0351,
+      "rank_ic_independent": 0.1938,
+      "spread": 0.02648384176878546,
+      "spread_p": 0.10022980227934211,
+      "walk_forward_spreads": [
+        0.0015442246820322122,
+        0.013154289952296706,
+        0.09794132125124844
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 21,
+          "signal_lo": -0.658851827370144,
+          "signal_hi": -0.11840404289174489,
+          "mean_target": 0.03976868645719239,
+          "median_target": 0.043770590250197694
+        },
+        {
+          "label": "mittel",
+          "n": 20,
+          "signal_lo": -0.11675077258479255,
+          "signal_hi": 0.1555004594101882,
+          "mean_target": 0.011414490059055154,
+          "median_target": 0.017313620728761192
+        },
+        {
+          "label": "hoch",
+          "n": 20,
+          "signal_lo": 0.1568044512261091,
+          "signal_hi": 0.4127699490954043,
+          "mean_target": 0.06625252822597785,
+          "median_target": 0.05653449998457183
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07752188012505071,
+      "high_extreme": {
+        "n": 13,
+        "mean_in_tail": 0.07362696431335974,
+        "mean_middle": 0.028715169643100374,
+        "difference": 0.04491179467025937,
+        "p_value": 0.02174790687831352
+      },
+      "low_extreme": {
+        "n": 13,
+        "mean_in_tail": 0.03279240828611619,
+        "mean_middle": 0.028715169643100374,
+        "difference": 0.004077238643015815,
+        "p_value": 0.8314043384372579
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +2.65%, p=0.100 bei α=0.0006 — auf 61 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.75% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX) [inkrementell]",
+      "target": "SPY-Vola 21T",
+      "horizon_days": 21,
+      "n_overlapping": 3901,
+      "n_independent": 178,
+      "rank_ic_overlapping": 0.0754,
+      "rank_ic_independent": -0.0081,
+      "spread": 0.0188840421221404,
+      "spread_p": 0.3096820716821982,
+      "walk_forward_spreads": [
+        0.013034023605908135,
+        0.015486565109102235,
+        0.03299513852073027
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 60,
+          "signal_lo": -0.622982488242776,
+          "signal_hi": -0.16113026996570168,
+          "mean_target": 0.13920087581529464,
+          "median_target": 0.11775482842138477
+        },
+        {
+          "label": "mittel",
+          "n": 59,
+          "signal_lo": -0.1564958478855097,
+          "signal_hi": 0.11562976409633147,
+          "mean_target": 0.13442108805251596,
+          "median_target": 0.11583176281415562
+        },
+        {
+          "label": "hoch",
+          "n": 59,
+          "signal_lo": 0.11611546724056587,
+          "signal_hi": 0.5933300825919475,
+          "mean_target": 0.15808491793743504,
+          "median_target": 0.12721548767197213
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07085009613589782,
+      "high_extreme": {
+        "n": 36,
+        "mean_in_tail": 0.1768614958498917,
+        "mean_middle": 0.13317913455483255,
+        "difference": 0.04368236129505915,
+        "p_value": 0.09910870938658205
+      },
+      "low_extreme": {
+        "n": 36,
+        "mean_in_tail": 0.14238624413656764,
+        "mean_middle": 0.13317913455483255,
+        "difference": 0.009207109581735096,
+        "p_value": 0.3955758607649856
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +1.89%, p=0.310 bei α=0.0006 — auf 178 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.09% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX) [inkrementell]",
+      "target": "SPY-Drawdown 21T",
+      "horizon_days": 21,
+      "n_overlapping": 3901,
+      "n_independent": 178,
+      "rank_ic_overlapping": -0.0617,
+      "rank_ic_independent": -0.0001,
+      "spread": -0.0037172873613027374,
+      "spread_p": 0.5291929630917901,
+      "walk_forward_spreads": [
+        -0.005416793530041604,
+        0.003913443727998331,
+        -0.004510569846726861
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 60,
+          "signal_lo": -0.622982488242776,
+          "signal_hi": -0.16113026996570168,
+          "mean_target": -0.03473942433465814,
+          "median_target": -0.026341638343927054
+        },
+        {
+          "label": "mittel",
+          "n": 59,
+          "signal_lo": -0.1564958478855097,
+          "signal_hi": 0.11562976409633147,
+          "mean_target": -0.033815043763087735,
+          "median_target": -0.026460530621524425
+        },
+        {
+          "label": "hoch",
+          "n": 59,
+          "signal_lo": 0.11611546724056587,
+          "signal_hi": 0.5933300825919475,
+          "mean_target": -0.03845671169596088,
+          "median_target": -0.029255209265561244
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.023387671813399395,
+      "high_extreme": {
+        "n": 36,
+        "mean_in_tail": -0.043216719199099356,
+        "mean_middle": -0.033129067764049544,
+        "difference": -0.010087651435049812,
+        "p_value": 0.17145831916866988
+      },
+      "low_extreme": {
+        "n": 36,
+        "mean_in_tail": -0.03558099883351469,
+        "mean_middle": -0.033129067764049544,
+        "difference": -0.0024519310694651464,
+        "p_value": 0.5717440739904182
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.37%, p=0.529 bei α=0.0006 — auf 178 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 2.34% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX) [inkrementell]",
+      "target": "SPY-Vola 63T",
+      "horizon_days": 63,
+      "n_overlapping": 3862,
+      "n_independent": 61,
+      "rank_ic_overlapping": 0.038,
+      "rank_ic_independent": -0.0389,
+      "spread": 0.018890141494787988,
+      "spread_p": 0.49979651562571636,
+      "walk_forward_spreads": [
+        -0.032943611020908994,
+        0.04297259722373026,
+        0.04241934657860985
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 21,
+          "signal_lo": -0.658851827370144,
+          "signal_hi": -0.11840404289174489,
+          "mean_target": 0.1383718103838755,
+          "median_target": 0.12816155035482363
+        },
+        {
+          "label": "mittel",
+          "n": 20,
+          "signal_lo": -0.11675077258479255,
+          "signal_hi": 0.1555004594101882,
+          "mean_target": 0.14788582821877022,
+          "median_target": 0.12921768588167765
+        },
+        {
+          "label": "hoch",
+          "n": 20,
+          "signal_lo": 0.1568044512261091,
+          "signal_hi": 0.4127699490954043,
+          "mean_target": 0.1572619518786635,
+          "median_target": 0.12324019161053272
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.10634304989806138,
+      "high_extreme": {
+        "n": 13,
+        "mean_in_tail": 0.16745197723257352,
+        "mean_middle": 0.14554596612178453,
+        "difference": 0.021906011110788992,
+        "p_value": 0.5825186741791739
+      },
+      "low_extreme": {
+        "n": 13,
+        "mean_in_tail": 0.13367531551724193,
+        "mean_middle": 0.14554596612178453,
+        "difference": -0.011870650604542593,
+        "p_value": 0.4594631065319703
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +1.89%, p=0.500 bei α=0.0006 — auf 61 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 10.63% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "VIX kurz/mittel (VIX9D/VIX) [inkrementell]",
+      "target": "SPY-Drawdown 63T",
+      "horizon_days": 63,
+      "n_overlapping": 3862,
+      "n_independent": 61,
+      "rank_ic_overlapping": -0.0344,
+      "rank_ic_independent": 0.1154,
+      "spread": 0.0022842704930005273,
+      "spread_p": 0.8789730531870609,
+      "walk_forward_spreads": [
+        0.020804161166095687,
+        -0.017445953507142863,
+        0.011766632428970636
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 21,
+          "signal_lo": -0.658851827370144,
+          "signal_hi": -0.11840404289174489,
+          "mean_target": -0.06186451997009875,
+          "median_target": -0.05353884954254573
+        },
+        {
+          "label": "mittel",
+          "n": 20,
+          "signal_lo": -0.11675077258479255,
+          "signal_hi": 0.1555004594101882,
+          "mean_target": -0.07086545280542018,
+          "median_target": -0.05110387535523936
+        },
+        {
+          "label": "hoch",
+          "n": 20,
+          "signal_lo": 0.1568044512261091,
+          "signal_hi": 0.4127699490954043,
+          "mean_target": -0.059580249477098224,
+          "median_target": -0.04654170501061056
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.06304130011653408,
+      "high_extreme": {
+        "n": 13,
+        "mean_in_tail": -0.06448684523920621,
+        "mean_middle": -0.06573633173363111,
+        "difference": 0.001249486494424898,
+        "p_value": 0.9524187287124952
+      },
+      "low_extreme": {
+        "n": 13,
+        "mean_in_tail": -0.05915141278735942,
+        "mean_middle": -0.06573633173363111,
+        "difference": 0.006584918946271688,
+        "p_value": 0.5802873380907796
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.23%, p=0.879 bei α=0.0006 — auf 61 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 6.30% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio [inkrementell]",
+      "target": "SPY-Rendite 5T",
+      "horizon_days": 5,
+      "n_overlapping": 4733,
+      "n_independent": 789,
+      "rank_ic_overlapping": -0.0291,
+      "rank_ic_independent": -0.0443,
+      "spread": -0.0032469528925586064,
+      "spread_p": 0.13726502561179693,
+      "walk_forward_spreads": [
+        -0.0061483477528537275,
+        -0.0010859143770527986,
+        -0.0017399704926295985
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 263,
+          "signal_lo": -0.5391801169512628,
+          "signal_hi": -0.15161870935504163,
+          "mean_target": 0.003615998829618022,
+          "median_target": 0.004819126469343793
+        },
+        {
+          "label": "mittel",
+          "n": 263,
+          "signal_lo": -0.149039790360734,
+          "signal_hi": 0.16936214144702155,
+          "mean_target": 0.0023064161284210324,
+          "median_target": 0.0038743743965572452
+        },
+        {
+          "label": "hoch",
+          "n": 263,
+          "signal_lo": 0.17128292691530667,
+          "signal_hi": 0.5515439452879091,
+          "mean_target": 0.00036904593705941533,
+          "median_target": 0.0018290627749752986
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.008939662317684944,
+      "high_extreme": {
+        "n": 158,
+        "mean_in_tail": -0.0005171425911819578,
+        "mean_middle": 0.002345714097105346,
+        "difference": -0.002862856688287304,
+        "p_value": 0.25653204717029865
+      },
+      "low_extreme": {
+        "n": 158,
+        "mean_in_tail": 0.003967341625865938,
+        "mean_middle": 0.002345714097105346,
+        "difference": 0.0016216275287605922,
+        "p_value": 0.4219712575809564
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.32%, p=0.137 bei α=0.0006 — auf 789 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 0.89% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio [inkrementell]",
+      "target": "SPY-Rendite 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4717,
+      "n_independent": 215,
+      "rank_ic_overlapping": -0.0149,
+      "rank_ic_independent": 0.0225,
+      "spread": 0.004767767253569893,
+      "spread_p": 0.44409788976045445,
+      "walk_forward_spreads": [
+        0.020799399149615892,
+        -0.007616238205715566,
+        0.003832339763263269
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 72,
+          "signal_lo": -0.5479423769205841,
+          "signal_hi": -0.18212642739853108,
+          "mean_target": 0.010272529760807655,
+          "median_target": 0.0163697048735556
+        },
+        {
+          "label": "mittel",
+          "n": 72,
+          "signal_lo": -0.17983967089787223,
+          "signal_hi": 0.13933482608450876,
+          "mean_target": 0.003484609132477024,
+          "median_target": 0.014538798835042499
+        },
+        {
+          "label": "hoch",
+          "n": 71,
+          "signal_lo": 0.14003517204077753,
+          "signal_hi": 0.48929835150381834,
+          "mean_target": 0.015040297014377549,
+          "median_target": 0.018175601669171204
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.03239240723757964,
+      "high_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.014203322786202462,
+        "mean_middle": 0.006433894405611079,
+        "difference": 0.007769428380591382,
+        "p_value": 0.3037764203981741
+      },
+      "low_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.01436418209783181,
+        "mean_middle": 0.006433894405611079,
+        "difference": 0.00793028769222073,
+        "p_value": 0.24304972388183957
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.48%, p=0.444 bei α=0.0006 — auf 215 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 3.24% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio [inkrementell]",
+      "target": "SPY-Rendite 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4678,
+      "n_independent": 74,
+      "rank_ic_overlapping": -0.0104,
+      "rank_ic_independent": -0.042,
+      "spread": -0.012002066734107884,
+      "spread_p": 0.6150916065826081,
+      "walk_forward_spreads": [
+        -0.036160734066683395,
+        -0.06299827007206,
+        0.06524997790583982
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 25,
+          "signal_lo": -0.5598587528640324,
+          "signal_hi": -0.19776669228541094,
+          "mean_target": 0.03671446795076059,
+          "median_target": 0.03473496775733165
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -0.18817619732195973,
+          "signal_hi": 0.12575633484116688,
+          "mean_target": 0.018296734643482408,
+          "median_target": 0.051645131382854315
+        },
+        {
+          "label": "hoch",
+          "n": 24,
+          "signal_lo": 0.14510231735460932,
+          "signal_hi": 0.4742446266907531,
+          "mean_target": 0.024712401216652705,
+          "median_target": 0.039758266114415575
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.10308217157836826,
+      "high_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.02254582516984628,
+        "mean_middle": 0.030806830401160123,
+        "difference": -0.008261005231313841,
+        "p_value": 0.7656908545465193
+      },
+      "low_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.01831265192380002,
+        "mean_middle": 0.030806830401160123,
+        "difference": -0.012494178477360104,
+        "p_value": 0.6230558925385984
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -1.20%, p=0.615 bei α=0.0006 — auf 74 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 10.31% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio [inkrementell]",
+      "target": "SPY-Vola 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4717,
+      "n_independent": 215,
+      "rank_ic_overlapping": 0.0361,
+      "rank_ic_independent": 0.147,
+      "spread": 0.04925792861148731,
+      "spread_p": 0.010835089959088754,
+      "walk_forward_spreads": [
+        0.06326837158010862,
+        0.04722160811728922,
+        0.04062024999315836
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 72,
+          "signal_lo": -0.5479423769205841,
+          "signal_hi": -0.18212642739853108,
+          "mean_target": 0.1364028154035294,
+          "median_target": 0.11869668396132657
+        },
+        {
+          "label": "mittel",
+          "n": 72,
+          "signal_lo": -0.17983967089787223,
+          "signal_hi": 0.13933482608450876,
+          "mean_target": 0.16332884035173295,
+          "median_target": 0.1417813530234258
+        },
+        {
+          "label": "hoch",
+          "n": 71,
+          "signal_lo": 0.14003517204077753,
+          "signal_hi": 0.48929835150381834,
+          "mean_target": 0.1856607440150167,
+          "median_target": 0.13712915451128702
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.08167866925671236,
+      "high_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.19581980969059126,
+        "mean_middle": 0.1588875034376912,
+        "difference": 0.03693230625290006,
+        "p_value": 0.17704328399690974
+      },
+      "low_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.13595005300668575,
+        "mean_middle": 0.1588875034376912,
+        "difference": -0.02293745043100545,
+        "p_value": 0.11226694112878681
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +4.93%, p=0.011 bei α=0.0006 — auf 215 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 8.17% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio [inkrementell]",
+      "target": "SPY-Drawdown 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4717,
+      "n_independent": 215,
+      "rank_ic_overlapping": -0.0387,
+      "rank_ic_independent": -0.0771,
+      "spread": -0.007541277391237881,
+      "spread_p": 0.1890609757456892,
+      "walk_forward_spreads": [
+        -0.006421456451168012,
+        -0.013475530177539396,
+        -0.002019227514904652
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 72,
+          "signal_lo": -0.5479423769205841,
+          "signal_hi": -0.18212642739853108,
+          "mean_target": -0.03534795557484435,
+          "median_target": -0.028706702407245543
+        },
+        {
+          "label": "mittel",
+          "n": 72,
+          "signal_lo": -0.17983967089787223,
+          "signal_hi": 0.13933482608450876,
+          "mean_target": -0.04351675039351049,
+          "median_target": -0.029938565111327142
+        },
+        {
+          "label": "hoch",
+          "n": 71,
+          "signal_lo": 0.14003517204077753,
+          "signal_hi": 0.48929835150381834,
+          "mean_target": -0.042889232966082234,
+          "median_target": -0.029991311521578856
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.027200965035561162,
+      "high_extreme": {
+        "n": 43,
+        "mean_in_tail": -0.04685179221437189,
+        "mean_middle": -0.04083326493043705,
+        "difference": -0.006018527283934844,
+        "p_value": 0.4559233827972006
+      },
+      "low_extreme": {
+        "n": 43,
+        "mean_in_tail": -0.03351804951323296,
+        "mean_middle": -0.04083326493043705,
+        "difference": 0.007315215417204091,
+        "p_value": 0.17423511772400796
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.75%, p=0.189 bei α=0.0006 — auf 215 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 2.72% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio [inkrementell]",
+      "target": "SPY-Vola 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4678,
+      "n_independent": 74,
+      "rank_ic_overlapping": 0.0026,
+      "rank_ic_independent": -0.0017,
+      "spread": 0.004612552916118812,
+      "spread_p": 0.8589951564502052,
+      "walk_forward_spreads": [
+        0.05535988531068417,
+        0.024019659321143944,
+        -0.06344297180181818
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 25,
+          "signal_lo": -0.5598587528640324,
+          "signal_hi": -0.19776669228541094,
+          "mean_target": 0.16512869246288825,
+          "median_target": 0.1502522348415523
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -0.18817619732195973,
+          "signal_hi": 0.12575633484116688,
+          "mean_target": 0.16594142966369277,
+          "median_target": 0.1424212286855196
+        },
+        {
+          "label": "hoch",
+          "n": 24,
+          "signal_lo": 0.14510231735460932,
+          "signal_hi": 0.4742446266907531,
+          "mean_target": 0.16974124537900706,
+          "median_target": 0.12730183176571117
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.11961419901050963,
+      "high_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.19217566919868964,
+        "mean_middle": 0.15963586746086575,
+        "difference": 0.03253980173782389,
+        "p_value": 0.3606482519426844
+      },
+      "low_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.16292864906681717,
+        "mean_middle": 0.15963586746086575,
+        "difference": 0.0032927816059514226,
+        "p_value": 0.8867575643132725
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.46%, p=0.859 bei α=0.0006 — auf 74 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 11.96% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-Volumenratio [inkrementell]",
+      "target": "SPY-Drawdown 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4678,
+      "n_independent": 74,
+      "rank_ic_overlapping": -0.0088,
+      "rank_ic_independent": -0.0721,
+      "spread": -0.007878301317144079,
+      "spread_p": 0.6331113364537788,
+      "walk_forward_spreads": [
+        -0.0353579474472798,
+        -0.03137791639241071,
+        0.04640539697705681
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 25,
+          "signal_lo": -0.5598587528640324,
+          "signal_hi": -0.19776669228541094,
+          "mean_target": -0.07142558799672474,
+          "median_target": -0.055505785506025807
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -0.18817619732195973,
+          "signal_hi": 0.12575633484116688,
+          "mean_target": -0.07692005020964261,
+          "median_target": -0.06573003733256677
+        },
+        {
+          "label": "hoch",
+          "n": 24,
+          "signal_lo": 0.14510231735460932,
+          "signal_hi": 0.4742446266907531,
+          "mean_target": -0.07930388931386882,
+          "median_target": -0.05703602637952243
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07545170937785739,
+      "high_extreme": {
+        "n": 15,
+        "mean_in_tail": -0.08897897617530916,
+        "mean_middle": -0.07097668095300937,
+        "difference": -0.01800229522229979,
+        "p_value": 0.4141966706854072
+      },
+      "low_extreme": {
+        "n": 15,
+        "mean_in_tail": -0.07695171294199907,
+        "mean_middle": -0.07097668095300937,
+        "difference": -0.005975031988989701,
+        "p_value": 0.727276092521926
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.79%, p=0.633 bei α=0.0006 — auf 74 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.55% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-OBV-Trend [inkrementell]",
+      "target": "SPY-Rendite 5T",
+      "horizon_days": 5,
+      "n_overlapping": 4733,
+      "n_independent": 789,
+      "rank_ic_overlapping": -0.0412,
+      "rank_ic_independent": -0.0341,
+      "spread": -0.0022952236737637842,
+      "spread_p": 0.2930298312183637,
+      "walk_forward_spreads": [
+        -0.008457684522644573,
+        0.00010682418381804948,
+        0.0002976081787219812
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 263,
+          "signal_lo": -0.620008775771508,
+          "signal_hi": -0.15247536677291404,
+          "mean_target": 0.0029707448421756556,
+          "median_target": 0.004941767522247842
+        },
+        {
+          "label": "mittel",
+          "n": 263,
+          "signal_lo": -0.1484553590155318,
+          "signal_hi": 0.13760954565456307,
+          "mean_target": 0.002645194884510943,
+          "median_target": 0.003756160156048294
+        },
+        {
+          "label": "hoch",
+          "n": 263,
+          "signal_lo": 0.13905187910887734,
+          "signal_hi": 0.6014614193646173,
+          "mean_target": 0.0006755211684118713,
+          "median_target": 0.00315791907450369
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.008939662317684944,
+      "high_extreme": {
+        "n": 158,
+        "mean_in_tail": 0.0006926437910461236,
+        "mean_middle": 0.002649258552873109,
+        "difference": -0.0019566147618269854,
+        "p_value": 0.3705724624379924
+      },
+      "low_extreme": {
+        "n": 158,
+        "mean_in_tail": 0.0018488430437761355,
+        "mean_middle": 0.002649258552873109,
+        "difference": -0.0008004155090969736,
+        "p_value": 0.7184224607419373
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.23%, p=0.293 bei α=0.0006 — auf 789 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 0.89% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-OBV-Trend [inkrementell]",
+      "target": "SPY-Rendite 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4717,
+      "n_independent": 215,
+      "rank_ic_overlapping": -0.0979,
+      "rank_ic_independent": -0.1227,
+      "spread": -0.017475226180046564,
+      "spread_p": 0.03387384227232189,
+      "walk_forward_spreads": [
+        -0.04164527014099874,
+        -0.016853419305155385,
+        0.00804701220391347
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 72,
+          "signal_lo": -0.5938384999631804,
+          "signal_hi": -0.13364064680878063,
+          "mean_target": 0.018895449578492603,
+          "median_target": 0.020662622460419944
+        },
+        {
+          "label": "mittel",
+          "n": 72,
+          "signal_lo": -0.13243582665396603,
+          "signal_hi": 0.15884807051720684,
+          "mean_target": 0.008292595241613429,
+          "median_target": 0.01658880388190387
+        },
+        {
+          "label": "hoch",
+          "n": 71,
+          "signal_lo": 0.16118405661762325,
+          "signal_hi": 0.6227725687043328,
+          "mean_target": 0.0014202233984460396,
+          "median_target": 0.011238970272591908
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.03239240723757964,
+      "high_extreme": {
+        "n": 43,
+        "mean_in_tail": -0.008867914283907938,
+        "mean_middle": 0.01215689971078648,
+        "difference": -0.02102481399469442,
+        "p_value": 0.039503666105864005
+      },
+      "low_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.020266403252416007,
+        "mean_middle": 0.01215689971078648,
+        "difference": 0.008109503541629526,
+        "p_value": 0.2265115417653921
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -1.75%, p=0.034 bei α=0.0006 — auf 215 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 3.24% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-OBV-Trend [inkrementell]",
+      "target": "SPY-Rendite 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4678,
+      "n_independent": 74,
+      "rank_ic_overlapping": -0.0586,
+      "rank_ic_independent": -0.012,
+      "spread": -0.025169481329127913,
+      "spread_p": 0.2732799116426507,
+      "walk_forward_spreads": [
+        0.050786085070697456,
+        -0.028529781177646964,
+        -0.071088163452607
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 25,
+          "signal_lo": -0.4823379686382392,
+          "signal_hi": -0.18915138318132368,
+          "mean_target": 0.04688296649641717,
+          "median_target": 0.04616631815455574
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -0.17184484035657976,
+          "signal_hi": 0.12925171561152105,
+          "mean_target": 0.01100719550521475,
+          "median_target": 0.02605810381691076
+        },
+        {
+          "label": "hoch",
+          "n": 24,
+          "signal_lo": 0.13214400411414184,
+          "signal_hi": 0.582141538299023,
+          "mean_target": 0.021713485167289256,
+          "median_target": 0.044996313072044214
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.10308217157836826,
+      "high_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.014496313785105549,
+        "mean_middle": 0.027916050973682372,
+        "difference": -0.013419737188576824,
+        "p_value": 0.6342585121573231
+      },
+      "low_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.03484178296247549,
+        "mean_middle": 0.027916050973682372,
+        "difference": 0.006925731988793118,
+        "p_value": 0.7394528849694997
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -2.52%, p=0.273 bei α=0.0006 — auf 74 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 10.31% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-OBV-Trend [inkrementell]",
+      "target": "SPY-Vola 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4717,
+      "n_independent": 215,
+      "rank_ic_overlapping": 0.0439,
+      "rank_ic_independent": 0.0767,
+      "spread": 0.00684610328134036,
+      "spread_p": 0.7516370484846557,
+      "walk_forward_spreads": [
+        0.008657260981009107,
+        -0.016907802848224823,
+        0.0050986471747924145
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 72,
+          "signal_lo": -0.5938384999631804,
+          "signal_hi": -0.13364064680878063,
+          "mean_target": 0.16836079789576186,
+          "median_target": 0.1353105347014816
+        },
+        {
+          "label": "mittel",
+          "n": 72,
+          "signal_lo": -0.13243582665396603,
+          "signal_hi": 0.15884807051720684,
+          "mean_target": 0.14167950843577726,
+          "median_target": 0.12090527846869117
+        },
+        {
+          "label": "hoch",
+          "n": 71,
+          "signal_lo": 0.16118405661762325,
+          "signal_hi": 0.6227725687043328,
+          "mean_target": 0.17520690117710222,
+          "median_target": 0.13691807198948266
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.08167866925671236,
+      "high_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.1823888065581048,
+        "mean_middle": 0.15331759180759594,
+        "difference": 0.02907121475050886,
+        "p_value": 0.19274688521740574
+      },
+      "low_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.16609079102945792,
+        "mean_middle": 0.15331759180759594,
+        "difference": 0.012773199221861986,
+        "p_value": 0.5601957982615355
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.68%, p=0.752 bei α=0.0006 — auf 215 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 8.17% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-OBV-Trend [inkrementell]",
+      "target": "SPY-Drawdown 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4717,
+      "n_independent": 215,
+      "rank_ic_overlapping": -0.0528,
+      "rank_ic_independent": -0.1062,
+      "spread": -0.006434105842023793,
+      "spread_p": 0.3612723572048677,
+      "walk_forward_spreads": [
+        -0.014124774479701535,
+        -0.0003117996068866119,
+        0.0016168193517912682
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 72,
+          "signal_lo": -0.5938384999631804,
+          "signal_hi": -0.13364064680878063,
+          "mean_target": -0.03976991939641702,
+          "median_target": -0.029347139275710976
+        },
+        {
+          "label": "mittel",
+          "n": 72,
+          "signal_lo": -0.13243582665396603,
+          "signal_hi": 0.15884807051720684,
+          "mean_target": -0.03582603308113979,
+          "median_target": -0.025335367981459744
+        },
+        {
+          "label": "hoch",
+          "n": 71,
+          "signal_lo": 0.16118405661762325,
+          "signal_hi": 0.6227725687043328,
+          "mean_target": -0.04620402523844081,
+          "median_target": -0.03725375623331317
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.027200965035561162,
+      "high_extreme": {
+        "n": 43,
+        "mean_in_tail": -0.051063821420627264,
+        "mean_middle": -0.037996752668977514,
+        "difference": -0.01306706875164975,
+        "p_value": 0.11815255601544825
+      },
+      "low_extreme": {
+        "n": 43,
+        "mean_in_tail": -0.037815557091356186,
+        "mean_middle": -0.037996752668977514,
+        "difference": 0.00018119557762132782,
+        "p_value": 0.9768196623105285
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.64%, p=0.361 bei α=0.0006 — auf 215 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 2.72% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-OBV-Trend [inkrementell]",
+      "target": "SPY-Vola 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4678,
+      "n_independent": 74,
+      "rank_ic_overlapping": 0.0648,
+      "rank_ic_independent": -0.0208,
+      "spread": 0.00023076926849738277,
+      "spread_p": 0.9919574833587109,
+      "walk_forward_spreads": [
+        -0.1033609543399388,
+        0.002283716731967117,
+        0.032183802592262944
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 25,
+          "signal_lo": -0.4823379686382392,
+          "signal_hi": -0.18915138318132368,
+          "mean_target": 0.16032937513428525,
+          "median_target": 0.15126483861396806
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -0.17184484035657976,
+          "signal_hi": 0.12925171561152105,
+          "mean_target": 0.17955460392947123,
+          "median_target": 0.12291589412140798
+        },
+        {
+          "label": "hoch",
+          "n": 24,
+          "signal_lo": 0.13214400411414184,
+          "signal_hi": 0.582141538299023,
+          "mean_target": 0.16056014440278263,
+          "median_target": 0.13432038740177094
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.11961419901050963,
+      "high_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.17170173102025732,
+        "mean_middle": 0.16983419102332428,
+        "difference": 0.0018675399969330375,
+        "p_value": 0.9524534640608866
+      },
+      "low_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.15348750479537107,
+        "mean_middle": 0.16983419102332428,
+        "difference": -0.01634668622795321,
+        "p_value": 0.4073270603566724
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.02%, p=0.992 bei α=0.0006 — auf 74 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 11.96% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "SPY-OBV-Trend [inkrementell]",
+      "target": "SPY-Drawdown 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4678,
+      "n_independent": 74,
+      "rank_ic_overlapping": -0.0715,
+      "rank_ic_independent": 0.023,
+      "spread": -0.006659195013985028,
+      "spread_p": 0.6438584126094852,
+      "walk_forward_spreads": [
+        0.055503462375601526,
+        -0.0053322140162901654,
+        -0.03101777620097179
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 25,
+          "signal_lo": -0.4823379686382392,
+          "signal_hi": -0.18915138318132368,
+          "mean_target": -0.06547186169018832,
+          "median_target": -0.05815968081067069
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -0.17184484035657976,
+          "signal_hi": 0.12925171561152105,
+          "mean_target": -0.08975969582148671,
+          "median_target": -0.06023015381116703
+        },
+        {
+          "label": "hoch",
+          "n": 24,
+          "signal_lo": 0.13214400411414184,
+          "signal_hi": 0.582141538299023,
+          "mean_target": -0.07213105670417334,
+          "median_target": -0.0562330099020133
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07545170937785739,
+      "high_extreme": {
+        "n": 15,
+        "mean_in_tail": -0.0771123032935081,
+        "mean_middle": -0.07891119973362204,
+        "difference": 0.0017988964401139396,
+        "p_value": 0.9305998816094162
+      },
+      "low_extreme": {
+        "n": 15,
+        "mean_in_tail": -0.06554379740066961,
+        "mean_middle": -0.07891119973362204,
+        "difference": 0.01336740233295243,
+        "p_value": 0.30568062208951136
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.67%, p=0.644 bei α=0.0006 — auf 74 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.55% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil [inkrementell]",
+      "target": "SPY-Rendite 5T",
+      "horizon_days": 5,
+      "n_overlapping": 4733,
+      "n_independent": 789,
+      "rank_ic_overlapping": -0.042,
+      "rank_ic_independent": -0.0706,
+      "spread": -0.003940787671013201,
+      "spread_p": 0.10125046762716441,
+      "walk_forward_spreads": [
+        -0.006237280491205529,
+        -0.0029455742992375348,
+        0.0014098209991188996
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 263,
+          "signal_lo": -0.1853709529108029,
+          "signal_hi": -0.14375741953079352,
+          "mean_target": 0.004585419012755364,
+          "median_target": 0.006183783096052942
+        },
+        {
+          "label": "mittel",
+          "n": 263,
+          "signal_lo": -0.14358791378864538,
+          "signal_hi": -0.10675476464420369,
+          "mean_target": 0.0010614105406009419,
+          "median_target": 0.0022410755136865745
+        },
+        {
+          "label": "hoch",
+          "n": 263,
+          "signal_lo": -0.1066349950668194,
+          "signal_hi": 0.5038444400721955,
+          "mean_target": 0.000644631341742163,
+          "median_target": 0.0037917453260587486
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.008939662317684944,
+      "high_extreme": {
+        "n": 158,
+        "mean_in_tail": 0.0005987288082637912,
+        "mean_middle": 0.00123366753522521,
+        "difference": -0.0006349387269614188,
+        "p_value": 0.741855649226049
+      },
+      "low_extreme": {
+        "n": 158,
+        "mean_in_tail": 0.006180571642681609,
+        "mean_middle": 0.00123366753522521,
+        "difference": 0.004946904107456398,
+        "p_value": 0.0610634915159445
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.39%, p=0.101 bei α=0.0006 — auf 789 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 0.89% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil [inkrementell]",
+      "target": "SPY-Rendite 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4717,
+      "n_independent": 215,
+      "rank_ic_overlapping": -0.06,
+      "rank_ic_independent": -0.0392,
+      "spread": 0.0028073898417346668,
+      "spread_p": 0.7403399112769102,
+      "walk_forward_spreads": [
+        -0.0026358891380844126,
+        0.009573691181670124,
+        0.0068336633922568574
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 72,
+          "signal_lo": -0.1843741700538008,
+          "signal_hi": -0.14273380787024065,
+          "mean_target": 0.01110326879970273,
+          "median_target": 0.020577691363928174
+        },
+        {
+          "label": "mittel",
+          "n": 72,
+          "signal_lo": -0.14228171733202122,
+          "signal_hi": -0.10926272424519401,
+          "mean_target": 0.0037678190446757084,
+          "median_target": 0.010467462789689685
+        },
+        {
+          "label": "hoch",
+          "n": 71,
+          "signal_lo": -0.10911896715357472,
+          "signal_hi": 0.4962340058453083,
+          "mean_target": 0.013910658641437397,
+          "median_target": 0.019308944544303985
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.03239240723757964,
+      "high_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.014622049137683646,
+        "mean_middle": 0.005448321227804857,
+        "difference": 0.009173727909878788,
+        "p_value": 0.15849852481453197
+      },
+      "low_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.016902175279769293,
+        "mean_middle": 0.005448321227804857,
+        "difference": 0.011453854051964436,
+        "p_value": 0.3152574492255104
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.28%, p=0.740 bei α=0.0006 — auf 215 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 3.24% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil [inkrementell]",
+      "target": "SPY-Rendite 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4678,
+      "n_independent": 74,
+      "rank_ic_overlapping": -0.0943,
+      "rank_ic_independent": -0.0624,
+      "spread": -0.020048443534706133,
+      "spread_p": 0.40304256274609895,
+      "walk_forward_spreads": [
+        -0.010413162727674567,
+        0.008797577017444165,
+        -0.027365922793708905
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 25,
+          "signal_lo": -0.18493688748352782,
+          "signal_hi": -0.14140007955223133,
+          "mean_target": 0.053682680907535564,
+          "median_target": 0.06663923410466976
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -0.13835502882126366,
+          "signal_hi": -0.11055025722700934,
+          "mean_target": -0.00723644102322222,
+          "median_target": 0.01938382469787281
+        },
+        {
+          "label": "hoch",
+          "n": 24,
+          "signal_lo": -0.11015298569208659,
+          "signal_hi": 0.4609340277417907,
+          "mean_target": 0.03363423737282943,
+          "median_target": 0.045930641888807355
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.10308217157836826,
+      "high_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.057881385555992725,
+        "mean_middle": -0.001855819951974553,
+        "difference": 0.05973720550796728,
+        "p_value": 0.00039031306689470065
+      },
+      "low_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.0787875325735153,
+        "mean_middle": -0.001855819951974553,
+        "difference": 0.08064335252548985,
+        "p_value": 0.0020568602196929897
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -2.00%, p=0.403 bei α=0.0006 — auf 74 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 10.31% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil [inkrementell]",
+      "target": "SPY-Vola 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4717,
+      "n_independent": 215,
+      "rank_ic_overlapping": -0.3126,
+      "rank_ic_independent": -0.2598,
+      "spread": -0.02355549518780148,
+      "spread_p": 0.2816150561622916,
+      "walk_forward_spreads": [
+        -0.056768269548640005,
+        -0.04277869803726689,
+        -0.029711371061443226
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 72,
+          "signal_lo": -0.1843741700538008,
+          "signal_hi": -0.14273380787024065,
+          "mean_target": 0.19162954472237967,
+          "median_target": 0.15925282376599242
+        },
+        {
+          "label": "mittel",
+          "n": 72,
+          "signal_lo": -0.14228171733202122,
+          "signal_hi": -0.10926272424519401,
+          "mean_target": 0.12544454586775958,
+          "median_target": 0.11257287758789418
+        },
+        {
+          "label": "hoch",
+          "n": 71,
+          "signal_lo": -0.10911896715357472,
+          "signal_hi": 0.4962340058453083,
+          "mean_target": 0.1680740495345782,
+          "median_target": 0.12459901276169681
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.08167866925671236,
+      "high_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.161233667720807,
+        "mean_middle": 0.143665290222723,
+        "difference": 0.017568377498083987,
+        "p_value": 0.44261364326681024
+      },
+      "low_extreme": {
+        "n": 43,
+        "mean_in_tail": 0.2162028346213745,
+        "mean_middle": 0.143665290222723,
+        "difference": 0.07253754439865148,
+        "p_value": 0.00135763960471647
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -2.36%, p=0.282 bei α=0.0006 — auf 215 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 8.17% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil [inkrementell]",
+      "target": "SPY-Drawdown 21T",
+      "horizon_days": 21,
+      "n_overlapping": 4717,
+      "n_independent": 215,
+      "rank_ic_overlapping": 0.2032,
+      "rank_ic_independent": 0.1565,
+      "spread": 0.008923045289872623,
+      "spread_p": 0.21439676345597286,
+      "walk_forward_spreads": [
+        0.017005343529273353,
+        0.014237153133885183,
+        0.008358549074184526
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 72,
+          "signal_lo": -0.1843741700538008,
+          "signal_hi": -0.14273380787024065,
+          "mean_target": -0.04901335010521179,
+          "median_target": -0.037860053094338986
+        },
+        {
+          "label": "mittel",
+          "n": 72,
+          "signal_lo": -0.14228171733202122,
+          "signal_hi": -0.10926272424519401,
+          "mean_target": -0.03261141001179247,
+          "median_target": -0.02796934472899254
+        },
+        {
+          "label": "hoch",
+          "n": 71,
+          "signal_lo": -0.10911896715357472,
+          "signal_hi": 0.4962340058453083,
+          "mean_target": -0.040090304815339164,
+          "median_target": -0.029991311521578856
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.027200965035561162,
+      "high_extreme": {
+        "n": 43,
+        "mean_in_tail": -0.0372542248269664,
+        "mean_middle": -0.03737724571993123,
+        "difference": 0.00012302089296482854,
+        "p_value": 0.9844758393868309
+      },
+      "low_extreme": {
+        "n": 43,
+        "mean_in_tail": -0.053483674532155925,
+        "mean_middle": -0.03737724571993123,
+        "difference": -0.016106428812224696,
+        "p_value": 0.05281044163831406
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.89%, p=0.214 bei α=0.0006 — auf 215 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 2.72% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil [inkrementell]",
+      "target": "SPY-Vola 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4678,
+      "n_independent": 74,
+      "rank_ic_overlapping": -0.2769,
+      "rank_ic_independent": -0.221,
+      "spread": -0.0037967534886252097,
+      "spread_p": 0.8980562676044075,
+      "walk_forward_spreads": [
+        0.03781221196367068,
+        -0.05309999144201766,
+        -0.043084014493347395
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 25,
+          "signal_lo": -0.18493688748352782,
+          "signal_hi": -0.14140007955223133,
+          "mean_target": 0.1769529193656434,
+          "median_target": 0.1588378040993093
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -0.13835502882126366,
+          "signal_hi": -0.11055025722700934,
+          "mean_target": 0.15083887908284696,
+          "median_target": 0.11660622275116954
+        },
+        {
+          "label": "hoch",
+          "n": 24,
+          "signal_lo": -0.11015298569208659,
+          "signal_hi": 0.4609340277417907,
+          "mean_target": 0.17315616587701818,
+          "median_target": 0.12916126228613242
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.11961419901050963,
+      "high_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.13845390138761607,
+        "mean_middle": 0.16856700083193432,
+        "difference": -0.030113099444318253,
+        "p_value": 0.14010409963553266
+      },
+      "low_extreme": {
+        "n": 15,
+        "mean_in_tail": 0.19045242565608952,
+        "mean_middle": 0.16856700083193432,
+        "difference": 0.021885424824155203,
+        "p_value": 0.4232976601596698
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden -0.38%, p=0.898 bei α=0.0006 — auf 74 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 11.96% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    },
+    {
+      "signal": "Sleeve-Spike-Anteil [inkrementell]",
+      "target": "SPY-Drawdown 63T",
+      "horizon_days": 63,
+      "n_overlapping": 4678,
+      "n_independent": 74,
+      "rank_ic_overlapping": 0.1624,
+      "rank_ic_independent": 0.134,
+      "spread": 0.0010971511868121953,
+      "spread_p": 0.9517790249028325,
+      "walk_forward_spreads": [
+        -0.017617671964226048,
+        0.025674445932995296,
+        0.016534456261912814
+      ],
+      "buckets": [
+        {
+          "label": "niedrig",
+          "n": 25,
+          "signal_lo": -0.18493688748352782,
+          "signal_hi": -0.14140007955223133,
+          "mean_target": -0.07686333738326191,
+          "median_target": -0.06867894145859954
+        },
+        {
+          "label": "mittel",
+          "n": 25,
+          "signal_lo": -0.13835502882126366,
+          "signal_hi": -0.11055025722700934,
+          "mean_target": -0.07487849581582776,
+          "median_target": -0.055505785506025807
+        },
+        {
+          "label": "hoch",
+          "n": 24,
+          "signal_lo": -0.11015298569208659,
+          "signal_hi": 0.4609340277417907,
+          "mean_target": -0.07576618619644972,
+          "median_target": -0.05703602637952243
+        }
+      ],
+      "offset_share_significant": null,
+      "minimum_detectable": 0.07545170937785739,
+      "high_extreme": {
+        "n": 15,
+        "mean_in_tail": -0.054105885167214506,
+        "mean_middle": -0.08126472922250785,
+        "difference": 0.027158844055293348,
+        "p_value": 0.030884924461094056
+      },
+      "low_extreme": {
+        "n": 15,
+        "mean_in_tail": -0.08164652902623147,
+        "mean_middle": -0.08126472922250785,
+        "difference": -0.00038179980372361755,
+        "p_value": 0.982629263790172
+      },
+      "alpha": 0.0005952380952380953,
+      "verdict": "kein Befund",
+      "note": "Spitze minus Boden +0.11%, p=0.952 bei α=0.0006 — auf 74 unabhängigen Fenstern nicht von Zufall zu unterscheiden. Sichtbar wäre hier erst ein Unterschied ab 7.55% — kleinere Effekte kann dieses Sample nicht ausschließen."
+    }
+  ]
+}
