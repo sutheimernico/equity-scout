@@ -534,7 +534,22 @@ den Crypto-Teil: `docs/superpowers/plans/2026-08-10-crypto-lane-cost-honest-hold
 - **Windows-Tasks wecken jetzt** (`ea224f1`): `WakeToRun` war bei daily und nightly false (nur
   session hatte es) — beide Slots hingen davon ab, dass die Maschine schon wach war. Live
   gesetzt und im gestageten XML verankert, damit der Installer es nicht zurückdreht.
-- Gate der Runde: 1872 Tests grün, ruff clean, `tsc --noEmit` clean.
+- **Chat-Latenz: stabiles Präfix statt kurzer Prompts** (`b1c772b`, Plan
+  `docs/superpowers/plans/2026-08-10-chat-latency-prompt-cache.md`). Nicos Randbedingung „nur
+  den Laptop": Intel Iris Xe ist für Ollama praktisch nutzlos (keine offizielle Unterstützung,
+  und eine iGPU teilt den Speicherbus mit der CPU — genau die limitierende Ressource). Also
+  am Prompt gearbeitet. Kernmessung: **Ollama cached das Prompt-Präfix zwischen Anfragen —
+  gleiches Präfix 1,8 s Prefill, anderes 108,6 s.** Damit kippt die Richtung: stabil schlägt
+  kurz, und das bisherige Topic-Trimming des Glossars baute pro Themenkombination ein anderes
+  Präfix. Glossar jetzt konstant und vorn, ADVICE_BRIEF dahinter, Keyword-Routing am
+  Wortanfang verankert (`hältst`/`offensichtlich`/`Sammlung` feuerten als Substrings),
+  Überblick-Fallback unterdrückt sobald die Frage einen Anker hat. Der Live-Check fand einen
+  echten Antwort-Defekt: Hausbegriff-Fragen trafen kein Keyword, bekamen über den Fallback das
+  ganze Dashboard und wurden mit „steht nicht im Datenkontext" beantwortet, obwohl die
+  Definition im Glossar darüber stand — neues Topic `begriffe`, **121 s und falsch → 8 s und
+  richtig**. Grenze: alle Sekundenwerte unter Fremdlast gemessen, der 1.5b-Modellvergleich
+  war dadurch ungültig und bleibt offen.
+- Gate der Runde: 1879 Tests grün, ruff clean, `tsc --noEmit` clean.
 - [ ] Beobachten: ob die Crypto-Lane auf Tagesbars einen positiven Erwartungswert zeigt. n=0
       auf der neuen Zeitskala; bei 20/10 Tagen über 4 Paare sind grob 1–3 Trades pro Monat und
       Paar zu erwarten — belastbar erst in Monaten.
