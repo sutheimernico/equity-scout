@@ -1,12 +1,25 @@
-"""Crypto lane (vision v11, lane `crypto`): Donchian breakout on real-time 15-minute bars.
+"""Crypto lane (vision v11, lane `crypto`): Donchian breakout on real-time DAILY bars.
 
 Turtle-style, deliberately simple and fully stated: enter long when a completed bar CLOSES
 above the highest high of the 20 completed bars before it; exit when a completed bar closes
-below the lowest low of the prior 10 bars (channel exit) or at −2 % from entry (hard stop).
+below the lowest low of the prior 10 bars (channel exit) or at −15 % from entry (hard stop).
 One position per pair, 25 % of book value each, long-only. Fills at the signal bar's close
 plus slippage — with real-time data the just-closed bar's close IS the freshest observable
 price, so unlike the equities session lane no delay model is needed. Benchmark honesty:
 the lane races BTC buy-and-hold, not cash.
+
+TIMESCALE, and why it changed (2026-08-10): the lane ran 20/10 on 15-MINUTE bars until
+today — a channel spanning 5h/2.5h. Measured over 32 closed trades it lost 451.60 USD of
+which ~460 USD was fees: before costs roughly break-even, after costs a total loss. Kraken
+charges 80 bps taker per side (tier 1, checked 2026-08-10) and a Donchian breakout is a
+market take by construction, so ~180 bps per round trip is the floor. The average winner
+was +22.51 USD against ~43 USD of friction — arithmetically unwinnable. On daily bars the
+expected move per trade scales by ~sqrt(96), while the friction stays put. The fee was NOT
+lowered to a maker rate: this lane routes nothing, and a limit order at the breakout level
+is precisely the one that does not fill when the level actually breaks.
+
+The hard stop moved 2 % -> 15 % with the timescale: on daily bars a 2 % stop sits inside a
+single bar's normal range and would replace the channel exit instead of backstopping it.
 
 Pure decision logic; the runner owns Kraken I/O and the book.
 """
@@ -18,9 +31,9 @@ import pandas as pd
 
 from equity_scout.shortterm_book import LanePosition
 
-ENTRY_LOOKBACK = 20
-EXIT_LOOKBACK = 10
-STOP_PCT = 0.02
+ENTRY_LOOKBACK = 20  # days
+EXIT_LOOKBACK = 10  # days
+STOP_PCT = 0.15  # catastrophe backstop only — the channel exit is the working exit
 ENTRY_FRACTION = 0.25
 
 

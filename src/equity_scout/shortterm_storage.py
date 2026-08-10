@@ -236,6 +236,22 @@ def set_lane_state(db_path: str | Path, lane: str, key: str, value: str) -> None
         _upsert_state(con, lane, key, value)
 
 
+def clear_lane_state(db_path: str | Path, lane: str, prefix: str) -> int:
+    """Drop every marker of one lane whose key starts with `prefix`; returns how many.
+
+    Needed when a lane changes TIMESCALE (crypto, 2026-08-10): the bar markers are
+    "newest bar already judged" watermarks, and a 15-minute stamp is newer than the newest
+    completed DAILY bar — left in place it silently blocks every decision until the clock
+    catches up (measured: the first daily run judged nothing for that reason).
+    """
+    init_shortterm_db(db_path)
+    with db.connect(db_path) as con:
+        cursor = con.execute(
+            "DELETE FROM st_state WHERE lane = ? AND key LIKE ?", (lane, f"{prefix}%")
+        )
+        return cursor.rowcount
+
+
 _EXECUTION_KEYS = (
     "lane", "ticker", "side", "signalled_at",
     "expected_price", "actual_price", "qty", "order_id",

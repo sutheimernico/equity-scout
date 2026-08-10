@@ -1034,6 +1034,9 @@ def create_app(
                 "broker_equity": latest.get("broker_equity") if latest else None,
                 # None for every lane that never routed a real order (swing, crypto).
                 "execution_regime": get_st_lane_state(shortterm_db, lane, "execution_regime"),
+                # Set when the lane's STRATEGY changed under it (crypto: 15-minute -> daily
+                # bars on 2026-08-10). Curve segments either side of it are not one series.
+                "strategy_regime": get_st_lane_state(shortterm_db, lane, "strategy_regime"),
                 "open_positions": [
                     _open_position(lane, ticker, pos)
                     for ticker, pos in sorted(book.positions.items())

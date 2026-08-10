@@ -10,7 +10,8 @@ from equity_scout.st_crypto import decide_pair
 
 
 def _bars(closes: list[float], *, spread: float = 1.0) -> pd.DataFrame:
-    index = pd.date_range("2026-07-20 00:00", periods=len(closes), freq="15min", tz="UTC")
+    # Daily bars since 2026-08-10 — the lane's timescale, see st_crypto's docstring.
+    index = pd.date_range("2026-07-20 00:00", periods=len(closes), freq="1D", tz="UTC")
     return pd.DataFrame(
         {
             "open": closes,
@@ -59,9 +60,21 @@ def test_channel_exit_and_hard_stop() -> None:
     channel_break = _bars([100.0] * 20 + [97.0])  # low channel ~99 -> close 97 below it
     action, _ = decide_pair("BTC", channel_break, position, last_processed=None)
     assert action is not None and action.kind == "sell"
-    stop_hit = _bars([104.0] * 20 + [102.5])  # stop = 105 * 0.98 = 102.9
+    # Hard stop = 105 * (1 - 0.15) = 89.25. The prior bars sit low enough that the channel
+    # exit does NOT also trigger, so the reason proves which rule fired.
+    stop_hit = _bars([85.0] * 20 + [89.0])
     action2, _ = decide_pair("BTC", stop_hit, position, last_processed=None)
     assert action2 is not None and "Stop" in action2.reason
+
+
+def test_a_two_percent_dip_no_longer_exits_on_the_daily_timescale() -> None:
+    """Regression for the 2026-08-10 rebuild: the old 2 % stop sat inside a single daily
+    bar's normal range and would have replaced the channel exit instead of backstopping it."""
+    position = LanePosition(qty=0.1, entry_price=105.0, opened_at="t0")
+    # -2.4 % from entry, and above the 10-day low channel -> the lane must simply hold.
+    dip = _bars([100.0] * 20 + [102.5])
+    action, marker = decide_pair("BTC", dip, position, last_processed=None)
+    assert action is None and marker is not None
 
 
 def test_same_bar_is_never_judged_twice() -> None:

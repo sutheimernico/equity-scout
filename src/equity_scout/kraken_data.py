@@ -2,8 +2,10 @@
 
 The one market where retail gets genuinely real-time data for free: Kraken's public REST
 API needs no key (rate limit ~1 req/sec per IP+pair; the lane polls 4 pairs every 15
-minutes — far below it). The endpoint returns at most the last 720 bars per interval,
-which is ~7.5 days of 15-minute bars — plenty for a 20-bar Donchian. The LAST row is the
+minutes — far below it). The endpoint returns at most the last 720 bars per interval: ~7.5
+days at 15 minutes, ~2 years at `DAILY_INTERVAL_MINUTES`. The lane runs the daily interval
+since 2026-08-10 — on 15-minute bars the expected move per trade was smaller than the
+80 bps Kraken taker fee it had to clear (see the crypto-lane cost plan). The LAST row is the
 still-running bar; `completed_bars` drops it so the engine only ever sees closed bars.
 stdlib urllib transport (same stance as telegram_client), honest None on any failure.
 """
@@ -16,6 +18,7 @@ import pandas as pd
 
 CRYPTO_PAIRS = {"BTC": "XBTUSD", "ETH": "ETHUSD", "SOL": "SOLUSD", "XRP": "XRPUSD"}
 BAR_INTERVAL_MINUTES = 15
+DAILY_INTERVAL_MINUTES = 1440  # Kraken's daily bar — the lane's timescale since 2026-08-10
 _BASE_URL = "https://api.kraken.com/0/public/OHLC"
 _TIMEOUT_SECONDS = 15
 

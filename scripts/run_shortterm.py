@@ -41,7 +41,12 @@ from equity_scout.constants import DEFAULT_DB_PATH, DISCLAIMER
 from equity_scout.data.etf_panel import load_price_history
 from equity_scout.evidence.event_storage import load_classified_events
 from equity_scout.intraday_bars import SESSION_UNIVERSE, fetch_bars, settled_bars
-from equity_scout.kraken_data import CRYPTO_PAIRS, completed_bars, fetch_ohlc
+from equity_scout.kraken_data import (
+    CRYPTO_PAIRS,
+    DAILY_INTERVAL_MINUTES,
+    completed_bars,
+    fetch_ohlc,
+)
 from equity_scout.market_hours import within_market_window
 from equity_scout.shortterm_book import (
     LaneBook,
@@ -53,6 +58,7 @@ from equity_scout.shortterm_book import (
 from equity_scout.session_reconcile import reconcile, resolve_book_only
 from equity_scout.shortterm_storage import (
     DEFAULT_SHORTTERM_DB_PATH,
+    clear_lane_state,
     get_lane_state,
     load_book,
     persist_lane_step,
@@ -81,6 +87,9 @@ CRYPTO_SLIPPAGE_BPS = 10.0
 CRYPTO_FEE_BPS = 80.0
 EVENTS_SEEN_KEY = "events_seen_until"
 SESSION_STATE_KEY = "session_state"
+# Set when a lane's STRATEGY changed under it (crypto: 15-minute -> daily bars, 2026-08-10).
+# Sibling of EXECUTION_REGIME_KEY, which marks a change in how fills were obtained.
+STRATEGY_REGIME_KEY = "strategy_regime"
 
 
 def _hour_stamp(now: datetime) -> str:
@@ -558,8 +567,19 @@ def run_crypto(db: str, *, now: datetime, fetch=fetch_ohlc) -> bool:
     fills = []
     markers: list[tuple[str, str]] = []
     prices: dict[str, float] = {}
+    # Stamped once, when the lane first runs on the daily timescale. The 15-minute track
+    # before it lost ~460 USD in fees on 32 trades and is NOT the same series — the cockpit
+    # says so rather than splicing two strategies into one curve.
+    if get_lane_state(db, "crypto", STRATEGY_REGIME_KEY) is None:
+        markers.append((STRATEGY_REGIME_KEY, now.isoformat(timespec="seconds")))
+        # The old markers belong to the old timescale: a 15-minute watermark is NEWER than
+        # the newest completed daily bar, so leaving them would block every decision until
+        # the wall clock passed them (measured on the first daily run, 2026-08-10).
+        dropped = clear_lane_state(db, "crypto", "last_bar_")
+        if dropped:
+            print(f"Zeitskala gewechselt: {dropped} Bar-Marker der 15-Minuten-Ära verworfen.")
     for symbol, pair in CRYPTO_PAIRS.items():
-        raw = fetch(pair)
+        raw = fetch(pair, interval=DAILY_INTERVAL_MINUTES)
         if raw is None:
             continue  # feed down for this pair — no price, no trade
         bars = completed_bars(raw)
@@ -591,10 +611,10 @@ def run_crypto(db: str, *, now: datetime, fetch=fetch_ohlc) -> bool:
     snap = valuation(book, prices, prices.get("BTC"), _hour_stamp(now))
     persist_lane_step(db, book, updated_at=now.isoformat(timespec="seconds"),
                       trades=fills, valuation=snap, state=markers)
-    print(f"Crypto: Equity {snap.equity:,.2f} ({snap.total_return:+.2%}) vs BTC "
+    print(f"Crypto (Tagesbars): Equity {snap.equity:,.2f} ({snap.total_return:+.2%}) vs BTC "
           f"{snap.benchmark_return:+.2%} — {len(book.positions)} offen, {len(fills)} Fills"
           if snap.benchmark_return is not None else
-          f"Crypto: Equity {snap.equity:,.2f} ({snap.total_return:+.2%}), "
+          f"Crypto (Tagesbars): Equity {snap.equity:,.2f} ({snap.total_return:+.2%}), "
           f"{len(book.positions)} offen, {len(fills)} Fills")
     _print_fills(fills)
     return True

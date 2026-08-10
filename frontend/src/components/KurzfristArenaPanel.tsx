@@ -61,6 +61,22 @@ function RegimeNote({ lane }: { lane: ShortTermLane }) {
   );
 }
 
+/** The crypto lane's strategy changed timescale on 2026-08-10; the curve before that is a
+ *  different system, not an earlier part of this one. */
+function StrategyRegimeNote({ lane }: { lane: ShortTermLane }) {
+  if (!lane.strategy_regime) return null;
+  const since = new Date(lane.strategy_regime).toLocaleDateString("de-DE");
+  return (
+    <Explain tone="hint">
+      Strategie-Umstellung am {since}: Donchian-Kanal jetzt auf Tagesbars statt
+      15-Minuten-Bars. Grund war die Reibung — rund 180 Basispunkte pro Roundtrip (Kraken
+      nimmt 0,80 % Taker je Seite) waren auf der kurzen Zeitskala größer als die erwartete
+      Bewegung. Der Verlauf davor gehört zu einer anderen Strategie und ist kein Vorlauf
+      dieser.
+    </Explain>
+  );
+}
+
 /** The book and the broker account report the same trades on different denominators — the
  *  strategy ledger runs on 10k, the paper account holds 100k. Showing only the book's
  *  percentage next to a live account overstates that account's return ~10x. */
@@ -91,6 +107,7 @@ function LaneCard({ lane }: { lane: ShortTermLane }) {
       </div>
       <Explain tone="hint">{LANE_NOTE[lane.lane]}</Explain>
       <RegimeNote lane={lane} />
+      <StrategyRegimeNote lane={lane} />
       <AccountNote lane={lane} />
       <PromotionLine lane={lane} />
 

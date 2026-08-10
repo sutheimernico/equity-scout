@@ -27,7 +27,8 @@ def db(tmp_path):
 
 
 def _crypto_bars(closes: list[float]) -> pd.DataFrame:
-    index = pd.date_range("2026-07-20 00:00", periods=len(closes), freq="15min", tz="UTC")
+    # Daily bars: the lane's timescale since 2026-08-10 (see st_crypto's docstring).
+    index = pd.date_range("2026-07-20 00:00", periods=len(closes), freq="1D", tz="UTC")
     return pd.DataFrame(
         {"open": closes, "high": [c + 1 for c in closes], "low": [c - 1 for c in closes],
          "close": closes},
@@ -39,7 +40,7 @@ def test_crypto_lane_books_a_breakout_and_is_idempotent(db) -> None:
     # completed_bars drops the running last row -> the judged signal bar is the 105 close
     bars = _crypto_bars([100.0] * 21 + [105.0, 106.0])
 
-    def fake_fetch(pair):  # noqa: ANN001, ANN202
+    def fake_fetch(pair, *, interval=None):  # noqa: ANN001, ANN202
         return bars if pair == "XBTUSD" else None
 
     runner.run_crypto(db, now=NOW, fetch=fake_fetch)
@@ -55,12 +56,61 @@ def test_crypto_lane_books_a_breakout_and_is_idempotent(db) -> None:
     assert len(load_trades(db, "crypto")) == 1
 
 
+def test_crypto_lane_requests_daily_bars(db) -> None:
+    """Regression for the 2026-08-10 rebuild: on 15-minute bars the expected move per trade
+    was smaller than the ~180 bps of round-trip friction the lane has to clear."""
+    from equity_scout.kraken_data import DAILY_INTERVAL_MINUTES
+
+    seen: list[int] = []
+
+    def fake_fetch(pair, *, interval):  # noqa: ANN001, ANN202
+        seen.append(interval)
+        return None
+
+    runner.run_crypto(db, now=NOW, fetch=fake_fetch)
+    assert seen and set(seen) == {DAILY_INTERVAL_MINUTES}
+
+
+def test_crypto_lane_stamps_the_strategy_regime_break_once(db) -> None:
+    bars = _crypto_bars([100.0] * 21 + [105.0, 106.0])
+
+    def fake_fetch(pair, *, interval=None):  # noqa: ANN001, ANN202
+        return bars if pair == "XBTUSD" else None
+
+    runner.run_crypto(db, now=NOW, fetch=fake_fetch)
+    stamped = get_lane_state(db, "crypto", runner.STRATEGY_REGIME_KEY)
+    assert stamped == NOW.isoformat(timespec="seconds")
+
+    later = datetime(2026, 7, 21, 18, 0, tzinfo=timezone.utc)
+    runner.run_crypto(db, now=later, fetch=fake_fetch)
+    assert get_lane_state(db, "crypto", runner.STRATEGY_REGIME_KEY) == stamped  # never moves
+
+
+def test_switching_timescale_drops_the_old_bar_watermarks(db) -> None:
+    """A 15-minute watermark is NEWER than the newest completed daily bar, so keeping it
+    would block every decision until the wall clock passed it (seen on the first live daily
+    run, 2026-08-10: the lane judged nothing and reported 0 fills)."""
+    from equity_scout.shortterm_storage import set_lane_state as _set
+
+    _set(db, "crypto", "last_bar_BTC", "2026-08-10T17:00:00+00:00")  # 15-minute era
+    bars = _crypto_bars([100.0] * 21 + [105.0, 106.0])  # last completed bar: 2026-08-09
+    runner.run_crypto(
+        db, now=NOW, fetch=lambda pair, *, interval=None: bars if pair == "XBTUSD" else None
+    )
+    # The stale watermark is gone and the daily breakout was actually judged and booked.
+    trades = load_trades(db, "crypto")
+    assert len(trades) == 1 and trades[0]["side"] == "buy"
+
+
 def test_crypto_fills_carry_the_kraken_taker_fee(db) -> None:
     """The lane simulates Kraken; its lowest published taker tier is 0.80% per side. A 0-fee
     book would measure a strategy that no reachable venue offers (found 2026-08-09: the lane
-    had been charged slippage only, understating round-trip costs by ~160 bps)."""
+    had been charged slippage only, understating round-trip costs by ~160 bps). Not lowered
+    to the 0.40% maker rate in the 2026-08-10 rebuild: the lane routes nothing, and a limit
+    order at the breakout level is exactly the one that does not fill when it breaks."""
     bars = _crypto_bars([100.0] * 21 + [105.0, 106.0])
-    runner.run_crypto(db, now=NOW, fetch=lambda pair: bars if pair == "XBTUSD" else None)
+    runner.run_crypto(db, now=NOW,
+                      fetch=lambda pair, *, interval=None: bars if pair == "XBTUSD" else None)
     trade = load_trades(db, "crypto")[0]
     spend = 10_000.0 * runner.CRYPTO_FRACTION
     fee = spend * runner.CRYPTO_FEE_BPS / 10_000.0
@@ -72,7 +122,7 @@ def test_crypto_fills_carry_the_kraken_taker_fee(db) -> None:
 
 
 def test_crypto_lane_skips_honestly_when_feed_is_down(db) -> None:
-    runner.run_crypto(db, now=NOW, fetch=lambda pair: None)
+    runner.run_crypto(db, now=NOW, fetch=lambda pair, *, interval=None: None)
     assert load_book(db, "crypto") is None
     assert load_valuations(db, "crypto") == []
 
