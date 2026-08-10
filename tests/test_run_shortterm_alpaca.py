@@ -156,6 +156,64 @@ def test_a_breakout_places_a_bracket_order_and_books_the_broker_fill(tmp_path, m
     assert rows[0]["actual_price"] == pytest.approx(103.12)
 
 
+def test_the_valuation_carries_the_brokers_own_equity(tmp_path, monkeypatch):
+    """The book runs a 10k ledger while the paper account holds 100k, so the same trades read
+    as -2.41% and -0.10% (measured 2026-08-10). The valuation therefore records what the venue
+    itself reports instead of leaving the reader to divide by the wrong denominator."""
+    from equity_scout.alpaca_broker import BrokerAccount
+    from equity_scout.shortterm_storage import load_valuations
+
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)
+    monkeypatch.setattr(runner, "place_bracket", lambda *a, **k: BrokerOrder(
+        order_id="o1", status="filled", filled_qty=1.0, filled_avg_price=103.12))
+    monkeypatch.setattr(runner, "fetch_account", lambda: BrokerAccount(
+        equity=99_904.61, last_equity=99_925.41, cash=98_890.92))
+
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+
+    rows = load_valuations(db_path, "session")
+    assert rows and rows[-1]["broker_equity"] == pytest.approx(99_904.61)
+
+
+def test_a_broker_outage_costs_the_valuation_its_account_number_not_the_row(
+    tmp_path, monkeypatch, capsys
+):
+    """A hiccup at the venue must never cost the lane its valuation row — None over raising."""
+    from equity_scout.alpaca_broker import AlpacaBrokerError, BrokerOrder as _Order
+    from equity_scout.shortterm_storage import load_valuations
+
+    db_path = str(tmp_path / "st.db")
+    init_shortterm_db(db_path)
+    monkeypatch.setenv("ALPACA_API_KEY_ID", "PK-test")
+    monkeypatch.setattr(runner, "alpaca_fetch_bars", _fake_feed)
+    monkeypatch.setattr(runner, "fetch_broker_positions", dict)
+    monkeypatch.setattr(runner, "place_bracket", lambda *a, **k: _Order(
+        order_id="o1", status="filled", filled_qty=1.0, filled_avg_price=103.12))
+
+    def boom():
+        raise AlpacaBrokerError("GET /v2/account -> 503")
+
+    monkeypatch.setattr(runner, "fetch_account", boom)
+    runner.run_session(db_path, now=datetime(2026, 8, 4, 10, 45, tzinfo=NY), feed="alpaca")
+
+    rows = load_valuations(db_path, "session")
+    assert rows and rows[-1]["broker_equity"] is None
+    assert "Konto-Equity nicht abrufbar" in capsys.readouterr().out
+
+
+def test_a_simulated_lane_never_calls_the_broker_for_equity(tmp_path, monkeypatch) -> None:
+    """`feed != "alpaca"` must not reach the venue at all — the yfinance path has no account."""
+    def explode():
+        raise AssertionError("the simulated path must not ask the broker for an account")
+
+    monkeypatch.setattr(runner, "fetch_account", explode)
+    assert runner._broker_equity("yfinance") is None
+
+
 def test_the_book_records_the_broker_price_not_the_signal_price(tmp_path, monkeypatch):
     """Slippage is not modelled on top of a real fill: the broker price already contains it."""
     db_path = str(tmp_path / "st.db")
