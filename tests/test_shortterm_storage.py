@@ -53,6 +53,42 @@ def test_valuation_and_trade_inserts_are_idempotent(db) -> None:
     assert load_trades(db, "session") == []
 
 
+def test_broker_equity_round_trips_and_defaults_to_none(db) -> None:
+    """A routed lane carries the venue's own equity next to the book's; a simulated lane
+    carries None. Both denominators are kept because they answer different questions."""
+    append_valuation(db, LaneValuation(
+        lane="session", created_at="2026-08-10T16:00", equity=9_764.26, total_return=-0.0236,
+        cash=7_315.24, open_positions=2, benchmark_return=0.0421, broker_equity=99_904.61,
+    ))
+    append_valuation(db, LaneValuation(
+        lane="crypto", created_at="2026-08-10T16:00", equity=9_393.42, total_return=-0.0607,
+        cash=9_393.42, open_positions=0, benchmark_return=-0.0132,
+    ))
+    assert load_valuations(db, "session")[0]["broker_equity"] == pytest.approx(99_904.61)
+    assert load_valuations(db, "crypto")[0]["broker_equity"] is None
+
+
+def test_broker_equity_column_is_added_to_a_pre_existing_table(db) -> None:
+    """The live shortterm.db predates the column — init must migrate, not fail."""
+    from equity_scout import db as dbmod
+    from equity_scout.shortterm_storage import init_shortterm_db
+
+    with dbmod.connect(str(db)) as con:
+        con.executescript(
+            """CREATE TABLE st_valuations (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT, lane TEXT NOT NULL,
+                   created_at TEXT NOT NULL, equity REAL NOT NULL, total_return REAL NOT NULL,
+                   cash REAL NOT NULL, open_positions INTEGER NOT NULL, benchmark_return REAL,
+                   UNIQUE (lane, created_at));
+               INSERT INTO st_valuations
+                   (lane, created_at, equity, total_return, cash, open_positions)
+                   VALUES ('session', '2026-08-07T16:00', 9800.0, -0.02, 9800.0, 0);"""
+        )
+    init_shortterm_db(db)
+    rows = load_valuations(db, "session")
+    assert len(rows) == 1 and rows[0]["broker_equity"] is None  # old row keeps NULL, not a guess
+
+
 def test_lane_state_kv_upserts_per_lane(db) -> None:
     assert get_lane_state(db, "crypto", "last_bar") is None
     set_lane_state(db, "crypto", "last_bar", "2026-07-20T10:15")

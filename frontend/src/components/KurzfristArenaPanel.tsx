@@ -61,6 +61,22 @@ function RegimeNote({ lane }: { lane: ShortTermLane }) {
   );
 }
 
+/** The book and the broker account report the same trades on different denominators — the
+ *  strategy ledger runs on 10k, the paper account holds 100k. Showing only the book's
+ *  percentage next to a live account overstates that account's return ~10x. */
+function AccountNote({ lane }: { lane: ShortTermLane }) {
+  if (lane.broker_equity === null) return null;
+  const usage = lane.broker_equity > 0 ? lane.equity / lane.broker_equity : null;
+  return (
+    <Explain tone="hint">
+      Konto bei Alpaca: {num(lane.broker_equity, 0)} USD. Die Rendite in dieser Tabelle
+      rechnet auf das Strategie-Buch ({num(lane.initial_capital, 0)} USD Startkapital) — auf
+      den vollen Kontorahmen bezogen ist sie entsprechend kleiner
+      {usage !== null ? ` (eingesetzt: ${pct(usage, 0)} des Kontos)` : ""}.
+    </Explain>
+  );
+}
+
 function LaneCard({ lane }: { lane: ShortTermLane }) {
   const lead =
     lane.benchmark_return !== null ? lane.total_return - lane.benchmark_return : null;
@@ -75,6 +91,7 @@ function LaneCard({ lane }: { lane: ShortTermLane }) {
       </div>
       <Explain tone="hint">{LANE_NOTE[lane.lane]}</Explain>
       <RegimeNote lane={lane} />
+      <AccountNote lane={lane} />
       <PromotionLine lane={lane} />
 
       <table className="history">

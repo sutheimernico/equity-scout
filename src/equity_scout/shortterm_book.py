@@ -66,6 +66,13 @@ class LaneValuation:
     cash: float
     open_positions: int
     benchmark_return: float | None  # None until a benchmark entry price is captured
+    # What the BROKER says the account is worth, for a lane that routes to one. Additive on
+    # purpose: `equity`/`total_return` stay the strategy ledger on its own 10k base, so the
+    # whole timeseries keeps its meaning, while this column carries the venue's number for
+    # the same moment. The two denominators differ by ~10x — reporting only the book's
+    # percentage overstates the account's return, reporting only the account's hides the
+    # strategy's. None for simulated lanes and for any tick where the venue was unreachable.
+    broker_equity: float | None = None
 
 
 def buy(
@@ -184,6 +191,8 @@ def valuation(
     prices: dict[str, float],
     benchmark_price: float | None,
     created_at: str,
+    *,
+    broker_equity: float | None = None,
 ) -> LaneValuation:
     equity = mark_to_market(book, prices)
     benchmark_return = None
@@ -193,7 +202,7 @@ def valuation(
         lane=book.lane, created_at=created_at, equity=equity,
         total_return=equity / book.initial_capital - 1.0,
         cash=book.cash, open_positions=len(book.positions),
-        benchmark_return=benchmark_return,
+        benchmark_return=benchmark_return, broker_equity=broker_equity,
     )
 
 

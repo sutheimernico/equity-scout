@@ -1026,6 +1026,12 @@ def create_app(
                 "benchmark_ticker": book.benchmark_ticker,
                 "benchmark_return": latest["benchmark_return"] if latest else None,
                 "max_drawdown": max_dd,
+                # The venue's own equity for a lane that routes orders (None otherwise, and
+                # None for every row written before 2026-08-10). Carried so the cockpit can
+                # show the number the Alpaca dashboard shows: the book's percentage runs on
+                # a 10k base while the account holds 100k, and quoting only the book made the
+                # lane look ~10x worse than the account did.
+                "broker_equity": latest.get("broker_equity") if latest else None,
                 # None for every lane that never routed a real order (swing, crypto).
                 "execution_regime": get_st_lane_state(shortterm_db, lane, "execution_regime"),
                 "open_positions": [

@@ -111,6 +111,18 @@ def test_parse_positions_maps_symbol_to_qty_and_price() -> None:
     assert len(positions) == 2
 
 
+def test_parse_account_reads_the_venues_own_equity() -> None:
+    from equity_scout.alpaca_broker import parse_account
+
+    account = parse_account({
+        "equity": "99904.61", "last_equity": "99925.41", "cash": "98890.92",
+        "account_number": "PA3SIKMAPF0N", "status": "ACTIVE",
+    })
+    assert account.equity == 99_904.61
+    assert account.last_equity == 99_925.41
+    assert account.cash == 98_890.92
+
+
 def test_parse_order_reports_an_unfilled_order_as_none_price() -> None:
     order = parse_order({"id": "abc", "status": "accepted", "filled_qty": "0",
                          "filled_avg_price": None})

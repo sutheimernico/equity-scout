@@ -70,6 +70,12 @@ def init_shortterm_db(db_path: str | Path) -> None:
             );
             """
         )
+        # PRAGMA table_info + ALTER TABLE idiom as storage.py's init_db. Existing rows keep
+        # NULL: before 2026-08-10 nothing read the venue's equity, and back-filling it from
+        # the book would invent the very number the column exists to stop us inventing.
+        cols = {row[1] for row in con.execute("PRAGMA table_info(st_valuations)")}
+        if "broker_equity" not in cols:
+            con.execute("ALTER TABLE st_valuations ADD COLUMN broker_equity REAL")
 
 
 def _to_json(book: LaneBook) -> str:
@@ -112,10 +118,10 @@ def _upsert_book(con, book: LaneBook, updated_at: str) -> None:
 def _insert_valuation(con, snap: LaneValuation) -> None:
     con.execute(
         "INSERT OR IGNORE INTO st_valuations "
-        "(lane, created_at, equity, total_return, cash, open_positions, benchmark_return)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "(lane, created_at, equity, total_return, cash, open_positions, benchmark_return,"
+        " broker_equity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         (snap.lane, snap.created_at, snap.equity, snap.total_return, snap.cash,
-         snap.open_positions, snap.benchmark_return),
+         snap.open_positions, snap.benchmark_return, snap.broker_equity),
     )
 
 
@@ -186,11 +192,12 @@ def load_valuations(db_path: str | Path, lane: str) -> list[dict]:
     init_shortterm_db(db_path)
     with db.connect(db_path) as con:
         rows = con.execute(
-            "SELECT created_at, equity, total_return, cash, open_positions, benchmark_return"
-            " FROM st_valuations WHERE lane = ? ORDER BY created_at ASC",
+            "SELECT created_at, equity, total_return, cash, open_positions, benchmark_return,"
+            " broker_equity FROM st_valuations WHERE lane = ? ORDER BY created_at ASC",
             (lane,),
         ).fetchall()
-    keys = ("created_at", "equity", "total_return", "cash", "open_positions", "benchmark_return")
+    keys = ("created_at", "equity", "total_return", "cash", "open_positions",
+            "benchmark_return", "broker_equity")
     return [dict(zip(keys, row)) for row in rows]
 
 

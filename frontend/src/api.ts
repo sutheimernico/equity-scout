@@ -528,6 +528,12 @@ export interface ShortTermLane {
    *  null for lanes that never routed a real order. Everything before it was priced off
    *  delayed bars and is therefore too favourable. */
   execution_regime: string | null;
+  /** The venue's own account equity for a lane that routes orders; null for simulated lanes
+   *  and for valuation rows written before 2026-08-10. The book runs a 10k strategy ledger
+   *  while the paper account holds 100k, so `total_return` and the account's own return
+   *  differ by the capital-usage factor — both are shown rather than one standing in for
+   *  the other. */
+  broker_equity: number | null;
   open_positions: ShortTermPosition[];
   equity_curve: [string, number][];
   stats: ShortTermStats;

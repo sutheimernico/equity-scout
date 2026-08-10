@@ -25,6 +25,7 @@ from equity_scout.alpaca_broker import (
     AlpacaBrokerError,
     await_fill,
     close_position,
+    fetch_account,
     fetch_fills,
 )
 from equity_scout.alpaca_broker import fetch_positions as fetch_broker_positions
@@ -155,6 +156,23 @@ LAST_RUN_KEY = "last_session_run"
 # Everything before it was priced off delayed bars and is therefore too favourable — the
 # dashboard says so rather than splicing the two track records together silently.
 EXECUTION_REGIME_KEY = "execution_regime"
+
+
+def _broker_equity(feed: str) -> float | None:
+    """The venue's own account equity, or None when it cannot be had.
+
+    Recorded alongside the book's equity because the two answer different questions on
+    different denominators: the book runs a 10k strategy ledger, the paper account holds
+    100k, so the same trades read as -2.41% and -0.10% (measured 2026-08-10). A broker
+    hiccup must never cost the lane its valuation row, hence None over raising.
+    """
+    if feed != "alpaca":
+        return None
+    try:
+        return fetch_account().equity
+    except (AlpacaBrokerError, OSError) as error:
+        print(f"Warnung: Konto-Equity nicht abrufbar ({error}) — Buchwert bleibt allein.")
+        return None
 
 
 def session_report_due(*, fills: list, first_run_of_day: bool) -> bool:
@@ -518,7 +536,8 @@ def run_session(db: str, *, now: datetime, feed: str = "alpaca") -> None:
             state["last_bar"][ticker] = new_marker
 
     book = capture_benchmark(book, prices.get("SPY"))
-    snap = valuation(book, prices, prices.get("SPY"), _hour_stamp(now))
+    snap = valuation(book, prices, prices.get("SPY"), _hour_stamp(now),
+                     broker_equity=_broker_equity(feed))
     persist_lane_step(db, book, updated_at=now.isoformat(timespec="seconds"),
                       trades=fills, valuation=snap,
                       state=[(SESSION_STATE_KEY, json.dumps(state)),
@@ -526,6 +545,11 @@ def run_session(db: str, *, now: datetime, feed: str = "alpaca") -> None:
     if session_report_due(fills=fills, first_run_of_day=first_run_of_day):
         print(f"Session {session_date}: Equity {snap.equity:,.2f} ({snap.total_return:+.2%}), "
               f"{len(book.positions)} offen, {len(fills)} Fills")
+        if snap.broker_equity is not None:
+            # Both numbers or neither: quoting only the book's percentage next to a live
+            # broker account overstates the account's return by the capital-usage factor.
+            print(f"  Konto (Alpaca): {snap.broker_equity:,.2f} USD — das Buch rechnet auf "
+                  f"{book.initial_capital:,.0f}, das Konto ist der volle Rahmen.")
         _print_fills(fills)
 
 

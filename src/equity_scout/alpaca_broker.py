@@ -43,6 +43,22 @@ class BrokerPosition:
 
 
 @dataclass(frozen=True)
+class BrokerAccount:
+    """What the venue says the account is worth — the only unarguable P&L number we have.
+
+    The lane book runs a 10k strategy ledger while the paper account holds 100k, so the two
+    report percentages that differ by ~10x for the same trades (measured 2026-08-10: book
+    -2.41%, account -0.10%). Both are true about different denominators; carrying the venue's
+    own equity means the cockpit can show the number Nico sees in Alpaca instead of a ratio
+    we derived.
+    """
+
+    equity: float
+    last_equity: float  # equity at the previous close — the venue's own day-P&L base
+    cash: float
+
+
+@dataclass(frozen=True)
 class BrokerOrder:
     order_id: str
     status: str
@@ -166,6 +182,25 @@ def _client():  # noqa: ANN202 - httpx.Client, lazily imported to keep tests off
     import httpx
 
     return httpx.Client(headers=auth_headers(), timeout=30.0)
+
+
+def parse_account(row: dict) -> BrokerAccount:
+    return BrokerAccount(
+        equity=float(row["equity"]),
+        last_equity=float(row["last_equity"]),
+        cash=float(row["cash"]),
+    )
+
+
+def fetch_account() -> BrokerAccount:
+    """The paper account's equity as the venue reports it (network)."""
+    with _client() as client:
+        response = client.get(f"{PAPER_BASE}/account")
+    if response.status_code != 200:
+        raise AlpacaBrokerError(
+            f"GET /v2/account -> {response.status_code}: {response.text[:300]}"
+        )
+    return parse_account(response.json())
 
 
 def fetch_positions() -> dict[str, BrokerPosition]:
