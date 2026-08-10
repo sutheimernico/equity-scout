@@ -3,15 +3,24 @@ enough NEW real resolutions — the v15 P3 learning trigger.
 
 This is a TRIGGER, not a gate and not a model. It only decides WHEN to spend a trial; the work
 goes to the existing training path (`run_train_entry_all`, families=("entry_tb",)) whose registry
-gate (`ml/model_registry.promote_if_better`) remains the sole promotion path. A champion still has
-to clear MIN_OOS_N out-of-sample rows, the no-edge band around AUC 0.5, and an AUC delta scaled by
-sqrt(number of candidates tested against it tonight).
+gate (`ml/model_registry.promote_if_better`) remains the sole promotion path. Every candidate still
+has to clear MIN_OOS_N out-of-sample rows and the no-edge band around AUC 0.5; entry_tb has zero
+champions today, so its FIRST promotion only needs that absolute floor — the extra AUC delta
+scaled by sqrt(number of candidates tested tonight) only applies once entry_tb has an incumbent
+champion to beat.
 
 Why a trigger at all: nightly retrains are nightly trials against the same OOS metric, and the
 training set only moves when new market history arrives. Re-running on every chain execution buys
 nothing but extra draws from the same noise — the same reason `_min_auc_delta` scales with the
-candidate count. The Wave-1 resolve loop (first real resolutions from 2026-08-11) is the honest
-clock: `resolved_stats(db)["n_resolved"]` counts the predictions the world has actually judged.
+candidate count. `resolved_stats(db)["n_resolved"]` is a PROXY for elapsed market information, NOT
+the clock of the entry_tb OOS metric: the ledger's predictions are scored by the `entry` family's
+champion (`run_score_watchlist.py` -> `entry_champion(db_path)`, default family), and
+`walk_forward_evaluate` reads the price panel directly — it never touches the ledger. Measured
+cadence: the daily chain logs ~30 predictions per business day (one per watchlist ticker; see
+`equity_scout.db`), so once the Wave-1 resolve loop (first real resolutions from 2026-08-11) has
+warmed up, almost every day clears `DEFAULT_MIN_NEW_RESOLUTIONS` on its own — this threshold mainly
+throttles ad-hoc manual runs, not the nightly chain. It is a proxy, not a designed clock; a
+panel-based as_of count would be the more honest v2 — a documented follow-up, not built here.
 
 Dry-run default; `--apply` is what registers challengers and advances the watermark. Network only
 in main() (the price panel), `now` injected, so the tests run offline.
@@ -40,10 +49,12 @@ WATERMARK_KEY = "evidence_refresh_resolved_watermark"
 DEFAULT_MIN_NEW_RESOLUTIONS = 30
 
 MULTIPLICITY_NOTE = (
-    "Multiples Testen: jeder Lauf stellt mehrere Presets demselben Champion gegenüber. Die "
-    "AUC-Hürde steigt deshalb mit sqrt(Kandidatenzahl) — bei reinem Zufall wäre der beste von "
-    "N Versuchen ohnehin der beste. Ein Champion-Wechsel heißt: Gate genommen. Er ist kein "
-    "Nachweis eines Vorteils und keine Kauf-/Verkaufsempfehlung."
+    "Multiples Testen: Für den ersten Champion einer Familie gilt allein die absolute Hürde "
+    "(mind. 200 Out-of-Sample-Zeilen, AUC klar über 0,5 — noch kein Vergleichswert vorhanden). "
+    "Gegen einen bestehenden Champion stellt jeder Lauf zusätzlich mehrere Presets demselben "
+    "Champion gegenüber, und die AUC-Hürde steigt mit sqrt(Kandidatenzahl) — bei reinem Zufall "
+    "wäre der beste von N Versuchen ohnehin der beste. Ein Champion-Wechsel heißt: Gate "
+    "genommen. Er ist kein Nachweis eines Vorteils und keine Kauf-/Verkaufsempfehlung."
 )
 
 
@@ -71,8 +82,17 @@ def run_evidence_refresh(
 
     `train` and `load_index` are injected seams so the tests never touch the network or fit a
     model. Nothing is written below the threshold and nothing is written on a dry run — in
-    particular the watermark advances ONLY after `train` returned, so a crashed run re-triggers
-    instead of silently consuming its own trigger.
+    particular the watermark advances ONLY after `train` returned AND produced at least one
+    evaluated (non-crashed) row, so a crashed run re-triggers instead of silently consuming its
+    own trigger. `run_train_entry_all` reports a broken preset as a row with `version=None`
+    rather than raising (one bad preset must not kill the night's others) — this function must
+    not count those rows as "evaluated", or a night of pure crashes would print "N Herausforderer
+    bewertet, keiner hat die Hürde genommen" and burn the trigger on work that never happened.
+
+    Crash-window trade-off: if the process dies between `train()` returning and `set_state`
+    writing the watermark, the next run re-triggers — a LIBERAL choice on trial-counting (any
+    challengers `train()` already registered before the crash are invisible to that next run's
+    `n_candidates`), chosen deliberately in favor of the learning loop over exact trial-accounting.
 
     No `now` parameter on purpose: this function reads a COUNT, not a clock. `now` is threaded
     where it is actually used — main() computes it and the `train` closure hands it to
@@ -89,13 +109,18 @@ def run_evidence_refresh(
         "triggered": new_resolutions >= min_new_resolutions,
         "applied": False,
         "n_candidates": 0,
+        "n_failed": 0,
         "promoted": [],
     }
     if not result["triggered"] or not apply:
         return result
     results = train(load_index(db_path))
-    result["n_candidates"] = len(results)
-    result["promoted"] = [r["version"] for r in results if r.get("promoted")]
+    evaluated = [r for r in results if r.get("version") is not None]
+    result["n_candidates"] = len(evaluated)
+    result["n_failed"] = len(results) - len(evaluated)
+    result["promoted"] = [r["version"] for r in evaluated if r.get("promoted")]
+    if not evaluated:
+        return result  # every preset crashed — nothing to report, watermark stays put
     set_state(db_path, key=WATERMARK_KEY, value=str(n_resolved))
     result["applied"] = True
     return result
@@ -111,16 +136,30 @@ def _summary(result: dict) -> str:
             "unverändert."
         )
     if not result["applied"]:
+        if result["n_failed"]:
+            return (
+                f"Refresh ausgelöst, aber alle {result['n_failed']} Presets sind fehlgeschlagen "
+                f"— nichts bewertet, Wasserstand unverändert (weiterhin {result['watermark']}). "
+                "Der nächste Lauf triggert erneut."
+            )
         return (
             f"Trockenlauf: {result['new_resolutions']} neue aufgelöste Vorhersage(n) "
             f"(Minimum {result['min_new_resolutions']}). Mit --apply würden die "
             "entry_tb-Herausforderer mit und ohne Evidence-Features neu bewertet. Nichts "
             "geschrieben, Wasserstand unverändert."
         )
-    lead = (
-        f"{result['n_candidates']} entry_tb-Herausforderer gegen denselben Champion bewertet; "
-        f"Wasserstand auf {result['n_resolved']} gesetzt."
-    )
+    total = result["n_candidates"] + result["n_failed"]
+    if result["n_failed"]:
+        lead = (
+            f"{result['n_candidates']} von {total} Presets bewertet "
+            f"({result['n_failed']} fehlgeschlagen); Wasserstand auf {result['n_resolved']} "
+            "gesetzt."
+        )
+    else:
+        lead = (
+            f"{result['n_candidates']} entry_tb-Herausforderer gegen denselben Champion "
+            f"bewertet; Wasserstand auf {result['n_resolved']} gesetzt."
+        )
     if not result["promoted"]:
         return lead + " Kein Champion-Wechsel — keiner hat die Hürde des Registry-Gates genommen."
     versions = ", ".join(f"v{v}" for v in result["promoted"])
@@ -158,6 +197,11 @@ def main() -> int:
         help="write: register/promote the challengers and advance the watermark",
     )
     args = parser.parse_args()
+    if args.min_new_resolutions < 1:
+        parser.error(
+            "--min-new-resolutions muss >= 1 sein — ein Minimum von 0 macht den Runner zum "
+            "Noise-Generator (jede vorbeiziehende Resolution würde erneut triggern)."
+        )
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     result = run_evidence_refresh(
         args.db, min_new_resolutions=args.min_new_resolutions, apply=args.apply,
