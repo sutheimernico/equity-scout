@@ -27,6 +27,40 @@ def test_chain_without_any_heartbeat_is_never_alarmed(tmp_path) -> None:
     assert overdue_chains(_db(tmp_path), now=NOW) == []
 
 
+def test_nightly_on_monday_is_not_overdue_after_its_saturday_slot(tmp_path) -> None:
+    """Regression (measured 2026-08-10): the nightly cadence is Tue–Sat, so on Sunday and
+    Monday a 48–72h old heartbeat is exactly on schedule — the flat 26h SLA cried wolf."""
+    db = _db(tmp_path)
+    # Sat 2026-08-08 02:32 CEST = 00:32 UTC — the chain's own log line for that run.
+    record_heartbeat(db, "nightly", now="2026-08-08T00:32:00+00:00")
+    monday = datetime(2026, 8, 10, 16, 50, tzinfo=timezone.utc)  # Mon 18:50 CEST, 64h later
+    assert overdue_chains(db, now=monday) == []
+
+
+def test_nightly_missing_its_due_slot_is_overdue_with_the_slot_named(tmp_path) -> None:
+    db = _db(tmp_path)
+    record_heartbeat(db, "nightly", now="2026-08-08T00:32:00+00:00")  # last: Sat
+    # Tue 2026-08-11 08:00 CEST — the Tuesday 02:30 slot came and went unanswered.
+    overdue = overdue_chains(db, now=datetime(2026, 8, 11, 6, 0, tzinfo=timezone.utc))
+    assert [o["chain"] for o in overdue] == ["nightly"]
+    assert overdue[0]["missed_slot"].startswith("2026-08-11T02:30")
+
+
+def test_daily_on_sunday_is_not_overdue_after_its_friday_slot(tmp_path) -> None:
+    db = _db(tmp_path)
+    record_heartbeat(db, "daily", now="2026-08-07T16:10:00+00:00")  # Fri 18:10 CEST
+    sunday = datetime(2026, 8, 9, 10, 0, tzinfo=timezone.utc)  # Sun 12:00 CEST, 42h later
+    assert overdue_chains(db, now=sunday) == []
+
+
+def test_heartbeat_just_before_the_systemd_slot_still_answers_it(tmp_path) -> None:
+    """The chain stamps its heartbeat when it FINISHES (02:32 for a 02:30 cron start), which
+    precedes the 02:35 systemd slot — the slot must be the earliest trigger, not the latest."""
+    db = _db(tmp_path)
+    record_heartbeat(db, "nightly", now="2026-08-11T00:32:00+00:00")  # Tue 02:32 CEST
+    assert overdue_chains(db, now=datetime(2026, 8, 11, 8, 0, tzinfo=timezone.utc)) == []
+
+
 def test_cooldown_suppresses_repeat_alerts(tmp_path) -> None:
     db = _db(tmp_path)
     record_heartbeat(db, "crypto", now="2026-07-21T06:00:00+00:00")  # 6h ago -> overdue (SLA 2h)
