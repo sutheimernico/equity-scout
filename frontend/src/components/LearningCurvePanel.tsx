@@ -16,6 +16,17 @@ const FAMILY_LABELS: Record<string, string> = {
   entry_short: "Short-Modell (verliert gegen SPY?)",
 };
 
+/** Tooltip tail for an evidence-featured version. Coverage is carried with it because a
+ *  challenger that could only see 2.5 % of the sample has not really been tested yet. */
+function evidenceSuffix(p: ModelHistoryPoint): string {
+  if (p.evidence_features.length === 0) return "";
+  const coverage =
+    p.evidence_coverage_91d != null
+      ? ` · Abdeckung ${(p.evidence_coverage_91d * 100).toFixed(1)} %`
+      : "";
+  return ` · mit Evidenz (${p.evidence_features.length} Merkmale)${coverage}`;
+}
+
 // Minimal inline AUC-per-version curve: dots on a 0.4–0.8 band with the 0.5 coin-flip line.
 // Deliberately unsmoothed — the curve shows what IS, including deterioration.
 function AucCurve({ points }: { points: ModelHistoryPoint[] }) {
@@ -46,9 +57,19 @@ function AucCurve({ points }: { points: ModelHistoryPoint[] }) {
           cx={x(i)}
           cy={y(p.auc as number)}
           r={p.is_champion ? 5 : 3}
-          className={p.is_champion ? "lc-dot champion" : "lc-dot"}
+          className={
+            [
+              "lc-dot",
+              p.is_champion ? "champion" : "",
+              // An evidence challenger sits at almost the same AUC as its baseline; without a
+              // marker the two dots are one blob and the A/B is invisible (v15 M2).
+              p.evidence_features.length > 0 ? "evidence" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")
+          }
         >
-          <title>{`v${p.version} · AUC ${p.auc?.toFixed(3)} · n=${p.n_oos ?? "?"}`}</title>
+          <title>{`v${p.version} · AUC ${p.auc?.toFixed(3)} · n=${p.n_oos ?? "?"}${evidenceSuffix(p)}`}</title>
         </circle>
       ))}
     </svg>
@@ -138,6 +159,12 @@ function DailyLearningSection({ points }: { points: DailyCurvePoint[] }) {
 
 function FamilyBlock({ family, points }: { family: string; points: ModelHistoryPoint[] }) {
   const champion = points.find((p) => p.is_champion);
+  const withEvidence = points.filter((p) => p.evidence_features.length > 0);
+  // Worst coverage across the evidence versions: the honest headline number, because a
+  // challenger is only as tested as the share of the sample its extra features could see.
+  const coverage = withEvidence
+    .map((p) => p.evidence_coverage_91d)
+    .filter((c): c is number => c != null);
   return (
     <section className="strat-block">
       <div className="chip-row" style={{ marginBottom: "var(--space-3)" }}>
@@ -153,11 +180,23 @@ function FamilyBlock({ family, points }: { family: string; points: ModelHistoryP
         ) : (
           <Chip>kein Champion — Gate nicht bestanden</Chip>
         )}
+        {withEvidence.length > 0 && <Chip>{withEvidence.length} mit Evidenz-Merkmalen</Chip>}
       </div>
       <AucCurve points={points} />
       <p className="muted">
         Jeder Punkt eine Trainings-Generation (Out-of-Sample-AUC, purged Walk-Forward). Große
         Punkte sind Champions. Kleine n machen einzelne Punkte unzuverlässig — Tooltip zeigt n.
+        {withEvidence.length > 0 && (
+          <>
+            {" "}
+            Ringe statt gefüllter Punkte sind Versionen mit Insider-Evidenz-Merkmalen — ein
+            bewusster A/B-Vergleich gegen dieselbe Basis
+            {coverage.length > 0
+              ? `. Abdeckung nur ${(Math.min(...coverage) * 100).toFixed(1)} % der Trainingsdaten: ein Unterschied auf diesem Niveau ist noch kein Befund`
+              : ""}
+            .
+          </>
+        )}
       </p>
     </section>
   );

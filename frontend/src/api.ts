@@ -970,6 +970,13 @@ export interface ModelHistoryPoint {
   n_oos: number | null;
   calibrated: boolean | null;
   horizon_days: number | null;
+  /** Names of the evidence features this version was trained with; empty for a baseline.
+   *  An evidence challenger shares family AND model_kind with its baseline, so without this
+   *  the curve showed two indistinguishable points for a deliberate A/B (v122 vs v123). */
+  evidence_features: string[];
+  /** Share of the training sample the evidence features could actually see. 0.0255 on the
+   *  first run — the reason a +0.003 AUC difference carries no information yet. */
+  evidence_coverage_91d: number | null;
 }
 
 export interface Promotion {

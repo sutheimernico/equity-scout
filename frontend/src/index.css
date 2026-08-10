@@ -1872,6 +1872,13 @@ code {
 .lc-dot.champion {
   fill: var(--accent);
 }
+/* Evidence challenger: hollow ring, so it is distinguishable from its baseline even when the
+   two land on nearly the same AUC (v15 M2 — v122 vs v123 differed by 0.003). */
+.lc-dot.evidence {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
 .lc-coinflip {
   stroke: var(--text-muted);
   stroke-dasharray: 4 4;

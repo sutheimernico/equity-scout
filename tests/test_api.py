@@ -535,6 +535,46 @@ def test_model_history_reports_families_and_promotions(tmp_path):
     assert model_payload["drift"] is None  # no feature_means/predictions yet -> honest None
 
 
+def test_model_history_distinguishes_evidence_challengers_from_their_baseline(tmp_path):
+    """v15 M2: a challenger trained with evidence features shares family AND model_kind with
+    its baseline, so the curve showed two indistinguishable points for a deliberate A/B
+    (v122 vs v123 differed by 0.003 AUC, 2026-08-10). Coverage travels with it — a challenger
+    that saw the extra features on 2.5 % of the sample has not really been tested."""
+    import numpy as np
+    import pandas as pd
+
+    from equity_scout.ml.entry_features import FEATURE_COLUMNS
+    from equity_scout.ml.entry_model import train_entry_model
+    from equity_scout.ml.model_registry import register_challenger
+
+    db = str(tmp_path / "ev.db")
+    rng = np.random.default_rng(3)
+    X = pd.DataFrame(rng.normal(size=(40, len(FEATURE_COLUMNS))), columns=list(FEATURE_COLUMNS))
+    y = pd.Series((X.iloc[:, 0] > 0).astype(int))
+    model = train_entry_model(X, y, model="elastic_net")
+    base = {"auc": 0.4713, "n_oos": 3834, "brier": 0.25, "horizon_days": 20}
+    register_challenger(
+        db, model, metrics={**base, "evidence_features": [], "evidence_coverage_91d": None},
+        n_train=40, now="2026-08-10T00:00:00+00:00",
+    )
+    register_challenger(
+        db, model,
+        metrics={**base, "auc": 0.4743,
+                 "evidence_features": ["ev_insider_cluster_91d", "ev_insider_count_365d"],
+                 "evidence_coverage_91d": 0.0255},
+        n_train=40, now="2026-08-10T00:00:01+00:00",
+    )
+
+    versions = TestClient(create_app(db)).get("/api/model/history").json()["families"]["entry"]
+    baseline, challenger = versions[-2], versions[-1]
+    assert baseline["evidence_features"] == []
+    assert baseline["evidence_coverage_91d"] is None
+    assert challenger["evidence_features"] == [
+        "ev_insider_cluster_91d", "ev_insider_count_365d",
+    ]
+    assert challenger["evidence_coverage_91d"] == 0.0255
+
+
 def test_model_history_reports_daily_curve_chronologically(tmp_path):
     from equity_scout.ml.learning_curve import save_snapshot
 

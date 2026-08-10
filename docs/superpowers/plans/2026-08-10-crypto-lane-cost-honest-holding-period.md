@@ -52,18 +52,22 @@ Gewinns statt 190 % davon.
 
 ## Tasks
 
-- [ ] **T1** `kraken_data`: Tagesintervall als benannte Konstante, Docstring auf die
+- [x] **T1** `kraken_data`: Tagesintervall als benannte Konstante, Docstring auf die
       720-Bar-Grenze bei `interval=1440` anpassen (720 Tagesbars ≈ 2 Jahre).
-- [ ] **T2** `st_crypto`: Zeitskala auf Tagesbars umstellen. Lookbacks bleiben 20/10 (jetzt
+- [x] **T2** `st_crypto`: Zeitskala auf Tagesbars umstellen. Lookbacks bleiben 20/10 (jetzt
       Tage — der klassische Turtle). `STOP_PCT` von 2 % auf 15 %: auf Tagesbasis läge ein
       2 %-Stop innerhalb eines einzigen Bars und würde den Kanalexit systematisch ersetzen,
       statt ihn abzusichern. Docstring sagt die Zeitskala und den Kostengrund.
-- [ ] **T3** Runner: Tagesbars holen, Bar-Marker pro Tag, Report-Zeile nennt die Zeitskala.
+- [x] **T3** Runner: Tagesbars holen, Bar-Marker pro Tag, Report-Zeile nennt die Zeitskala.
       Cron bleibt `*/15` — er prüft dann, ob ein neuer Tagesbar fertig ist (No-Op sonst).
-- [ ] **T4** Track-Bruch markieren: `strategy_regime`-Lane-State mit Umstellungsdatum, in
+- [x] **T4** Track-Bruch markieren: `strategy_regime`-Lane-State mit Umstellungsdatum, in
       API und Cockpit angezeigt — wie `execution_regime` beim Session-Lane-Bruch. Die 32
       Trades vom 15-Minuten-Regime sind KEINE Serie mit dem, was danach kommt.
-- [ ] **T5** Tests: Kanal-/Stop-Logik auf Tagesbars, Marker-Idempotenz, Regime-Anzeige.
+- [x] **T5** Tests: Kanal-/Stop-Logik auf Tagesbars, Marker-Idempotenz, Regime-Anzeige.
+- [x] **T6 (ungeplant, vom Live-Lauf gefunden)** Übergangsdefekt: die `last_bar_*`-Marker der
+      15-Minuten-Ära sind NEUER als der neueste vollständige Tagesbar und blockierten damit
+      jede Entscheidung, bis die Wanduhr sie überholt. Der erste Live-Lauf bewertete deshalb
+      nichts. `clear_lane_state` verwirft sie beim Zeitskalen-Wechsel; Live-DB nachgezogen.
 
 ## Grenzen (bewusst nicht in diesem Plan)
 
@@ -74,4 +78,28 @@ Gewinns statt 190 % davon.
 
 ## Outcome
 
-_(wird nach der Umsetzung mit gemessenen Zahlen gefüllt — nicht vorher)_
+Umgesetzt 2026-08-10, Commit `c446017`. Alle sechs Tasks erledigt.
+
+- **Zeitskala:** Donchian 20/10 auf Kraken-Tagesbars (`interval=1440`), Hard-Stop 15 %.
+- **Ein Defekt vom Live-Lauf gefunden (T6):** Der erste Lauf auf Tagesbars bewertete gar
+  nichts, weil die Bar-Watermarks der alten Skala (`2026-08-10T17:00`) neuer waren als der
+  neueste vollständige Tagesbar (`2026-08-09T00:00`). Ohne den Fix hätte die Lane bis
+  2026-08-11 00:00 UTC stillgestanden — und bei einem Umbau um 23:00 einen ganzen Tag.
+  Nach dem Verwerfen stehen die Marker korrekt auf `2026-08-09T00:00`.
+- **Live-Verify:** Lauf über echte Kraken-Daten, 4 Paare, kein Ausbruch → 0 Trades. Das ist
+  der erwartete Normalzustand auf Tagesbasis (vorher ~5 Trades/Tag).
+- `strategy_regime = 2026-08-10T17:26:58+00:00`, ausgewiesen in `/api/shortterm` und im
+  Arena-Panel als Track-Bruch mit Begründung.
+- **Gate:** 1872 Tests grün, ruff clean, `tsc --noEmit` clean, Frontend gebaut. (Der erste
+  volle Gate-Lauf nach dem Umbau fand einen veralteten Erwartungswert in
+  `test_shortterm_targets.py` — 2 %-Stop hart auf 196.0 geprüft; mit dem 15 %-Stop auf 170.0
+  nachgezogen. Teilläufe hatten die Datei nicht abgedeckt.)
+
+### Was offen bleibt
+
+- **Ob die neue Zeitskala einen positiven Erwartungswert hat, ist offen.** n = 0 auf der
+  neuen Skala. Bei 20/10 Tagen und 4 Paaren sind grob 1–3 Trades pro Monat und Paar zu
+  erwarten — eine belastbare Aussage braucht Monate, nicht Tage. Jede frühere Aussage wäre
+  Rauschen.
+- Die 32 Alttrades bleiben unverändert gebucht (Kostenbefund, keine Serie mit dem Neuen).
+- Maker-Fill-Modell (Breakout-Retest) nicht gebaut — Begründung oben.

@@ -20,9 +20,10 @@ def test_swing_targets_come_from_the_fixed_percentages():
 
 
 def test_crypto_has_a_stop_but_a_signal_based_exit():
-    # st_crypto: STOP_PCT 2 %, exit otherwise on a 10-day Donchian low — not a fixed price.
+    # st_crypto: STOP_PCT 15 % since the 2026-08-10 move to daily bars (a 2 % stop sat inside
+    # one daily bar's range), exit otherwise on a 10-day Donchian low — not a fixed price.
     t = position_targets("crypto", entry_price=200.0)
-    assert round(t["stop_price"], 2) == 196.0
+    assert round(t["stop_price"], 2) == 170.0
     assert t["target_price"] is None
     assert "Ausbruch" in t["rule"] or "Tief" in t["rule"]
 

@@ -1696,6 +1696,14 @@ def create_app(
                 "n_oos": metrics.get("n_oos"),
                 "calibrated": metrics.get("calibrated"),
                 "horizon_days": metrics.get("horizon_days"),
+                # v15 M2: an evidence challenger and its baseline share family AND model_kind,
+                # so the curve showed two indistinguishable points for what is a deliberate
+                # A/B (v122 vs v123, 2026-08-10). The feature list is the discriminator the
+                # training already recorded; coverage says how much of the sample the extra
+                # features could even see (2.5% on the first run — the reason the +0.003 AUC
+                # difference means nothing yet).
+                "evidence_features": metrics.get("evidence_features") or [],
+                "evidence_coverage_91d": metrics.get("evidence_coverage_91d"),
             })
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         return JSONResponse({
