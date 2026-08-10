@@ -27,8 +27,12 @@ from itertools import product
 from equity_scout.engine import run_backtest
 from equity_scout.market import PricePanel
 from equity_scout.metrics import compute_metrics, daily_returns, periodic_sharpe
+from equity_scout.strategies.cross_momentum import CrossSectionalMomentumStrategy
 from equity_scout.strategies.daa import DefensiveAssetAllocationStrategy
 from equity_scout.strategies.dual_momentum import DualMomentumStrategy
+from equity_scout.strategies.low_vol import LowVolatilityStrategy
+from equity_scout.strategies.mean_reversion import MeanReversionStrategy
+from equity_scout.strategies.risk_parity import RiskParityStrategy
 from equity_scout.strategies.sector_rotation import SectorRotationStrategy
 from equity_scout.strategies.sixty_forty import SixtyFortyStrategy
 from equity_scout.strategies.vol_target import VolatilityTargetStrategy
@@ -47,6 +51,35 @@ STRATEGY_SPACE: dict[str, dict[str, tuple]] = {
         "lookback_months": ((12, 6), (6, 3), (12,), (9, 3)),
     },
     "sixty_forty": {"stock_weight": (0.5, 0.6, 0.7, 0.8)},
+    # v16 families. Kept deliberately narrow — the module's own rule is that every extra
+    # trial raises the DSR hurdle, so only knobs with an economic story get a grid. The
+    # first-pass defaults came from the literature, not from fitting this panel; the grid
+    # exists so the nightly loop can test whether they hold HERE, on real data, instead of
+    # leaving my starting values unchallenged forever.
+    "low_vol": {
+        # How wide the calm basket is, and over what horizon "calm" is measured. Both change
+        # the strategy's character; the safe/hurdle tickers do not and stay fixed.
+        "top_n": (3, 5, 7),
+        "vol_window_days": (21, 63, 126),
+    },
+    "cross_momentum": {
+        "top_n": (2, 3, 4),
+        "lookback_months": (6, 9, 12),
+        # 0 vs 1 is the skip-month question itself. Jegadeesh/Titman answered it for US
+        # single stocks in 1993; whether it holds for THIS 21-ETF universe is an empirical
+        # question worth one dimension of the grid rather than an assumption.
+        "skip_months": (0, 1),
+    },
+    "mean_reversion": {
+        # The reversion horizon is the whole thesis (and drives the turnover that ate the
+        # first backtest: 16x/year at 2.7% CAGR). 5/10/21 days spans "bounce" to "monthly".
+        "top_n": (2, 3, 5),
+        "reversion_window_days": (5, 10, 21),
+    },
+    # Only the cap: the sleeve composition is the strategy (same argument as the
+    # Permanent-Portfolio exclusion above), and the vol window barely moves an
+    # inverse-vol book.
+    "risk_parity": {"max_weight": (0.25, 0.40, 0.60)},
 }
 
 _BUILDERS = {
@@ -55,6 +88,10 @@ _BUILDERS = {
     "daa": DefensiveAssetAllocationStrategy,
     "sector_rotation": SectorRotationStrategy,
     "sixty_forty": SixtyFortyStrategy,
+    "low_vol": LowVolatilityStrategy,
+    "cross_momentum": CrossSectionalMomentumStrategy,
+    "mean_reversion": MeanReversionStrategy,
+    "risk_parity": RiskParityStrategy,
 }
 
 

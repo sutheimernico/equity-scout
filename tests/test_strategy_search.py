@@ -21,8 +21,14 @@ from equity_scout.strategies.vol_target import VolatilityTargetStrategy
 
 def test_space_is_finite_with_unique_keys():
     configs = all_configs()
-    expected = 4 * 4 + 4 + 3 + 4 * 4 + 4  # vol_target + gem + daa + sector_rotation + 60/40
-    assert len(configs) == expected
+    expected = (
+        4 * 4 + 4 + 3 + 4 * 4 + 4      # vol_target + gem + daa + sector_rotation + 60/40
+        + 3 * 3                        # low_vol: top_n x vol_window            (v16)
+        + 3 * 3 * 2                    # cross_momentum: top_n x lookback x skip (v16)
+        + 3 * 3                        # mean_reversion: top_n x window          (v16)
+        + 3                            # risk_parity: max_weight                 (v16)
+    )
+    assert len(configs) == expected == 82
     assert len({c.key() for c in configs}) == expected
 
 
