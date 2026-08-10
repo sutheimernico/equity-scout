@@ -82,7 +82,9 @@ auch widerlegbar.
 ## Grenzen — was dieser Test NICHT zeigt
 
 **Der Nullbefund bei den Renditen ist keine Abwesenheit eines Effekts.** Der kleinste Unterschied,
-den dieses Sample bei 80 % Testmacht noch von Zufall trennen könnte:
+den dieses Sample bei 80 % Testmacht noch von Zufall trennen könnte — berechnet am Signal mit der
+längsten Historie, also die **günstigsten** hier erreichbaren Werte; kürzere Reihen lösen
+schlechter auf, nie besser:
 
 | Ziel | erkennbar ab (korrigiert) | (unkorrigiert) |
 |---|---|---|

@@ -367,7 +367,13 @@ def main() -> int:
     print("von Zufall trennen könnte. Liegt ein plausibler Markteffekt darunter, ist ein")
     print("Nullbefund aussagekräftig — liegt er darüber, war der Test von vornherein blind.")
     print("-" * 100)
-    reference = next(iter(signals.values()))[0]
+    # Computed on the signal with the LONGEST history, so these are the most favourable numbers
+    # any candidate here could achieve. Shorter series resolve worse, never better — which means
+    # an effect below these thresholds is invisible to every signal in the study, not just this
+    # one. That is what makes the null results readable.
+    reference = max((series for series, _ in signals.values()), key=len)
+    print("Berechnet am Signal mit der längsten Historie — also die günstigsten Werte, die hier")
+    print("überhaupt erreichbar sind. Kürzere Reihen lösen schlechter auf, nie besser.")
     for target_name, (target_series, horizon) in targets.items():
         frame = align(reference, target_series)
         mde = minimum_detectable_effect(independent_subsample(frame, horizon), alpha=alpha)
