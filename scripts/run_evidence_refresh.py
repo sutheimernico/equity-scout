@@ -50,7 +50,8 @@ DEFAULT_MIN_NEW_RESOLUTIONS = 30
 
 MULTIPLICITY_NOTE = (
     "Multiples Testen: Für den ersten Champion einer Familie gilt allein die absolute Hürde "
-    "(mind. 200 Out-of-Sample-Zeilen, AUC klar über 0,5 — noch kein Vergleichswert vorhanden). "
+    "des Registry-Gates (Mindestzahl an Out-of-Sample-Zeilen, AUC klar über 0,5 — noch kein "
+    "Vergleichswert vorhanden). "
     "Gegen einen bestehenden Champion stellt jeder Lauf zusätzlich mehrere Presets demselben "
     "Champion gegenüber, und die AUC-Hürde steigt mit sqrt(Kandidatenzahl) — bei reinem Zufall "
     "wäre der beste von N Versuchen ohnehin der beste. Ein Champion-Wechsel heißt: Gate "
@@ -108,6 +109,7 @@ def run_evidence_refresh(
         "min_new_resolutions": min_new_resolutions,
         "triggered": new_resolutions >= min_new_resolutions,
         "applied": False,
+        "apply_requested": bool(apply),
         "n_candidates": 0,
         "n_failed": 0,
         "promoted": [],
@@ -136,11 +138,13 @@ def _summary(result: dict) -> str:
             "unverändert."
         )
     if not result["applied"]:
-        if result["n_failed"]:
+        # Branch on the requested mode, not on n_failed truthiness: a train() that returns an
+        # empty list on an --apply run is also "nothing evaluated", not a dry run.
+        if result.get("apply_requested"):
             return (
-                f"Refresh ausgelöst, aber alle {result['n_failed']} Presets sind fehlgeschlagen "
-                f"— nichts bewertet, Wasserstand unverändert (weiterhin {result['watermark']}). "
-                "Der nächste Lauf triggert erneut."
+                f"Refresh ausgelöst, aber kein Preset wurde bewertet "
+                f"({result['n_failed']} fehlgeschlagen) — Wasserstand unverändert "
+                f"(weiterhin {result['watermark']}). Der nächste Lauf triggert erneut."
             )
         return (
             f"Trockenlauf: {result['new_resolutions']} neue aufgelöste Vorhersage(n) "
@@ -209,6 +213,10 @@ def main() -> int:
     )
     print(_summary(result))
     print(MULTIPLICITY_NOTE)
+    # A triggered --apply run in which nothing was evaluated is a failure, not a refusal —
+    # a chain wrapper reading the exit code must not log it as OK.
+    if result["apply_requested"] and result["triggered"] and not result["applied"]:
+        return 1
     return 0
 
 
