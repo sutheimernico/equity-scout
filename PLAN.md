@@ -504,6 +504,41 @@ VERSCHOBENES Fenster maß und als Ergebnis buchte (Test bewies `resolved: 1` vor
       prüfen, ob Filings ankommen — bleibt es leer, ist die Sichtfeld-Grenze das Thema,
       nicht die Lane.
 
+## Phase: Wartungsrunde 2026-08-10 (Watchdog, Kapitalbasis, Crypto-Kosten, M2) — DONE
+Nach der Bestandsaufnahme „Was macht der Autotrader, funktioniert das?" abgearbeitet. Plan für
+den Crypto-Teil: `docs/superpowers/plans/2026-08-10-crypto-lane-cost-honest-holding-period.md`.
+- **Watchdog-Fehlalarm behoben** (`164ebc9`): die SLA war flach 26 h für alle Ketten, die
+  nightly läuft aber Di–Sa. Sonntag und Montag war ihr Heartbeat planmäßig 48–72 h alt →
+  garantierter Wochenend-Fehlalarm, live gemessen als „nightly überfällig seit 64 h", während
+  die Kette exakt im Plan lag. Kadenz-Ketten werden jetzt gegen den letzten FÄLLIGEN Slot in
+  der Zeitzone des Crontabs geprüft, mit dem frühesten Trigger als Slot (der Heartbeat wird am
+  Ende der Kette gestempelt und kann dem systemd-Slot vorausgehen). Der Alarm nennt den
+  verpassten Slot, damit er gegen den Crontab falsifizierbar ist. Gleicher Fix deckt den
+  daily-Fehlalarm am Wochenende ab.
+- **Session-Lane: Broker-Equity wird mitgeschrieben** (`4fe435b`): das Buch rechnet auf 10.000,
+  das Papierkonto hält 100.000 — dieselben Trades lasen sich als −2,41 % (Buch) und −0,10 %
+  (Konto). Additiv gelöst: `equity`/`total_return` bleiben das Strategie-Ledger, die neue
+  Spalte trägt, was die Börse selbst meldet (`fetch_account`), NULL für simulierte Lanes und
+  alle Altzeilen. Ein Backfill aus dem Buch hätte genau die Zahl erfunden, die die Spalte
+  verhindern soll. Cockpit zeigt beide plus die Kapitalauslastung.
+- **Crypto-Lane auf Tagesbars** (`c446017`): von 451,60 USD Verlust waren ~460 USD Gebühren —
+  vor Kosten ±0, nach Kosten Totalverlust. Donchian 20/10 jetzt auf Tagesbars, Hard-Stop
+  2 % → 15 %. Die Taker-Fee wurde bewusst NICHT auf den Maker-Satz gesenkt (die Lane routet
+  nichts, und ein Limit am Ausbruchsniveau ist genau die Order, die beim Ausbruch nicht füllt).
+  Übergangsdefekt vom Live-Lauf gefunden: die Bar-Watermarks der 15-Minuten-Ära sind neuer als
+  der neueste vollständige Tagesbar und blockierten jede Entscheidung.
+- **v15 M2 verdrahtet** (`6d42963`): Evidence-Challenger teilen Familie UND model_kind mit
+  ihrer Basis, waren auf der Lernkurve also nicht unterscheidbar. `evidence_features` und
+  `evidence_coverage_91d` gehen jetzt durch die API, die Kurve zeichnet Evidenz-Versionen als
+  Ringe, und die Bildunterschrift sagt, dass 2,5 % Abdeckung noch kein Befund ist.
+- **Windows-Tasks wecken jetzt** (`ea224f1`): `WakeToRun` war bei daily und nightly false (nur
+  session hatte es) — beide Slots hingen davon ab, dass die Maschine schon wach war. Live
+  gesetzt und im gestageten XML verankert, damit der Installer es nicht zurückdreht.
+- Gate der Runde: 1872 Tests grün, ruff clean, `tsc --noEmit` clean.
+- [ ] Beobachten: ob die Crypto-Lane auf Tagesbars einen positiven Erwartungswert zeigt. n=0
+      auf der neuen Zeitskala; bei 20/10 Tagen über 4 Paare sind grob 1–3 Trades pro Monat und
+      Paar zu erwarten — belastbar erst in Monaten.
+
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
   `./scripts/install_dash_service.sh` erneut ausführen (Unit ist gestaged, aktiviert sich nur mit
@@ -520,7 +555,14 @@ VERSCHOBENES Fenster maß und als Ergebnis buchte (Test bewies `resolved: 1` vor
   installs BOTH tasks (daily 18:00 + nightly 02:40, starts WSL if down). Without it the
   nightly chain still runs via cron/systemd whenever WSL is up, and the persistent systemd
   timer catches up missed slots at the next WSL start; the Windows task is the only layer
-  that can WAKE the box.
+  that can WAKE the box. — REGISTRIERT, und seit 2026-08-10 mit `WakeToRun` (vorher konnten
+  daily/nightly die Maschine nicht wecken). Grenze bleibt: Windows erlaubt Wake-Timer nur am
+  Netzstrom, am Akku sind sie per Policy aus — im Akkubetrieb über Nacht fällt der Slot aus.
+- ~~Windows-Energieeinstellungen prüfen (Rechner schlief über US-Börsenschluss)~~ — 2026-08-10
+  untersucht und die eine findbare Ursache gefixt (`WakeToRun`, siehe oben). Standby am
+  Netzstrom steht bereits auf „nie", Wake-Timer am Netzstrom sind aktiv. Falls es WIEDER
+  passiert: `powercfg /waketimers` als Admin laufen lassen (braucht erhöhte Rechte, deshalb
+  hier nicht gemessen) und im Ereignisprotokoll nach Kernel-Power-Ereignissen sehen.
 - Voices-Personenliste bestätigen/erweitern (`evidence/voices.py::PERSONS`, aktuell die 8
   Fonds-Manager hinter den 13F-Fonds) — Veto-Option, Session 2026-07-14.
 - Visueller Abnahme-Pass des IA-Overhauls im Browser (kein Screenshot-Tooling in der Build-Umgebung).
