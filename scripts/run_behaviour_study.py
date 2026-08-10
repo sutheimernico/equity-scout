@@ -35,6 +35,7 @@ import math
 import os
 import sys
 
+import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -58,6 +59,7 @@ VIX_TICKERS = ("^VIX", "^VIX3M", "^VIX9D")
 VIX_SNAPSHOT = "data/prices/vix_term.csv"
 ETF_VOLUME = "data/prices/etf_volume.csv"
 BOTS_PANEL = "data/prices/ml_bots_panel.csv"
+CREDIT_PAIR = "data/prices/credit_pair.csv"
 RESULT_JSON = "data/behaviour_study.json"
 # The production price panel (`etf_panel.csv`) starts in June 2018 because XLC was listed then
 # and the panel drops rows where any column is missing — correct for a backtest that trades all
@@ -173,6 +175,88 @@ def load_sleeve_closes(*, refresh: bool = False) -> pd.DataFrame:
     return _read_panel(SLEEVE_CLOSES) if os.path.exists(SLEEVE_CLOSES) else panel.closes
 
 
+def rolling_zscore(series: pd.Series, window: int = 252) -> pd.Series:
+    """Point-in-time z-score: mean and spread come from the trailing window ENDING at t.
+
+    The obvious version — z-scoring against the full-sample mean — is a look-ahead bug that
+    produces a beautiful and worthless result: in 2008 it would "know" the 2020 distribution.
+    The window includes t itself, which is fine here because the study acts from t+1.
+    """
+    rolling = series.rolling(window, min_periods=window // 2)
+    spread = rolling.std()
+    return ((series - rolling.mean()) / spread.where(spread > 0)).replace([np.inf, -np.inf], np.nan)
+
+
+def load_credit_pair(*, refresh: bool = False) -> pd.DataFrame:
+    """HYG (high yield) and LQD (investment grade) closes — the junk-bond-demand proxy.
+
+    FRED serves the real spread (BAMLH0A0HYM2), but its free CSV endpoint returns only ~3 years
+    no matter the start date, which leaves n=12 at the 63-day horizon — unjudgeable. The relative
+    performance of junk against investment-grade credit measures the same appetite for risk and
+    comes from the source this project already uses, with 19 years of history instead of 3.
+
+    Honest about what it is: a proxy. It moves with duration and ETF flows as well as with credit
+    risk, so it is noisier than the option-adjusted spread it stands in for.
+    """
+    if not refresh and os.path.exists(CREDIT_PAIR):
+        return _read_panel(CREDIT_PAIR)
+    from equity_scout.data.etf_panel import load_price_history
+
+    load_price_history(["HYG", "LQD"], start="2007-01-01", snapshot=CREDIT_PAIR, refresh=True)
+    return _read_panel(CREDIT_PAIR)
+
+
+def fear_greed_components(
+    spy: pd.Series, bonds: pd.Series, credit: pd.DataFrame
+) -> dict[str, tuple[pd.Series, str]]:
+    """The Fear-&-Greed ingredients this project had never measured.
+
+    CNN's index is a composite of seven parts, and five of them are things W0 already tested:
+    VIX, breadth, 52-week strength, volume breadth and put/call. These are the remaining three,
+    rebuilt from our own data rather than fetched — which buys 19 years of history instead of
+    the ~2 the public endpoint serves, and keeps the project free of a source that can vanish.
+
+    Sign convention follows the rest of the study: HIGH = fear. CNN's scale runs the other way
+    (high = greed), so momentum and safe-haven are negated here. Getting this backwards would
+    not change any p-value, but it would invert every sentence in the report.
+    """
+    signals: dict[str, tuple[pd.Series, str]] = {}
+    sma125 = spy.rolling(125, min_periods=125).mean()
+    momentum = -(spy / sma125 - 1.0)
+    signals["F&G Momentum (SPY vs 125d)"] = (
+        momentum.dropna(), "hoch = Kurs unter dem Trend = Angst (reine Preistransformation)"
+    )
+    # 20-day relative performance of stocks against treasuries - CNN's definition. Money moving
+    # to bonds is the "safe haven" bid.
+    horizon = 20
+    stock_leg = spy / spy.shift(horizon) - 1.0
+    bond_leg = bonds / bonds.shift(horizon) - 1.0
+    signals["F&G Safe-Haven (Aktien vs Anleihen)"] = (
+        (bond_leg - stock_leg).dropna(), "hoch = Anleihen schlagen Aktien = Flucht in Sicherheit"
+    )
+    if {"HYG", "LQD"} <= set(credit.columns):
+        junk = credit["HYG"] / credit["HYG"].shift(horizon) - 1.0
+        grade = credit["LQD"] / credit["LQD"].shift(horizon) - 1.0
+        signals["F&G Junk-Bond (HYG vs LQD)"] = (
+            (grade - junk).dropna(), "hoch = Ramschanleihen abgestoßen = Angst"
+        )
+    return signals
+
+
+def fear_greed_composite(components: list[pd.Series]) -> pd.Series:
+    """The index itself: the mean of the point-in-time z-scores of its parts.
+
+    Its whole claim is that the combination beats the ingredients. Built here so that claim can
+    be tested rather than assumed — and built from z-scores because the parts live on wildly
+    different scales (a spread in percent, a ratio around 1, a return difference).
+    """
+    # sort=True is explicit because the parts start on different dates: the union of their
+    # indices must come out in chronological order, or every rolling window downstream is wrong.
+    frame = pd.concat([rolling_zscore(c) for c in components], axis=1, sort=True).dropna(how="all")
+    # At least two parts must be present, otherwise the "composite" is one renamed component.
+    return frame.mean(axis=1, skipna=True).where(frame.notna().sum(axis=1) >= 2).dropna()
+
+
 def build_signals(*, refresh: bool) -> dict[str, tuple[pd.Series, str]]:
     """Every candidate, as (series, direction note). Direction matters for reading the spread:
     for some signals a high value means fear, for others it means health."""
@@ -210,6 +294,19 @@ def build_signals(*, refresh: bool) -> dict[str, tuple[pd.Series, str]]:
         signals["Marktbreite (% über 200d)"] = (
             breadth, "hoch = gesund (umgekehrte Richtung zu Stress); survivorship-verzerrt"
         )
+
+    # Fear & Greed: the ingredients W0 had not measured, plus the composite itself.
+    if "SPY" in bots.columns and "IEF" in etf_closes.columns:
+        parts = fear_greed_components(
+            bots["SPY"].dropna(), etf_closes["IEF"].dropna(), load_credit_pair(refresh=refresh)
+        )
+        signals.update(parts)
+        composite = fear_greed_composite([series for series, _ in parts.values()])
+        if not composite.empty:
+            signals["Fear & Greed (Komposit)"] = (
+                composite,
+                "hoch = Angst; Mittel der laufenden z-Werte der Bausteine",
+            )
     return signals
 
 

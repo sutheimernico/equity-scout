@@ -6,13 +6,17 @@ bevor er eingebaut wird.** Das ist hiermit passiert. Reproduzierbar über
 
 ## Ergebnis in drei Sätzen
 
-1. **Kein einziger Kandidat sagt die Marktrendite voraus** — 7 Signale × 3 Renditehorizonte über
+1. **Kein einziger Kandidat sagt die Marktrendite voraus** — 11 Signale × 3 Renditehorizonte über
    bis zu 19 Jahre, kein Treffer, in keiner Variante.
-2. Was trägt, sagt ausschließlich **Risiko** voraus (Folgevolatilität und Drawdown) — und **jeder
-   dieser Treffer stammt aus einem Signal, das die Ampel schon führt.**
+2. Was trägt, sagt ausschließlich **Risiko** voraus (Folgevolatilität und Drawdown) — und **kein
+   einziger dieser Treffer bringt etwas über die Signale hinaus, die die Ampel schon führt**
+   (0 von 63 inkrementellen Tests).
 3. **Der geplante nächste Schritt W1 (VIX-Terminstruktur) wäre umsonst gewesen:** roh sieht er
    stark aus, aber nach Abzug dessen, was VIX-Level und Marktbreite bereits sagen, bleibt nichts
-   übrig (p = 0,027 gegen ein korrigiertes Niveau von 0,0006, Rank-IC fällt von 0,51 auf 0,08).
+   übrig (Rank-IC fällt von 0,51 auf 0,08).
+
+140 Tests insgesamt, korrigiertes Niveau α = 0,00036. Der Fear-&-Greed-Teil (Nicos Nachfrage) ist
+weiter unten als eigener Abschnitt — Ergebnis dort ebenfalls negativ, inklusive des Komposits.
 
 **Empfehlung: aus der Landkarte wird nichts gebaut.** Weder W1 noch W2–W6 in der bisherigen Form.
 Die Begründung und was stattdessen sinnvoll ist, steht unten.
@@ -28,16 +32,20 @@ Die Begründung und was stattdessen sinnvoll ist, steht unten.
 | SPY-OBV-Trend | 2007-01 – 2026-08 (4921) | Produktions-`read_volume` |
 | Sleeve-Spike-Anteil (7 Anlageklassen) | 2007-01 – 2026-08 (4921) | Produktions-`read_volume` |
 | Marktbreite % über 200d | 2007-10 – 2026-08 (4917) | 63 Titel des Bots-Panels (Kontrolle) |
+| F&G Momentum (SPY vs 125d) | 2007-06 – 2026-08 (4991) | eigene Berechnung |
+| F&G Safe-Haven (Aktien vs Anleihen) | 2007-02 – 2026-08 (4911) | SPY gegen IEF, 20 Tage |
+| F&G Junk-Bond (HYG vs LQD) | 2007-05 – 2026-08 (4844) | Proxy für den HY-Spread |
+| Fear & Greed (Komposit) | 2007-11 – 2026-08 (4719) | Mittel der laufenden z-Werte |
 
 Ziele: SPY-Forward-**Rendite** (5/21/63 Handelstage), Forward-**Volatilität** und
 Forward-**Drawdown** (21/63). Risiko ist ein eigenständiges Ziel, weil der geplante Einbauort die
 Exposure-Drosselung ist — ein Signal, das nur Risiko trifft, wäre dort trotzdem etwas wert.
 
-Insgesamt 84 Tests (49 roh + 35 inkrementell), Bonferroni-korrigiertes Niveau **α = 0,0006**.
+Insgesamt 140 Tests (77 roh + 63 inkrementell), Bonferroni-korrigiertes Niveau **α = 0,00036**.
 
 ## Die Befunde
 
-**Runde 1 — sagt das Signal überhaupt etwas voraus?** 6 von 49 Tests tragen:
+**Runde 1 — sagt das Signal überhaupt etwas voraus?** 6 von 77 Tests tragen:
 
 | Signal | Ziel | Spread | p | Rank-IC | Startpunkt-robust |
 |---|---|---|---|---|---|
@@ -47,11 +55,13 @@ Insgesamt 84 Tests (49 roh + 35 inkrementell), Bonferroni-korrigiertes Niveau **
 | VIX-Terminstruktur | Drawdown 21T | −2,52 % | 0,0001 | −0,32 | 86 % |
 | Marktbreite | Vola 21T | −11,50 % | <0,0001 | −0,48 | 100 % |
 | Marktbreite | Drawdown 21T | +2,94 % | <0,0001 | +0,29 | 100 % |
+| F&G Momentum | Vola 21T | +9,17 % | <0,0001 | +0,38 | 100 % |
 
 **Alle sechs sind Risikovorhersagen. Bei den Renditen: null Treffer, über alle Signale und
-Horizonte.**
+Horizonte.** (Die VIX-Terminstruktur verliert den Drawdown-Treffer beim strengeren Niveau der
+erweiterten Runde — genau der Preis, den zusätzliches Suchen kostet.)
 
-**Runde 2 — bleibt nach Abzug der Ampel-Bestandssignale etwas übrig? Null von 35.**
+**Runde 2 — bleibt nach Abzug der Ampel-Bestandssignale etwas übrig? Null von 63.**
 
 | Kandidat | bestes Restergebnis | Rank-IC roh → inkrementell |
 |---|---|---|
@@ -60,9 +70,55 @@ Horizonte.**
 | SPY-Volumenratio | Vola 21T, p = 0,011 | 0,14 → 0,15 |
 | SPY-OBV-Trend | Rendite 21T, p = 0,034 | −0,27 → −0,12 |
 | Sleeve-Spike-Anteil | Vola 21T, p = 0,28 | — |
+| F&G Momentum | Rendite 21T, p = 0,06 | 0,38 → 0,10 |
+| F&G Safe-Haven | Rendite 21T, p = 0,09 | — |
+| F&G Junk-Bond | Rendite 21T, p = 0,06 | — |
+| Fear & Greed (Komposit) | Rendite 5T, p = 0,12 | 0,18 → −0,02 |
 
 Kein Rest überlebt das korrigierte Niveau. Übersetzt: Diese Signale sagen dasselbe wie VIX-Level
 und Marktbreite — nur schlechter.
+
+## Nachtrag: Fear & Greed (Nicos Frage, 2026-08-11)
+
+Nico fragte, ob es weitere Ansätze gibt, „die Menschen zu verstehen" — Beispiel
+Fear-&-Greed-Index. Die Antwort ist präzise, weil F&G kein eigenständiges Signal ist, sondern ein
+**Komposit aus sieben Zutaten**, und fünf davon standen bereits im Test oben:
+
+| F&G-Komponente | Bei uns | Befund |
+|---|---|---|
+| Market Volatility (VIX vs 50d) | VIX-Level | trägt auf Risiko, **Bestandssignal** |
+| Stock Price Strength (52W H/T) | ~Marktbreite | trägt auf Risiko, **Bestandssignal** |
+| Stock Price Breadth (McClellan) | Breite + Volumen | **kein eigener Beitrag** |
+| Put/Call | W4 | offen (Quelle gibt 403) |
+| Market Momentum (SPY vs 125d) | neu gemessen | trägt roh auf Vola (p < 0,0001), **inkrementell nichts** |
+| Safe-Haven-Demand (Aktien vs Anleihen) | neu gemessen | **kein Befund** (bester Wert p = 0,006) |
+| Junk-Bond-Demand (HYG vs LQD) | neu gemessen | **kein Befund** (bester Wert p = 0,021) |
+
+Und der Index selbst, als Mittel der laufenden z-Werte seiner Bausteine gebaut:
+
+**Der Komposit trägt nichts — nicht einmal roh.** Bester Wert: Vola 21T mit p = 0,0036 gegen ein
+korrigiertes Niveau von 0,00036. Inkrementell: p ≥ 0,29 auf allen Zielen.
+
+Das Bemerkenswerte daran: **Der Komposit ist schwächer als seine beste Zutat.** Momentum allein
+erreicht auf Folgevolatilität p < 0,0001 und Rank-IC 0,38; gemittelt mit Safe-Haven und Junk-Bond
+fällt das auf p = 0,0036 und IC 0,18. Das Mitteln verwässert das starke Signal mit schwachen —
+womit die Kernbehauptung von Fear & Greed („die Kombination sieht mehr als die Teile") an unseren
+Daten **nicht zutrifft**.
+
+Zwei Anmerkungen zur Ehrlichkeit dieses Teils:
+
+- **Der Index wurde nachgebaut, nicht abgerufen.** CNN liefert nur wenige Jahre Historie über
+  einen inoffiziellen Endpunkt; der Nachbau aus eigenen Daten gibt 19 Jahre und keine Abhängigkeit
+  von einer Quelle, die verschwinden kann. Er ist damit nicht zahlengleich mit CNNs Version —
+  aber er misst dieselben Mechanismen, und die entscheiden.
+- **Junk-Bond ist ein Proxy.** Die echte FRED-Serie (`BAMLH0A0HYM2`) liefert über den freien
+  CSV-Endpunkt nur ~3 Jahre, unabhängig vom Startdatum — das ergäbe n = 12 beim 63-Tage-Horizont
+  und wäre nicht beurteilbar. Ersetzt durch HYG-gegen-LQD-Relativperformance: dieselbe Frage
+  („wie teuer ist Risiko gerade"), 19 Jahre, vorhandene Quelle. Als Proxy verrauschter als der
+  Originalspread, weil auch Duration und ETF-Flüsse mitlaufen.
+
+**Konsequenz: Fear & Greed ist für uns erledigt.** Nicht weil der Gedanke falsch wäre, sondern
+weil fünf seiner sieben Zutaten hier schon gemessen sind und die zwei neuen nichts hinzufügen.
 
 ## Zwei Befunde, die erst durch die Methodik sichtbar wurden
 
