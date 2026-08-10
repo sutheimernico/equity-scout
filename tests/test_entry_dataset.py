@@ -232,3 +232,35 @@ def test_evidence_feature_columns_do_not_collide_with_price_features():
     from equity_scout.ml.evidence_features import EVIDENCE_FEATURE_COLUMNS
 
     assert not set(FEATURE_COLUMNS) & set(EVIDENCE_FEATURE_COLUMNS)
+
+
+def test_volume_index_is_additive_and_leaves_the_plain_layout_untouched():
+    """v17c: a plain run and a volume run must be the SAME sample, or the AUC comparison
+    between them measures the sample change instead of the features."""
+    import pandas as pd
+
+    from equity_scout.ml.volume_features import VOLUME_FEATURE_COLUMNS, VolumeIndex
+
+    panel = _panel()
+    tickers = ["AAA", "BBB"]  # CCC is the deliberately history-starved one
+
+    plain_X, plain_y, plain_meta = build_backfill_dataset(panel, tickers)
+
+    dates = panel.closes.index
+    volumes = pd.DataFrame(
+        {t: [1_000_000.0 * (1.05 if i % 2 else 0.95) for i in range(len(dates))]
+         for t in panel.closes.columns},
+        index=dates,
+    )
+    index = VolumeIndex(volumes=volumes, closes=panel.closes)
+    vol_X, vol_y, vol_meta = build_backfill_dataset(panel, tickers, volume_index=index)
+
+    # Same rows, same labels — only wider.
+    assert len(vol_X) == len(plain_X)
+    assert list(vol_y) == list(plain_y)
+    assert list(vol_meta["ticker"]) == list(plain_meta["ticker"])
+    assert list(vol_X.columns) == list(plain_X.columns) + list(VOLUME_FEATURE_COLUMNS)
+    # The shared columns are bit-identical, not merely similar.
+    for column in plain_X.columns:
+        assert vol_X[column].tolist() == plain_X[column].tolist(), column
+    assert not vol_X[list(VOLUME_FEATURE_COLUMNS)].isna().any().any()

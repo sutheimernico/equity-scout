@@ -29,6 +29,7 @@ from equity_scout.ml.entry_features import (
     market_context,
 )
 from equity_scout.ml.evidence_features import EVIDENCE_FEATURE_COLUMNS, EvidenceIndex
+from equity_scout.ml.volume_features import VOLUME_FEATURE_COLUMNS, VolumeIndex
 from equity_scout.ml.labeling import BarrierConfig
 
 
@@ -42,6 +43,7 @@ def build_backfill_dataset(
     label_direction: str = "beats",
     barrier_config: BarrierConfig | None = None,
     evidence_index: EvidenceIndex | None = None,
+    volume_index: VolumeIndex | None = None,
 ) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
     """Assemble aligned (X, y, meta) from a stock+benchmark `PricePanel`.
 
@@ -113,6 +115,10 @@ def build_backfill_dataset(
                 continue
             if evidence_index is not None:
                 features = {**features, **evidence_index.features(ticker, as_of)}
+            # v17c, additive in exactly the same way: default None reproduces the previous
+            # layout byte for byte, so a plain run and a volume run are the same sample.
+            if volume_index is not None:
+                features = {**features, **volume_index.features(ticker, as_of)}
             if as_of not in pair.index:  # benchmark gap on the decision day — cannot label honestly
                 continue
             if label_direction == "triple_barrier":
@@ -136,6 +142,8 @@ def build_backfill_dataset(
     columns = list(FEATURE_COLUMNS)
     if evidence_index is not None:
         columns += list(EVIDENCE_FEATURE_COLUMNS)
+    if volume_index is not None:
+        columns += list(VOLUME_FEATURE_COLUMNS)
     X = pd.DataFrame([r[2] for r in rows], columns=columns)
     # No-op today by construction (every row's feature dict is already complete before it lands
     # in `rows`, verified 0 NaN on real data) — but `pd.DataFrame(..., columns=...)` silently
