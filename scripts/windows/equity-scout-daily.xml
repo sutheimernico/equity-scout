@@ -18,6 +18,10 @@
     <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
     <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
     <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <!-- See the nightly task's XML: without this the 18:00 slot only fires when something
+         else already woke the machine. Set on the live task 2026-08-10 and pinned here so
+         re-running the installer cannot silently undo it. -->
+    <WakeToRun>true</WakeToRun>
     <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
   </Settings>
   <Actions Context="Author">

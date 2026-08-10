@@ -4,6 +4,9 @@
 # (02:40 Tue-Sat; wakes the auto-depot/training chain even when WSL is down) and
 # equity-scout-session (every 10 min 14:20-22:20 Mon-Fri; wakes the box for the US session so
 # the session lane's MINUTE cron inside WSL can fire at all).
+# All three carry WakeToRun since 2026-08-10 — daily and nightly were registered without it,
+# so their slots silently depended on the machine already being awake. StartWhenAvailable
+# only catches up after a wake and was not a substitute.
 # NEEDS NICO: run this script once yourself — task registration on the Windows
 # side is deliberately not automated.
 # schtasks reads the XML from the Windows filesystem, so it is staged into the

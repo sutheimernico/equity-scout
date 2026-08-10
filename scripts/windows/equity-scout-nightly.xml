@@ -18,6 +18,12 @@
     <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
     <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
     <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <!-- Without this the task cannot WAKE a sleeping box, only run once something else woke
+         it - which made the 02:40 slot dependent on the machine happening to be awake
+         (measured 2026-08-10: WakeToRun was false here while the session task had it true).
+         StartWhenAvailable only catches up AFTER a wake, so it is not a substitute. Wake
+         timers are enabled on AC and off on battery by Windows policy; that stays. -->
+    <WakeToRun>true</WakeToRun>
     <ExecutionTimeLimit>PT2H</ExecutionTimeLimit>
   </Settings>
   <Actions Context="Author">
