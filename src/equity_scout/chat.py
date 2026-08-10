@@ -141,17 +141,24 @@ GLOSSARY = "\n".join((GLOSSARY_HOUSE, GLOSSARY_METRICS, GLOSSARY_FILINGS))
 
 
 def glossary_for(topics: list[str], *, has_dossier: bool) -> str:
-    """Only the glossary sections this question can possibly need.
+    """The FULL glossary, always — deliberately not trimmed to the topic anymore.
 
-    House terms always (they appear in every dossier and depot line); metrics when a stock
-    or a key figure is on the table; filing routes when people are.
+    This used to return only the sections a question could need, on the reasoning that every
+    1 000 prompt characters cost seconds of CPU prefill. That reasoning was right about the
+    cost of a FIRST evaluation and wrong about what actually happens across a conversation:
+    Ollama caches the prompt's leading tokens between requests, and the measurement
+    (2026-08-10) is lopsided — same prefix, different question: prefill 108.6 s → 1.8 s, a
+    ~50x difference; a DIFFERENT prefix pays in full again.
+
+    Topic-trimming built a different prefix per topic combination, so every change of subject
+    threw the cache away and paid the whole prompt again. A constant glossary is ~670 tokens
+    that are evaluated once per model load and free from then on, and it must therefore sit
+    at a FIXED position at the front (see `_chat_context`): stability beats brevity here.
+
+    Arguments are kept so callers and tests stay unchanged; they no longer select anything.
     """
-    parts = [GLOSSARY_HOUSE]
-    if has_dossier or "kennzahlen" in topics:
-        parts.append(GLOSSARY_METRICS)
-    if "personen" in topics or has_dossier:
-        parts.append(GLOSSARY_FILINGS)
-    return "\n".join(parts)
+    del topics, has_dossier  # intentionally unused — see docstring
+    return GLOSSARY
 
 
 class ChatError(Exception):

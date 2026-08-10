@@ -1334,13 +1334,25 @@ def create_app(
         from equity_scout.chat_retrieval import find_persons, route_topics
 
         topics = route_topics(question)
+        dossiers = _chat_dossier_blocks(question)
+        named = find_persons(question, _chat_person_names(db_path))
+        # The "ueberblick" fallback exists for questions with NO anchor at all, and it pulls
+        # every block in. A recognised stock or person IS the anchor, so the fallback would
+        # answer a narrow question with the whole dashboard: measured 2026-08-10, "Was hältst
+        # du von Microsoft?" went from 1 652 to 2 985 prompt tokens the moment keyword routing
+        # stopped mis-firing on "hältst" and left the fallback as the only match.
+        if topics == ["ueberblick"] and (dossiers or named):
+            topics = []
         if advice and "inbox" not in topics:
             topics.append("inbox")
-        dossiers = _chat_dossier_blocks(question)
-        blocks: list[str] = [ADVICE_BRIEF] if advice else []
-        # Glossary early and topic-trimmed: it is the prompt's stable prefix (Ollama caches
-        # that across questions) and every unused section costs seconds of CPU prompt eval.
-        blocks.append(glossary_for(topics, has_dossier=bool(dossiers)))
+        # The glossary is the prompt's CONSTANT prefix and must come first, before anything
+        # question-dependent — Ollama caches leading tokens between requests (measured
+        # 2026-08-10: same prefix 108.6 s → 1.8 s prefill, a different prefix pays in full).
+        # ADVICE_BRIEF therefore moved BEHIND it: as the first block it changed the prefix for
+        # every advice question and threw that cache away.
+        blocks: list[str] = [glossary_for(topics, has_dossier=bool(dossiers))]
+        if advice:
+            blocks.append(ADVICE_BRIEF)
         blocks.extend(dossiers)
         overview = "ueberblick" in topics
         if "depots" in topics or overview:
@@ -1349,8 +1361,8 @@ def create_app(
             blocks.append(_chat_proof_block(autotrader_db, shortterm_db, forward_db))
         # Named people are detected like tickers — independent of keyword routing, because
         # "Was hat Tuberville zuletzt gekauft?" routes on "gekauft" (a depot word) and would
-        # otherwise never reach the evidence at all.
-        named = find_persons(question, _chat_person_names(db_path))
+        # otherwise never reach the evidence at all. (Resolved above, before the fallback
+        # decision, because a named person is an anchor too.)
         if named or "personen" in topics:
             now = datetime.now(timezone.utc).isoformat(timespec="seconds")
             if named:

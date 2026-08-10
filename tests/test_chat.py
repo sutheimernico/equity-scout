@@ -208,14 +208,21 @@ def test_ask_ollama_names_a_timeout_as_a_timeout(monkeypatch) -> None:
         ask_ollama("Frage?", "Kontext")
 
 
-def test_glossary_for_trims_sections_the_question_cannot_need() -> None:
-    depot_only = glossary_for(["depots"], has_dossier=False)
-    assert "Einstiegszone" in depot_only          # Hausbegriffe immer
-    assert "KGV" not in depot_only                 # Kennzahlen nur bei Bedarf
-    assert "13F" not in depot_only
+def test_glossary_is_constant_so_the_prompt_cache_survives_a_change_of_subject() -> None:
+    """Replaces the old "trims sections the question cannot need" expectation (2026-08-10).
 
-    with_stock = glossary_for(["kennzahlen"], has_dossier=True)
-    assert "KGV" in with_stock and "13F" in with_stock
+    Trimming saved prompt tokens but built a DIFFERENT prefix per topic combination, and
+    Ollama caches the prompt's leading tokens between requests: measured same-prefix prefill
+    108.6 s → 1.8 s, while a different prefix pays in full. A constant glossary is evaluated
+    once per model load and free afterwards, so stability beats brevity here.
+    """
+    from equity_scout.chat import GLOSSARY
+
+    for topics, has_dossier in ([], False), (["depots"], False), (["kennzahlen"], True):
+        assert glossary_for(topics, has_dossier=has_dossier) == GLOSSARY
+
+    everything = glossary_for(["depots"], has_dossier=False)
+    assert "Einstiegszone" in everything and "KGV" in everything and "13F" in everything
 
 
 def test_ask_ollama_sets_the_context_window_explicitly(monkeypatch) -> None:

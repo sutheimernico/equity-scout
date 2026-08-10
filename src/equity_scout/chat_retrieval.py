@@ -371,15 +371,45 @@ _TOPIC_KEYWORDS: dict[str, tuple[str, ...]] = {
     "kennzahlen": ("kgv", "kurs-gewinn", "kennzahl", "marge", "bewertung", "buchwert",
                    "eigenkapital", "wachstum", "verschuld", "dividende", "umsatz",
                    "gewinnwachstum", "volatil", "schwankung", "f-score", "bilanztrend"),
+    # House vocabulary. Without this, a pure "what does X mean?" question matched no keyword
+    # at all, fell through to the overview fallback and got the WHOLE dashboard — measured
+    # 2026-08-10: "Was ist die Einstiegszone?" answered "wird nicht im Datenkontext erwähnt"
+    # while the definition sat in the glossary right above the data that drowned it out.
+    # The glossary is always present, so this topic needs no block of its own.
+    "begriffe": ("einstiegszone", "einstiegs-score", "einstiegszeitpunkt", "potenzial",
+                 "signal-filter", "verfallen", "meldeverzug", "form 4", "13f", "8-k",
+                 "perzentil", "was bedeutet", "was ist ein", "was heißt"),
 }
+
+
+# Keywords that must stand as WHOLE words. Everything else matches from a word START, which
+# is what German inflection and compounds need ("kennzahl" → "Kennzahlen", "markt" →
+# "Marktlage"). These three were plain substring matches and fired inside unrelated words —
+# measured 2026-08-10, each one dragging blocks into a prompt that had nothing to do with it:
+#   "hält"  in "Was HÄLTST du von Microsoft?"       → depot block (~157 tokens)
+#   "offen" in "Was ist OFFENSICHTLICH das beste?"  → inbox block
+#   "ml"    in "die SaMMLung der Kennzahlen"        → strategy block + knowledge (~739 tokens)
+# Cost is only half of it: an off-topic block is what a 7B model then answers about.
+_WHOLE_WORD_ONLY = frozenset({"hält", "offen", "ml"})
+
+
+def _keyword_hits(question_lower: str, words: tuple[str, ...]) -> bool:
+    for word in words:
+        tail = r"\b" if word in _WHOLE_WORD_ONLY else ""
+        if re.search(rf"\b{re.escape(word)}{tail}", question_lower):
+            return True
+    return False
 
 
 def route_topics(question: str) -> list[str]:
     """Which base context blocks the question needs. Deterministic keyword routing —
     a 7B model gets calmer, better answers from a short, relevant prompt than from
-    everything at once. No match -> the compact overview block."""
+    everything at once. No match -> the compact overview block.
+
+    Matching is anchored at word starts (see `_WHOLE_WORD_ONLY`): plain `in` treated every
+    keyword as a substring, so unrelated words pulled whole blocks into the prompt."""
     q = question.lower()
-    topics = [t for t, words in _TOPIC_KEYWORDS.items() if any(w in q for w in words)]
+    topics = [t for t, words in _TOPIC_KEYWORDS.items() if _keyword_hits(q, words)]
     return topics or ["ueberblick"]
 
 

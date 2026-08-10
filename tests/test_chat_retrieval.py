@@ -236,6 +236,39 @@ def test_routing_can_return_multiple_topics():
     assert "depots" in topics and "markt" in topics
 
 
+def test_routing_does_not_fire_on_keywords_hidden_inside_other_words():
+    """Measured 2026-08-10: plain substring matching pulled whole blocks into prompts that
+    had nothing to do with them — and an off-topic block is what the model then answers
+    about. "hältst" is not "hält", "offensichtlich" is not "offen", "Sammlung" is not "ml"."""
+    assert "depots" not in route_topics("Was hältst du von Microsoft?")
+    assert "inbox" not in route_topics("Was ist offensichtlich das beste Investment?")
+    assert "strategien" not in route_topics("Erkläre mir die Sammlung der Kennzahlen")
+
+
+def test_a_house_term_question_routes_to_the_glossary_and_nothing_else():
+    """Live-measured failure 2026-08-10: "Was ist die Einstiegszone?" matched no keyword,
+    fell through to the overview fallback, got the whole dashboard — and the model answered
+    "wird nicht im Datenkontext erwähnt" while the definition sat in the glossary above it."""
+    for q in ("Was ist die Einstiegszone?", "Was bedeutet Meldeverzug?",
+              "Was ist ein Perzentil?"):
+        assert route_topics(q) == ["begriffe"], q  # glossary only, no data blocks at all
+
+    # "Signal-Filter" deliberately lives in BOTH sets: "Wie gut ist der Signal-Filter?" wants
+    # the strategy numbers. What must never happen is the whole-dashboard fallback.
+    for q in ("Was heißt Signal-Filter?", "Wie gut ist der Signal-Filter?"):
+        topics = route_topics(q)
+        assert "ueberblick" not in topics, q
+
+
+def test_routing_still_matches_german_inflection_and_compounds():
+    """The fix anchors at word STARTS, not both ends — German needs that."""
+    assert "kennzahlen" in route_topics("Zeig mir die Kennzahlen")  # plural of "kennzahl"
+    assert "markt" in route_topics("Wie ist die Marktlage?")  # compound of "markt"
+    assert "depots" in route_topics("Welche Aktie hält die Strategie?")  # exact "hält"
+    assert "inbox" in route_topics("Welche Pitches sind offen?")  # exact "offen"
+    assert "strategien" in route_topics("Was macht das ML-Modell?")  # exact "ml"
+
+
 def test_routing_picks_kennzahlen_for_metric_questions():
     for q in ("Wie hoch ist das KGV von Micron?", "Zeig mir die Kennzahlen",
               "Wie ist die Marge?", "Was ist die Bewertung wert?"):

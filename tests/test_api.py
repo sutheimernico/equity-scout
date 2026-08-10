@@ -835,7 +835,13 @@ def test_chat_advice_question_runs_the_llm_with_the_advice_brief(tmp_path, monke
     monkeypatch.setattr("equity_scout.chat.ask_ollama", fake_ask)
     body = client.post("/api/chat", json={"question": "Soll ich Micron kaufen?"}).json()
     assert body["answer"] == "Einschätzung."
-    assert captured["context"].startswith("EMPFEHLUNGS-AUFTRAG")
+    # The brief sits BEHIND the glossary since 2026-08-10: the glossary is the prompt's
+    # constant cached prefix, and a brief in front of it changed that prefix for every
+    # advice question (prefill 1.8 s vs 108.6 s on a cache miss). Still before the data.
+    assert captured["context"].startswith("GLOSSAR:")
+    assert "EMPFEHLUNGS-AUFTRAG" in captured["context"]
+    brief_at = captured["context"].index("EMPFEHLUNGS-AUFTRAG")
+    assert brief_at < captured["context"].index("DEPOTS")
     assert "PITCHES" in captured["context"] or "Pitch" in captured["context"]
 
 
@@ -867,6 +873,33 @@ def test_chat_context_carries_dossier_and_glossary_for_a_mentioned_ticker(tmp_pa
     client.post("/api/chat", json={"question": "Was weißt du über DIP?"})
     assert "AKTIE" in captured["context"] and "DIP" in captured["context"]
     assert "GLOSSAR" in captured["context"]
+
+
+def test_a_recognised_stock_suppresses_the_whole_dashboard_fallback(tmp_path, monkeypatch):
+    """The "ueberblick" fallback pulls EVERY block and exists for questions with no anchor.
+    A recognised stock is an anchor. Found 2026-08-10 while fixing the substring routing:
+    with "hältst" no longer mis-matching the depot keyword, the fallback became the only
+    match and the prompt grew 1 652 → 2 985 tokens — the opposite of the intent.
+    """
+    from equity_scout.radar import build_watchlist
+    from equity_scout.radar_storage import save_watchlist
+    from tests.test_radar import _finalist
+    from tests.test_signals import downtrend_history
+
+    db = str(tmp_path / "chat_anchor.db")
+    save_watchlist(db, build_watchlist(
+        [_finalist("DIP")], {"DIP": downtrend_history()}, created_at="2026-08-10T09:00:00",
+    ))
+    client = TestClient(create_app(db))
+    captured = _capture_chat_context(monkeypatch)
+
+    client.post("/api/chat", json={"question": "Was hältst du von DIP?"})
+    ctx = captured["context"]
+    assert "AKTIE" in ctx and "DIP" in ctx  # the anchor itself is there
+    # …and none of the fallback's unrelated blocks are
+    assert "STRATEGIE-WISSEN" not in ctx
+    assert "AKTIEN-SCREENER" not in ctx
+    assert "INBOX" not in ctx
 
 
 def test_chat_context_carries_cached_key_figures(tmp_path, monkeypatch):
@@ -952,7 +985,9 @@ def test_chat_stream_advice_question_streams_with_the_advice_brief(tmp_path, mon
     monkeypatch.setattr("equity_scout.chat.stream_ollama", fake_stream)
     resp = client.post("/api/chat/stream", json={"question": "Soll ich Micron kaufen?"})
     assert resp.text == "Einschätzung."
-    assert captured["context"].startswith("EMPFEHLUNGS-AUFTRAG")
+    # Same prefix rule as the non-streaming path: constant glossary first, brief behind it.
+    assert captured["context"].startswith("GLOSSAR:")
+    assert "EMPFEHLUNGS-AUFTRAG" in captured["context"]
 
 
 def test_chat_stream_reports_an_unreachable_model_in_band(tmp_path, monkeypatch):
