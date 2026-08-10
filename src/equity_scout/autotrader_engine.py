@@ -25,6 +25,7 @@ honest seam a future broker adapter would consume — no speculative interface b
 from __future__ import annotations
 
 import logging
+import sys
 from dataclasses import dataclass, field, replace
 
 import pandas as pd
@@ -382,8 +383,27 @@ def advance_depot(
 
     # 3. Sleeve decisions from data strictly BEFORE today, aggregated look-through.
     #    ML sleeves are mirrored against their POST-exit forward book (module docstring).
+    #    Isolated per sleeve: a crashing decide() (bad feature layout, a data edge case) must
+    #    not take the other, healthy sleeves down with it. A failed sleeve is EXCLUDED from
+    #    `decisions` for today — `aggregate_targets` below already treats an absent key as
+    #    "that sleeve sits in cash" (see its docstring), the exact same fate a legitimate empty
+    #    decide() gets, so a crash costs that one sleeve's slice of the book, not everyone
+    #    else's. The alternative — replaying the sleeve's last successful weights — has no home
+    #    to live in: strategies are deliberately stateless (base.py, "no account-state
+    #    parameter", v12 R5) and no per-sleeve target-weight history is persisted on
+    #    `AutoDepotAccount` to replay from, so it would need new state rather than reusing an
+    #    existing, already-safe contract.
     view = MarketView(panel, today)
-    decisions = {s.name: s.decide(view.as_of, view) for s in strategies}
+    decisions: dict[str, list] = {}
+    for s in strategies:
+        try:
+            decisions[s.name] = s.decide(view.as_of, view)
+        except Exception as err:  # noqa: BLE001 - one sleeve's bug must not sink the others
+            print(
+                f"Sleeve {s.name} fehlgeschlagen: {err} — für {today_iso} "
+                "übersprungen (Cash).",
+                file=sys.stderr,
+            )
     if sleeve_holdings:
         decisions = {
             name: (

@@ -87,7 +87,10 @@ def main() -> None:
     header = f"{'Strategy':<22}{'Equity':>12}{'Return':>9}{'Bench':>9}{'Status':>10}"
     print(f"{header}\n{'-' * len(header)}")
     for strategy in default_strategies():
-        _advance_and_report(strategy, panel, args, as_of)
+        try:
+            _advance_and_report(strategy, panel, args, as_of)
+        except Exception as err:  # noqa: BLE001 - one strategy's crash must not skip the rest
+            print(f"{strategy.name} fehlgeschlagen: {err}")
 
     watchlist = load_latest_watchlist(args.main_db) or {}
     watch_tickers = [e["ticker"] for e in watchlist.get("entries", [])]
@@ -104,7 +107,10 @@ def main() -> None:
         if not bot.ready or stock_panel is None:
             print(f"{bot.name:<22} kein promoteter Champion — Bot übersprungen (ehrlich: kein Edge, kein Trade)")
             continue
-        _advance_and_report(bot, stock_panel, args, as_of)
+        try:
+            _advance_and_report(bot, stock_panel, args, as_of)
+        except Exception as err:  # noqa: BLE001 - one bot's crash must not skip the other
+            print(f"{bot.name} fehlgeschlagen: {err}")
     print(
         "\nML-Bots: Paper-only. Das Short-Konto rechnet einen Borrow-Kosten-PROXY, Fills zum"
         " Schlusskurs ohne Borrow-Verfügbarkeit — gelabelte Vereinfachung, keine realen"

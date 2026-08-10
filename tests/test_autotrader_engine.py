@@ -26,6 +26,17 @@ class _Fixed:
         return self._targets
 
 
+class _Crashing:
+    """Canned strategy whose decide() always raises — simulates a future feature-layout
+    mismatch or data edge case blowing up ONE sleeve."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    def decide(self, as_of, market):  # noqa: ANN001, ANN201 - Strategy protocol
+        raise RuntimeError("boom")
+
+
 class _Recorder(_Fixed):
     """Records what the MarketView let it see."""
 
@@ -401,3 +412,48 @@ def test_sleeve_holdings_only_filters_listed_sleeves() -> None:
         protections=[], sleeve_holdings={"ml": set()},
     )
     assert account.pending_orders.targets["AAPL"] == pytest.approx(0.8)
+
+
+def test_advance_isolates_a_crashing_sleeve_and_still_decides_the_others(capsys) -> None:
+    """Quality-review finding: one sleeve's decide() raising must not take the other, healthy
+    sleeves' decisions down with it. The crashed sleeve is EXCLUDED from `decisions` for the
+    day — the exact same fate `aggregate_targets` already gives a sleeve with a legitimate
+    empty decide() ("sits in cash", see its docstring) — so the healthy sleeve's full share
+    still lands in the day's decision and the advance completes."""
+    panel = _panel(5)
+    good = _Fixed("good", [TargetWeight("SPY", 1.0)])
+    bad = _Crashing("bad")
+    account, valuation = advance_depot(
+        AutoDepotAccount.fresh(), [bad, good], _allocation({"bad": 0.5, "good": 0.5}),
+        PricePanel(panel.closes.iloc[:4]), protections=[],
+    )
+    assert valuation is not None  # the advance completed despite the crash
+    assert account.pending_orders is not None
+    assert account.pending_orders.targets == {"SPY": pytest.approx(0.5)}
+    err = capsys.readouterr().err
+    assert "bad" in err
+    assert "fehlgeschlagen" in err
+
+
+def test_a_crashing_sleeve_does_not_disturb_an_already_filled_book() -> None:
+    """The crash only affects the NEW decision for tomorrow's fill (v13 O2): a book already
+    established from a PRIOR successful advance drifts and fills exactly as if nothing had
+    crashed today — the failure cannot corrupt state that predates it."""
+    panel = _panel(6, {"SPY": [100.0] * 6})
+    good = _Fixed("good", [TargetWeight("SPY", 1.0)])
+    account = AutoDepotAccount.fresh(initial_capital=100_000.0)
+    for n in (4, 5):  # decide, then fill — a healthy book is already established
+        account, _ = advance_depot(
+            account, [good], _allocation({"good": 1.0}), PricePanel(panel.closes.iloc[:n]),
+            protections=[],
+        )
+    assert account.weights == {"SPY": pytest.approx(1.0)}
+
+    # today, the sleeve crashes — but the fill of YESTERDAY's pending order still runs first.
+    account, valuation = advance_depot(
+        account, [_Crashing("good")], _allocation({"good": 1.0}), panel, protections=[],
+    )
+    assert valuation is not None
+    assert account.weights == {"SPY": pytest.approx(1.0)}  # yesterday's fill, untouched
+    # cash for tomorrow: no successful decision today to persist as the next pending order.
+    assert account.pending_orders.targets == {}
