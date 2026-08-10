@@ -599,9 +599,30 @@ Die Lücke war der zu enge Suchraum — alle 12 Strategien kamen aus EINER Famil
   Einzeltitel-Effekt). Produktions-Defaults bewusst NICHT auf die In-Sample-Gewinner gesetzt.
 - [ ] Beobachten: der Forward-Track der vier Familien. Cross-Sectional Momentum ist der
       Promotions-Kandidat, muss aber ≥30 Trades/≥60 Tage/Netto>0/PF≥1,1 nehmen wie jede Lane.
-- [ ] Welle 2 (Kapitaleffizienz, noch offen): Auto-Depot fährt 60 % Brutto-Exposure — 40 %
-      Cash kostet strukturell gegen einen steigenden Markt; Kosten-Netting über Lanes; die
-      Session-Lane nutzt 10 % ihres Broker-Kapitals.
+
+## Phase: v16 Welle 2 — Kapitaleffizienz des Auto-Depots (2026-08-10) — DONE
+Zwei Defekte, der zweite gefährlicher als der erste (`f685a0b`).
+- **Der Concentration-Cap parkte 24 % des Depots in Cash.** Die Sleeves wollten 83,9 % Brutto,
+  SPY aggregierte per Look-Through auf 29,1 % und VEU auf 14,6 % (sieben Sleeves teilen EINEN
+  ETF-Kern), der Cap kappte beide auf 10 % und ließ die Differenz zu Cash verfallen → 60,2 %
+  Brutto gegen SPY +3,3 %. **23,7 Prozentpunkte lagen brach, die keine Risikoregel verlangt
+  hat.** Der Cap begrenzt, wie viel in EINEM Titel steckt — er soll kein Cash halten. Jetzt
+  wird der gekappte Anteil auf die Titel unter dem Cap verteilt (proportional, nie über den
+  Cap); die Schranke bleibt gleich streng, und die Schichten dahinter skalieren weiter das
+  volle Buch (Test: gestresstes Brutto = exakt 25 % des ruhigen). Track-Bruch als
+  `protection_regime` gestempelt.
+- **Beim Verifizieren gefunden:** `active_sleeves()` gab JEDE Registry-Strategie zurück — die
+  vier neuen Familien hätten in der Nacht je 1/12 Depot-Kapital bekommen, mit null
+  Out-of-Sample-Historie, darunter Mean-Reversion (Sharpe 0,31, 16× Turnover). Das Gate der
+  ML-Bots gilt jetzt für alle Sleeves: ≥5 Forward-Sitzungen, zurückgehaltene werden gedruckt.
+  Live verifiziert. **Lehre:** eine Strategie in die Registry zu legen war nie nur eine
+  Registry-Änderung — sie floss direkt ins Depot.
+- Gate: 1915 Tests grün, ruff clean.
+- [ ] Beobachten: das Depot-Brutto nach dem nächsten Nightly (erwartet ~84 % statt 60 %) und
+      ob der Vol-Target-Layer dann stärker greift — das wäre korrekt, aber es soll gesehen
+      werden.
+- [ ] Rest von Welle 2, noch offen: Kosten-Netting über Lanes (jede zahlt ihre Kosten
+      einzeln), und die Session-Lane nutzt 10 % ihres Broker-Kapitals.
 - [ ] Welle 3 (Selektionsgeschwindigkeit, noch offen): „n Trades bis Aussage"-Rechner je Lane
       (tote Strategien laufen sonst monatelang weiter) und eine Verlustanatomie im Produkt
       statt per Hand (Exit-Grund × Regime × Titelklasse).
