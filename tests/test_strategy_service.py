@@ -65,9 +65,16 @@ def test_api_strategies_endpoint(tmp_path):
     body = resp.json()
     assert body["available"] is True
     assert body["benchmark"] == "60/40"
-    # 6 base strategies + sector rotation (v8) + the Multi-Strategie-Mix. The test
-    # panel has no sector ETFs, so the rotation sits honestly defensive — but it reports.
-    assert len(body["strategies"]) == 8
+    # EVERY registered strategy must report, including the ones this panel starves: the test
+    # panel has no sector ETFs, so sector rotation sits honestly defensive — and still shows
+    # up with metrics. Counted against the registry rather than a literal, because a hard
+    # number turns "a new family was added" into a test failure instead of coverage (it did
+    # exactly that when v16 added four families).
+    from equity_scout.strategies.registry import default_strategies
+
+    assert len(body["strategies"]) == len(default_strategies())
+    names = {s["name"] for s in body["strategies"]}
+    assert names == {s.name for s in default_strategies()}
     assert "disclaimer" in body
 
 
