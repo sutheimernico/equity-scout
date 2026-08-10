@@ -86,6 +86,23 @@ Grund, warum diese Runde nicht im selben Nullbefund enden muss wie die letzten z
 
 ## Wochenplan
 
+> **W0 blockiert alles Weitere — Nicos ausdrückliche Anweisung (2026-08-10):
+> jeder Indikator wird gegen die Historie geprüft, bevor er eingebaut wird.**
+>
+> Diese Landkarte stützt sich bisher auf **Fremdevidenz** (Literatur) plus einen
+> Erreichbarkeitstest. Das ist keine Messung an unseren Daten. Der aktuelle VIX-Stand
+> 12,77/15,46/18,98 ist eine Momentaufnahme, kein Backtest. Ob VIX-Backwardation in UNSEREM
+> Universum und über UNSERE Historie etwas vorhersagt, ist offen — und Literaturbefunde
+> übertragen sich nachweislich nicht automatisch: derselbe Skip-Month, der für US-Einzelaktien
+> gut belegt ist, verlor auf unseren 21 Index-ETFs (v16, `skip_months=0` gewann).
+
+- [ ] **W0 Historischer Abgleich (Gate für alle folgenden Tasks)** — je Kandidat: gegen die
+      vorhandene Panel-Historie testen, identisches Sample, Walk-Forward, `significance.py` für
+      die Frage „reicht n überhaupt". Zusätzlich die Baker-Wurgler-Asymmetrie separat prüfen —
+      wirkt das Signal nur in einer Richtung? Maßstab ist der Volumen-Test vom 2026-08-11:
+      dessen Nullbefund (AUC 0,4982 → 0,4973 bei 100 % Coverage) ist das Format, in dem auch ein
+      negatives Ergebnis berichtet wird. **Kein Einbau in Ampel, Depot oder Strategie ohne
+      diesen Schritt.**
 - [ ] **W1 VIX-Terminstruktur** — verifiziert erreichbar (^VIX9D/^VIX/^VIX3M über yfinance, alle
       drei liefern Daten). Kontango vs. Backwardation als Stressmarker, in die Ampel.
       Aktueller Live-Stand: 12,77 / 15,46 / 18,98 = sauberes Kontango, also Ruhe.
