@@ -25,15 +25,30 @@ if [ -f .env ]; then
   set +a
 fi
 
+# Per-step wall-clock cap. The chain already degrades per step ("FAILED … — continuing"), but
+# a step that HANGS was unbounded, and the whole chain runs inside a 1-hour Windows Task
+# limit. Measured 2026-08-10: `insights` (12 stocks x 2 LLM calls, normally 2-3 min) crawled
+# under heavy CPU load, the Task Scheduler killed the chain at 19:00 with 0xC000013A, and
+# everything after it — evidence, fscore, the resolvers and NOTIFY — never ran. No log line,
+# no day marker: a silent loss of the day's delivery caused by a cosmetic step.
+# 12 min leaves room for the whole chain inside the hour; override per run if ever needed.
+STEP_TIMEOUT="${EQUITY_SCOUT_STEP_TIMEOUT:-12m}"
+
 step() {
   local name="$1"
   shift
   echo "[$(date -Is)] START ${name}" >> "$LOG"
-  if "$@" >> "$LOG" 2>&1; then
+  if timeout "$STEP_TIMEOUT" "$@" >> "$LOG" 2>&1; then
     echo "[$(date -Is)] OK ${name}" >> "$LOG"
   else
     local rc=$?
-    echo "[$(date -Is)] FAILED ${name} (exit ${rc}) — continuing" >> "$LOG"
+    if [ "$rc" -eq 124 ]; then
+      # 124 is timeout(1)'s own code — named separately so the log distinguishes "too slow"
+      # from "broken", which need different fixes.
+      echo "[$(date -Is)] TIMEOUT ${name} (nach ${STEP_TIMEOUT}) — continuing" >> "$LOG"
+    else
+      echo "[$(date -Is)] FAILED ${name} (exit ${rc}) — continuing" >> "$LOG"
+    fi
   fi
 }
 

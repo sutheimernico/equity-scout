@@ -33,15 +33,26 @@ if [ -f .env ]; then
   set +a
 fi
 
+# Per-step wall-clock cap — same defect as daily_copilot.sh (measured there 2026-08-10: a
+# hanging step ate the whole 1-hour task budget and silently killed every later step). This
+# chain gets 2 hours from its Windows task and its steps are genuinely heavy (model training,
+# the depot advance), so the cap is wider. The depot advance is the LAST step and the one that
+# must not be starved by a slow trainer ahead of it.
+STEP_TIMEOUT="${EQUITY_SCOUT_STEP_TIMEOUT:-25m}"
+
 step() {
   local name="$1"
   shift
   echo "[$(date -Is)] START ${name}" >> "$LOG"
-  if "$@" >> "$LOG" 2>&1; then
+  if timeout "$STEP_TIMEOUT" "$@" >> "$LOG" 2>&1; then
     echo "[$(date -Is)] OK ${name}" >> "$LOG"
   else
     local rc=$?
-    echo "[$(date -Is)] FAILED ${name} (exit ${rc}) — continuing" >> "$LOG"
+    if [ "$rc" -eq 124 ]; then
+      echo "[$(date -Is)] TIMEOUT ${name} (nach ${STEP_TIMEOUT}) — continuing" >> "$LOG"
+    else
+      echo "[$(date -Is)] FAILED ${name} (exit ${rc}) — continuing" >> "$LOG"
+    fi
   fi
 }
 
