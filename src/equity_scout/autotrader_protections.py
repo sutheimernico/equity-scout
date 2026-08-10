@@ -65,11 +65,55 @@ def _scale(weights: dict[str, float], factor: float) -> dict[str, float]:
 
 @dataclass(frozen=True)
 class ConcentrationCap:
-    """No single name may exceed `cap` of equity (absolute, so shorts count too). Clipped
-    mass becomes cash — never redistributed, same honesty as ml_bot._confidence_weights."""
+    """No single name may exceed `cap` of equity (absolute, so shorts count too).
+
+    What happens to the clipped mass is a real economic choice, so it is a parameter:
+
+    - `redistribute=False` (default, and what the live depot has run since 2026-07-16): the
+      clipped weight becomes CASH. Conservative and simple, same stance as
+      ml_bot._confidence_weights.
+    - `redistribute=True`: the clipped weight is spread over the names that are still UNDER
+      the cap, proportionally to their own weights and only up to the cap.
+
+    Why the option exists (measured 2026-08-10): with eight sleeves looking through onto a
+    shared ETF core, SPY/IEF/VEU all pinned at exactly 10.00% and the depot sat at 60.2% gross
+    — 39.8% in cash that no risk rule asked for. The cap's purpose is to limit CONCENTRATION,
+    not to hold cash; leaving the freed mass idle turns a diversification rule into a
+    de-facto market-timing call and cost measurable return against a rising market.
+
+    The default stays False on purpose: flipping it changes the live depot's behaviour
+    mid-track, and that track is the only out-of-sample evidence this project has. Switching
+    it is Nico's call and needs a marked regime break, exactly like the crypto lane's
+    timescale change.
+    """
 
     cap: float = 0.10
     name: str = "concentration_cap"
+    redistribute: bool = False
+
+    def _redistribute(self, clipped: dict[str, float], freed: float) -> dict[str, float]:
+        """Spread `freed` over the names still under the cap, proportional to their weight,
+        never past the cap. Runs to a fixed point because each pass either places everything
+        or fills at least one name to the cap."""
+        out = dict(clipped)
+        for _ in range(len(out) + 1):
+            if freed <= 1e-12:
+                break
+            room = {t: self.cap - abs(w) for t, w in out.items() if self.cap - abs(w) > 1e-12}
+            if not room:
+                break  # everything is at the cap — the remainder honestly stays cash
+            base = sum(abs(out[t]) for t in room)
+            if base <= 1e-12:
+                break  # nothing to be proportional to; refuse to invent a distribution
+            placed = 0.0
+            for ticker, headroom in room.items():
+                share = min(freed * abs(out[ticker]) / base, headroom)
+                out[ticker] += math.copysign(share, out[ticker])
+                placed += share
+            if placed <= 1e-12:
+                break
+            freed -= placed
+        return out
 
     def apply(
         self, weights: dict[str, float], ctx: RiskContext
@@ -80,10 +124,15 @@ class ConcentrationCap:
         offenders = sorted(t for t in weights if abs(weights[t]) > self.cap + 1e-12)
         if not offenders:
             return weights, None
+        detail = f"Einzeltitel-Limit {self.cap:.0%} griff bei: {', '.join(offenders)}"
+        if self.redistribute:
+            freed = sum(abs(weights[t]) for t in offenders) - self.cap * len(offenders)
+            clipped = self._redistribute(clipped, freed)
+            detail += f" — {freed:.1%} auf die übrigen Titel verteilt"
         return clipped, RiskEvent(
             protection=self.name,
-            action=f"cap_{self.cap:.2f}",
-            detail=f"Einzeltitel-Limit {self.cap:.0%} griff bei: {', '.join(offenders)}",
+            action=f"cap_{self.cap:.2f}" + ("_redistributed" if self.redistribute else ""),
+            detail=detail,
         )
 
 
@@ -194,7 +243,26 @@ class DrawdownBreaker:
 
 
 def default_protections() -> list[ProtectionRule]:
-    return [ConcentrationCap(), RegimeGate(), VolTarget(), DrawdownBreaker()]
+    """The live chain, in order: cap -> regime -> vol target -> drawdown breaker.
+
+    `redistribute=True` since 2026-08-10, and it is a behaviour change worth stating.
+    Measured on that day's real depot: the sleeves asked for 83.9 % gross, SPY aggregated to
+    29.1 % and VEU to 14.6 % through the look-through (seven sleeves share one ETF core), the
+    cap clipped both to 10 %, and **23.7 percentage points of capital went to cash that no
+    risk rule had asked for** — the depot ran at 60.2 % gross against SPY's +3.3 %.
+
+    The cap's job is to bound how much sits in ONE name, not to hold cash. Redistributing the
+    clipped mass onto the names still under the cap keeps that bound exactly as strict (no
+    position exceeds 10 %) while the book stays invested. The risk layers after it — regime
+    gate, vol target, drawdown breaker — still see and scale the full book, so downside
+    control is unchanged; only the unintended cash drag is gone.
+
+    This splits the depot's track record in two. The engine stamps `protection_regime` on the
+    account the first time it advances under the new rule, and every surface that shows the
+    depot curve must treat the segments as separate series (same rule as the crypto lane's
+    timescale change and `execution_regime` in the session lane).
+    """
+    return [ConcentrationCap(redistribute=True), RegimeGate(), VolTarget(), DrawdownBreaker()]
 
 
 def apply_protections(

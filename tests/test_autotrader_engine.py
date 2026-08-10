@@ -457,3 +457,70 @@ def test_a_crashing_sleeve_does_not_disturb_an_already_filled_book() -> None:
     assert account.weights == {"SPY": pytest.approx(1.0)}  # yesterday's fill, untouched
     # cash for tomorrow: no successful decision today to persist as the next pending order.
     assert account.pending_orders.targets == {}
+
+
+def test_the_protection_regime_break_is_stamped_once_and_never_moves() -> None:
+    """v16: the cap started redistributing its clipped mass instead of dropping it to cash,
+    which lifted the live depot from 60.2% to 83.9% gross. The curve either side of that is
+    not one series, so the account carries the break date — stamped on the first advance that
+    actually runs a redistributing chain, and never rewritten afterwards.
+    """
+    from equity_scout.autotrader_protections import ConcentrationCap
+
+    panel = _panel(6, {"SPY": [100.0 + i for i in range(6)],
+                       "IEF": [50.0 + i * 0.1 for i in range(6)]})
+    sleeve = _Fixed("s", [TargetWeight("SPY", 0.9), TargetWeight("IEF", 0.1)])
+    old_chain = [ConcentrationCap(redistribute=False)]
+    new_chain = [ConcentrationCap(redistribute=True)]
+
+    # A fresh account's FIRST advance has no prior series to break from.
+    account, _ = advance_depot(AutoDepotAccount.fresh(), [sleeve], _allocation({"s": 1.0}),
+                               panel, protections=old_chain)
+    assert account.protection_regime is None
+
+    # The first advance under the new chain stamps it…
+    account, _ = advance_depot(account, [sleeve], _allocation({"s": 1.0}),
+                               _panel(7, {"SPY": [100.0 + i for i in range(7)],
+                                          "IEF": [50.0 + i * 0.1 for i in range(7)]}),
+                               protections=new_chain)
+    stamped = account.protection_regime
+    assert stamped is not None
+
+    # …and a later advance leaves it exactly where it was.
+    account, _ = advance_depot(account, [sleeve], _allocation({"s": 1.0}),
+                               _panel(8, {"SPY": [100.0 + i for i in range(8)],
+                                          "IEF": [50.0 + i * 0.1 for i in range(8)]}),
+                               protections=new_chain)
+    assert account.protection_regime == stamped
+
+
+def test_redistribution_keeps_the_depot_invested_instead_of_dropping_to_cash() -> None:
+    """The measured defect: seven sleeves sharing one ETF core pushed SPY to 29% through the
+    look-through, the cap clipped it to 10%, and the difference sat idle."""
+    from equity_scout.autotrader_protections import ConcentrationCap
+
+    panel = _panel(6, {"SPY": [100.0 + i for i in range(6)],
+                       "IEF": [50.0 + i * 0.1 for i in range(6)],
+                       "GLD": [200.0 + i * 0.2 for i in range(6)]})
+    sleeve = _Fixed("s", [TargetWeight("SPY", 0.8), TargetWeight("IEF", 0.1),
+                          TargetWeight("GLD", 0.1)])
+    alloc = _allocation({"s": 1.0})
+
+    cash_acct, cash_val = advance_depot(
+        AutoDepotAccount.fresh(), [sleeve], alloc, panel,
+        protections=[ConcentrationCap(cap=0.10, redistribute=False)],
+    )
+    redist_acct, redist_val = advance_depot(
+        AutoDepotAccount.fresh(), [sleeve], alloc, panel,
+        protections=[ConcentrationCap(cap=0.10, redistribute=True)],
+    )
+    assert cash_val is not None and redist_val is not None
+    # A first advance only DECIDES — the v13 next-open convention fills one advance later, so
+    # gross_exposure is still 0 here and the decision itself is what to compare.
+    cash_targets = cash_acct.pending_orders.targets
+    redist_targets = redist_acct.pending_orders.targets
+    assert sum(cash_targets.values()) == pytest.approx(0.30)    # 0.10 + 0.10 + 0.10
+    assert sum(redist_targets.values()) > sum(cash_targets.values()) - 1e-9
+    # No position breaches the cap in either case — the risk bound is untouched.
+    for weights in (cash_targets, redist_targets):
+        assert all(abs(w) <= 0.10 + 1e-9 for w in weights.values())

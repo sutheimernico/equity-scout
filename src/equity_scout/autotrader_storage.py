@@ -98,6 +98,7 @@ def _to_json(account: AutoDepotAccount) -> str:
         "sleeve_mode": account.sleeve_mode,
         "promoted_lanes": list(account.promoted_lanes),
         "last_marks": account.last_marks,
+        "protection_regime": account.protection_regime,
         "pending_orders": (
             None if account.pending_orders is None else {
                 "decided_as_of": account.pending_orders.decided_as_of,
@@ -128,6 +129,9 @@ def _from_json(blob: str) -> AutoDepotAccount:
         # loads as empty and the next advance falls back to the pre-mark window logic once
         # per held position (see advance_depot's "mark init for N positions" log).
         last_marks={t: tuple(v) for t, v in d.get("last_marks", {}).items()},
+        # missing key = a blob from before v16's redistributing cap. It loads as None and the
+        # next advance stamps it, which is exactly right: that advance IS the break.
+        protection_regime=d.get("protection_regime"),
         # missing key = a pre-v13-O2 blob: nothing was pending under the old same-close
         # fill convention — the first advance under the new code only decides, fills start
         # one advance later.

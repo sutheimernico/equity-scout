@@ -314,3 +314,69 @@ def test_combined_panel_stock_subpanel_survives_a_young_ticker(monkeypatch) -> N
     young = panel.closes["YOUNG"]
     assert young.notna().sum() == len(young_index)  # young ticker's own short history present
     assert young.isna().sum() == len(old_index) - len(young_index)  # gap tolerated, not dropped
+
+
+def test_a_sleeve_without_forward_history_gets_no_depot_capital(tmp_path, monkeypatch, capsys):
+    """v16 gate. `active_sleeves` used to return every registry strategy, so adding four
+    families on 2026-08-10 would have handed each 1/12 of the depot on the next advance with
+    zero out-of-sample history — one of them with a backtest Sharpe of 0.31 and 16x turnover.
+    The rule the ML bots always had ("no track record, no seat at the table") now applies to
+    rule strategies too.
+    """
+    import pandas as pd
+
+    from equity_scout.strategies.base import TargetWeight as TW
+
+    class _S:
+        def __init__(self, name):  # noqa: ANN001
+            self.name = name
+
+        def decide(self, as_of, market):  # noqa: ANN001, ANN201
+            return [TW("SPY", 1.0)]
+
+    seasoned, newborn = _S("Seasoned"), _S("Newborn")
+    monkeypatch.setattr(runner, "default_strategies", lambda: [seasoned, newborn])
+    monkeypatch.setattr(runner, "load_latest_watchlist", lambda db: None)
+    monkeypatch.setattr(runner.MLLongStrategy, "from_registry",
+                        classmethod(lambda cls, db, tickers=None: _Unready()))
+    monkeypatch.setattr(runner.MLShortStrategy, "from_registry",
+                        classmethod(lambda cls, db: _Unready()))
+    # Only "Seasoned" has forward observations; the threshold is 5 sessions.
+    frame = pd.DataFrame({
+        "Seasoned": [0.001] * runner.MIN_SLEEVE_FORWARD_SESSIONS,
+        "Newborn": [None] * runner.MIN_SLEEVE_FORWARD_SESSIONS,
+    })
+    monkeypatch.setattr(runner, "sleeve_return_frame", lambda db, names: frame)
+
+    picked = [s.name for s in runner.active_sleeves("main.db", forward_db="fwd.db")]
+    assert picked == ["Seasoned"]
+    # A silently withheld sleeve looks exactly like a forgotten one — it must say so.
+    assert "Newborn" in capsys.readouterr().out
+
+
+def test_without_a_forward_db_the_history_gate_is_skipped(monkeypatch):
+    """Callers with no forward DB must still get a sleeve list rather than an empty depot."""
+    from equity_scout.strategies.base import TargetWeight as TW
+
+    class _S:
+        def __init__(self, name):  # noqa: ANN001
+            self.name = name
+
+        def decide(self, as_of, market):  # noqa: ANN001, ANN201
+            return [TW("SPY", 1.0)]
+
+    monkeypatch.setattr(runner, "default_strategies", lambda: [_S("A"), _S("B")])
+    monkeypatch.setattr(runner, "load_latest_watchlist", lambda db: None)
+    monkeypatch.setattr(runner.MLLongStrategy, "from_registry",
+                        classmethod(lambda cls, db, tickers=None: _Unready()))
+    monkeypatch.setattr(runner.MLShortStrategy, "from_registry",
+                        classmethod(lambda cls, db: _Unready()))
+    assert [s.name for s in runner.active_sleeves("main.db")] == ["A", "B"]
+
+
+class _Unready:
+    ready = False
+    name = "unready-bot"
+
+    def decide(self, as_of, market):  # noqa: ANN001, ANN201
+        return []

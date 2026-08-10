@@ -65,11 +65,26 @@ from equity_scout.strategies.registry import default_strategies
 ML_BOTS_SNAPSHOT = "data/prices/ml_bots_panel.csv"  # same stock panel the forward bots trade
 
 
-def active_sleeves(main_db: str) -> list:
+# A sleeve needs at least this much of its OWN forward track before it may earn depot
+# capital. The rule already existed for ML bots ("no track record, no seat at the table") but
+# was never applied to rule strategies — so adding four families to the registry on
+# 2026-08-10 would have handed each of them 1/12 of the depot on the next advance, with zero
+# out-of-sample history, including one with a backtest Sharpe of 0.31 and 16x turnover.
+# Five sessions is deliberately low: it is a "has this thing ever run" gate, not a quality
+# gate (quality is the promotion gate's job). The eight established sleeves carry 7-14
+# sessions and are unaffected.
+MIN_SLEEVE_FORWARD_SESSIONS = 5
+
+
+def active_sleeves(main_db: str, forward_db: str | None = None) -> list:
     """The depot's sleeves: every default strategy EXCEPT the ensemble blend (it is itself a
     mix of the same strategies — including it would double-count them), plus each ML bot that
-    has a promoted champion. A bot without one is not a sleeve at all — no track record, no
-    seat at the table (same honesty gate as forward paper)."""
+    has a promoted champion, and — since v16 — only those with an established forward track.
+
+    A bot without a champion is not a sleeve at all, and neither is a rule strategy that has
+    never traded forward: no track record, no seat at the table (same honesty gate as forward
+    paper). `forward_db=None` skips the history check, for callers that have no forward DB.
+    """
     sleeves = [s for s in default_strategies() if not isinstance(s, EnsembleStrategy)]
     watchlist = load_latest_watchlist(main_db) or {}
     watch_tickers = [e["ticker"] for e in watchlist.get("entries", [])]
@@ -79,7 +94,18 @@ def active_sleeves(main_db: str) -> list:
         MLShortStrategy.from_registry(main_db),
     ]
     sleeves.extend(bot for bot in bots if bot.ready)
-    return sleeves
+    if forward_db is None:
+        return sleeves
+    frame = sleeve_return_frame(forward_db, [s.name for s in sleeves])
+    seasoned, waiting = [], []
+    for sleeve in sleeves:
+        obs = int(frame[sleeve.name].notna().sum()) if sleeve.name in frame.columns else 0
+        (seasoned if obs >= MIN_SLEEVE_FORWARD_SESSIONS else waiting).append(sleeve.name)
+    if waiting:
+        # Loud on purpose: a silently withheld sleeve looks identical to a forgotten one.
+        print(f"Warten auf Forward-Historie (<{MIN_SLEEVE_FORWARD_SESSIONS} Sitzungen, "
+              f"kein Depot-Kapital): {', '.join(sorted(waiting))}")
+    return [s for s in sleeves if s.name in seasoned]
 
 
 def ml_sleeve_holdings(forward_db: str, sleeve_names: list[str]) -> dict[str, set[str]]:
@@ -404,7 +430,7 @@ def main() -> None:
     ap.add_argument("--dry-run", action="store_true", help="Compute and print, persist nothing.")
     args = ap.parse_args()
 
-    strategies = active_sleeves(args.main_db)
+    strategies = active_sleeves(args.main_db, forward_db=args.forward_db)
     has_bots = any(isinstance(s, (MLLongStrategy, MLShortStrategy)) for s in strategies)
     panel = combined_panel(
         start=args.start, refresh=args.refresh, need_stocks=has_bots, main_db=args.main_db

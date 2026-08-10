@@ -42,6 +42,49 @@ class TestConcentrationCap:
         assert out == weights
         assert event is None
 
+    def test_clipped_mass_stays_cash_by_default(self) -> None:
+        """The live depot has run this way since 2026-07-16 — the default must not drift."""
+        weights = {"AAPL": 0.25, "MSFT": 0.05}
+        out, _ = ConcentrationCap(cap=0.10).apply(weights, _ctx())
+        assert out == {"AAPL": 0.10, "MSFT": 0.05}
+        assert sum(out.values()) == pytest.approx(0.15)  # 0.15 of the 0.30 became cash
+
+    def test_redistribute_spreads_the_freed_weight_over_the_names_under_the_cap(self) -> None:
+        """Measured 2026-08-10: eight sleeves looking through onto a shared ETF core pinned
+        SPY/IEF/VEU at the cap and left 39.8 % in cash that no risk rule asked for.
+
+        Sized so the headroom (0.12) exceeds the freed weight (0.04) — then the gross
+        exposure is fully preserved and the split is visibly proportional.
+        """
+        weights = {"SPY": 0.14, "IEF": 0.06, "GLD": 0.02}
+        out, event = ConcentrationCap(cap=0.10, redistribute=True).apply(weights, _ctx())
+        assert out["SPY"] == pytest.approx(0.10)           # still capped
+        assert sum(out.values()) == pytest.approx(0.22)    # gross preserved, not 0.18
+        assert out["IEF"] == pytest.approx(0.09)           # 0.04 * 6/8 on top of 0.06
+        assert out["GLD"] == pytest.approx(0.03)           # 0.04 * 2/8 on top of 0.02
+        assert event is not None and "verteilt" in event.detail
+
+    def test_freed_weight_beyond_the_available_headroom_stays_cash(self) -> None:
+        """0.15 freed but only 0.12 of headroom: place what fits, keep the rest honest."""
+        weights = {"SPY": 0.25, "IEF": 0.06, "GLD": 0.02}
+        out, _ = ConcentrationCap(cap=0.10, redistribute=True).apply(weights, _ctx())
+        assert all(w == pytest.approx(0.10) for w in out.values())  # all three at the cap
+        assert sum(out.values()) == pytest.approx(0.30)  # 0.03 of the 0.33 remains cash
+
+    def test_redistribution_never_pushes_a_name_past_the_cap(self) -> None:
+        weights = {"SPY": 0.40, "IEF": 0.09}
+        out, _ = ConcentrationCap(cap=0.10, redistribute=True).apply(weights, _ctx())
+        assert all(abs(w) <= 0.10 + 1e-9 for w in out.values())
+        # Everything that fits is placed; the rest honestly stays cash rather than breaching.
+        assert sum(out.values()) == pytest.approx(0.20)
+
+    def test_redistribution_respects_the_sign_of_a_short(self) -> None:
+        weights = {"SPY": 0.30, "QQQ": -0.04}
+        out, _ = ConcentrationCap(cap=0.10, redistribute=True).apply(weights, _ctx())
+        assert out["SPY"] == pytest.approx(0.10)
+        assert out["QQQ"] < -0.04  # a short grows MORE negative, never flips direction
+        assert abs(out["QQQ"]) <= 0.10 + 1e-9
+
 
 class TestRegimeGate:
     def test_red_halves_exposure(self) -> None:
@@ -128,7 +171,26 @@ def test_chain_applies_in_order_and_collects_events() -> None:
     ctx = _ctx(regime_level="red", drawdown=0.11, depot_returns=None)
     weights = {"AAPL": 0.25, "SPY": 0.05}
     out, events = apply_protections(weights, default_protections(), ctx)
-    # cap 0.25 -> 0.10, red gate x0.5 -> 0.05, breaker stage 1 x0.5 -> 0.025
+    # AAPL 0.25 -> cap 0.10; the freed 0.15 is REDISTRIBUTED (v16), which fills SPY's 0.05 of
+    # headroom to 0.10 and leaves the remaining 0.10 as cash. Then: red gate x0.5 -> 0.05
+    # each, breaker stage 1 x0.5 -> 0.025 each.
     assert out["AAPL"] == pytest.approx(0.025)
-    assert out["SPY"] == pytest.approx(0.0125)
+    assert out["SPY"] == pytest.approx(0.025)
     assert [e.protection for e in events] == ["concentration_cap", "regime_gate", "drawdown_breaker"]
+
+
+def test_the_risk_layers_after_the_cap_still_see_the_full_redistributed_book() -> None:
+    """Redistribution must not weaken downside control — it only removes the cash drag. The
+    gate and breaker scale whatever the cap hands them, so a bigger book is scaled harder in
+    absolute terms and lands at the same fraction of it."""
+    weights = {"AAPL": 0.25, "SPY": 0.05}
+    calm = _ctx(regime_level="green", drawdown=0.0, depot_returns=None)
+    invested, _ = apply_protections(weights, default_protections(), calm)
+    stressed, _ = apply_protections(
+        weights, default_protections(), _ctx(regime_level="red", drawdown=0.11, depot_returns=None)
+    )
+    gross_calm = sum(invested.values())
+    gross_stressed = sum(stressed.values())
+    assert gross_calm == pytest.approx(0.20)      # cap + redistribution, nothing else fired
+    assert gross_stressed == pytest.approx(0.05)  # red gate x0.5 then breaker x0.5
+    assert gross_stressed == pytest.approx(gross_calm * 0.25)

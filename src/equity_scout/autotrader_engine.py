@@ -103,6 +103,12 @@ class AutoDepotAccount:
     sleeve_mode: str = "anchor"
     promoted_lanes: tuple[str, ...] = ()  # arena lanes currently earning depot capital (v12 I3)
     last_marks: dict[str, tuple[str, float]] = field(default_factory=dict)
+    # First as_of advanced under a changed protection chain (v16: the concentration cap
+    # started redistributing its clipped mass instead of dropping it to cash, which lifted
+    # gross exposure 60.2% -> 83.9% on the measurement day). The curve either side of this
+    # stamp is NOT one series — same contract as the session lane's `execution_regime` and
+    # the crypto lane's `strategy_regime`. None = the account has only ever run one chain.
+    protection_regime: str | None = None
     # The rebalance decided on last_as_of, waiting to fill at the next advance's open
     # (v13 O2). None = nothing pending (fresh account, or a pre-v13 blob).
     pending_orders: PendingOrders | None = None
@@ -442,6 +448,16 @@ def advance_depot(
             if resolved is not None:
                 final_marks[t] = (resolved[0].date().isoformat(), resolved[1])
 
+    # Stamp the protection-chain break once, on the first advance that runs a redistributing
+    # cap (v16). Detected from the chain itself rather than from a version constant, so a
+    # caller passing its own `protections` is judged by what it actually uses. An account
+    # that has only ever run one chain keeps None and shows an unbroken curve.
+    protection_regime = account.protection_regime
+    if protection_regime is None and account.last_as_of is not None and any(
+        getattr(rule, "redistribute", False) for rule in chain
+    ):
+        protection_regime = today_iso
+
     new_account = replace(
         account,
         equity=equity,
@@ -454,6 +470,7 @@ def advance_depot(
         sleeve_mode=allocation.mode,
         last_marks=final_marks,
         pending_orders=new_pending,
+        protection_regime=protection_regime,
     )
     valuation = AutoDepotValuation(
         created_at=today_iso,
