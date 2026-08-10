@@ -581,6 +581,31 @@ den Crypto-Teil: `docs/superpowers/plans/2026-08-10-crypto-lane-cost-honest-hold
       auf der neuen Zeitskala; bei 20/10 Tagen über 4 Paare sind grob 1–3 Trades pro Monat und
       Paar zu erwarten — belastbar erst in Monaten.
 
+## Phase: v16 „Alpha-Fabrik" Welle 1 — vier neue Strategiefamilien (2026-08-10) — DONE
+Plan + alle Zahlen: `docs/superpowers/plans/2026-08-10-v16-alpha-factory.md`. Autonom
+umgesetzt auf Nicos Auftrag „bring die Applikation auf 10/10, mach das in einer Loop zuende".
+Bewertung vorab: Maschine 8/10, Geldverdienen 2/10 (jedes Buch hinter Benchmark), gesamt 5/10.
+Die Lücke war der zu enge Suchraum — alle 12 Strategien kamen aus EINER Familie.
+- **Vier Familien mit verschiedenen Entscheidungsgründen** (`1aacab3`, 22 Tests): Low-Vol
+  (wählt nach Risiko allein), Cross-Sectional Momentum (12-1 mit Skip-Month), Mean-Reversion
+  (kauft, was die anderen verkaufen; z-normiert + Regime-Gate), Risk Parity (keine Auswahl).
+  Jede verweigert einen stale Feed statt einen wiederholten Preis als risikolos zu ranken.
+- **Backtest echtes ETF-Panel:** Cross-Sectional Momentum matcht SPY (15,3 % CAGR) bei
+  −25,4 % statt −33,7 % Drawdown, Sharpe 1,00 — zweitbeste im Feld von 13. Risk Parity
+  brauchbar (0,78), Low-Vol schwach (0,61), Mean-Reversion gescheitert (0,31 bei 16× Turnover).
+- **Alle vier haben ihren ersten Forward-Advance gemacht** — ab jetzt echter Track.
+- **Suchraum 43 → 82** (`7aaa968`), damit der Nightly meine Literatur-Startwerte nachprüft.
+  Befund gegen die Literatur: `skip_months=0` gewinnt auf Index-ETFs (Kurzfrist-Umkehr ist ein
+  Einzeltitel-Effekt). Produktions-Defaults bewusst NICHT auf die In-Sample-Gewinner gesetzt.
+- [ ] Beobachten: der Forward-Track der vier Familien. Cross-Sectional Momentum ist der
+      Promotions-Kandidat, muss aber ≥30 Trades/≥60 Tage/Netto>0/PF≥1,1 nehmen wie jede Lane.
+- [ ] Welle 2 (Kapitaleffizienz, noch offen): Auto-Depot fährt 60 % Brutto-Exposure — 40 %
+      Cash kostet strukturell gegen einen steigenden Markt; Kosten-Netting über Lanes; die
+      Session-Lane nutzt 10 % ihres Broker-Kapitals.
+- [ ] Welle 3 (Selektionsgeschwindigkeit, noch offen): „n Trades bis Aussage"-Rechner je Lane
+      (tote Strategien laufen sonst monatelang weiter) und eine Verlustanatomie im Produkt
+      statt per Hand (Exit-Grund × Regime × Titelklasse).
+
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
   `./scripts/install_dash_service.sh` erneut ausführen (Unit ist gestaged, aktiviert sich nur mit
