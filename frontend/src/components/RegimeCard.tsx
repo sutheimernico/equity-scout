@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 
-import { fetchRegime, type Regime, type RegimeSignal } from "../api";
+import {
+  fetchRegime,
+  type MarketBehaviour,
+  type Regime,
+  type RegimeSignal,
+} from "../api";
 import { Disclosure } from "./ui/Disclosure";
 
 function signalDot(signal: RegimeSignal): string {
@@ -35,14 +40,56 @@ const MEANING: Record<string, string> = {
   red: "Der breite Markt ist unter Druck. Auch fundamental gute Titel fallen dann mit — der Autotrader drosselt in dieser Lage über sein Regime-Gate.",
 };
 
+/** WHO is trading, next to the traffic light's HOW the market stands (v17).
+ *
+ *  Nico's question: "wann kaufen Menschen Aktien und wann nicht?" Price alone cannot answer
+ *  that — volume says how many people acted and therefore how much conviction stood behind a
+ *  level. Every number is relative to that ticker's OWN normal day, because absolute volume
+ *  compares nothing across asset classes.
+ */
+function BehaviourBlock({ behaviour }: { behaviour: MarketBehaviour | null }) {
+  if (!behaviour?.available || behaviour.readings.length === 0) return null;
+  const scored = behaviour.readings.filter((r) => r.ratio !== null);
+  return (
+    <>
+      <h4>Wer handelt gerade — und wie viel</h4>
+      <p>{behaviour.summary}</p>
+      <ul className="regime-signals">
+        {scored.map((r) => (
+          <li key={r.ticker}>
+            {r.is_capitulation ? "🔻" : r.is_spike ? "🔥" : "▫️"} <strong>{r.ticker}</strong> —{" "}
+            {r.ratio!.toFixed(1)}× normales Volumen
+            {r.obv_trend !== null && (
+              <>
+                , Kaufdruck {r.obv_trend > 0 ? "+" : ""}
+                {r.obv_trend.toFixed(1)}
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="regime-note">
+        „Kaufdruck" ist das On-Balance-Volume der letzten 20 Tage, gemessen in normalen
+        Handelstagen: +3 heißt, es wurde netto so viel gekauft wie an drei Durchschnittstagen.
+        {" "}
+        {behaviour.caveat}
+      </p>
+    </>
+  );
+}
+
 /** v8 market traffic light: one glance for the market, the four signals fold away. */
 export function RegimeCard() {
   const [regime, setRegime] = useState<Regime | null>(null);
+  const [behaviour, setBehaviour] = useState<MarketBehaviour | null>(null);
 
   useEffect(() => {
     // Silent absence on failure — the traffic light is context, never a blocker.
     fetchRegime()
-      .then((r) => setRegime(r.regime))
+      .then((r) => {
+        setRegime(r.regime);
+        setBehaviour(r.behaviour ?? null);
+      })
       .catch(() => undefined);
   }, []);
 
@@ -74,6 +121,7 @@ export function RegimeCard() {
           Vier einfache, robuste Signale — eine Beschreibung der Marktlage, kein Timing-Signal
           und keine Anlageberatung.
         </p>
+        <BehaviourBlock behaviour={behaviour} />
       </Disclosure>
     </section>
   );

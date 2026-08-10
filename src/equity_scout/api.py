@@ -551,6 +551,40 @@ def create_app(
             "disclaimer": DISCLAIMER,
         })
 
+    def _market_behaviour_block() -> dict:
+        """Volume behaviour across asset classes, from the local snapshots only.
+
+        Degrades to `available: False` rather than raising: the volume snapshot arrives with
+        the nightly chain, so an install that has not run one yet must still get its traffic
+        light. Aligns the two frames on their common dates — a volume row without a price row
+        (or the reverse) would compare two different days.
+        """
+        from equity_scout.data.etf_panel import DEFAULT_VOLUME_SNAPSHOT
+        from equity_scout.volume_signals import BEHAVIOUR_SLEEVE, market_behaviour
+
+        if not (os.path.exists(snapshot) and os.path.exists(DEFAULT_VOLUME_SNAPSHOT)):
+            return {"available": False, "readings": [], "summary": "Volumen-Daten noch nicht "
+                    "abgerufen — der nächtliche Lauf legt sie an.", "caveat": ""}
+        try:
+            import pandas as pd
+
+            prices = load_snapshot(snapshot).closes
+            volumes = pd.read_csv(DEFAULT_VOLUME_SNAPSHOT, index_col=0, parse_dates=True)
+            common = prices.index.intersection(volumes.index)
+            closes_by_ticker, volumes_by_ticker = {}, {}
+            for ticker in BEHAVIOUR_SLEEVE:
+                if ticker not in prices.columns or ticker not in volumes.columns:
+                    continue
+                price_series = prices.loc[common, ticker].dropna()
+                closes_by_ticker[ticker] = [float(v) for v in price_series]
+                volumes_by_ticker[ticker] = [
+                    float(v) for v in volumes.loc[price_series.index, ticker].fillna(0.0)
+                ]
+            return market_behaviour(closes_by_ticker, volumes_by_ticker)
+        except Exception as error:  # noqa: BLE001 - one bad snapshot must not kill the light
+            return {"available": False, "readings": [],
+                    "summary": f"Volumen-Bild nicht lesbar: {type(error).__name__}", "caveat": ""}
+
     @app.get("/api/regime")
     def regime() -> JSONResponse:
         """v8 market traffic light. Trend/VIX/curve come from yfinance (one 1y fetch
@@ -595,6 +629,12 @@ def create_app(
                 yield_3m=last(closes("^IRX")),
                 breadth_subject="Sektoren",
             ),
+            # v17: the traffic light says HOW the market stands, this says WHO is acting — how
+            # many people traded each asset class relative to its own normal day, and which
+            # class is being accumulated versus sold into. Nico's question ("wann kaufen
+            # Menschen Aktien und wann nicht") needs volume, which this project ignored
+            # entirely until 2026-08-11. Reads the local snapshots, so it costs no extra fetch.
+            "behaviour": _market_behaviour_block(),
             "disclaimer": DISCLAIMER,
         }
         reports_cache["regime"] = {"date": today, "payload": payload}

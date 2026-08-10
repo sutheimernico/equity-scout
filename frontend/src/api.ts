@@ -245,8 +245,32 @@ export interface Regime {
   signals: RegimeSignal[];
 }
 
+/** One asset class's trading behaviour, relative to its OWN normal day (v17). Absolute volume
+ *  compares nothing — SPY trades ~50 M shares, a small cap ~50 k. */
+export interface BehaviourReading {
+  ticker: string;
+  /** Today's volume / this ticker's own 20-day median. 2.0 = twice a normal day. */
+  ratio: number | null;
+  volume: number | null;
+  baseline: number | null;
+  is_spike: boolean;
+  /** On-Balance-Volume over the window, in "average days of net buying volume". */
+  obv_trend: number | null;
+  is_capitulation: boolean;
+  note: string;
+}
+
+export interface MarketBehaviour {
+  available: boolean;
+  readings: BehaviourReading[];
+  summary: string;
+  caveat: string;
+}
+
 export interface RegimeResponse {
   regime: Regime;
+  /** WHO is acting, next to the traffic light's HOW the market stands. */
+  behaviour?: MarketBehaviour;
   disclaimer?: string;
 }
 

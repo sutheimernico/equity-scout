@@ -17,6 +17,10 @@ from equity_scout.market import PricePanel
 from equity_scout.market_hours import last_completed_us_session
 
 DEFAULT_SNAPSHOT = "data/prices/etf_panel.csv"
+# Daily traded share volume for the same basket, same dates. Its own snapshot rather than extra
+# columns in the price panel: every existing reader treats that frame as "columns are tickers,
+# values are prices" and a mixed frame would silently poison returns, correlations and marks.
+DEFAULT_VOLUME_SNAPSHOT = "data/prices/etf_volume.csv"
 
 
 def trim_to_completed_sessions(
@@ -134,21 +138,42 @@ def _scipy_available() -> bool:
         return False
 
 
-def _download_closes(tickers: list[str], start: str) -> pd.DataFrame:
-    """Network: fetch adjusted daily closes for the basket. Lazy import keeps tests offline.
+def _download_field(tickers: list[str], start: str, field: str) -> pd.DataFrame:
+    """Network: fetch one daily OHLCV field for the basket. Lazy import keeps tests offline.
 
     `repair=True` cleans known Yahoo glitches but needs scipy; we enable it only when scipy is
     present (it arrives with the ML phases) — broad US ETFs rarely need repair anyway.
+
+    One download returns every field; extracting `field` is free. Callers that want two fields
+    still pay two downloads because each has its own CSV snapshot — deliberate, since the data
+    is free, the fetch runs nightly, and one snapshot per meaning keeps every reader honest
+    about what its columns contain.
     """
     import yfinance as yf
 
     data = yf.download(
         tickers, start=start, auto_adjust=True, repair=_scipy_available(), progress=False, threads=True
     )
-    closes = data["Close"]  # auto_adjust puts the total-return-adjusted price in Close
-    if isinstance(closes, pd.Series):  # single ticker → Series; normalise to a frame
-        closes = closes.to_frame(tickers[0])
-    return closes[tickers]  # stable column order
+    values = data[field]  # auto_adjust puts the total-return-adjusted price in Close
+    if isinstance(values, pd.Series):  # single ticker → Series; normalise to a frame
+        values = values.to_frame(tickers[0])
+    return values[tickers]  # stable column order
+
+
+def _download_closes(tickers: list[str], start: str) -> pd.DataFrame:
+    """Adjusted daily closes — the panel every price reader uses."""
+    return _download_field(tickers, start, "Close")
+
+
+def _download_volumes(tickers: list[str], start: str) -> pd.DataFrame:
+    """Daily traded share volume.
+
+    Split-adjusted by `auto_adjust=True`, same as the prices, so a 4:1 split does not read as a
+    4x volume spike. Absolute levels are NOT comparable across tickers (SPY trades ~50 M
+    shares, a small cap ~50 k) — every signal built on this must normalise against the
+    ticker's OWN history, which is what `volume_signals` does.
+    """
+    return _download_field(tickers, start, "Volume")
 
 
 def load_etf_panel(
@@ -169,6 +194,37 @@ def load_etf_panel(
     )
     save_snapshot(panel, snapshot)
     return panel
+
+
+def load_volume_panel(
+    tickers: list[str],
+    *,
+    start: str = "2007-01-01",
+    snapshot: str = DEFAULT_VOLUME_SNAPSHOT,
+    refresh: bool = False,
+    now: datetime | None = None,
+) -> pd.DataFrame:
+    """Daily traded volume for the basket, same snapshot-or-fetch contract as `load_etf_panel`.
+
+    Returns a plain DataFrame, NOT a `PricePanel`: that type carries price semantics (returns,
+    marks, benchmark arithmetic) and wrapping volume in it would let a caller compute a
+    "return on volume" without noticing. Same session trim as the price panel, so a row that
+    exists in one exists in the other.
+
+    Volume is the most direct behavioural signal available for free: it says how many people
+    acted, while price only says at what level they agreed. Until 2026-08-11 this project threw
+    it away — `_download_closes` took `data["Close"]` and dropped everything else.
+    """
+    if not refresh and os.path.exists(snapshot):
+        frame = pd.read_csv(snapshot, index_col=0, parse_dates=True)
+        return trim_to_completed_sessions(frame, now=now)
+    frame = trim_to_completed_sessions(_download_volumes(tickers, start), now=now)
+    # Volume has no "adjusted price" cleaning step: clean_panel drops non-positive values as
+    # broken prices, but a zero-volume day is a REAL event (a holiday half-session, a halted
+    # ticker) and must survive as zero rather than be forward-filled into a fiction.
+    os.makedirs(os.path.dirname(snapshot) or ".", exist_ok=True)
+    frame.to_csv(snapshot)
+    return frame
 
 
 def load_price_history(
