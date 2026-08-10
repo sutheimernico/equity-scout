@@ -549,7 +549,34 @@ den Crypto-Teil: `docs/superpowers/plans/2026-08-10-crypto-lane-cost-honest-hold
   Definition im Glossar darüber stand — neues Topic `begriffe`, **121 s und falsch → 8 s und
   richtig**. Grenze: alle Sekundenwerte unter Fremdlast gemessen, der 1.5b-Modellvergleich
   war dadurch ungültig und bleibt offen.
-- Gate der Runde: 1879 Tests grün, ruff clean, `tsc --noEmit` clean.
+- **Schritt-Timeout in den Ketten** (`c1a906d`) — gefunden vom neuen Watchdog, zwei Stunden
+  nachdem es passierte, am selben Abend, an dem er gebaut wurde. Die Daily-Kette vom 10.08.
+  lief nie fertig: `insights` (12 Titel × 2 LLM-Aufrufe, normal 2–3 Min) kroch unter schwerer
+  CPU-Last, der Windows Task Scheduler beendete die Kette an ihrem 1-Stunden-Limit
+  (`LastTaskResult` 0xC000013A), und **alles danach fiel aus — `evidence`, `fscore`, die
+  Resolver und die Telegram-Zustellung**. Ohne Log-Zeile, ohne Tages-Marker. Die Ketten
+  degradierten pro Schritt nur, wenn der Schritt ZURÜCKKAM; ein hängender war unbegrenzt.
+  Jetzt läuft jeder Schritt unter `timeout` (daily 12 min, nightly 25 min, per
+  `EQUITY_SCOUT_STEP_TIMEOUT` überschreibbar), und Exit 124 wird als `TIMEOUT` statt `FAILED`
+  geloggt — „zu langsam" und „kaputt" brauchen verschiedene Reaktionen. Der Tageslauf wurde
+  danach manuell nachgeholt. Die zwei übrigen Ketten (`intraday_copilot.sh`,
+  `run_full_refresh.sh`) haben denselben unbegrenzten `step()` — siehe Backlog.
+- Gate der Runde: 1883 Tests grün, ruff clean, `tsc --noEmit` clean.
+- [ ] Backlog: `intraday_copilot.sh` und `run_full_refresh.sh` auf denselben Schritt-Timeout
+      ziehen. Nicht in dieser Runde, weil der Intraday-Takt (jede Minute für die Session-Lane,
+      */15 für den Rest) eigene Grenzen braucht als eine Tageskette — falsch gewählt würde ein
+      Timeout dort echte Arbeit abschneiden statt sie zu retten.
+- [ ] **Folgebefund `insights` passt nicht mehr in sein Budget.** Der Nachhollauf vom 10.08.
+      lief bei abgeklungener Fremdlast (Load ~5) trotzdem in den 12-Minuten-Timeout — der
+      Script-Kommentar behauptet „~12 stocks x 2 warm LLM calls ~ 2-3 min", real sind es bei
+      30–60 s pro Aufruf auf dieser CPU 12–24 min. Das Timeout ist damit die richtige
+      Rettungsleine, aber nicht die Lösung. Optionen, gegeneinander abzuwägen statt eine
+      blind zu wählen: `--limit` senken (12 → 4–5 Titel), den Schritt aus der Tageskette in
+      einen eigenen Cron-Slot ziehen (er blockiert dort niemanden), oder prüfen, ob der
+      Präfix-Cache-Trick aus `2026-08-10-chat-latency-prompt-cache.md` auf
+      `run_insights.py` übertragbar ist — der baut seinen Prompt selbst und profitiert
+      bisher NICHT davon. Erst messen, wie lang ein einzelner Insight-Aufruf wirklich
+      braucht, dann entscheiden.
 - [ ] Beobachten: ob die Crypto-Lane auf Tagesbars einen positiven Erwartungswert zeigt. n=0
       auf der neuen Zeitskala; bei 20/10 Tagen über 4 Paare sind grob 1–3 Trades pro Monat und
       Paar zu erwarten — belastbar erst in Monaten.
