@@ -623,9 +623,31 @@ Zwei Defekte, der zweite gefährlicher als der erste (`f685a0b`).
       werden.
 - [ ] Rest von Welle 2, noch offen: Kosten-Netting über Lanes (jede zahlt ihre Kosten
       einzeln), und die Session-Lane nutzt 10 % ihres Broker-Kapitals.
-- [ ] Welle 3 (Selektionsgeschwindigkeit, noch offen): „n Trades bis Aussage"-Rechner je Lane
-      (tote Strategien laufen sonst monatelang weiter) und eine Verlustanatomie im Produkt
-      statt per Hand (Exit-Grund × Regime × Titelklasse).
+
+## Phase: v16 Welle 3 — Selektionsgeschwindigkeit (2026-08-10) — DONE
+Beide Teile gebaut (`a8a50e7`, Verlustanatomie im Folgecommit). Zweck: schneller erkennen,
+was funktioniert und was nicht — tote Strategien liefen sonst monatelang weiter.
+- **`significance.py`: „ist das schon ein Urteil, und wenn nein, wie weit fehlt es?"**
+  Zwei-seitiger t-Test auf den Ø-Trade plus die Trade-Zahl für 80 % Power beim beobachteten
+  Effekt. In der API Bonferroni-korrigiert, weil alle Lanes in EINER Antwort gezeigt werden.
+  **Live-Befund:** crypto `negativ, p=0,000` (belegt den heutigen Umbau nachträglich mit
+  einer Zahl) · session `noch nicht aussagekräftig`, p=0,169, **~210 Trades fehlen** — die
+  −2,4 % sind KEIN Urteil über die Strategie · swing `zu wenige Trades` (n=2).
+  Ehrlichkeitsgrenzen im Docstring UND in der gerenderten Notiz: Trade-P&Ls sind schief und
+  fat-tailed, der t-Test ist also optimistisch (echte Signifikanz braucht MEHR Trades); ein
+  Effekt nahe Null gibt `None` statt einer siebenstelligen Trade-Zahl.
+- **Verlustanatomie im Produkt** (`shortterm_book.loss_anatomy`, API + Arena-Panel): Summe,
+  Anzahl, Ø und Ergebnisanteil je Exit-Grund, größter Beitrag zuerst. Live an der
+  Session-Lane: **74,2 % des Verlusts sind fünf „Altbestand (zwangsflat)"-Trades** — ein
+  Einmal-Aufräumen, nicht die Strategie. Genau die Aussage, für die es heute Mittag eine
+  Handauswertung brauchte.
+- Gate: 1933 Tests grün, ruff clean, tsc clean.
+- [ ] **Flaky Test gesehen, nicht gefixt (Scope):**
+      `test_entry_model.py::test_calibrated_model_scores_through_the_calibrator` fiel in einem
+      Gesamtlauf durch und war isoliert sowie im nächsten Gesamtlauf grün. Ursache ist
+      vermutlich Test-Isolation (globaler Zufalls-Zustand + verschobene Dateireihenfolge durch
+      die neuen Testdateien), nicht die Kalibrierung selbst. Vor dem nächsten Feature fixen —
+      ein flaky Gate erzieht dazu, rote Läufe zu ignorieren.
 
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),

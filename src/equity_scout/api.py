@@ -55,6 +55,7 @@ from equity_scout.autotrader_storage import load_valuations as load_autotrader_v
 from equity_scout.forward_storage import load_all_accounts
 from equity_scout.forward_storage import load_valuations as load_forward_valuations
 from equity_scout.fundamentals import fetch_fundamentals_cached
+from equity_scout.shortterm_book import loss_anatomy as shortterm_loss_anatomy
 from equity_scout.shortterm_book import stats as shortterm_stats
 from equity_scout.shortterm_storage import (
     DEFAULT_SHORTTERM_DB_PATH,
@@ -1051,6 +1052,13 @@ def create_app(
                 # so the level is Bonferroni-corrected — one of three books looks significant
                 # by chance often enough to matter.
                 "significance": _lane_significance(lane, n_books=len(LANES)),
+                # WHERE the result comes from, by exit reason. On 2026-08-10 the session lane's
+                # -233 looked like a failing strategy until this breakdown showed -176.70 of it
+                # was five one-off cleanup flats, leaving the ORB strategy at -56. Reads all
+                # trades, not the 500-row display slice, or the totals would be truncated.
+                "loss_anatomy": shortterm_loss_anatomy(
+                    load_st_trades(shortterm_db, lane, limit=None)
+                ),
                 "promoted": lane in promoted_lanes,
                 "promotion": _sanitise_promotion(lane_promotion_status(
                     load_st_trades(shortterm_db, lane, limit=5000), vals,

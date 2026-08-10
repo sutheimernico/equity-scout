@@ -61,6 +61,52 @@ function RegimeNote({ lane }: { lane: ShortTermLane }) {
   );
 }
 
+/** Where does the result come from? The headline number hides its own cause: on 2026-08-10 the
+ *  session lane's −233 read as a failing strategy, while 74 % of it was five one-off cleanup
+ *  flats and the actual ORB rules were at −56. Biggest contributor first. */
+function LossAnatomy({ lane }: { lane: ShortTermLane }) {
+  const rows = lane.loss_anatomy ?? [];
+  if (rows.length === 0) return null;
+  return (
+    <>
+      <h4 style={{ marginTop: "var(--space-4)" }}>Woher das Ergebnis kommt</h4>
+      <table className="history">
+        <thead>
+          <tr>
+            <th>Grund für den Ausstieg</th>
+            <th className="num">Trades</th>
+            <th className="num">Summe</th>
+            <th className="num">Ø</th>
+            <th className="num">Treffer</th>
+            <th className="num">Anteil</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.reason}>
+              <td>{r.reason}</td>
+              <td className="num">{r.n}</td>
+              <td className="num">{num(r.total, 2)}</td>
+              <td className="num">{num(r.avg, 2)}</td>
+              <td className="num">
+                {r.wins}/{r.n}
+              </td>
+              <td className="num">
+                {r.share_of_total === null ? "—" : pct(r.share_of_total, 0)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <Explain tone="hint">
+        „Anteil" ist der Beitrag zum Gesamtergebnis. Ein negativer Anteil bedeutet, dass diese
+        Gruppe gegen das Gesamtergebnis lief — bei einem Verlustbuch also ein Gewinnbeitrag.
+        Bei einem Ergebnis nahe Null steht „—", weil ein Anteil von fast Nichts kein Maß ist.
+      </Explain>
+    </>
+  );
+}
+
 /** Is this book's result a verdict yet, or still noise? Measured 2026-08-10: the session lane
  *  sat at −2.4 % over 48 trades with p=0.169 — that is "we do not know", not "it is bad", and
  *  the difference decides whether you keep going or stop. Crypto's −14.11 average, by
@@ -174,6 +220,7 @@ function LaneCard({ lane }: { lane: ShortTermLane }) {
             .join(" · ")}
         </p>
       )}
+      <LossAnatomy lane={lane} />
       {lane.recent_trades.length > 0 && (
         <details>
           <summary>Letzte Trades ({lane.recent_trades.length})</summary>

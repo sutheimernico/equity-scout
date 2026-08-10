@@ -223,6 +223,49 @@ def stats(trades: list[TradeFill | dict]) -> dict:
     }
 
 
+def loss_anatomy(trades: list[TradeFill | dict]) -> list[dict]:
+    """Realised P&L broken down by EXIT REASON, worst total first.
+
+    Why this is a product feature and not a one-off query: on 2026-08-10 the session lane
+    showed -233 USD and looked like a failing strategy. Grouped by exit reason, -176.70 of it
+    was five "Altbestand (zwangsflat)" trades — a one-off cleanup of positions inherited from
+    before the live rewiring — leaving the actual ORB strategy at -56 over 36 trades. That
+    changes the conclusion completely, and finding it took a hand-written aggregation nobody
+    would repeat weekly. Now the surface answers "WHERE does the loss come from" directly.
+
+    Sorted by absolute total so the biggest contributor is first regardless of sign: the point
+    is to find what dominates the result, and a large gain can mislead as easily as a loss.
+    """
+    def _get(t, key):  # noqa: ANN001, ANN202 - accepts dataclass or storage dict rows
+        return getattr(t, key, None) if not isinstance(t, dict) else t.get(key)
+
+    buckets: dict[str, list[float]] = {}
+    for trade in trades:
+        pnl = _get(trade, "realized_pnl")
+        if _get(trade, "side") != "sell" or pnl is None:
+            continue
+        reason = (_get(trade, "reason") or "ohne Grund").strip()
+        buckets.setdefault(reason, []).append(float(pnl))
+    rows = [
+        {
+            "reason": reason,
+            "n": len(pnls),
+            "total": sum(pnls),
+            "avg": sum(pnls) / len(pnls),
+            "wins": sum(1 for p in pnls if p > 0),
+        }
+        for reason, pnls in buckets.items()
+    ]
+    rows.sort(key=lambda r: abs(r["total"]), reverse=True)
+    total = sum(r["total"] for r in rows)
+    for row in rows:
+        # Share of the book's NET result. None when the net is ~0, because a share of nothing
+        # is a division artefact, not information (two large offsetting buckets would each
+        # read as several hundred percent).
+        row["share_of_total"] = row["total"] / total if abs(total) > 1e-9 else None
+    return rows
+
+
 def position_targets(lane: str, *, entry_price: float) -> dict:
     """Exit levels for one open position, per that lane's own rules.
 

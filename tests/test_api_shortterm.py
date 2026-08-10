@@ -145,3 +145,33 @@ def test_a_thin_book_says_too_few_trades_rather_than_a_verdict(tmp_path):
     assert sig["verdict"] == "zu wenige Trades"
     assert sig["significant"] is False
     assert sig["trades_needed"] is None  # no invented target
+
+
+def test_the_api_breaks_the_result_down_by_exit_reason(tmp_path):
+    """v16 wave 3b: the headline number hides its own cause. On the real book, 74 % of the
+    session lane's loss was five one-off cleanup flats — the strategy itself was fine-ish.
+    Finding that took a hand-written aggregation; now the surface answers it."""
+    from equity_scout.shortterm_book import LaneBook, TradeFill
+    from equity_scout.shortterm_storage import append_trades, save_book
+
+    db = str(tmp_path / "st_anatomy.db")
+    save_book(db, LaneBook.fresh("session", benchmark_ticker="SPY"), updated_at="2026-08-10")
+    trades = []
+    for i in range(5):  # the dominant one-off bucket
+        trades.append(TradeFill(lane="session", executed_at=f"2026-08-0{i+1}T15:00",
+                                ticker=f"OLD{i}", side="sell", qty=1.0, price=100.0, fees=0.0,
+                                reason="Altbestand (zwangsflat)", realized_pnl=-35.34))
+    for i in range(6):  # the strategy's own wins
+        trades.append(TradeFill(lane="session", executed_at=f"2026-08-1{i}T15:00",
+                                ticker=f"WIN{i}", side="sell", qty=1.0, price=100.0, fees=0.0,
+                                reason="Ziel (1x Range)", realized_pnl=12.61))
+    append_trades(db, trades)
+
+    client = TestClient(create_app(str(tmp_path / "main3.db"), shortterm_db=db))
+    lanes = {la["lane"]: la for la in client.get("/api/shortterm").json()["lanes"]}
+    rows = lanes["session"]["loss_anatomy"]
+    assert rows[0]["reason"] == "Altbestand (zwangsflat)"  # biggest contributor first
+    assert rows[0]["n"] == 5
+    assert rows[0]["total"] == pytest.approx(-176.70)
+    assert rows[0]["wins"] == 0
+    assert {r["reason"] for r in rows} == {"Altbestand (zwangsflat)", "Ziel (1x Range)"}

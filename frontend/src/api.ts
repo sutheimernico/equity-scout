@@ -530,6 +530,17 @@ export interface LaneSignificance {
   significant: boolean;
 }
 
+export interface LossAnatomyRow {
+  reason: string;
+  n: number;
+  total: number;
+  avg: number;
+  wins: number;
+  /** Share of the book's NET result; null when the net is ~0 (a share of nothing is a
+   *  division artefact — two offsetting buckets would each read as hundreds of percent). */
+  share_of_total: number | null;
+}
+
 export interface ShortTermLane {
   lane: string; // "swing" | "session" | "crypto"
   initial_capital: number;
@@ -557,6 +568,10 @@ export interface ShortTermLane {
    *  Without it "−2.4 % over 48 trades" reads as a verdict when it is noise. Judged at a
    *  Bonferroni-corrected level because all lanes are looked at together. */
   significance: LaneSignificance;
+  /** Where the result actually comes from, grouped by exit reason, biggest contributor first.
+   *  Measured 2026-08-10: 74 % of the session lane's loss was five one-off cleanup flats, not
+   *  the strategy — a conclusion the headline number hides. */
+  loss_anatomy: LossAnatomyRow[];
   open_positions: ShortTermPosition[];
   equity_curve: [string, number][];
   stats: ShortTermStats;

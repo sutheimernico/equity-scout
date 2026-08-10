@@ -5,8 +5,10 @@ import pytest
 
 from equity_scout.shortterm_book import (
     LaneBook,
+    TradeFill,
     buy,
     capture_benchmark,
+    loss_anatomy,
     mark_to_market,
     sell,
     stats,
@@ -111,3 +113,48 @@ def test_an_explicit_quantity_of_zero_books_nothing() -> None:
                     benchmark_ticker="SPY")
     booked, fill = buy(book, "TSLA", 321.11, "t", fraction=0.15, reason="ORB", qty=0.0)
     assert fill is None and booked.positions == {}
+
+
+def test_loss_anatomy_finds_the_bucket_that_dominates_the_result():
+    """The 2026-08-10 case: the session lane looked like a failing strategy at -233, but five
+    inherited-position force-flats carried -176.70 of it and the actual strategy was at -56.
+    Grouping by exit reason is what turns one number into that conclusion."""
+    trades = (
+        [_sell("Altbestand (zwangsflat)", -35.34)] * 5      # -176.70, the real culprit
+        + [_sell("Stop (0.5x Range)", -9.43)] * 16          # -150.88, the strategy working
+        + [_sell("Ziel (1x Range)", 12.61)] * 6             # +75.66
+    )
+    rows = loss_anatomy(trades)
+    assert [r["reason"] for r in rows][:2] == ["Altbestand (zwangsflat)", "Stop (0.5x Range)"]
+    top = rows[0]
+    assert top["n"] == 5
+    assert top["total"] == pytest.approx(-176.70)
+    assert top["avg"] == pytest.approx(-35.34)
+    assert top["wins"] == 0
+    # It carried the majority of the net result — that is the finding.
+    assert top["share_of_total"] > 0.5
+
+
+def test_loss_anatomy_ignores_buys_and_unrealised_rows():
+    trades = [
+        _sell("Ziel", 10.0),
+        TradeFill(lane="session", executed_at="t", ticker="B", side="buy", qty=1.0,
+                  price=100.0, fees=0.0, reason="ORB-Ausbruch"),  # no realized_pnl
+    ]
+    rows = loss_anatomy(trades)
+    assert len(rows) == 1 and rows[0]["reason"] == "Ziel" and rows[0]["n"] == 1
+
+
+def test_loss_anatomy_reports_no_share_when_the_net_is_zero():
+    """Two offsetting buckets would each read as several hundred percent of a ~0 net."""
+    rows = loss_anatomy([_sell("Ziel", 50.0), _sell("Stop", -50.0)])
+    assert all(r["share_of_total"] is None for r in rows)
+
+
+def test_loss_anatomy_of_an_empty_book_is_empty_not_an_error():
+    assert loss_anatomy([]) == []
+
+
+def _sell(reason: str, pnl: float) -> TradeFill:
+    return TradeFill(lane="session", executed_at="2026-08-10T15:00", ticker="AAA", side="sell",
+                     qty=1.0, price=100.0, fees=0.0, reason=reason, realized_pnl=pnl)
