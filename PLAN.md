@@ -642,12 +642,16 @@ was funktioniert und was nicht — tote Strategien liefen sonst monatelang weite
   Einmal-Aufräumen, nicht die Strategie. Genau die Aussage, für die es heute Mittag eine
   Handauswertung brauchte.
 - Gate: 1933 Tests grün, ruff clean, tsc clean.
-- [ ] **Flaky Test gesehen, nicht gefixt (Scope):**
-      `test_entry_model.py::test_calibrated_model_scores_through_the_calibrator` fiel in einem
-      Gesamtlauf durch und war isoliert sowie im nächsten Gesamtlauf grün. Ursache ist
-      vermutlich Test-Isolation (globaler Zufalls-Zustand + verschobene Dateireihenfolge durch
-      die neuen Testdateien), nicht die Kalibrierung selbst. Vor dem nächsten Feature fixen —
-      ein flaky Gate erzieht dazu, rote Läufe zu ignorieren.
+- **Flaky Test verfolgt und die Ursache gefixt** (statt den Test zu entschärfen): Ein
+  Gesamtlauf ließ `test_calibrated_model_scores_through_the_calibrator` fallen, isoliert war er
+  grün. Ursache war nicht der Test, sondern **`LogisticRegression(solver="saga")` ohne
+  `random_state`** — saga ist ein STOCHASTISCHER Solver und zog aus dem globalen numpy-Zustand,
+  den meine neuen Testdateien verschoben hatten. Tragweite über den Test hinaus: das Registry
+  vergleicht AUCs auf drei Dezimalen und kürt Champions auf diesen Abständen, ein nicht
+  reproduzierbarer Fit heißt also **ein Champion, der aus seinen eigenen Eingaben nicht
+  wiederherstellbar ist**. Random Forest und CatBoost hatten ihren Seed von Anfang an; nur
+  elastic_net fehlte er. Mit Reproduzierbarkeits-Test, der den globalen Zufallszustand
+  absichtlich stört. Gate zweimal hintereinander grün (1934).
 
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),

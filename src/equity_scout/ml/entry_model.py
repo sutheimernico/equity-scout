@@ -41,7 +41,16 @@ def _build_estimator(model: str) -> ClassifierMixin:
             n_estimators=200, max_depth=3, min_samples_leaf=20, random_state=0
         )
     if model == "elastic_net":
-        return LogisticRegression(solver="saga", l1_ratio=0.5, C=0.5, max_iter=5000)
+        # random_state is load-bearing, not tidiness: `saga` is a STOCHASTIC solver and without
+        # a seed it draws from the global numpy state, so the same data trained twice gives
+        # slightly different coefficients. The registry compares AUCs to three decimals and
+        # crowns champions on those margins — a non-reproducible fit means a champion that
+        # cannot be re-derived from its own inputs. Found 2026-08-10 when adding test files
+        # shifted the global random state and a calibration test flipped between runs; the
+        # other two presets carried a fixed seed all along.
+        return LogisticRegression(
+            solver="saga", l1_ratio=0.5, C=0.5, max_iter=5000, random_state=0
+        )
     if model == "catboost":
         from catboost import CatBoostClassifier  # heavy import stays lazy
 

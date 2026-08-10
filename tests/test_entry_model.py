@@ -217,3 +217,20 @@ def test_score_row_refuses_a_row_missing_a_fitted_feature_column():
         model.score_row({"a": 0.5})
 
     assert 0 <= model.score_row({"a": 0.5, "b": 0.5, "unused": 9.9}) <= 100
+
+
+def test_elastic_net_training_is_reproducible():
+    """The registry crowns champions on AUC differences in the third decimal. A stochastic
+    solver without a seed makes the same data give slightly different coefficients, so a
+    champion could not be re-derived from its own inputs. Found 2026-08-10: `saga` had no
+    random_state and a calibration test flipped between full runs when new test files shifted
+    the global numpy state."""
+    import numpy as np
+
+    X, y, _ = _dataset(n_dates=30, per_date=5, informative=True, seed=11)
+    first = train_entry_model(X, y, model="elastic_net").score_many(X.head(20))
+    # Disturb the global random state exactly as an unrelated test would.
+    np.random.default_rng(999).normal(size=5000)
+    np.random.seed(4242)
+    second = train_entry_model(X, y, model="elastic_net").score_many(X.head(20))
+    assert (first == second).all()
