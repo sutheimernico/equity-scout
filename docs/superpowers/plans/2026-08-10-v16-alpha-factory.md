@@ -32,17 +32,17 @@ begründete Familie ist eine eigene Chance auf Edge; mehr Oberfläche ist keine.
 
 ## Tasks
 
-- [ ] **T1 Low-Vol-Anomalie** (`strategies/low_vol.py`) — die N Assets mit der niedrigsten
+- [x] **T1 Low-Vol-Anomalie** (`strategies/low_vol.py`) — die N Assets mit der niedrigsten
       realisierten Vola, invers-vol gewichtet. Eigene Familie: wählt nach RISIKO, nicht nach
       Rendite. Quellen: Haugen & Baker 1991, Blitz & van Vliet 2007, Frazzini & Pedersen 2014
       („Betting Against Beta").
-- [ ] **T2 Cross-Sectional Momentum** (`strategies/cross_momentum.py`) — Top-N nach 12-1-Momentum
+- [x] **T2 Cross-Sectional Momentum** (`strategies/cross_momentum.py`) — Top-N nach 12-1-Momentum
       mit Skip-Month gegen die Kurzfrist-Umkehr, plus absoluter Momentum-Filter je Slot.
       Jegadeesh & Titman 1993; Asness/Moskowitz/Pedersen 2013.
-- [ ] **T3 Mean-Reversion** (`strategies/mean_reversion.py`) — kauft die N am stärksten
+- [x] **T3 Mean-Reversion** (`strategies/mean_reversion.py`) — kauft die N am stärksten
       überverkauften Titel (z-Score des Abstands zum gleitenden Mittel), aber nur im
       Aufwärtsregime des Marktes. Gegenläufig zu T2, damit die Familien sich nicht doppeln.
-- [ ] **T4 Risk Parity** (`strategies/risk_parity.py`) — invers-Vol über ALLE Assetklassen statt
+- [x] **T4 Risk Parity** (`strategies/risk_parity.py`) — invers-Vol über ALLE Assetklassen statt
       Auswahl; keine Prognose, nur Risikoausgleich. Qian 2005; Asness/Frazzini/Pedersen 2012.
 - [x] **T5 Backtests messen und ehrlich berichten** — inkl. Nullbefund.
 - [x] **T6 Doku + Wächter** — CronCreate-Resume, PLAN/LOG/Session-Doc/Memory.

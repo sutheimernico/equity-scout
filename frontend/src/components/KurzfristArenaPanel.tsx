@@ -61,6 +61,35 @@ function RegimeNote({ lane }: { lane: ShortTermLane }) {
   );
 }
 
+/** Is this book's result a verdict yet, or still noise? Measured 2026-08-10: the session lane
+ *  sat at −2.4 % over 48 trades with p=0.169 — that is "we do not know", not "it is bad", and
+ *  the difference decides whether you keep going or stop. Crypto's −14.11 average, by
+ *  contrast, IS significant. Tone follows the finding, not the sign of the return. */
+function SignificanceNote({ lane }: { lane: ShortTermLane }) {
+  const s = lane.significance;
+  if (!s || s.verdict === "zu wenige Trades") {
+    return (
+      <Explain tone="hint">
+        Aussagekraft: noch zu wenige abgeschlossene Trades ({s?.n ?? 0}) — jede Zahl hier ist
+        bis dahin Rauschen.
+      </Explain>
+    );
+  }
+  // "info" for a result that has actually resolved, "hint" while it is still a maybe.
+  return (
+    <Explain tone={s.significant ? "info" : "hint"}>
+      <b>Aussagekraft: {s.verdict}.</b> {s.note}
+      {!s.significant && s.trades_missing ? (
+        <>
+          {" "}
+          Bis dahin ist das Ergebnis <b>kein Urteil über die Strategie</b> — nur eine noch zu
+          kurze Messreihe.
+        </>
+      ) : null}
+    </Explain>
+  );
+}
+
 /** The crypto lane's strategy changed timescale on 2026-08-10; the curve before that is a
  *  different system, not an earlier part of this one. */
 function StrategyRegimeNote({ lane }: { lane: ShortTermLane }) {
@@ -109,6 +138,7 @@ function LaneCard({ lane }: { lane: ShortTermLane }) {
       <RegimeNote lane={lane} />
       <StrategyRegimeNote lane={lane} />
       <AccountNote lane={lane} />
+      <SignificanceNote lane={lane} />
       <PromotionLine lane={lane} />
 
       <table className="history">

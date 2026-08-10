@@ -1044,6 +1044,13 @@ def create_app(
                 "equity_curve": [[v["created_at"], v["equity"]] for v in vals],
                 "stats": shortterm_stats(trades),
                 "recent_trades": trades[:20],
+                # v16 wave 3: is this book's result distinguishable from zero yet, and if not,
+                # how many trades are missing? Without it, "-2.4 % over 48 trades" reads as a
+                # verdict when it is noise (measured 2026-08-10: p=0.169, ~210 trades short),
+                # while crypto's -14.11 average IS significant. All lanes are judged at once,
+                # so the level is Bonferroni-corrected — one of three books looks significant
+                # by chance often enough to matter.
+                "significance": _lane_significance(lane, n_books=len(LANES)),
                 "promoted": lane in promoted_lanes,
                 "promotion": _sanitise_promotion(lane_promotion_status(
                     load_st_trades(shortterm_db, lane, limit=5000), vals,
@@ -1055,6 +1062,28 @@ def create_app(
             "lanes": lanes_payload,
             "disclaimer": DISCLAIMER,
         })
+
+    def _lane_significance(lane: str, *, n_books: int) -> dict:
+        """Whether this lane's average trade is distinguishable from zero yet, and what is
+        missing if not. Reads ALL trades (limit=None) — a capped read would understate n."""
+        from equity_scout.significance import assess_trades, bonferroni_alpha
+
+        pnls = [
+            t["realized_pnl"]
+            for t in load_st_trades(shortterm_db, lane, limit=None)
+            if t["realized_pnl"] is not None
+        ]
+        verdict = assess_trades(pnls, alpha=bonferroni_alpha(n_books))
+        return {
+            "n": verdict.n,
+            "mean_pnl": verdict.mean,
+            "p_value": verdict.p_value,
+            "trades_needed": verdict.trades_needed,
+            "trades_missing": verdict.trades_missing,
+            "verdict": verdict.verdict,
+            "note": verdict.note,
+            "significant": verdict.is_significant,
+        }
 
     def _sanitise_promotion(status: dict) -> dict:
         # float("inf") is not valid JSON — render-side gets None + a flag instead.

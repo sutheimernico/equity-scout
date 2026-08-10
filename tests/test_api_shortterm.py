@@ -100,3 +100,48 @@ def test_lanes_without_the_marker_report_none(tmp_path) -> None:
     payload = _client(tmp_path, db).get("/api/shortterm").json()
     assert payload["lanes"]
     assert all(lane["execution_regime"] is None for lane in payload["lanes"])
+
+
+def test_each_lane_reports_whether_its_result_is_significant_yet(tmp_path):
+    """v16 wave 3: "-2.4 % over 48 trades" is not a verdict — the API must say which it is.
+    Measured on the real books that day: session p=0.169 (noise, ~210 trades short), crypto
+    p<0.001 (a real negative). Judged at a Bonferroni-corrected level because every lane is
+    looked at in the same response."""
+    from equity_scout.shortterm_book import LaneBook, TradeFill
+    from equity_scout.shortterm_storage import append_trades, save_book
+
+    db = str(tmp_path / "st_sig.db")
+    save_book(db, LaneBook.fresh("session", benchmark_ticker="SPY"), updated_at="2026-08-10")
+    # A clear, consistent loss: unmistakable even after the multiple-comparison correction.
+    append_trades(db, [
+        TradeFill(lane="session", executed_at=f"2026-08-{d:02d}T15:00", ticker="AAA",
+                  side="sell", qty=1.0, price=100.0, fees=0.0, reason="Stop",
+                  realized_pnl=-10.0 - (d % 3))
+        for d in range(1, 21)
+    ])
+    client = TestClient(create_app(str(tmp_path / "main.db"), shortterm_db=db))
+    lanes = {la["lane"]: la for la in client.get("/api/shortterm").json()["lanes"]}
+    sig = lanes["session"]["significance"]
+    assert sig["n"] == 20
+    assert sig["verdict"] == "negativ"
+    assert sig["significant"] is True
+    assert sig["p_value"] is not None and sig["p_value"] < 0.05
+    assert "note" in sig and sig["note"]
+
+
+def test_a_thin_book_says_too_few_trades_rather_than_a_verdict(tmp_path):
+    from equity_scout.shortterm_book import LaneBook, TradeFill
+    from equity_scout.shortterm_storage import append_trades, save_book
+
+    db = str(tmp_path / "st_thin.db")
+    save_book(db, LaneBook.fresh("swing", benchmark_ticker="SPY"), updated_at="2026-08-10")
+    append_trades(db, [
+        TradeFill(lane="swing", executed_at="2026-08-03T15:00", ticker="AAA", side="sell",
+                  qty=1.0, price=100.0, fees=0.0, reason="Ziel", realized_pnl=50.0),
+    ])
+    client = TestClient(create_app(str(tmp_path / "main2.db"), shortterm_db=db))
+    lanes = {la["lane"]: la for la in client.get("/api/shortterm").json()["lanes"]}
+    sig = lanes["swing"]["significance"]
+    assert sig["verdict"] == "zu wenige Trades"
+    assert sig["significant"] is False
+    assert sig["trades_needed"] is None  # no invented target

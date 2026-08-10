@@ -516,6 +516,20 @@ export interface PromotionStatus {
   missing: string[];
 }
 
+export interface LaneSignificance {
+  n: number;
+  mean_pnl: number;
+  p_value: number | null;
+  /** Trades needed for a call at the observed effect size; null when the effect is too small
+   *  to ever resolve — an honest "not measurable" beats a seven-digit number. */
+  trades_needed: number | null;
+  trades_missing: number | null;
+  /** "zu wenige Trades" | "kein messbarer Effekt" | "noch nicht aussagekräftig" | "positiv" | "negativ" */
+  verdict: string;
+  note: string;
+  significant: boolean;
+}
+
 export interface ShortTermLane {
   lane: string; // "swing" | "session" | "crypto"
   initial_capital: number;
@@ -539,6 +553,10 @@ export interface ShortTermLane {
    *  differ by the capital-usage factor — both are shown rather than one standing in for
    *  the other. */
   broker_equity: number | null;
+  /** Whether this book's average trade is distinguishable from zero yet (v16 wave 3).
+   *  Without it "−2.4 % over 48 trades" reads as a verdict when it is noise. Judged at a
+   *  Bonferroni-corrected level because all lanes are looked at together. */
+  significance: LaneSignificance;
   open_positions: ShortTermPosition[];
   equity_curve: [string, number][];
   stats: ShortTermStats;
