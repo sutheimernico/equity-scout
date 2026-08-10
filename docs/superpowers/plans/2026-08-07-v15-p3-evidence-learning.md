@@ -77,7 +77,7 @@ Untouched by design: `frontend/`, `PLAN.md`, `scripts/nightly_train.sh`, `script
 
 **Files:** Create `src/equity_scout/ml/evidence_features.py`, `tests/test_evidence_features.py`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_evidence_features.py`:
 
@@ -230,14 +230,14 @@ def test_malformed_rows_are_skipped_never_guessed(tmp_path):
     assert index.clusters == {}
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 ```bash
 uv run python -m pytest tests/test_evidence_features.py -q
 ```
 Expected: collection error — `ModuleNotFoundError: No module named 'equity_scout.ml.evidence_features'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Create `src/equity_scout/ml/evidence_features.py`:
 
@@ -377,14 +377,14 @@ def load_evidence_index(db_path: str = DEFAULT_DB_PATH) -> EvidenceIndex:
     return EvidenceIndex(clusters)
 ```
 
-- [ ] **Step 4: Run the module tests**
+- [x] **Step 4: Run the module tests**
 
 ```bash
 uv run python -m pytest tests/test_evidence_features.py -q
 ```
 Expected: `9 passed`.
 
-- [ ] **Step 5: Full gate + commit**
+- [x] **Step 5: Full gate + commit**
 
 ```bash
 uv run python -m pytest -q && uv run ruff check .
@@ -404,7 +404,7 @@ git commit -m "feat(ml): point-in-time insider-cluster evidence features"
 
 **Why now, not later:** this plan is the first time the registry holds models with DIFFERENT feature sets side by side. `score_row` currently builds `pd.DataFrame([features], columns=self.feature_columns)`, which fills any column the caller did not supply with **NaN and scores it silently**. That is the one way an evidence-featured champion could ever produce a fabricated number, so it is closed here before the champion can exist.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/test_entry_model.py`:
 
@@ -425,14 +425,14 @@ def test_score_row_refuses_a_row_missing_a_fitted_feature_column():
     assert 0 <= model.score_row({"a": 0.5, "b": 0.5, "unused": 9.9}) <= 100
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 ```bash
 uv run python -m pytest tests/test_entry_model.py -q -k score_row_refuses
 ```
 Expected: `DID NOT RAISE <class 'ValueError'>` (the NaN row scores silently today).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `src/equity_scout/ml/entry_model.py`, replace `score_row` (lines 92-95):
 
@@ -453,7 +453,7 @@ In `src/equity_scout/ml/entry_model.py`, replace `score_row` (lines 92-95):
         return int(self.score_many(row)[0])
 ```
 
-- [ ] **Step 4: Full gate + commit**
+- [x] **Step 4: Full gate + commit**
 
 ```bash
 uv run python -m pytest -q && uv run ruff check .
@@ -471,7 +471,7 @@ git commit -m "fix(ml): score_row raises on missing fitted feature columns inste
 
 **Files:** Modify `src/equity_scout/ml/entry_dataset.py`, `tests/test_entry_dataset.py`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_entry_dataset.py`:
 
@@ -522,14 +522,14 @@ def test_evidence_index_appends_its_block_point_in_time():
     assert (X.loc[inside, "ev_insider_max_size_91d"] == 7.0).all()
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 ```bash
 uv run python -m pytest tests/test_entry_dataset.py -q -k "additive or evidence_index"
 ```
 Expected: `TypeError: build_backfill_dataset() got an unexpected keyword argument 'evidence_index'` (both tests).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `src/equity_scout/ml/entry_dataset.py`:
 
@@ -574,7 +574,7 @@ And replace the `X = ...` construction:
     X = pd.DataFrame([r[2] for r in rows], columns=columns)
 ```
 
-- [ ] **Step 4: Full gate + commit**
+- [x] **Step 4: Full gate + commit**
 
 ```bash
 uv run python -m pytest -q && uv run ruff check .
@@ -592,7 +592,7 @@ git commit -m "feat(ml): additive evidence_index in the entry backfill dataset"
 
 **Files:** Modify `scripts/run_train_entry.py`, `tests/test_run_train_entry.py`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 First fix the existing metrics-keyset assertion in `tests/test_run_train_entry.py` (line 62-65) — two keys are added so a registry row can always say whether the model used evidence:
 
@@ -686,14 +686,14 @@ def test_cli_without_the_flag_loads_no_evidence_index(tmp_path, monkeypatch):
     assert seen["evidence_index"] is None
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 ```bash
 uv run python -m pytest tests/test_run_train_entry.py -q
 ```
 Expected: the keyset assertion fails on the two new keys, and the new tests fail with `TypeError: run_train_entry() got an unexpected keyword argument 'evidence_index'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `scripts/run_train_entry.py`:
 
@@ -848,7 +848,7 @@ In `main()`, add the flag and thread it:
     )
 ```
 
-- [ ] **Step 4: Full gate + commit**
+- [x] **Step 4: Full gate + commit**
 
 ```bash
 uv run python -m pytest -q && uv run ruff check .
@@ -866,7 +866,7 @@ git commit -m "feat(ml): train evidence-featured entry_tb challengers with hones
 
 **Files:** Create `scripts/run_evidence_refresh.py`, `tests/test_run_evidence_refresh.py`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_run_evidence_refresh.py`:
 
@@ -992,14 +992,14 @@ def test_cli_prints_the_refusal_and_the_multiplicity_note(tmp_path, monkeypatch,
     assert "belegbar" not in out  # honesty guardrail: a gate is never a proof
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 ```bash
 uv run python -m pytest tests/test_run_evidence_refresh.py -q
 ```
 Expected: collection error — `ModuleNotFoundError: No module named 'scripts.run_evidence_refresh'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Create `scripts/run_evidence_refresh.py`:
 
@@ -1178,14 +1178,14 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 4: Run the module tests**
+- [x] **Step 4: Run the module tests**
 
 ```bash
 uv run python -m pytest tests/test_run_evidence_refresh.py -q
 ```
 Expected: `6 passed`.
 
-- [ ] **Step 5: Full gate + commit**
+- [x] **Step 5: Full gate + commit**
 
 ```bash
 uv run python -m pytest -q && uv run ruff check .
@@ -1205,7 +1205,7 @@ git commit -m "feat(ml): resolution-gated evidence refresh runner"
 
 **Purpose:** measure before believing. The 27,681 backfilled insider clusters span the whole US market; the entry panel's universe is the current watchlist. If almost no training row carries an active cluster, the feature set is dead on arrival and the honest move is to say so — not to read an unchanged AUC as a subtle result.
 
-- [ ] **Step 1: Confirm the store is populated and see the raw overlap**
+- [x] **Step 1: Confirm the store is populated and see the raw overlap**
 
 ```bash
 uv run python -c "
@@ -1221,7 +1221,7 @@ print('t0 range:', c.execute(
 ```
 Expected: ~27,681 clusters over several thousand distinct tickers, t0 range ~2006-01 → 2026-06.
 
-- [ ] **Step 2: One evidence training run on the real panel (single preset, entry_tb only)**
+- [x] **Step 2: One evidence training run on the real panel (single preset, entry_tb only)**
 
 ```bash
 uv run python scripts/run_train_entry.py --family entry_tb --model random_forest --with-evidence
@@ -1233,14 +1233,14 @@ Expected: two blocks (plain + evidence variant), each printing `Triple-Barrier-E
 - coverage ≥ 2% and no promotion → the honest, expected default. Report the AUC delta and the hurdle it failed against.
 - promotion → report the version, the AUC, `n_oos`, and the hurdle it cleared (`0.01 * sqrt(n_candidates)`), with the multiplicity note. Never as a demonstrated edge.
 
-- [ ] **Step 3: Refresh-runner dry run against the live ledger**
+- [x] **Step 3: Refresh-runner dry run against the live ledger**
 
 ```bash
 uv run python scripts/run_evidence_refresh.py
 ```
 Expected today (first resolutions land 2026-08-11): `Kein Refresh: 0 neue aufgelöste Vorhersage(n) … Minimum ist 30.` plus the multiplicity note. That refusal IS the correct current behaviour — record it.
 
-- [ ] **Step 4: Full gate, fill the Outcome, commit**
+- [x] **Step 4: Full gate, fill the Outcome, commit**
 
 ```bash
 uv run python -m pytest -q && uv run ruff check .
@@ -1301,3 +1301,32 @@ Checked before hand-off; issues found were fixed inline in the tasks above.
 ---
 
 ## Outcome
+
+**Executed 2026-08-09/10 (Fable-Session, subagent-driven, two-stage review per task). All 6 tasks done, gate green throughout (final: 1856 passed, ruff clean).**
+
+### Live measurement (Task 6, 2026-08-10 early morning)
+
+- Store probe: **27,681 insider clusters over 7,053 distinct tickers**, t0 range 2006-01-03 → 2026-06-30. entry_tb registry before the run: 40 versions, **0 champions**.
+- Real training run (`--family entry_tb --model random_forest --with-evidence`, panel of 27 usable tickers after the 30%-span exclusions INSW/LPG/BBSE3.SA):
+  - plain v122: OOS AUC **0.4713**, Brier 0.2538, Rank-IC 0.0305, WFE -0.1486 (n_oos=3834, 4 splits) → not promoted.
+  - evidence v123: OOS AUC **0.4743**, Brier 0.2522, Rank-IC 0.0446, WFE -0.1319 (same n_oos) → not promoted.
+  - **evidence_coverage_91d = 2.5%** (printed: "Anteil Trainingszeilen mit Insider-Cluster in den letzten 91 Tagen: 2,5%"), **7 von 27 Trainings-Tickern** with an active cluster window.
+- Interpretation per the binding rule: coverage ≥ 2% and no promotion → **the honest, expected default**. AUC delta of the evidence variant over plain: **+0.0030**; the hurdle it failed is the ABSOLUTE bootstrap bar (empty champion slot: n_oos ≥ 200 and AUC ≥ 0.55) — the sqrt(N) delta never came into play because no champion exists. The features are live, measured, and did not clear the hurdle. That is the deliverable.
+- Refresh runner dry run against the live ledger: `Kein Refresh: 0 neue aufgelöste Vorhersage(n) … Minimum ist 30.` + multiplicity note, exit 0 — the correct refusal (first real resolutions expected from 2026-08-11/12).
+
+### Deviations from the plan text (all review-driven, each its own commit)
+
+- Task 1 hardening after Opus review (`6dd40e7`): tz-aware/None `as_of` raises; loader no longer creates schema (missing table → ValueError, empty insider partition → loud warning); malformed rows counted + reported; `features()` keys single-sourced from `EVIDENCE_FEATURE_COLUMNS`; strict `isinstance(n_insiders, int)`; 13 module tests (plan: 9).
+- Task 2 addition (`dee2873`): the guard test's `match` pinned to "fitted on" — sklearn's own NaN ValueError contains "missing", so the plan's match would stay green with the guard deleted.
+- Task 3 addition (`48374db`): module docstring de-contradicted, `FEATURE_COLUMNS`∩`EVIDENCE_FEATURE_COLUMNS`=∅ test, NaN-raise after X construction (training-side mirror of the Task-2 guard).
+- Task 4 (`24332ad`): metrics key renamed **`evidence_coverage` → `evidence_coverage_91d`** (the number counts only the 91d flag; rows with ANY ev_* signal are ~4x higher — plan lines 1250/1266 still say the old name, this Outcome uses the new one). `--with-evidence` fails fast before the panel fetch; per-run sqrt(N) caveat documented. Plus one report-only print line (active tickers vs. total).
+- **Registry gate tightened outside the plan's file map** (`88fe531`, wording `d0a4df3`): `_no_edge` is now one-sided — an anti-predictive model (AUC ≤ 0.45) can no longer bootstrap an empty champion slot. Rationale: symmetric band + empty entry_tb slot + doubled draws made a fake first champion the single most likely bad outcome of this plan; call-site survey confirmed auc-only, higher-is-better everywhere. The bar was raised, never lowered.
+- Task 5 (`6d37a6d`, `f426416`): crash honesty (all-crashed presets no longer reported as "evaluated", watermark not burned, exit 1 on a triggered --apply run that evaluated nothing); module docstring de-overclaimed (the resolution count is a PROXY for elapsed market information — the daily chain logs ~30 predictions per weekday, so after the resolve loop warms up nearly every day clears the minimum; a panel-`as_of` clock is the honest v2); MULTIPLICITY_NOTE states both promotion regimes (bootstrap = absolute bar only); `--min-new-resolutions` floor ≥ 1; 9 module tests (plan: 6).
+
+### Findings for Nico (plan-level, not fixed in code)
+
+1. **Non-US structural zeros:** 13 of 31 panel tickers trade outside the Form-4 regime (NSE/Tokio/ASX/B3/LSE/Euronext) — for them `ev_* = 0` encodes "no disclosure regime", not "no insider buying". A tree splitting on the evidence block partly learns a jurisdiction dummy. Mitigations in place: the absolute 0.55 bootstrap bar (a confound would have to be strongly predictive OOS), `feature_importance` recorded per registry row, and this documentation. The clean v2 fix is a US-regime-only training universe or an explicit regime column — Nico's call.
+2. **Low discriminating power:** at 2.5% coverage (172-ish active rows of ~6.3-7k), any AUC delta rides on very few rows; this experiment can realistically only produce a null on this universe. A US-heavy universe (the store spans 7,053 tickers!) would give the same features real support — v2 decision.
+3. **Trigger clock:** see Task-5 deviation — consider a panel-`as_of`-based clock in v2.
+4. **Surfaces (M2):** evidence variants are indistinguishable in `/api/model/history` and ModelPanel (fixed field list; `api.py` currently owned by the parallel cockpit session). Follow-up wiring wanted.
+5. **Cosmetics (M3):** `run_train_entry_all` returns three result-dict shapes (success/empty/crash); consumers today are tests only.
