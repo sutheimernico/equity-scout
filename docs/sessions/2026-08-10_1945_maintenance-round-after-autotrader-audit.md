@@ -52,6 +52,46 @@ Merge/Push), dann durchgearbeitet. Sechs Commits, alle mit Test, Gate nach jedem
 `main` per Fast-Forward auf `8197f4e` gezogen und **nach GitHub gepusht** (41 Commits; Secret-Scan
 über den Diff sauber, `.env` ungetrackt). Dash-Service neu gestartet, neue Felder live verifiziert.
 
+## Teil 3 — Chat-Latenz (Nachtrag, nach „hab nur den laptop" → „fix das alles erstmal lokal")
+
+Plan + alle Messungen: `docs/superpowers/plans/2026-08-10-chat-latency-prompt-cache.md`.
+
+**Hardware-Antwort zuerst:** Intel Iris Xe, integriert, kein dediziertes VRAM. Für Ollama
+praktisch nutzlos — nicht offiziell unterstützt, und eine iGPU teilt den Speicherbus mit der
+CPU, also genau die bei LLM-Inferenz limitierende Ressource. Also am Prompt gearbeitet.
+
+**Eigene Vorannahme widerlegt:** Ich hatte aus „60–106 s bis zum ersten Token" auf 6.000–11.000
+Prompt-Token zurückgerechnet. Gemessen sind es 1.652 (Aktienfrage), 332 (Depot), 463 (Lexikon).
+Die alten Zahlen kamen aus Last oder Kaltstart.
+
+**Der eigentliche Befund (Faktor ~50, last-unabhängig): Ollama cached das Prompt-Präfix
+zwischen Anfragen.** Gleiches Präfix → 1,8 s Prefill, anderes → 108,6 s. Damit kippt die
+Optimierungsrichtung: **stabiles Präfix schlägt kurzen Prompt** — und das bis dahin für richtig
+gehaltene Topic-Trimming des Glossars war kontraproduktiv, weil es pro Themenkombination ein
+anderes Präfix baute.
+
+Umgesetzt (`b1c772b`): Glossar konstant und fest vorn · `ADVICE_BRIEF` dahinter · Routing am
+Wortanfang verankert (`hält` in „hältst", `offen` in „offensichtlich", `ml` in „Sammlung"
+feuerten als Substrings) · Überblick-Fallback unterdrückt, sobald die Frage einen Anker hat.
+
+**Der Live-Check fand einen echten Antwort-Defekt:** Hausbegriff-Fragen trafen kein Keyword,
+bekamen über den Fallback das ganze Dashboard und wurden mit „wird nicht im Datenkontext
+erwähnt" beantwortet — während die Definition im Glossar direkt darüber stand. Neues Topic
+`begriffe` ohne eigenen Datenblock. **„Was ist die Einstiegszone?": 121 s und falsch → 7 s und
+korrekt** (über den echten Dash-Service verifiziert, nicht nur im TestClient).
+
+Prefill nach dem ersten Aufruf: Lexikon 6,5→0 s · Depot 8,0→1,5 s · Aktienfrage 14,5→8,0 s ·
+Empfehlung 22,2→15,7 s.
+
+**Grenzen, ausdrücklich:** Alle Sekundenwerte entstanden unter Fremdlast (parallele Session mit
+5× `scan.py`, Load 7–16). Der **qwen2.5:1.5b-Vergleich war dadurch ungültig** — 1.5b generierte
+„langsamer" als 7b, was physikalisch nicht sein kann — und bleibt ungeprüft; **kein
+Modellwechsel**. Zwei Modellschwächen unabhängig davon: das Modell nannte ein Perzentil
+„F-Score 59/100" trotz Glossar-Definition „Piotroski 0–9", erfand „Hoheitswertverhältnis" fürs
+Kurs-Buchwert-Verhältnis, und fasste eine Depot-Frage teilweise falsch zusammen („einziger
+negativer Beitrag" — die Session-Lane verlor auch). Ansatzpunkt wäre das Dossier-Wording
+(Kennzahlen mit ihrer Skala beschriften), nicht der Prompt-Aufbau.
+
 ## Entscheidungen
 
 - **Nicos Maker-Wahl begründet abgewichen.** Er wählte „Maker + längere Haltedauer" für die
@@ -99,8 +139,11 @@ Merge/Push), dann durchgearbeitet. Sechs Commits, alle mit Test, Gate nach jedem
 ## To-dos
 
 ### Nico (nur er kann das)
-1. **GPU-oder-API-Entscheidung für den Assistenten** — Ollama läuft rein auf CPU
-   (`size_vram 0`), 60–106 s bis zum ersten Token bei Aktienfragen. Weiter offen.
+1. ~~**GPU-oder-API-Entscheidung für den Assistenten**~~ — durch Nicos Randbedingung („hab nur
+   den laptop") beantwortet und lokal gelöst, siehe Teil 3. Die Iris Xe bringt für Ollama
+   nichts; die Latenz kam vom Prompt-Präfix, nicht von der Hardware. **Falls es später doch
+   nicht reicht:** eine API wäre der einzige echte Sprung und kostet Geld — bleibt seine
+   Entscheidung. Offen und billig nachzuholen: der 1.5b-Vergleich bei ruhiger Maschine.
 2. **`DASH_TOKEN` rotieren** (steht seit dem Cockpit-Deploy an).
 3. **Voices-Personenliste** bestätigen/erweitern (`evidence/voices.py::PERSONS`) — Veto-Option.
 4. **Visueller Abnahme-Pass** des Cockpits im Browser (kein Screenshot-Tooling hier).
