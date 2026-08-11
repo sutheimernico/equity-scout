@@ -309,6 +309,45 @@ def promote_if_better(
         return True
 
 
+def demote_if_no_edge(db_path: str, *, family: str, fresh_metric: float | None) -> int | None:
+    """Strip the champion title when the incumbent's metric, RE-MEASURED on the current sample, is
+    a no-edge result. Returns the demoted version, or None if nothing changed.
+
+    This closes the loop the module already promises in its own docstring — "an empty arena has no
+    champion rather than a fake one" — for a champion that LOSES its edge rather than never having
+    had one. Until 2026-08-11 that promise only covered promotion: a title, once won, was never
+    re-examined, so the `entry` champion kept scoring live on an AUC of 0.6195 measured on 220 rows
+    while delivering 0.5152 on 3281 and 0.5140 on 54735.
+
+    Symmetry with promotion is the point: `_no_edge` is the SAME gate a newcomer must clear. An
+    incumbent that would be refused as a challenger today has no claim to the title today.
+
+    `fresh_metric` must come from re-scoring the incumbent on the challenger's own out-of-sample
+    folds (`entry_model.evaluate_fitted_model`), which is deliberately generous to it. None or a
+    non-finite value leaves the champion alone — an unmeasurable incumbent is not a demoted one,
+    because that would let a broken measurement empty the arena.
+
+    Idempotent: with no champion in `family`, or a champion that clears the band, nothing happens.
+    No `champion_history` row is written — that table's `version` is NOT NULL and records
+    promotions; the demotion is announced by its caller and is visible downstream as "no promoted
+    champion", which the bot surfaces as "kein Edge, kein Trade".
+    """
+    if fresh_metric is None or not math.isfinite(fresh_metric) or not _no_edge(float(fresh_metric)):
+        return None
+    init_registry_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT version FROM entry_models WHERE is_champion = 1 AND family = ?", (family,)
+        ).fetchone()
+        if row is None:
+            return None
+        conn.execute(
+            "UPDATE entry_models SET is_champion = 0 WHERE is_champion = 1 AND family = ?",
+            (family,),
+        )
+    return int(row[0])
+
+
 def load_champion_history(db_path: str = DEFAULT_DB_PATH, *, family: str | None = None) -> list[dict]:
     """Every promotion event (oldest first): when the champion changed, from which version, and
     the OOS quality it demonstrated at that moment — the honest x-axis of the learning curve."""

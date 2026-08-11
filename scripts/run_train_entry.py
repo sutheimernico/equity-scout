@@ -53,6 +53,7 @@ from equity_scout.ml.model_registry import (
     NO_EDGE_BAND,
     RegistryError,
     _no_edge,
+    demote_if_no_edge,
     entry_champion,
     promote_if_better,
     register_challenger,
@@ -261,6 +262,18 @@ def run_train_entry(
     )
     if incumbent_note:
         print(incumbent_note)
+    # Before any promotion attempt: a champion that would be REFUSED as a challenger today has no
+    # claim to the title today. Runs first so the arena is honestly empty while this run's
+    # challengers are judged — they then face the baseline-quality gate alone, which is exactly
+    # the bar a first champion has to clear.
+    demoted = demote_if_no_edge(db_path, family=family, fresh_metric=incumbent_auc)
+    if demoted is not None:
+        print(
+            f"ENTTHRONT: v{demoted} verliert den Champion-Titel — auf diesem Sample kein "
+            "nachweisbarer Vorteil. Die Arena ist leer, bis ein Modell die Grundqualität zeigt; "
+            "der ML-Bot handelt bis dahin nicht (kein Edge, kein Trade)."
+        )
+        incumbent_auc = None  # the title is gone; there is no incumbent left to beat
     promoted = promote_if_better(
         db_path, version, now=now, n_candidates=n_candidates, incumbent_metric=incumbent_auc
     )

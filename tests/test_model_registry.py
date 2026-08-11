@@ -13,6 +13,7 @@ from equity_scout.ml.entry_model import EntryModel, train_entry_model
 from equity_scout.ml.labeling import BarrierConfig
 from equity_scout.ml.model_registry import (
     RegistryError,
+    demote_if_no_edge,
     entry_champion,
     promote_if_better,
     register_challenger,
@@ -458,3 +459,69 @@ def test_a_non_finite_incumbent_metric_falls_back_instead_of_promoting_everythin
     assert promote_if_better(db, challenger, incumbent_metric=float("nan")) is False
     assert promote_if_better(db, challenger, incumbent_metric=float("inf")) is False
     assert entry_champion(db)[0] == incumbent
+
+
+# --- demote_if_no_edge: a lost edge costs the title (2026-08-11) -------------------
+
+def test_a_champion_without_an_edge_on_the_fresh_sample_loses_the_title(tmp_path):
+    """The live case. v1 held the title on 0.6195 from 220 rows while delivering 0.5140 on 54735 —
+    inside the no-edge band, i.e. it would be REFUSED as a challenger. Symmetry is the point: the
+    same gate that blocks a newcomer removes an incumbent."""
+    db = str(tmp_path / "reg.db")
+    v = register_challenger(db, _model(1), metrics=_metrics(0.6195), n_train=520, now=NOW)
+    assert promote_if_better(db, v) is True
+    assert demote_if_no_edge(db, family="entry", fresh_metric=0.5140) == v
+    assert entry_champion(db) is None  # empty arena, not a replacement
+
+
+def test_a_champion_that_still_has_an_edge_keeps_the_title(tmp_path):
+    db = str(tmp_path / "reg.db")
+    v = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=520, now=NOW)
+    assert promote_if_better(db, v) is True
+    assert demote_if_no_edge(db, family="entry", fresh_metric=0.62) is None
+    assert entry_champion(db)[0] == v
+
+
+def test_demotion_is_idempotent_and_safe_on_an_empty_arena(tmp_path):
+    """Called once per preset per night, so a second call must be a no-op rather than an error."""
+    db = str(tmp_path / "reg.db")
+    v = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=520, now=NOW)
+    assert promote_if_better(db, v) is True
+    assert demote_if_no_edge(db, family="entry", fresh_metric=0.51) == v
+    assert demote_if_no_edge(db, family="entry", fresh_metric=0.51) is None
+    assert demote_if_no_edge(db, family="entry_tb", fresh_metric=0.51) is None
+
+
+def test_an_unmeasurable_incumbent_is_never_demoted(tmp_path):
+    """A broken measurement must not be able to empty the arena — None and non-finite leave the
+    champion alone, matching promote_if_better's fallback."""
+    db = str(tmp_path / "reg.db")
+    v = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=520, now=NOW)
+    assert promote_if_better(db, v) is True
+    for value in (None, float("nan"), float("inf")):
+        assert demote_if_no_edge(db, family="entry", fresh_metric=value) is None
+    assert entry_champion(db)[0] == v
+
+
+def test_demotion_is_scoped_to_one_family(tmp_path):
+    """Families have separate champion tracks; a dead entry champion must not unseat entry_tb."""
+    db = str(tmp_path / "reg.db")
+    v_entry = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=520, now=NOW)
+    promote_if_better(db, v_entry)
+    v_tb = register_challenger(
+        db, _model(2), metrics=_metrics(0.70), n_train=520, now=NOW, family="entry_tb"
+    )
+    promote_if_better(db, v_tb)
+    assert demote_if_no_edge(db, family="entry", fresh_metric=0.50) == v_entry
+    assert entry_champion(db, family="entry") is None
+    assert entry_champion(db, family="entry_tb")[0] == v_tb
+
+
+def test_an_anti_predictive_incumbent_is_demoted_too(tmp_path):
+    """_no_edge is one-sided: well below 0.5 fails it as surely as 0.51 does, and nothing
+    downstream inverts scores to trade on an anti-predictive model."""
+    db = str(tmp_path / "reg.db")
+    v = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=520, now=NOW)
+    assert promote_if_better(db, v) is True
+    assert demote_if_no_edge(db, family="entry", fresh_metric=0.40) == v
+    assert entry_champion(db) is None

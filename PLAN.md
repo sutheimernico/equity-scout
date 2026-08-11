@@ -733,10 +733,20 @@ auf, der den Hebel erübrigt. Volle Auswertung:
   Parameter bleibt das alte Verhalten; ein nicht bewertbarer Amtsinhaber fällt bewusst auf den
   gespeicherten Wert zurück (Vergleich gegen nichts würde auf keiner Evidenz promovieren).
 - Gate: **2000 Tests grün** (10 neue), ruff clean.
-- [ ] **Needs Nico: automatische Entthronung ja/nein?** Sie wäre die Fortsetzung des Prinzips „eine
-      leere Arena hat keinen Champion statt einen falschen", hat aber eine Live-Folge: ohne
-      `entry`-Champion handelt der **ML-Long-Bot** nicht mehr, ein Depot-Sleeve mit 12,5 % Gewicht.
-      Bewusst nicht automatisiert; der Zustand steht bis dahin jede Nacht im Log.
+- [x] **Automatische Entthronung — im Head-Modus entschieden und gebaut** (2026-08-11 nachts, Nicos
+      „Du bist Head"). Begründung: das Prinzip steht wörtlich im Modul-Docstring („eine leere Arena
+      hat keinen Champion statt einen falschen"), es galt aber nur für die Promotion — ein einmal
+      gewonnener Titel wurde nie wieder geprüft. `demote_if_no_edge` schließt die Lücke
+      **symmetrisch**: `_no_edge` ist dieselbe Schranke, die einen Neuling blockiert; wer heute als
+      Herausforderer abgelehnt würde, hat heute keinen Anspruch auf den Titel. Läuft VOR den
+      Promotionsversuchen, damit die Arena ehrlich leer ist, während die Herausforderer dieser
+      Nacht beurteilt werden. Ein nicht messbarer Amtsinhaber (None/NaN/inf) wird NIE entthront —
+      eine kaputte Messung darf die Arena nicht leeren. **Live-Folge, ab dem Nightly heute Nacht:
+      der ML-Long-Bot handelt nicht mehr** („kein Edge, kein Trade" — die Oberfläche sagt das schon
+      korrekt, wie beim Short-Bot seit Wochen); das Depot läuft dann mit 7 statt 8 Sleeves, die
+      Gewichtung ist dynamisch. Paper-Geld, vollständig reversibel. Am echten Fall gegen eine
+      DB-Kopie verifiziert: v1 fällt (0,5140), der beste Herausforderer (0,5069) wird NICHT
+      Nachfolger — die Arena bleibt leer, was der korrekte Zustand ist.
 - [x] Universum als Wurzel-Hebel — **ausgeführt, siehe eigene Phase unten.**
 
 ## Phase: Festes Trainingsuniversum → Achse 2 endgültig negativ (2026-08-11) — DONE
