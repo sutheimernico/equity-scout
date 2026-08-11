@@ -612,8 +612,17 @@ Zwei Defekte, der zweite gefährlicher als der erste (`f685a0b`).
 - [ ] Beobachten: das Depot-Brutto nach dem nächsten Nightly (erwartet ~84 % statt 60 %) und
       ob der Vol-Target-Layer dann stärker greift — das wäre korrekt, aber es soll gesehen
       werden.
-- [ ] Rest von Welle 2, noch offen: Kosten-Netting über Lanes (jede zahlt ihre Kosten
-      einzeln), und die Session-Lane nutzt 10 % ihres Broker-Kapitals.
+- [ ] Rest von Welle 2: die Session-Lane nutzt 10 % ihres Broker-Kapitals.
+- [x] **Kosten-Netting über Lanes — nachgelesen 2026-08-11, kein Defekt gefunden, nicht gebaut.**
+      Zwei Ebenen, beide bereits konservativ: (a) über die Depot-**Sleeves** nettet es schon — die
+      Kosten laufen auf dem AGGREGIERTEN Delta je Ticker (`delta = fill_targets − weights` in
+      `autotrader_engine`), nachdem die Sleeve-Gewichte zusammengeführt sind; gegenläufige Sleeves
+      erzeugen also keine doppelte Gebühr. (b) Über die **Lanes** wäre Netting sogar falsch: sie
+      sind getrennte Bücher mit getrennten Tracks, und ihnen Synergien zuzurechnen, die nur bei
+      gemeinsamer Ausführung entstehen, würde jede Lane besser darstellen als sie einzeln ist.
+      Geprüft und verworfen: das Depot zahlt 10 bps, wenn es Kapital in eine Lane verschiebt,
+      obwohl das real eine Ein-/Auszahlung wäre — das ist eine ÜBER-, keine Unterzeichnung der
+      Kosten. Ohne einen konkreten Defekt wird hier nichts umgebaut.
 
 ## Phase: v16 Welle 3 — Selektionsgeschwindigkeit (2026-08-10) — DONE
 Beide Teile gebaut (`a8a50e7`, Verlustanatomie im Folgecommit). Zweck: schneller erkennen,
@@ -691,8 +700,9 @@ Zwei Dinge, die keinen Bau brauchten, sondern eine Messung.
       des Schritts also grundsätzlich unvorhersehbar (heute 18 Picks, morgen können es 40 sein).
       Ein eigenes Limit dafür wäre der nächste Schritt, kappt aber Karten, die Nico am 07.08.
       ausdrücklich mit Texten wollte — Entscheidung gehört ihm.
-- [ ] Offen: zeigt die Karte das Alter ihres Textes? Wenn nicht, sind zwei Tage alte
-      Nachrichten als heutige dargestellt — eine Ehrlichkeitslücke, unabhängig von der Laufzeit.
+- [x] Geprüft, keine Lücke: **die Karte zeigt das Datum schon** — `InsightBlock.tsx` rendert
+      „KI-Zusammenfassung (qwen2.5:7b) vom 09.08. — keine Empfehlung." Ein zwei Tage alter Text ist
+      also als solcher erkennbar. Kein Code nötig.
 
 ## Phase: Achse 2 — Zielgröße/Horizont/Universum (2026-08-11) — Befund statt Bau
 Nicos Go: „Deine Empfehlung, mach einfach" → Achse 2. Beim Lesen des Universums fiel ein Defekt
@@ -727,10 +737,55 @@ auf, der den Hebel erübrigt. Volle Auswertung:
       leere Arena hat keinen Champion statt einen falschen", hat aber eine Live-Folge: ohne
       `entry`-Champion handelt der **ML-Long-Bot** nicht mehr, ein Depot-Sleeve mit 12,5 % Gewicht.
       Bewusst nicht automatisiert; der Zustand steht bis dahin jede Nacht im Log.
-- [ ] Wenn Achse 2 doch weitergehen soll: beim **Universum** anfangen, nicht bei der Zielgröße —
-      ein festes, ex-ante definiertes Trainingsuniversum (z. B. S&P-500-Mitglieder eines Stichtags)
-      statt der heutigen Watchlist. Behebt Selektions-Bias, Vergleichbarkeit zwischen Nächten und
-      Testmacht in einem Schritt. Ohne das misst jede weitere Achse auf wechselndem Boden.
+- [x] Universum als Wurzel-Hebel — **ausgeführt, siehe eigene Phase unten.**
+
+## Phase: Festes Trainingsuniversum → Achse 2 endgültig negativ (2026-08-11) — DONE
+Head-Modus (Nicos „arbeite in einer loop immer weiter … Du bist Head"). Der Vorbefund empfahl, beim
+Universum anzufangen. Das ist passiert, und es beantwortet die Frage abschließend.
+Doku: `docs/research/2026-08-11-fixed-universe-and-the-final-null-result.md`.
+
+- **Das Trainingsuniversum ist jetzt fest und ex ante** (`ml/entry_universe.py`): 503 US-Titel aus
+  dem datierten Index-Snapshot `2026-07-02` statt der täglich wechselnden Watchlist. Snapshot-Datum
+  und Region sind **angenagelte Konstanten** — ein „neuester Snapshot"-Zugriff würde genau die
+  Drift zurückholen, die hier verschwindet. Liste alphabetisch sortiert und dedupliziert, damit sie
+  zwischen zwei Nächten byte-identisch ist (per Test gepinnt).
+- **Stichprobe: 3.931 → 68.085 Trainingszeilen, 2.431 → 54.735 OOS-Zeilen** (445 Titel nach dem
+  Historien-Filter, 94 s Panel-Download für 504 Ticker).
+- **DAS ERGEBNIS: der Vorteil verschwindet mit der Stichprobe, statt sich zu bestätigen.**
+  AUC **0,5069** (random_forest) und **0,5041** (elastic_net) — NIEDRIGER als die 0,5348, die
+  dasselbe Verfahren auf dem 22× kleineren Watchlist-Sample zeigte. Amtsinhaber v1 hier: 0,5140.
+- **Der Rank-IC fällt von 0,05–0,07 auf 0,0142.** Damit ist auch die letzte Hoffnung des
+  Vorbefunds widerlegt — es gab keine „schwache monotone Beziehung, wo die binäre Trennkraft
+  fehlt", das war dieselbe Kleinstichproben-Illusion. **Diese frühere Notiz ist damit korrigiert.**
+- **Voller Durchlauf, alle drei Familien × vier Presets: Spanne 0,4755–0,5069. NULL von elf
+  erreichen die Schwelle 0,55, acht von elf haben einen NEGATIVEN Rank-IC.** Die kürzeren bzw.
+  barrierenbasierten Zielgrößen (`entry_short` 10 Tage, `entry_tb` vol-skalierte Barrieren)
+  schneiden **schlechter** ab als die 20-Tage-Relativrendite — auch das war auf den kleinen
+  Samples nicht sichtbar.
+- Laufzeit gemessen und in `nightly_train.sh` dokumentiert: ~94 s Download + ~65 s je Preset × 12
+  = **~15 min** gegen den 25-min-Step-Cap (vorher ~60 s). Nicht mehr vernachlässigbar — die Zeile
+  steht dort, wo die nächste Person sie braucht, bevor sie Presets ergänzt.
+- Bei n = 54.735 ist der Standardfehler der AUC ~0,002: die 0,5069 sind **statistisch von 0,5
+  unterscheidbar und wirtschaftlich bedeutungslos** — weit unter der eigenen Schwelle 0,55.
+- **Jede Registry-Zeile stempelt jetzt `metrics["universe"]`** (`n_tickers`, `n_scored`). Das
+  Fehlen dieser Information ist der Grund, warum der Champion-Defekt fünf Wochen unsichtbar blieb.
+- **Achse 2 ist damit vollständig und negativ:** Features (3 Nullbefunde), Zielgröße/Horizont
+  (3 Familien im Münzwurfbereich), Universum (22× mehr Daten → kleinerer Vorteil). Ehrliche
+  Aussage: **an freien Tagesschlusskursen und preisabgeleiteten Features ist die
+  Querschnitts-Relativrendite über 20 Handelstage mit diesem Setup nicht vorhersagbar.** Passt zum
+  W0-Befund des Vortags (Rendite an diesen Daten nicht entscheidbar, Risiko schon).
+- Grenzen ehrlich: Survivorship-Bias bleibt (Snapshot hält die Mitglieder SEINES Datums; delistete
+  Titel liefern bei yfinance keine Historie) — entscheidend ist, dass der Restbias **kein
+  Rendite-Screen** ist und nicht mehr nachtweise variiert. Gilt für dieses Zielmaß, nicht für
+  längere Horizonte oder Fundamentaldaten.
+- [ ] **Needs Nico: Nebeneffekt dieser Änderung — Trainings- und Anwendungsdomäne fallen
+      auseinander.** Der `MLLongStrategy`-Sleeve wird in `run_autotrader.py` mit
+      `long_universe = watch_tickers` gebaut, also mit der globalen Watchlist (`ITC.NS`, `9064.T`,
+      `PETR4.SA`); trainiert wird auf 445 US-Large-Caps. Vorher war beides dieselbe driftende
+      Liste. Praktisch schadlos, solange kein Modell einen Vorteil zeigt (AUC 0,507), methodisch
+      eine Lücke. Beide Auswege ändern das Handelsverhalten (Bot handelt das feste Universum ODER
+      nur die Schnittmenge) — dieselbe Klasse Entscheidung wie die Entthronung, und sie erledigt
+      sich von selbst, falls entthront wird.
 
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
