@@ -38,15 +38,29 @@ then
   exit 0  # outside the market window — nothing to do, not an error
 fi
 
+# Per-step wall-clock cap (2026-08-11), the same rescue line the daily and nightly chains have
+# had since 2026-08-10. Measured over 226 logged runs: radar median 7s / p95 10s but ONE run at
+# 995s, evidence median 25s / max 65s, notify median 1s / max 60s. That 995s outlier overran the
+# 15-minute cadence, so `flock -n` skipped the following slot — the hang cost two rounds, and
+# nothing in the log said why. 5 min is ~9x the slowest normal step and still well inside the
+# cadence, so it can only ever fire on a genuine hang.
+STEP_TIMEOUT="${EQUITY_SCOUT_INTRADAY_STEP_TIMEOUT:-5m}"
+
 step() {
   local name="$1"
   shift
   echo "[$(date -Is)] START ${name}" >> "$LOG"
-  if "$@" >> "$LOG" 2>&1; then
+  if timeout "$STEP_TIMEOUT" "$@" >> "$LOG" 2>&1; then
     echo "[$(date -Is)] OK ${name}" >> "$LOG"
   else
     local rc=$?
-    echo "[$(date -Is)] FAILED ${name} (exit ${rc}) — continuing" >> "$LOG"
+    if [ "$rc" -eq 124 ]; then
+      # Named apart from FAILED for the same reason as in daily_copilot.sh: "too slow" and
+      # "broken" need different fixes, and an unbounded step could report neither.
+      echo "[$(date -Is)] TIMEOUT ${name} (nach ${STEP_TIMEOUT}) — continuing" >> "$LOG"
+    else
+      echo "[$(date -Is)] FAILED ${name} (exit ${rc}) — continuing" >> "$LOG"
+    fi
   fi
 }
 

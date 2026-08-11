@@ -30,4 +30,10 @@ if [ -f .env ]; then
   set +a
 fi
 
-exec "$PY" scripts/run_shortterm.py --lane session
+# Wall-clock cap, shorter than the cron cadence it runs on (2026-08-11). `flock -n` already
+# stops runs from stacking, but that same lock is what makes a HANG dangerous here: while one
+# run holds it, every following minute is skipped, so a single stuck network call would take
+# the lane silently offline for as long as the process lives. Capping at 55s means the worst
+# case costs one minute instead of a session. 124 (timeout's own code) is left as-is: the cron
+# line has no error branch, and the next minute simply tries again.
+exec timeout "${EQUITY_SCOUT_SESSION_TIMEOUT:-55s}" "$PY" scripts/run_shortterm.py --lane session

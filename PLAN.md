@@ -611,10 +611,23 @@ den Crypto-Teil: `docs/superpowers/plans/2026-08-10-crypto-lane-cost-honest-hold
   danach manuell nachgeholt. Die zwei übrigen Ketten (`intraday_copilot.sh`,
   `run_full_refresh.sh`) haben denselben unbegrenzten `step()` — siehe Backlog.
 - Gate der Runde: 1883 Tests grün, ruff clean, `tsc --noEmit` clean.
-- [ ] Backlog: `intraday_copilot.sh` und `run_full_refresh.sh` auf denselben Schritt-Timeout
-      ziehen. Nicht in dieser Runde, weil der Intraday-Takt (jede Minute für die Session-Lane,
-      */15 für den Rest) eigene Grenzen braucht als eine Tageskette — falsch gewählt würde ein
-      Timeout dort echte Arbeit abschneiden statt sie zu retten.
+- [x] Schritt-Timeouts der Intraday-Ketten — 2026-08-11, gemessen statt geschätzt (genau die
+      Sorge, die den Punkt zurückgestellt hatte). Über **226 protokollierte Läufe**: radar median
+      7 s / p95 10 s, aber **EIN Lauf bei 995 s (16,6 min)**; evidence median 25 s / max 65 s;
+      notify median 1 s / max 60 s. Der 995-s-Ausreißer überlief die 15-Minuten-Kadenz, also
+      übersprang `flock -n` den Folgeslot — der Hänger kostete zwei Runden, und **nichts im Log
+      sagte warum**. Cap jetzt 5 min (~9× der langsamste normale Schritt, weit innerhalb der
+      Kadenz), TIMEOUT vs. FAILED getrennt geloggt wie in der Tageskette.
+- [x] **Neuer Fund derselben Runde, gravierender als der Backlog-Punkt: die minütliche
+      Session-Lane konnte still offline gehen.** `flock -n` verhindert Stapeln, aber **derselbe
+      Lock macht einen HÄNGER schlimmer als einen Absturz**: solange ein Lauf ihn hält, wird jede
+      folgende Minute übersprungen — ein einziger steckengebliebener Netzwerkaufruf hätte die Lane
+      so lange lahmgelegt, wie der Prozess lebt, ohne eine einzige Logzeile. Cap 55 s, also unter
+      der Kadenz: der schlimmste Fall kostet eine Minute statt einer Sitzung.
+- [x] `run_full_refresh.sh` bewusst OHNE Cap — begründet abgelehnt statt mitgezogen: seine
+      Schritte SIND die geschützten Ketten (daily 12 min, nightly 25 min je Schritt), ein Cap dort
+      müsste Stunden abdecken und würde nichts retten. Ein Test pinnt die Entscheidung, damit
+      niemand sie als Versäumnis „behebt".
 - [x] **Folgebefund `insights` passt nicht mehr in sein Budget** — gemessen und behoben
       2026-08-11, siehe eigene Phase unten.
 - [ ] Beobachten: ob die Crypto-Lane auf Tagesbars einen positiven Erwartungswert zeigt. n=0
