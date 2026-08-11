@@ -900,6 +900,44 @@ reproduzierbar über `scripts/run_vol_forecast_study.py`.
       **fällt der VIX aus, Rückfall auf die trailing Vola, nicht Schutz aus** — eine Datenlücke
       darf nie als „kein Risiko" gelesen werden.
 
+## Phase: Fundamentaldaten-Schiene — Machbarkeit geprüft, Baustein gebaut (2026-08-12)
+Zweite Schiene meiner Empfehlung (nach Risiko). Bewusst parallel begonnen, weil sie das Depot NICHT
+berührt: es geht um Trainingsdaten, nicht um eine Live-Schicht — also kein Attributionskonflikt mit
+der Entthronung, die heute Nacht erstmals wirkt.
+
+- **Warum überhaupt:** alle 11 Modell-Features sind preis-abgeleitet. Fundamentaldaten sind die
+  einzige große ungetestete Dimension, und das Projekt berechnet täglich F-Scores, die nie ins
+  Modell fließen.
+- **Machbarkeit belegt:** EDGAR `companyfacts` liefert pro Eintrag ein **`filed`**-Feld
+  (`['accn','end','filed','form','fp','fy','start','val']`) — Point-in-Time ist also möglich.
+  Kosten gemessen: **3,8 MB pro Ticker** (bei 445 Titeln ~1,7 GB, einmalig).
+- **Zwei stille Fallen, beide an echten AAPL-Daten gefunden:**
+  1. **`fy` ist das Fiskaljahr des FILINGS, nicht der Daten.** Das FY2024-Filing trägt Einträge mit
+     `end` 2022-09-24, 2023-09-30 UND 2024-09-28 — alle als `fy: 2024`, weil ein 10-K Vorjahre als
+     Vergleichszahlen wiederholt. Wer `fy` als Datenjahr liest, labelt Vergleichszahlen als
+     aktuelle Werte. `fscore.py` macht das zu Recht (es will nur das jüngste Jahr), für eine
+     Zeitreihe wäre es falsch.
+  2. **Restatements teilen ein `end`.** Dieselbe Periode erscheint mehrfach mit verschiedenen
+     Werten; die ehrliche Antwort an einem Stichtag ist das **damals jüngste** Filing, nie das
+     heute jüngste.
+- **Gebaut: `pit_fundamentals.py`** — `visible_annual_series(payload, tags, as_of=...)` gibt
+  `{Periodenende: Wert}` für alles, was **bis** `as_of` eingereicht war; keyed auf `end`, `filed`
+  nur als Sichtbarkeitsgate. Reine Logik, Netzwerk bleibt beim Aufrufer — weil ein
+  Look-Ahead-Fehler nicht abstürzt, sondern still einen guten Backtest erzeugt.
+- **Gegen echte Daten verifiziert:** am 2024-10-01 ist die jüngste sichtbare Periode FY2023, am
+  2024-11-01 (Einreichungstag) springt sie auf FY2024. Genau das gewünschte Verhalten.
+- **Eigener Fehler dabei gefunden und korrigiert:** meine Diagnosefunktion `filing_lag_days`
+  suggerierte einen Median-Verzug von 396 Tagen — der ist von den Vergleichszahlen dominiert
+  (bis 769 Tage). Aussagekräftig ist das **Minimum: 30–34 Tage**. Docstring korrigiert, Test
+  ergänzt, der genau diese Verwechslung pinnt.
+- Gate: 2050 Tests grün (11 neue), ruff clean.
+- [ ] Nächster Schritt: Backfill-Kollektor über das feste Trainingsuniversum (445 Titel), der pro
+      monatlichem Stichtag die dann sichtbaren zwei Fiskaljahre zieht. Kosten und Fallen sind jetzt
+      bekannt; EDGAR-Etikette (ein Abruf pro Sekunde) macht daraus ~8 Minuten Laufzeit.
+- [ ] Erst danach: die F-Score-Kriterien als Feature-Block additiv ins Entry-Modell, mit demselben
+      Nachweis wie bei Evidenz und Volumen — `volume_index=None`-Muster, damit der Vergleich die
+      FEATURES misst und nicht ein geändertes Sample.
+
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
   `./scripts/install_dash_service.sh` erneut ausführen (Unit ist gestaged, aktiviert sich nur mit
