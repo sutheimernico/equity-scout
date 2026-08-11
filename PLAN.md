@@ -788,14 +788,14 @@ Doku: `docs/research/2026-08-11-fixed-universe-and-the-final-null-result.md`.
   Titel liefern bei yfinance keine Historie) — entscheidend ist, dass der Restbias **kein
   Rendite-Screen** ist und nicht mehr nachtweise variiert. Gilt für dieses Zielmaß, nicht für
   längere Horizonte oder Fundamentaldaten.
-- [ ] **Needs Nico: Nebeneffekt dieser Änderung — Trainings- und Anwendungsdomäne fallen
-      auseinander.** Der `MLLongStrategy`-Sleeve wird in `run_autotrader.py` mit
-      `long_universe = watch_tickers` gebaut, also mit der globalen Watchlist (`ITC.NS`, `9064.T`,
-      `PETR4.SA`); trainiert wird auf 445 US-Large-Caps. Vorher war beides dieselbe driftende
-      Liste. Praktisch schadlos, solange kein Modell einen Vorteil zeigt (AUC 0,507), methodisch
-      eine Lücke. Beide Auswege ändern das Handelsverhalten (Bot handelt das feste Universum ODER
-      nur die Schnittmenge) — dieselbe Klasse Entscheidung wie die Entthronung, und sie erledigt
-      sich von selbst, falls entthront wird.
+- [x] Nebeneffekt „Trainings- und Anwendungsdomäne fallen auseinander" — **durch die Entthronung
+      gegenstandslos geworden** (siehe unten). Der `MLLongStrategy`-Sleeve wurde in
+      `run_autotrader.py` mit `long_universe = watch_tickers` gebaut, also mit der globalen
+      Watchlist, während auf 445 US-Large-Caps trainiert wird. Ohne Champion baut sich der Sleeve
+      gar nicht (`ready` = False), es wird also nichts auf der fremden Domäne gescort. **Wird
+      wieder relevant, sobald je ein Modell die Grundqualität erreicht** — dann muss das
+      Live-Universum mit dem Trainingsuniversum zusammengeführt werden (oder die Schnittmenge).
+      Hier festgehalten, damit das bei einer künftigen Promotion nicht übersehen wird.
 
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
