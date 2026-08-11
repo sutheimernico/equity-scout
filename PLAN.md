@@ -566,17 +566,8 @@ den Crypto-Teil: `docs/superpowers/plans/2026-08-10-crypto-lane-cost-honest-hold
       ziehen. Nicht in dieser Runde, weil der Intraday-Takt (jede Minute für die Session-Lane,
       */15 für den Rest) eigene Grenzen braucht als eine Tageskette — falsch gewählt würde ein
       Timeout dort echte Arbeit abschneiden statt sie zu retten.
-- [ ] **Folgebefund `insights` passt nicht mehr in sein Budget.** Der Nachhollauf vom 10.08.
-      lief bei abgeklungener Fremdlast (Load ~5) trotzdem in den 12-Minuten-Timeout — der
-      Script-Kommentar behauptet „~12 stocks x 2 warm LLM calls ~ 2-3 min", real sind es bei
-      30–60 s pro Aufruf auf dieser CPU 12–24 min. Das Timeout ist damit die richtige
-      Rettungsleine, aber nicht die Lösung. Optionen, gegeneinander abzuwägen statt eine
-      blind zu wählen: `--limit` senken (12 → 4–5 Titel), den Schritt aus der Tageskette in
-      einen eigenen Cron-Slot ziehen (er blockiert dort niemanden), oder prüfen, ob der
-      Präfix-Cache-Trick aus `2026-08-10-chat-latency-prompt-cache.md` auf
-      `run_insights.py` übertragbar ist — der baut seinen Prompt selbst und profitiert
-      bisher NICHT davon. Erst messen, wie lang ein einzelner Insight-Aufruf wirklich
-      braucht, dann entscheiden.
+- [x] **Folgebefund `insights` passt nicht mehr in sein Budget** — gemessen und behoben
+      2026-08-11, siehe eigene Phase unten.
 - [ ] Beobachten: ob die Crypto-Lane auf Tagesbars einen positiven Erwartungswert zeigt. n=0
       auf der neuen Zeitskala; bei 20/10 Tagen über 4 Paare sind grob 1–3 Trades pro Monat und
       Paar zu erwarten — belastbar erst in Monaten.
@@ -652,6 +643,56 @@ was funktioniert und was nicht — tote Strategien liefen sonst monatelang weite
   wiederherstellbar ist**. Random Forest und CatBoost hatten ihren Seed von Anfang an; nur
   elastic_net fehlte er. Mit Reproduzierbarkeits-Test, der den globalen Zufallszustand
   absichtlich stört. Gate zweimal hintereinander grün (1934).
+
+## Phase: Faktencheck Auflösungen + `insights`-Budget (2026-08-11) — DONE
+Zwei Dinge, die keinen Bau brauchten, sondern eine Messung.
+
+- **Der Predict-then-Resolve-Loop funktioniert.** Der für Mi 12.08. geplante Selbst-Check
+  einen Tag vorgezogen, weil die erste Kohorte um 18:52 UTC fällig wurde: **30 von 30
+  aufgelöst**, 0 ohne Vorwärtsfenster. Der Verdacht „Loop kaputt" (Grund für den v15-Wave-1-
+  Plan) ist erledigt. **Warum die Tageskette am selben Tag noch 0 meldete:** sie läuft um
+  16:13 UTC, also 2,5 h vor Fälligkeit — abends erzeugte Vorhersagen löst sie erst am Folgetag
+  auf. Bei 20-Handelstage-Horizonten belanglos, notiert statt behandelt.
+- **Erste Out-of-Sample-Zahlen, und sie sind unerfreulich:** 67 % Treffer gegen eine Basisrate
+  von 77 % — **„immer ablehnen" wäre besser gewesen**. Ø −5,41 % gegen SPY, 7 von 30 schlagen
+  den Index, und die fünf höchsten Scores waren die fünf schlechtesten Ergebnisse (WDC −27,9 %,
+  SNDK −39,2 %). **Kein Urteil:** alle 30 Zeilen stammen aus EINEM Tag (10.07.) mit stark
+  korrelierten Titeln (drei Halbleiter) — eine Kohorte, keine 30 Beobachtungen. Passt zur
+  in-sample-AUC 0,496. Auswertung: `docs/research/2026-08-11-first-resolved-entry-predictions.md`.
+- **Vor dem Auflösen geprüft, ob ein Automatismus darauf handelt:** nein. Die Zahl der
+  Auflösungen ist ein Retrain-**Trigger** in `run_evidence_refresh.py`, keine Trainingsdaten;
+  die Promotionshürde hängt an der OOS-AUC, und das einseitige Gate verhindert weiter einen
+  anti-prädiktiven Erst-Champion. Der Trigger feuert beim nächsten Kettenlauf — beabsichtigt.
+- **`insights` gemessen — der alte Befund war in beiden Zahlen falsch** (`--limit 12` +
+  „2 LLM calls"): `--limit` begrenzt **nur den Watchlist-Kopf**, jeder Screener-Pick wird
+  **unbegrenzt** angehängt (heute 18) → **30 Titel**, und jeder kostet **bis zu drei**
+  LLM-Aufrufe (Business, News, Schlagzeilen-Übersetzung). Real **~90 s pro Titel** ⇒ ~45 min
+  für einen vollen Lauf. Die Zahl stand die ganze Zeit im Log („Erzeuge Steckbrief-Texte für
+  30 Titel"); der alte Befund glaubte dem Kommentar statt dem Log.
+- **Der Präfix-Cache-Trick ist hier schon ausgeschöpft** — nichts zu bauen: `ask_ollama` legt
+  den Kontext in die System-Rolle **vor** die Frage, und Aufruf 2 und 3 teilen denselben
+  `news_context` → der dritte ist bereits ein Cache-Treffer.
+- **Zwei Fixes, beide klein:** (1) `insights` läuft **als letzter** Kettenschritt mit eigenem
+  Cap (`EQUITY_SCOUT_INSIGHTS_TIMEOUT`, 35 min) statt als zweiter mit 12 min — nichts in der
+  Kette liest seine Ausgabe, nur `/api/briefs`, also kostet ein Cap dort keine Lieferung mehr;
+  vorher warteten zehn Schritte täglich 12 Minuten auf einen Anzeige-Cache. (2) Verarbeitung
+  **älteste zuerst** (`order_by_staleness`), stabil sortiert, damit innerhalb einer
+  Erneuerungs-Generation der Rang Tiebreaker bleibt.
+- **Der Schaden, den (2) behebt, in Zahlen:** die Reihenfolge war der Rang, also gewannen
+  täglich dieselben 8 Titel. Am echten Datenstand verifiziert — vorher hätten die ersten vier
+  Titel ihren Text **zum zweiten Mal am selben Tag** bekommen, während 8 Titel seit dem 09.08.
+  warteten; jetzt kommen genau die 8 zuerst. Kein Titel war je ohne Text (`save_insight`
+  upsert), der Schaden war **veraltete Nachrichten auf 11 von 30 Karten**.
+- Gate: **1990 Tests grün** (7 neue), ruff clean.
+- [ ] Beobachten: ob die Kette morgen ohne `TIMEOUT insights` durchläuft und wie viele der 30
+      Titel in 35 Minuten erneuert werden (erwartet ~23). Montags ist es knapper, weil `scout`
+      und `person_scores` vorher laufen — die Stunde des Windows-Tasks ist die harte Grenze.
+- [ ] Offen, bewusst nicht mitgefixt: die Screener-Pick-Zahl ist **unbegrenzt**, die Laufzeit
+      des Schritts also grundsätzlich unvorhersehbar (heute 18 Picks, morgen können es 40 sein).
+      Ein eigenes Limit dafür wäre der nächste Schritt, kappt aber Karten, die Nico am 07.08.
+      ausdrücklich mit Texten wollte — Entscheidung gehört ihm.
+- [ ] Offen: zeigt die Karte das Alter ihres Textes? Wenn nicht, sind zwei Tage alte
+      Nachrichten als heutige dargestellt — eine Ehrlichkeitslücke, unabhängig von der Laufzeit.
 
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
