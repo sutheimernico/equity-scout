@@ -671,9 +671,10 @@ Zwei Defekte, der zweite gefährlicher als der erste (`f685a0b`).
   Live verifiziert. **Lehre:** eine Strategie in die Registry zu legen war nie nur eine
   Registry-Änderung — sie floss direkt ins Depot.
 - Gate: 1915 Tests grün, ruff clean.
-- [ ] Beobachten: das Depot-Brutto nach dem nächsten Nightly (erwartet ~84 % statt 60 %) und
-      ob der Vol-Target-Layer dann stärker greift — das wäre korrekt, aber es soll gesehen
-      werden.
+- [x] **Depot-Brutto verifiziert: 84 %** (2026-08-11 nachts, Trockenlauf gegen DB-Kopien statt
+      Warten auf die Nightly). Erwartet war ~84 % statt 60 % — trifft zu, die Cap-Umverteilung aus
+      Welle 2 wirkt. Im selben Lauf gegenverifiziert, dass der Vol-Target-Layer nicht überschießt
+      (Drawdown 0,0 %).
 - [ ] Rest von Welle 2: die Session-Lane nutzt 10 % ihres Broker-Kapitals.
 - [x] **Kosten-Netting über Lanes — nachgelesen 2026-08-11, kein Defekt gefunden, nicht gebaut.**
       Zwei Ebenen, beide bereits konservativ: (a) über die Depot-**Sleeves** nettet es schon — die
@@ -809,6 +810,16 @@ auf, der den Hebel erübrigt. Volle Auswertung:
       Gewichtung ist dynamisch. Paper-Geld, vollständig reversibel. Am echten Fall gegen eine
       DB-Kopie verifiziert: v1 fällt (0,5140), der beste Herausforderer (0,5069) wird NICHT
       Nachfolger — die Arena bleibt leer, was der korrekte Zustand ist.
+- [x] **Nachverifiziert vor dem ersten echten Lauf: das Depot verkraftet den fehlenden Sleeve.**
+      Trockenlauf des Autotraders gegen die entthronte DB-Kopie: **7 Sleeves statt 8, Gewichte
+      korrekt auf 14,3 % (1/7) normalisiert**, kein Absturz an `sleeve_weights`, Brutto 84 %.
+      Das war eine echte Lücke — ich hatte die Entthronung gebaut, ohne zu prüfen, ob der
+      Verbraucher ihres Ergebnisses damit umgehen kann.
+- [ ] **Erwartete Nebenwirkung, beobachten:** mit 7 statt 8 Sleeves steigt die Konzentration in
+      den Kern-ETFs, also greift der Einzeltitel-Cap breiter — im Trockenlauf bei **vier** Titeln
+      (BIL, IEF, SPY, VEU) statt zwei, mit **32,2 %** Umverteilung statt 23,7 %. Das ist die
+      Welle-2-Mechanik bei der Arbeit, kein Defekt, aber der erste Lauf nach der Entthronung
+      schichtet einmalig groß um (im Trockenlauf 11 Trades, Deltas bis 8,8 %, ~40 USD Kosten).
 - [x] Universum als Wurzel-Hebel — **ausgeführt, siehe eigene Phase unten.**
 
 ## Phase: Festes Trainingsuniversum → Achse 2 endgültig negativ (2026-08-11) — DONE
