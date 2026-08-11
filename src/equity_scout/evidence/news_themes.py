@@ -191,19 +191,31 @@ def match_ticker_headlines(
 ) -> list[EvidenceEvent]:
     """A theme becomes evidence for a ticker only when the phrase occurs in that
     ticker's own headlines. Event keys rotate per ISO week, so a persistent theme
-    re-logs at most weekly instead of flooding the ledger daily."""
+    re-logs at most weekly instead of flooding the ledger daily.
+
+    ONE headline yields at most ONE event per ticker (2026-08-11): a title matching three
+    themes used to be logged three times, and 148 of the 251 stored news_theme rows were such
+    repeats of the same underlying article. That is pseudo-replication — the same information
+    counted as three independent observations — the very inflation the W0 study had to correct
+    for elsewhere. `themes` arrives strongest-first from `detect_themes` (bigrams before
+    unigrams, hits descending), so consuming each headline for its FIRST match keeps the most
+    specific theme and drops the weaker restatements. A ticker with several distinct headlines
+    still contributes several events, which is genuine breadth rather than an echo.
+    """
     year, week, _ = datetime.fromisoformat(now).isocalendar()
     events: list[EvidenceEvent] = []
     for ticker, titles in ticker_headlines.items():
         normalized = [" ".join(_tokens(title)) for title in titles]
+        spent: set[str] = set()  # headlines already used as evidence for THIS ticker
         for theme in themes:
             matched = next(
                 (title for title, norm in zip(titles, normalized, strict=False)
-                 if theme.keyword in norm),
+                 if theme.keyword in norm and title not in spent),
                 None,
             )
             if matched is None:
                 continue
+            spent.add(matched)
             events.append(
                 EvidenceEvent(
                     source=SOURCE_NEWS_THEME,

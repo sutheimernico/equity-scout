@@ -7,6 +7,7 @@ from equity_scout.evidence.news_themes import (
     Headline,
     collect_news_themes,
     dedupe_headlines,
+    Theme,
     detect_themes,
     match_ticker_headlines,
     parse_feed,
@@ -118,3 +119,39 @@ def test_collect_degrades_when_all_feeds_fail_but_not_on_partial_failure():
     assert result.status == STATUS_OK
     assert "google-news: failed" in result.detail
     assert "marketwatch: ok" in result.detail
+
+
+def test_one_headline_yields_at_most_one_event_per_ticker():
+    """Pseudo-replication guard (2026-08-11): 148 of 251 stored news_theme rows were the same
+    article logged again under a second and third theme, i.e. one piece of information counted as
+    three independent observations."""
+    themes = [
+        Theme(keyword="energy prices", hits=9, sources=["a", "b"], example_titles=[]),
+        Theme(keyword="energy", hits=12, sources=["a", "b"], example_titles=[]),
+        Theme(keyword="prices", hits=12, sources=["a", "b"], example_titles=[]),
+    ]
+    events = match_ticker_headlines(
+        themes, {"SHEL": ["Shell gains as energy prices climb further"]}, now=NOW
+    )
+    assert len(events) == 1
+    # strongest-first: the specific bigram survives, not the generic unigrams
+    assert events[0].details["theme"] == "energy prices"
+
+
+def test_distinct_headlines_still_produce_distinct_events():
+    """The counter-requirement: several different articles about one ticker are genuine breadth,
+    not an echo, and must all be kept."""
+    themes = [
+        Theme(keyword="energy prices", hits=9, sources=["a", "b"], example_titles=[]),
+        Theme(keyword="refinery", hits=8, sources=["a", "b"], example_titles=[]),
+    ]
+    events = match_ticker_headlines(
+        themes,
+        {"SHEL": ["Shell gains as energy prices climb", "Shell refinery halts output"]},
+        now=NOW,
+    )
+    assert sorted(e.details["theme"] for e in events) == ["energy prices", "refinery"]
+    assert sorted(e.details["matched_headline"] for e in events) == [
+        "Shell gains as energy prices climb",
+        "Shell refinery halts output",
+    ]

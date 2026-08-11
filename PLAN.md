@@ -229,7 +229,29 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 > **Plan: `docs/superpowers/plans/2026-07-15-vision-v7-target-exits-events-learning.md`**
 - [x] A1 fix(sizing): Positionsgröße vom aktuellen NAV statt initial_capital (portfolio, lanes)
 - [x] A3 feat(ml): Triple-Barrier-Preset für entry-Familie (labeling.py wiederverwenden)
-- [ ] B5 fix(evidence): voices-Ticker-Resolution härten + news_themes Titel-Dedupe
+- [x] B5 fix(evidence): voices-Ticker-Resolution härten + news_themes Titel-Dedupe — 2026-08-11,
+      beide Teile nach einem Live-Audit umgesetzt. **voices:** von 296 gespeicherten Erwähnungen
+      trugen **79 % einen Ticker, den die Schlagzeile nie nennt** — alle über die zwei
+      Großschreibungs-Kanäle („Moving Past Buffett" → MITQ, „Major AI Stock" → SYBT, „Aussies
+      Take Over" → TTWO, „Just Warned" → JUST.AS, „Who Foots the Bill" → BILL, „- Yahoo Finance
+      Singapore" → FOA). `_GENERIC_FIRST_WORDS` war die richtige Idee mit zu kurzer Liste UND
+      schützte nur den Mehrwort-Kanal, nie den Einzelwort-Kanal (daher JUST.AS/BILL). Die
+      tragfähige Unterscheidung ist **Wortschatz, nicht Großschreibung**: `_COMMON_WORDS` sperrt
+      gewöhnliche englische Wörter in BEIDEN Kanälen, der Outlet-Suffix wird vorher abgeschnitten.
+      Gemessen an den 35 gerichteten Calls (die im Ledger landen): Fehlzuordnungen **22 → 13**,
+      und **jeder echte Treffer bleibt** (DraftKings, Nebius, Zoetis, Micron, „Microsoft (MSFT)").
+      Nebenwirkung: der MSN-Portal-Bug vom 15.07. ist behoben (MSN → MU). **Ein erster Ansatz über
+      Title-Case-Erkennung wurde vor dem Commit verworfen** — er lehnte auch „Michael Burry Adds
+      to DraftKings Stake" ab, tauschte also eine Fehlerklasse gegen eine andere; ein Test pinnt
+      das. **news_themes:** eine Schlagzeile ergibt jetzt höchstens EIN Event pro Ticker. Vorher
+      wurde derselbe Artikel unter mehreren Themen gebucht (`themes=['now', 'right now']`) —
+      Pseudo-Replikation, dieselbe Inflation, für die W0 korrigieren musste. Ehrliche Wirkung:
+      **26 von 251 Zeilen (10 %)**, nicht die 80, die eine erste Zählung ergab — die übrigen 54
+      sind die GEWOLLTE Wochenrotation der Event-Keys.
+- [ ] Beobachtung aus dem Audit, nicht mitgefixt: `buy`, `now`, `bank`, `price` qualifizieren sich
+      als Themen, obwohl sie in Finanz-Schlagzeilen Füllwörter sind — `_STOPWORDS` in
+      `news_themes.py` müsste kalibriert werden. Eigener Schritt, weil er die Themenerkennung
+      verändert und damit alle Evidenz-Zeitreihen.
 - [x] A2 feat(exits): Trade-Lifecycle für Forward-Bots (ExitRules, Exit-Grund persistiert)
 - [x] B1 feat(events): Earnings-Kalender (yfinance) + Digest-Sektion + Intraday-Awareness
 - [x] C3 fix(pnl): Dividenden für Einzelaktien-Lanes/Portfolio (TTM anteilig)
