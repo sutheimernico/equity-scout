@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Daily copilot chain: (Mondays: screener first) -> radar -> insights -> earnings ->
-# evidence -> notify -> score watchlist -> resolve predictions -> resolve evidence ->
-# resolve events -> lanes -> digest.
+# Daily copilot chain: (Mondays: screener first) -> radar -> earnings -> evidence ->
+# notify -> score watchlist -> resolve predictions -> resolve evidence -> resolve events ->
+# lanes -> digest -> insights.
+#
+# Delivery first, cosmetics last: everything that pitches, books or resolves runs before
+# `insights`, which only fills a display cache and is by far the slowest step.
 #
 # Design rules:
 # - Every step degrades independently: a failed step is logged and the chain
@@ -27,10 +30,11 @@ fi
 
 # Per-step wall-clock cap. The chain already degrades per step ("FAILED … — continuing"), but
 # a step that HANGS was unbounded, and the whole chain runs inside a 1-hour Windows Task
-# limit. Measured 2026-08-10: `insights` (12 stocks x 2 LLM calls, normally 2-3 min) crawled
-# under heavy CPU load, the Task Scheduler killed the chain at 19:00 with 0xC000013A, and
-# everything after it — evidence, fscore, the resolvers and NOTIFY — never ran. No log line,
-# no day marker: a silent loss of the day's delivery caused by a cosmetic step.
+# limit. Measured 2026-08-10: `insights` crawled under heavy CPU load, the Task Scheduler
+# killed the chain at 19:00 with 0xC000013A, and everything after it — evidence, fscore, the
+# resolvers and NOTIFY — never ran. No log line, no day marker: a silent loss of the day's
+# delivery caused by a cosmetic step. Measured again 2026-08-11: it is not "slow under load",
+# it costs ~90 s x 30 titles by design — hence its own cap at the end of the chain, below.
 # 12 min leaves room for the whole chain inside the hour; override per run if ever needed.
 STEP_TIMEOUT="${EQUITY_SCOUT_STEP_TIMEOUT:-12m}"
 
@@ -63,10 +67,6 @@ if [ "$(date +%u)" = "1" ]; then
 fi
 
 step radar               "$PY" scripts/run_radar.py
-# Phone-card AI texts + 1y sparkline series for the top watchlist names. Needs the fresh
-# watchlist above; needs Ollama up (scripts/install_ollama_service.sh) — without it the
-# texts store as honest nulls and the card says so. ~12 stocks x 2 warm LLM calls ~ 2-3 min.
-step insights            "$PY" scripts/run_insights.py --limit 12
 step earnings            "$PY" scripts/run_earnings.py
 step evidence            "$PY" scripts/run_evidence.py
 # Piotroski F-Scores for the fresh watchlist (EDGAR companyfacts; unconfigured
@@ -83,5 +83,16 @@ step resolve_evidence    "$PY" scripts/run_resolve_evidence.py
 step resolve_events      "$PY" scripts/run_resolve_events.py
 step lanes               "$PY" scripts/run_lanes.py
 step digest              "$PY" scripts/run_digest.py
+
+# Phone-card AI texts + 1y sparkline series. LAST on purpose, and with a wider cap than the
+# rest of the chain — measured 2026-08-11: ~90 s per title over 30 titles (`--limit` caps
+# only the watchlist head, screener picks are appended) means ~45 min, and as the second step
+# it made the other ten wait 12 minutes for a cosmetic cache. Nothing in the chain reads its
+# output — only /api/briefs does — so a cap that fires here costs no delivery, and the script
+# renews oldest-text-first so a cut-short run still moves the tail forward. Needs Ollama up
+# (scripts/install_ollama_service.sh); without it the texts store as honest nulls.
+# The whole chain lives inside a 1-hour Windows Task limit, so this is not the full ~45 min.
+STEP_TIMEOUT="${EQUITY_SCOUT_INSIGHTS_TIMEOUT:-35m}"
+step insights            "$PY" scripts/run_insights.py --limit 12
 
 echo "[$(date -Is)] ===== daily_copilot end =====" >> "$LOG"

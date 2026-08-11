@@ -127,6 +127,21 @@ def news_context(headlines: list[str]) -> str:
     return "\n".join(f"{i}. {title}" for i, title in enumerate(headlines, start=1))
 
 
+def order_by_staleness(items: list[dict], generated_at: dict[str, str]) -> list[dict]:
+    """Titles ordered oldest-text-first, so a run cut short renews what waited longest.
+
+    Measured 2026-08-11: a full run needs ~90 s per title and the daily chain's step cap
+    stopped it after 8 of 30. The order was the ranking, so the SAME 8 were renewed every
+    day while 11 cards still carried headlines from two days earlier — and an old headline
+    presented as today's news is the one staleness that actually misleads.
+
+    A title with no text at all sorts first ("" precedes every ISO timestamp). The sort is
+    stable, so within one renewal generation the incoming ranking survives as the
+    tie-breaker — the strongest candidate still goes first among equally stale ones.
+    """
+    return sorted(items, key=lambda item: generated_at.get(item["ticker"], ""))
+
+
 def downsample_closes(
     dates: list[datetime], closes: list[float], *, points: int = 60
 ) -> dict:

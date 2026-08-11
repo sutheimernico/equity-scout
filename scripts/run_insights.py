@@ -2,14 +2,21 @@
 """Generate the phone cockpit's AI texts + 1-year price series for the top watchlist
 stocks and cache them in SQLite.
 
-Runs in the 18:00 chain, never in an HTTP request: a warm local LLM call costs ~5.6 s
-and a cold one ~27 s (measured 2026-08-05), so /api/briefs only ever reads what this
-script wrote. Every step degrades on its own — a dead news feed, a missing Ollama or a
-rate-limited yfinance each store an honest null for that field and the run continues.
+Runs LAST in the daily chain, never in an HTTP request: /api/briefs only ever reads what
+this script wrote. Every step degrades on its own — a dead news feed, a missing Ollama or
+a rate-limited yfinance each store an honest null for that field and the run continues.
 
-Scope: the top --limit stocks by briefs.rank_entries, i.e. exactly the rows the phone
-card shows. Generating all 30 watchlist names would cost ~6 minutes of inference and 30
-keyless RSS requests for cards nobody scrolls to.
+Scope, measured 2026-08-11 (the docstring used to under-report both numbers): `--limit`
+caps the WATCHLIST head only; every screener pick that is not already in it is appended
+UNCAPPED, so `--limit 12` really processed 30 titles. Each title costs up to THREE LLM
+calls — business, news summary, headline translation — not two. Real cost is **~90 s per
+title**, so a 30-title run needs ~45 min, which is why this step runs last and carries a
+wider cap than the rest of the chain.
+
+Titles are processed oldest-text-first (`order_by_staleness`): a run stopped by its cap
+renews what waited longest instead of the same head of the ranking every day. Nothing is
+lost when a run is cut short — `save_insight` upserts, so the previous text stands until
+its title comes round again.
 
 No sys.path anchoring here (unlike run_notify.py): that dance is only needed for
 `from scripts.<sibling> import ...`, and this script imports nothing but the installed
@@ -36,9 +43,10 @@ from equity_scout.insights import (
     downsample_closes,
     fact_context,
     news_context,
+    order_by_staleness,
     split_bullets,
 )
-from equity_scout.insights_storage import save_insight, save_price_series
+from equity_scout.insights_storage import load_insights, save_insight, save_price_series
 from equity_scout.press import fetch_press_lines
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.storage import load_latest_run
@@ -62,7 +70,9 @@ def main() -> int:
     parser.add_argument("--db", default=DEFAULT_DB_PATH)
     parser.add_argument(
         "--limit", type=int, default=12,
-        help="how many top-ranked watchlist stocks to generate for (default 12)",
+        help="how many top-ranked WATCHLIST stocks to include (default 12). Screener picks "
+             "are appended on top of this, so the real title count is higher — the run "
+             "prints it.",
     )
     args = parser.parse_args()
 
@@ -90,8 +100,14 @@ def main() -> int:
         print("Keine Watchlist und kein Screener-Lauf — nichts zu erzeugen.")
         return 0
 
+    # Oldest text first. At ~90 s per title this run is routinely stopped by the chain's
+    # step cap, and a fixed order meant the tail was never reached at all.
+    stored = load_insights(args.db)
+    items = order_by_staleness(items, {t: row["generated_at"] for t, row in stored.items()})
+
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     print(f"Erzeuge Steckbrief-Texte für {len(items)} Titel (Modell {OLLAMA_MODEL})")
+    print(f"  älteste zuerst; {sum(1 for i in items if i['ticker'] not in stored)} ohne Text")
 
     for entry in items:
         ticker, name = entry["ticker"], entry["name"]

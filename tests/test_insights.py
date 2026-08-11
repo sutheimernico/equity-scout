@@ -12,6 +12,7 @@ from equity_scout.insights import (
     downsample_closes,
     fact_context,
     news_context,
+    order_by_staleness,
 )
 
 
@@ -94,6 +95,56 @@ def test_news_context_numbers_the_headlines():
 
 def test_news_context_is_empty_string_without_headlines():
     assert news_context([]) == ""
+
+
+# --- order_by_staleness ----------------------------------------------------------
+
+def _items(*tickers: str) -> list[dict]:
+    return [{"ticker": t, "name": t, "price": None} for t in tickers]
+
+
+def test_stalest_text_is_processed_first():
+    ordered = order_by_staleness(
+        _items("FRESH", "OLD", "MIDDLE"),
+        {
+            "FRESH": "2026-08-11T18:00:00+00:00",
+            "OLD": "2026-08-09T18:00:00+00:00",
+            "MIDDLE": "2026-08-10T18:00:00+00:00",
+        },
+    )
+    assert [i["ticker"] for i in ordered] == ["OLD", "MIDDLE", "FRESH"]
+
+
+def test_a_title_without_any_text_goes_before_every_dated_one():
+    """The one case where the card has nothing at all to show, so it must never be the
+    row a timeout cuts off."""
+    ordered = order_by_staleness(
+        _items("HAS_TEXT", "NEVER_GENERATED"),
+        {"HAS_TEXT": "2026-08-09T18:00:00+00:00"},
+    )
+    assert [i["ticker"] for i in ordered] == ["NEVER_GENERATED", "HAS_TEXT"]
+
+
+def test_equal_staleness_keeps_the_incoming_ranking():
+    """Stable sort: among titles renewed in the same run, the watchlist rank still decides,
+    so the strongest candidate is not demoted by an arbitrary tie-break."""
+    same = "2026-08-10T18:00:00+00:00"
+    ordered = order_by_staleness(
+        _items("RANK1", "RANK2", "RANK3"),
+        {"RANK1": same, "RANK2": same, "RANK3": same},
+    )
+    assert [i["ticker"] for i in ordered] == ["RANK1", "RANK2", "RANK3"]
+
+
+def test_no_stored_texts_at_all_leaves_the_order_untouched():
+    ordered = order_by_staleness(_items("A", "B", "C"), {})
+    assert [i["ticker"] for i in ordered] == ["A", "B", "C"]
+
+
+def test_every_item_survives_the_reordering():
+    """A dropped title would silently lose its card text, so the count is pinned."""
+    items = _items("A", "B", "C", "D")
+    assert len(order_by_staleness(items, {"B": "2026-08-01T00:00:00+00:00"})) == len(items)
 
 
 # --- downsample_closes -----------------------------------------------------------
