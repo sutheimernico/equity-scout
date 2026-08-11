@@ -870,6 +870,36 @@ Doku: `docs/research/2026-08-11-fixed-universe-and-the-final-null-result.md`.
       Live-Universum mit dem Trainingsuniversum zusammengeführt werden (oder die Schnittmenge).
       Hier festgehalten, damit das bei einer künftigen Promotion nicht übersehen wird.
 
+## Phase: Risiko-Schiene — VolTarget nutzt den schwächeren Schätzer (2026-08-12) — STUDIE DONE
+Nicos Go („mach mal dein Ding") auf meine Empfehlung, Risiko VOR Fundamentaldaten anzugehen —
+Begründung war der W0-Befund: Rendite ist an diesen Daten nicht entscheidbar, Risiko schon, und das
+Depot nutzt es noch nicht. Doku: `docs/research/2026-08-12-voltarget-uses-the-weaker-estimator.md`,
+reproduzierbar über `scripts/run_vol_forecast_study.py`.
+
+- **`VolTarget` drosselt anhand der TRAILING 20-Tage-Vola, also erst NACHDEM die Vola gestiegen
+  ist.** Der VIX sagt dieselben 20 Tage besser voraus: **rho 0,642 gegen 0,539** auf 233 nicht
+  überlappenden Fenstern über 19 Jahre.
+- **Inkrementell noch klarer:** VIX ohne trailing trägt **0,390**, trailing ohne VIX nur **0,099**.
+  Der VIX enthält fast alles, was die trailing Vola weiß, plus deutlich mehr.
+- **Out of sample bestätigt:** Divisor der Varianzrisikoprämie auf 2007–2016 gefittet (1,341), auf
+  2017–2026 beurteilt → dort **rho 0,678 gegen 0,565**, Kalibrierung 1,07. Der Parameter hält.
+- **Die Falle, die die Studie sichtbar macht:** roher VIX rankt am besten (0,642) und wäre trotzdem
+  falsch — er liest **36 % zu hoch** (implizite Vola trägt die Varianzrisikoprämie), und
+  `VolTarget` skaliert mit `ziel/schätzer`, würde also JEDEN Tag 36 % zu stark drosseln. Deshalb
+  werden Rangfolge und Kalibrierung getrennt gemessen.
+- **Erster positiver Befund dieser Serie** — Evidenz, Volumen, Zielgröße und Universum waren alle
+  Nullbefunde.
+- Gate: 2039 Tests grün (6 neue auf synthetischen Regimewechseln), ruff clean.
+- [ ] **Einbau — bewusst NICHT in derselben Nacht.** Er greift in eine live laufende Risikoschicht
+      ein, und heute Nacht wirkt zum ersten Mal die Entthronung (Sleeve fällt weg, einmalige
+      Umschichtung ~32 %). Zwei Eingriffe in einer Nacht würden die Ursachenzuordnung zerstören.
+      Nächster Schritt nach der Nightly-Verifikation.
+- [ ] Beim Einbau zwingend: **dimensionsloser Multiplikator** (`VIX-Prognose / SPY-trailing`) auf
+      die EIGENE trailing Depot-Vola, nie das SPY-Niveau direkt — das Depot ist Multi-Asset und
+      hat niedrigere Vola, ein SPY-Niveau würde die Drosselung dauerhaft verschärfen. Und:
+      **fällt der VIX aus, Rückfall auf die trailing Vola, nicht Schutz aus** — eine Datenlücke
+      darf nie als „kein Risiko" gelesen werden.
+
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
   `./scripts/install_dash_service.sh` erneut ausführen (Unit ist gestaged, aktiviert sich nur mit
