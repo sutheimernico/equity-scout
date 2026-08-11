@@ -191,3 +191,65 @@ def test_scoreable_requires_the_full_long_horizon_not_just_short():
     assert not fresh.scoreable  # ... but the headline 3M gate is not met
     assert fresh.weighted_score is None
     assert fresh.hit_rate_long is None
+
+
+# --- directional calls: a bearish call is right when the stock LAGS (2026-08-11) ----
+
+def _bearish(person: str, ticker: str, n: int, first_day: str = "2025-07-01") -> list[Call]:
+    days = pd.bdate_range(first_day, periods=n)
+    return [
+        Call(person=person, source="voice", ticker=ticker, t0=d.date().isoformat(),
+             direction="bearish")
+        for d in days
+    ]
+
+
+def test_a_bearish_call_on_a_falling_stock_is_a_hit():
+    """The point of the change: 20 of 35 stored directional voice calls were bearish and were
+    dropped from every statistic because measuring them as longs would invert their meaning."""
+    scores = score_persons(_bearish("Shortseller", "LOSE", 6), _panel(), now=NOW)
+    short = scores["Shortseller"]
+    assert short.hit_rate_long == 1.0  # the stock lagged, the call said it would
+    assert short.weighted_score is not None and short.weighted_score > 0
+
+
+def test_a_bearish_call_on_a_rising_stock_is_a_miss():
+    scores = score_persons(_bearish("WrongWay", "WIN", 6), _panel(), now=NOW)
+    wrong = scores["WrongWay"]
+    assert wrong.hit_rate_long == 0.0
+    assert wrong.weighted_score is not None and wrong.weighted_score < 0
+
+
+def test_bullish_scoring_is_unchanged_by_the_direction_field():
+    """Filings only ever express buying, so congress/13F/insider numbers must be bit-identical —
+    the change may only ADD the bearish sample, never move an existing score."""
+    explicit = score_persons(
+        [Call(person="P", source="congress", ticker="WIN", t0=c.t0, direction="bullish")
+         for c in _calls("P", "WIN", 6)],
+        _panel(), now=NOW,
+    )["P"]
+    default = score_persons(_calls("P", "WIN", 6), _panel(), now=NOW)["P"]
+    assert explicit == default
+
+
+def test_calls_from_events_now_carries_both_voice_directions():
+    events = [
+        {"source": "voice", "ticker": "AAA", "event_date": "2026-01-05",
+         "details": {"speaker": "Michael Burry", "kind": "call"}},
+        {"source": "voice", "ticker": "BBB", "event_date": "2026-01-06",
+         "details": {"speaker": "Michael Burry", "kind": "call_bearish"}},
+        {"source": "voice", "ticker": "CCC", "event_date": "2026-01-07",
+         "details": {"speaker": "Michael Burry", "kind": "context"}},
+    ]
+    calls = calls_from_events(events)
+    assert [(c.ticker, c.direction) for c in calls] == [("AAA", "bullish"), ("BBB", "bearish")]
+
+
+def test_a_context_mention_is_still_never_a_call():
+    """A mention without a direction cannot be right or wrong; scoring it either way would
+    fabricate a verdict."""
+    events = [
+        {"source": "voice", "ticker": "AAA", "event_date": "2026-01-05",
+         "details": {"speaker": "Warren Buffett", "kind": "context"}},
+    ]
+    assert calls_from_events(events) == []

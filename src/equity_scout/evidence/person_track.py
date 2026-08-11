@@ -8,7 +8,11 @@ docs/superpowers/plans/2026-07-10-person-track-record-v4.md):
 - T0 of every call is the FILING date — the day a reader could have known, not the
   trade day; a disclosed trade is a trade, not a recommendation (confound honesty).
 - Abnormal return per call = ticker forward return minus SPY forward return over the
-  same trading-day window (1M/3M = 21/63 days), via ml.entry_eval.
+  same trading-day window (1M/3M = 21/63 days), via ml.entry_eval — signed BY THE CALL'S
+  DIRECTION since 2026-08-11, so a bearish call that was followed by underperformance
+  counts as a hit. Filings only ever express buying, so congress/13F/insider scores are
+  bit-identical to before; the change unlocks the bearish voice calls, which had been
+  collected and then dropped from every statistic (20 of 35 stored directional calls).
 - No score below `min_calls` resolvable calls: "zu wenig Daten" beats a lucky number.
 - The headline score is the recency-weighted (half-life 540d) mean abnormal return
   @63d; hit-rates, both horizons and n ride along on every surface — never a bare
@@ -29,6 +33,14 @@ HORIZON_LONG_DAYS = 63  # ~3 months — the headline horizon
 DEFAULT_MIN_CALLS = 5
 DEFAULT_HALF_LIFE_DAYS = 540.0
 
+# Voice event kinds that carry a direction, mapped to it. Kept as a literal map rather than
+# importing evidence.voices: person_track is the measurement layer and must not depend on a
+# collector. `KIND_CONTEXT` is deliberately absent — a mention without a direction cannot be
+# right or wrong, and scoring it either way would fabricate a verdict.
+_VOICE_CALL_DIRECTION = {"call": "bullish", "call_bearish": "bearish"}
+# Multiplier applied to every measured relative return, so "hit" means "the direction held".
+_DIRECTION_SIGN = {"bullish": 1.0, "bearish": -1.0}
+
 
 def yf_symbol(ticker: str) -> str:
     """Disclosure tickers use dots for share classes (BRK.B), Yahoo uses dashes (BRK-B)."""
@@ -42,6 +54,11 @@ class Call:
     ticker: str
     t0: str  # ISO date the fact became PUBLIC (filing date)
     transaction_date: str | None = None  # display only, never the measurement anchor
+    # Which way the call pointed. "bearish" flips the sign of every measured return, so a hit
+    # rate means "was the direction right" for both kinds instead of "did the stock rise".
+    # Defaults to bullish: buying is the only direction congress/13F/insider filings express,
+    # so those three sources — and every existing call site — are unaffected.
+    direction: str = "bullish"
 
 
 @dataclass(frozen=True)
@@ -123,11 +140,15 @@ def calls_from_events(events: list[dict]) -> list[Call]:
     for event in events:
         details = event.get("details") or {}
         person = details.get("politician") or details.get("fund") or details.get("insider")
-        if not person and details.get("kind") == "call":
-            # Voice rows: only measurable BULLISH calls (kind="call") are track-record
-            # material — bearish calls would resolve with inverted meaning, context
-            # mentions have no direction at all (evidence/voices.py module docstring).
+        direction = "bullish"
+        if not person and details.get("kind") in _VOICE_CALL_DIRECTION:
+            # Voice rows: BOTH directional kinds are track-record material since 2026-08-11.
+            # Bearish ones used to be skipped because they "would resolve with inverted
+            # meaning" — which is now handled by carrying the direction and flipping the sign
+            # in `score_persons` instead of throwing the sample away. Context mentions still
+            # have no direction at all and stay out.
             person = details.get("speaker")
+            direction = _VOICE_CALL_DIRECTION[details["kind"]]
         if not person:
             continue
         calls.append(
@@ -137,6 +158,7 @@ def calls_from_events(events: list[dict]) -> list[Call]:
                 ticker=event["ticker"],
                 t0=details.get("filing_date") or details.get("filed_at") or event["event_date"],
                 transaction_date=details.get("transaction_date"),
+                direction=direction,
             )
         )
     return calls
@@ -206,17 +228,22 @@ def score_persons(
                 unresolvable += 1
                 continue
             at = on_or_after[0]
+            # A bearish call is right when the stock LAGS, so its returns are measured with the
+            # sign flipped. Every stored number therefore means "return in the direction the
+            # person called", which is the only reading under which one hit rate can cover both.
+            sign = _DIRECTION_SIGN.get(call.direction, 1.0)
             rel_short = relative_forward_return(
                 pair[symbol], pair[benchmark], at, HORIZON_SHORT_DAYS
             )
             if rel_short is None:
                 unresolvable += 1
                 continue
-            short_results.append(rel_short)
+            short_results.append(sign * rel_short)
             rel_long = relative_forward_return(
                 pair[symbol], pair[benchmark], at, HORIZON_LONG_DAYS
             )
             if rel_long is not None:
+                rel_long *= sign
                 long_results.append(rel_long)
                 weight = _recency_weight(call.t0, now, half_life_days)
                 weighted_sum += weight * rel_long

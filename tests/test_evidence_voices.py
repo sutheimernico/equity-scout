@@ -400,17 +400,26 @@ def voice_event_row(kind: str, direction: str | None = None) -> dict:
     }
 
 
-def test_calls_from_events_accepts_only_bullish_voice_calls():
+def test_calls_from_events_accepts_both_voice_directions_but_never_context():
+    """Changed 2026-08-11 (was: bullish only). Bearish calls were collected and then dropped from
+    every statistic — 20 of 35 stored directional calls — because measuring them as longs would
+    invert their meaning. `person_track` now carries the direction and flips the sign instead, so
+    the sample is usable. A CONTEXT mention still has no direction and stays out: it cannot be
+    right or wrong, and scoring it either way would fabricate a verdict.
+
+    Note the deliberate asymmetry with the predict-then-resolve LEDGER, pinned by the next test:
+    that resolver models a long entry and still takes bullish rows only.
+    """
     rows = [
         voice_event_row(KIND_CALL, "bullish"),
         voice_event_row(KIND_CALL_BEARISH, "bearish"),
         voice_event_row(KIND_CONTEXT),
     ]
     calls = calls_from_events(rows)
-    assert len(calls) == 1
-    assert calls[0].person == "Michael Burry"
-    assert calls[0].source == SOURCE_VOICE
-    assert calls[0].t0 == "2026-07-12"
+    assert [c.direction for c in calls] == ["bullish", "bearish"]
+    assert {c.person for c in calls} == {"Michael Burry"}
+    assert {c.source for c in calls} == {SOURCE_VOICE}
+    assert {c.t0 for c in calls} == {"2026-07-12"}
 
 
 def test_ledgerable_events_filters_context_and_bearish_voice_rows():

@@ -9,10 +9,11 @@ deterministically, with no LLM anywhere in this module:
   the title BEFORE (2) a direction phrase from a closed list, and (3) exactly one
   universe company/ticker resolves from the title — ambiguity is a non-match, never a
   guess. Bullish calls (`kind="call"`) enter the predict-then-resolve ledger and the
-  speaker's person track record. Bearish calls (`kind="call_bearish"`) are stored,
-  displayed and alerted, but stay OUT of the ledger and track records until signed
-  (short-direction) resolution exists — resolving a short call as a long would invert
-  its meaning into a fabricated statistic.
+  speaker's person track record. Bearish calls (`kind="call_bearish"`) now enter the
+  TRACK RECORD too (2026-08-11): `person_track` carries each call's direction and flips
+  the sign of its measured return, so a bearish call followed by underperformance is a
+  hit instead of a miss. They still stay out of the predict-then-resolve LEDGER, whose
+  rows model a long entry — that resolver has no short leg yet.
 - Everything else with a resolvable ticker is a **context mention** (`kind="context"`):
   shown on pitches, never ledgered, never a track-record call.
 - Mentions without a resolvable ticker are skipped — there is no ticker to attach them
@@ -70,7 +71,7 @@ PERSONS: dict[str, list[str]] = {
 }
 
 KIND_CALL = "call"  # bullish, measurable -> ledger + person track record
-KIND_CALL_BEARISH = "call_bearish"  # measurable but short-direction -> display/alert only
+KIND_CALL_BEARISH = "call_bearish"  # sign-flipped in person_track; not in the long-only ledger
 KIND_CONTEXT = "context"  # mention with a ticker, no direction -> display only
 
 # Closed direction lists. A phrase must appear AFTER the speaker's name in the title

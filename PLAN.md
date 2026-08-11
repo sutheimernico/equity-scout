@@ -198,8 +198,17 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       "war der Champion damals über der Hürde"-Kurve nicht rekonstruierbar)
       DONE 2026-07-24 (v13 Q2): `dsr_hurdle`-Spalte + idempotente Migration; record_trial
       speichert die Hürde, die VOR dem Trial galt; alte Rows lesen ehrlich None.
-- [ ] Backlog: vorzeichenrichtige Ledger-Auflösung für bearish Voice-Calls (bis dahin: Anzeige +
-      Alert, aber keine Statistik — dokumentiert in evidence/voices.py)
+- [x] Vorzeichenrichtige Auswertung bearischer Voice-Calls — 2026-08-11 (Head-Modus). `Call` trägt
+      jetzt `direction`, `score_persons` dreht bei `bearish` das Vorzeichen jeder gemessenen
+      Rendite: ein bearischer Call, dem Unterperformance folgt, ist ein TREFFER statt eines
+      Fehlschlags. Damit heißt „Trefferquote" für beide Arten dasselbe — „lag die Richtung
+      richtig" — statt „ist der Kurs gestiegen". **Rein additiv:** Meldungen drücken nur Kaufen
+      aus, also sind congress/13F/insider bitgleich (per Test gepinnt: explizit `bullish` ==
+      Default). **Wirkung: die Voice-Stichprobe wächst von 15 auf 35 Calls (+133 %)** — 20
+      bearische Calls waren gesammelt und dann aus jeder Statistik verworfen worden.
+      **Bewusste Asymmetrie:** das predict-then-resolve-LEDGER bleibt long-only (seine Zeilen
+      modellieren einen Long-Einstieg, ein Short-Bein existiert dort nicht) — ein bestehender Test
+      pinnt genau das, damit die Trennung nicht versehentlich verschwindet.
 
 ## Phase: Universe v3 — "screen everything" (2026-07-14) — DONE
 > Nico: "1191 sind mir zu wenig, ich möchte eigentlich alles dauerhaft gescreent bekommen —
