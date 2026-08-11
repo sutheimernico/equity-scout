@@ -57,6 +57,10 @@ step() {
 }
 
 echo "[$(date -Is)] ===== nightly_train start =====" >> "$LOG"
+# Measured 2026-08-11 after the training universe became the fixed 503-name index snapshot
+# (was: the current watchlist, ~30 names): ~94 s panel download + ~65 s per preset x 12 presets
+# = ~15 min, against this chain's 25-min step cap. It ran in ~60 s on the old universe, so the
+# budget is no longer negligible — check this line before adding presets or families.
 step train_entry       "$PY" scripts/run_train_entry.py
 step learning_snapshot "$PY" scripts/run_learning_snapshot.py
 step research_batch    "$PY" scripts/run_research.py --trials 25

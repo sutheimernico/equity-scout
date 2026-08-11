@@ -41,6 +41,12 @@ from equity_scout.ml.evidence_features import (
     EvidenceIndex,
     load_evidence_index,
 )
+from equity_scout.data.universe_storage import load_universe_snapshot
+from equity_scout.ml.entry_universe import (
+    TRAINING_REGION,
+    TRAINING_UNIVERSE_AS_OF,
+    training_universe,
+)
 from equity_scout.ml.labeling import BarrierConfig
 from equity_scout.ml.model_registry import (
     MIN_OOS_N,
@@ -240,6 +246,10 @@ def run_train_entry(
         if evidence_index is not None
         else None
     )
+    # WHICH universe this model was measured on. Its absence is why the champion defect stayed
+    # invisible for five weeks: the row recorded n_train but not the sample's identity, so nobody
+    # could see that two AUCs came from different universes (2026-08-11).
+    metrics["universe"] = {"n_tickers": len(tickers), "n_scored": int(meta["ticker"].nunique())}
     if family == "entry_tb":  # MUST be retrievable so a follow-up task can derive target/stop
         metrics["barrier_config"] = tb_config.as_dict()
     fitted = train_entry_model(X, y, model=model, calibrator=calibrator)
@@ -374,11 +384,35 @@ def run_train_entry_all(
 
 
 def _resolve_tickers(db_path: str, tickers_arg: str | None) -> list[str]:
-    """CLI --tickers list, else the latest watchlist's tickers, else the fixed fallback universe."""
+    """CLI `--tickers`, else the FIXED training universe, else the watchlist, else the fallback.
+
+    The fixed universe took priority on 2026-08-11. Until then this returned the current
+    watchlist — the screener's output — which made the training sample endogenous, small and
+    different almost every night; see `ml.entry_universe` for the full reasoning and
+    `docs/research/2026-08-11-champion-was-a-measurement-artifact.md` for what it broke.
+
+    The watchlist stays as a fallback so a database without a universe snapshot still trains
+    (a fresh checkout, a test DB) rather than failing — with a printed line, because silently
+    training on the old, drifting universe is exactly the failure mode being removed.
+    """
     if tickers_arg:
         return [t.strip().upper() for t in tickers_arg.split(",") if t.strip()]
+    snapshot = load_universe_snapshot(db_path, TRAINING_UNIVERSE_AS_OF)
+    if snapshot:
+        universe = training_universe(snapshot)
+        if universe:
+            print(
+                f"Trainingsuniversum: {len(universe)} Titel, Region {TRAINING_REGION}, "
+                f"Snapshot {TRAINING_UNIVERSE_AS_OF} (fest — nicht die Watchlist)."
+            )
+            return universe
     watchlist = load_latest_watchlist(db_path)
     if watchlist and watchlist.get("entries"):
+        print(
+            f"WARNUNG: kein Universums-Snapshot für {TRAINING_UNIVERSE_AS_OF} — es wird auf der "
+            "WATCHLIST trainiert. Die wechselt fast täglich, Metriken sind zwischen Nächten "
+            "nicht vergleichbar."
+        )
         return [e["ticker"] for e in watchlist["entries"]]
     return list(FALLBACK_TICKERS)
 

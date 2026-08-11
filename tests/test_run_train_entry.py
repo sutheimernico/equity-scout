@@ -65,6 +65,10 @@ def test_train_cli_first_run_with_insufficient_oos_data_does_not_promote(tmp_pat
         # v15 P3: always present, so "trained without evidence" is a recorded fact, not an
         # absent key that a later reader has to guess about.
         "evidence_features", "evidence_coverage_91d",
+        # 2026-08-11: WHICH universe this model was measured on. Its absence is why the champion
+        # defect stayed invisible for five weeks — the row recorded n_train but not the sample's
+        # identity, so two AUCs from different universes looked comparable.
+        "universe",
     }
     assert entry_champion(db) is None
 
