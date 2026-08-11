@@ -113,6 +113,84 @@ _GENERIC_FIRST_WORDS = frozenset(
     "SHELL STANDARD TARGET UNITED VICTORY VISION".split()
 )
 
+# --- Ordinary English words are never a name, however they are capitalized ----------
+# Live audit 2026-08-11 of all 296 stored voice mentions: 79% carried a ticker the headline
+# never mentions, and the single-word/first-word name channels produced every one of them:
+#   "Moving Past Buffett: Greg Abel Picked 3 New Stocks"   -> MITQ    (Moving iMage)
+#   "Michael Burry Doubles Down Against Major AI Stock"    -> SYBT    (Stock Yards Bancorp)
+#   "Aussies Take Over The City"                           -> TTWO    (Take-Two)
+#   "Michael Burry Just Warned About A 100-Year AI Bubble" -> JUST.AS
+#   "... Who Foots the Bill"                               -> BILL
+# `_GENERIC_FIRST_WORDS` was the right idea with too small a list, AND it only ever guarded
+# the multi-word first-word channel — never the single-token one, which produced JUST.AS and
+# BILL. The capitalization test it relies on cannot help here: news headlines are title case,
+# so "Take" and "DraftKings" look exactly alike to it.
+#
+# The distinction that DOES hold is vocabulary, not case: "Take", "Stock", "Just", "Moving",
+# "Bill" are ordinary English words that appear in headlines for their own sake, while
+# "DraftKings", "Nebius", "Zoetis", "Micron" essentially only appear as names. An earlier
+# attempt in this session keyed off title case instead and was reverted before commit — it
+# also refused the genuine "Michael Burry Adds to DraftKings Stake", trading one error class
+# for another.
+#
+# Blocked words still resolve through the FULL normalized name ("Take-Two Interactive" in a
+# headline is still TTWO), so this narrows a guess, it does not remove a company. Curated from
+# the live corpus plus the closed-class function words and the finance/headline verbs that
+# recur in it; extend it when an audit turns up a new one rather than loosening the rule.
+_COMMON_WORDS = frozenset(
+    # function words and pronouns that happen to be tickers or single-token names
+    "ABOUT AFTER AGAIN AGAINST ALL ALSO ANY ARE BEEN BEFORE BEING BOTH BUT CAN COULD DID "
+    "DOES DOING DOWN DURING EACH EVEN EVERY FROM HAVE HERE HERS HOW INTO ITS JUST LESS LIKE "
+    "MANY MORE MOST MUCH MUST NEAR NONE NOT ONCE ONLY ONTO OTHER OVER OWN SAME SHOULD SINCE "
+    "SOME SUCH THAN THAT THEIR THEM THEN THERE THESE THEY THIS THOSE THROUGH UNDER UNTIL "
+    "UPON VERY WERE WHAT WHEN WHERE WHICH WHILE WHO WHOM WHOSE WILL WITH WOULD YOUR "
+    # headline verbs
+    "ADDS ASKS BEAT BEATS BOUGHT BUILD BUY BUYS CALL CALLS CLOSE CLOSED CUT CUTS DUMP DUMPED "
+    "DUMPS EXITS FACE FACES FEEL FIND FINDING GAIN GAINS GIVE GOES HELD HELP HELPED HOLD "
+    "HOLDS KEEP KNOW LEAD LEADS LOOK LOOKS LOSE LOSES MADE MAKE MAKES MEET MEETS MISS MISSED "
+    "MOVE MOVES MOVING PICK PICKED PICKS PLAY POST POSTS RAISE RAISED RAISES READ RUN SAID "
+    "SAYS SEEK SEES SELL SELLS SEND SENDS SHOW SHOWS SKIP SKIPS SOLD SPEND STARTED STOP "
+    "SURGE TAKE TAKES TALK TELL TOLD TOOK TURN WANT WARN WARNED WARNS WATCH WENT WIN WON "
+    # finance and headline nouns/adjectives
+    "ASSET BANK BANKS BEAR BEST BIG BIGGER BILL BILLS BOND BONDS BOOK BULL CASH CHIP CHIPS "
+    "DEAL DEALS DEBT DOUBLE DOWNSIDE EARNINGS FACT FACTS FEAR FUND FUNDS FUTURE GOOD GREAT "
+    "GROWTH HARD HIGH HOME HOUSE HUGE IDEA JOB JOBS KEY LARGE LONG LOSS LOSSES LOW MAJOR "
+    "MARKET MARKETS MIND MINDS MONEY MONTH MONTHS NEWS OPEN PAST PLAN PLANS POINT PRICE "
+    "PRICES PROFIT QUARTER RALLY RATE RATES REAL RISK RISKS SAFE SHARE SHARES SHORT SHORTS "
+    "SIGNAL SIGNALS SMALL STAKE STOCK STOCKS STORY STRONG TIME TIMES TOP TRADE TRADES TREND "
+    "VALUE WEAK WEALTH WEEK YEAR YEARS YIELD".split()
+)
+
+# The one gate both capitalization channels consult. Kept as a union so the older, narrower
+# list stays readable as what it was — the classics the first-word rule tripped over — while
+# every channel now sees the full vocabulary.
+_NOT_A_NAME = _GENERIC_FIRST_WORDS | _COMMON_WORDS
+
+# Feed separator before the outlet name (" - Yahoo Finance Singapore", " — Mshale").
+_OUTLET_SEPARATOR = re.compile(r"\s+[-–—|]\s+")
+# An outlet name is short. A longer trailing segment is prose — "Semis Surge … — But
+# Don't Expect Him to Run for Cover" must keep its second half.
+_MAX_OUTLET_WORDS = 4
+
+
+def strip_outlet_suffix(title: str) -> str:
+    """Drop the trailing " - Outlet" segment feeds append, or return the title unchanged.
+
+    The outlet is always capitalized and often IS a company name: "Yahoo Finance Singapore"
+    resolved to Finance of America (FOA) through the first-word channel, attributing a Michael
+    Burry warning to a company the headline never mentions.
+
+    Only the LAST segment is considered, and only when it is at most `_MAX_OUTLET_WORDS` long —
+    an em dash mid-sentence is normal in headlines, and cutting at the first one would throw
+    away half the text.
+    """
+    parts = _OUTLET_SEPARATOR.split(title)
+    if len(parts) < 2:
+        return title
+    if len(parts[-1].split()) <= _MAX_OUTLET_WORDS:
+        return " - ".join(parts[:-1])
+    return title
+
 # Adjacent-token pairs that start a listing tail inside a universe CSV name
 # ("Common Stock", "Class A Ordinary Shares", "American Depositary Shares (each
 # representing ...)"). Everything from the marker on is exchange boilerplate that
@@ -311,7 +389,13 @@ def resolve_ticker(
     person's own unedited statements do, constantly). `strict=False` (the default)
     is BYTE-IDENTICAL to the pre-strict behavior — every existing call site and test
     is unaffected.
+
+    Two tightenings from the 2026-08-11 live audit (see the `_COMMON_WORDS` block comment):
+    the trailing outlet segment is stripped before matching, and neither capitalization
+    channel accepts an ordinary English word — which is what 79% of the stored voice
+    misattributions came down to.
     """
+    title = strip_outlet_suffix(title)
     tokens = ["".join(ch for ch in tok if ch.isalnum()) for tok in title.split()]
     caps_tokens = {
         tok for tok in tokens
@@ -346,17 +430,17 @@ def resolve_ticker(
                 first_word = norm_name.split()[0]
                 name_hit = (
                     len(first_word) > 3  # "A", "AN" alone are too generic to trust
-                    and first_word not in _GENERIC_FIRST_WORDS
+                    and first_word not in _NOT_A_NAME
                     and len(first_word_owners.get(first_word, ())) == 1
                     and capitalized_original(first_word)
                 )
         elif norm_name and not strict:
-            # single-token name: capitalized original occurrence, and never a generic
-            # English word (v13 Q4) — "Shell"/"Target"/"Next" headlines must not resolve
-            # to SHEL.L/TGT/NXT.L; same gate the first-word channel already applies
-            name_hit = (
-                norm_name not in _GENERIC_FIRST_WORDS and capitalized_original(norm_name)
-            )
+            # single-token name: capitalized original occurrence, and never an ordinary
+            # English word (v13 Q4 + the 2026-08-11 audit) — "Shell"/"Target"/"Next" must not
+            # resolve to SHEL.L/TGT/NXT.L, and neither must "Just"/"Bill" resolve to
+            # JUST.AS/BILL. Until the audit this channel checked only _GENERIC_FIRST_WORDS,
+            # a list curated for the OTHER channel, which is how "Just" got through.
+            name_hit = norm_name not in _NOT_A_NAME and capitalized_original(norm_name)
             if name_hit:
                 single_name_hits.add(ticker)
         if name_hit or (not strict and ticker in caps_tokens):

@@ -18,6 +18,7 @@ from equity_scout.evidence.voices import (
     dedupe_mentions,
     parse_feed_dated,
     resolve_ticker,
+    strip_outlet_suffix,
 )
 
 UNIVERSE = [
@@ -428,3 +429,74 @@ def test_dedupe_mentions_ignores_trailing_outlet_suffix():
     first = mention("Michael Burry buys Apple stock - Yahoo Finance")
     other_outlet = mention("Michael Burry buys Apple stock - MSN")
     assert dedupe_mentions([first, other_outlet]) == [first]
+
+
+# --- ordinary English words are never a name (live audit 2026-08-11) --------------
+
+# The six shapes the audit found, with the companies whose names they collided with.
+_AUDIT_UNIVERSE = [
+    ("MITQ", "Moving iMage Technologies, Inc."),
+    ("SYBT", "Stock Yards Bancorp, Inc."),
+    ("TTWO", "Take-Two Interactive Software, Inc."),
+    ("JUST.AS", "JUST Eat Takeaway"),
+    ("BILL", "BILL Holdings"),
+    ("FOA", "Finance of America Companies Inc."),
+    ("NBIS", "Nebius Group N.V."),
+    ("DKNG", "DraftKings Inc."),
+]
+
+
+def test_ordinary_words_in_a_headline_never_resolve_to_a_company():
+    """79% of 296 stored voice mentions carried a ticker the headline never named, all through
+    these two channels. Title case is why the old capitalization test could not catch it: in a
+    headline "Take" and "DraftKings" look identical."""
+    for title in (
+        "Moving Past Buffett: Greg Abel Picked 3 New Stocks",   # was MITQ
+        "Michael Burry Doubles Down Again Against Major AI Stock",  # was SYBT
+        "Watch Americans Lose Their Minds As Aussies Take Over The City",  # was TTWO
+        "Michael Burry Just Warned About A 100-Year AI Bubble",  # was JUST.AS
+        "Musk Sees AI Traffic Exploding, but Burry Asks Who Foots the Bill",  # was BILL
+    ):
+        assert resolve_ticker(title, _AUDIT_UNIVERSE) is None, title
+
+
+def test_a_distinctive_company_name_still_resolves():
+    """The counter-requirement, and why an earlier title-case-based attempt was reverted before
+    commit: it also refused these, trading one error class for another."""
+    assert resolve_ticker("Michael Burry Adds to DraftKings Stake", _AUDIT_UNIVERSE) == "DKNG"
+    assert resolve_ticker(
+        'Michael Burry Says Shorting Nebius Is "Like Shooting Fish in a Barrel"', _AUDIT_UNIVERSE
+    ) == "NBIS"
+
+
+def test_a_blocked_word_still_resolves_through_the_full_name():
+    """The gate narrows a guess, it does not remove a company: a headline that spells the whole
+    name out is unambiguous evidence regardless of vocabulary."""
+    assert resolve_ticker(
+        "Take-Two Interactive Software beats estimates", _AUDIT_UNIVERSE
+    ) == "TTWO"
+
+
+def test_the_outlet_suffix_is_not_searched_for_company_names():
+    """"Yahoo Finance Singapore" resolved to Finance of America, attributing a Burry warning to a
+    company the headline never mentions."""
+    assert resolve_ticker(
+        "Michael Burry sends warning on one of Wall Street's top stocks - Yahoo Finance Singapore",
+        _AUDIT_UNIVERSE,
+    ) is None
+
+
+def test_strip_outlet_suffix_keeps_prose_after_a_dash():
+    """An em dash mid-headline is normal; cutting at it would throw away half the text. Only a
+    SHORT trailing segment is an outlet."""
+    prose = "Semis Surge, Michael Burry's Shorts Feel the Pressure — But Don't Expect Him to Run"
+    assert strip_outlet_suffix(prose) == prose
+    assert strip_outlet_suffix("Burry shorts Micron - Reuters") == "Burry shorts Micron"
+    assert strip_outlet_suffix("No separator here") == "No separator here"
+
+
+def test_a_sentence_case_headline_without_an_outlet_is_untouched():
+    """Regression guard for the audit fix: with no outlet segment and a distinctive name, the
+    resolver must behave exactly as before."""
+    assert resolve_ticker("Burry buys Apple shares", UNIVERSE) == "AAPL"
+    assert resolve_ticker("Michael Burry bets against TSLA", UNIVERSE) == "TSLA"
