@@ -694,6 +694,44 @@ Zwei Dinge, die keinen Bau brauchten, sondern eine Messung.
 - [ ] Offen: zeigt die Karte das Alter ihres Textes? Wenn nicht, sind zwei Tage alte
       Nachrichten als heutige dargestellt — eine Ehrlichkeitslücke, unabhängig von der Laufzeit.
 
+## Phase: Achse 2 — Zielgröße/Horizont/Universum (2026-08-11) — Befund statt Bau
+Nicos Go: „Deine Empfehlung, mach einfach" → Achse 2. Beim Lesen des Universums fiel ein Defekt
+auf, der den Hebel erübrigt. Volle Auswertung:
+`docs/research/2026-08-11-champion-was-a-measurement-artifact.md`.
+
+- **Der live scorende `entry`-Champion hat keinen nachweisbaren Vorteil.** Behauptet AUC 0,6195 aus
+  **220** OOS-Zeilen; auf dem heutigen Sample mit **3281** Zeilen: **0,5152**, Rank-IC **0,0035**
+  statt 0,1523. Die Neubewertung **bevorteilt** ihn (teils in-sample) — er verliert trotzdem gegen
+  v124 (0,5348), den er blockierte.
+- **Ursache: AUCs aus verschiedenen Samples wurden auf drei Dezimalen verglichen.** Das
+  Trainingsuniversum ist die AKTUELLE Watchlist, also wechselt die Stichprobe fast jede Nacht —
+  `n_train` schwankt zwischen 80 und 4806, von gestern auf heute von 4779 auf 3026. Dazu ist das
+  Universum endogen (Screen auf heutige Daten, Training ab 2007) und klein (19 von 30 Titeln
+  überleben den Historien-Filter).
+- **v1 ist ein Ausreißer:** Median über 29 Modelle 0,5162, genau eines erreicht ≥ 0,6195 — es
+  selbst. Sein 95-%-KI [0,546; 0,693] **überlappt** mit v126s [0,520; 0,566]; es war nie belegt,
+  dass er besser ist. Der Selektionseffekt (Bester aus mehreren Presets im ersten Lauf) wird von
+  `_min_auc_delta`s √N-Korrektur nur bei Herausforderern erfasst, nie rückwirkend beim Erst-Champion.
+- **Der zweite, wichtigere Befund:** Der Fix allein promoviert NICHTS. `NO_EDGE_BAND` verlangt
+  AUC ≥ 0,55, die ehrlichen Werte liegen bei 0,50–0,54. **Kein Modell dieser Familie hat auf einer
+  belastbaren Stichprobe je die eigene Mindestschwelle erreicht** — und der Amtsinhaber erfüllt sie
+  heute selbst nicht. Damit ist Achse 2 negativ beantwortet, ohne eine neue Zielvariable: das
+  Problem ist nicht die Definition der Zielgröße.
+- **Gebaut:** `evaluate_fitted_model` (Amtsinhaber auf den Folds des Herausforderers, wohlwollend,
+  `KeyError` bei fremdem Feature-Block statt stiller NaN-Spalte) + `promote_if_better(...,
+  incumbent_metric=...)` + nächtliche Meldung, live gegen eine DB-Kopie verifiziert. Ohne den
+  Parameter bleibt das alte Verhalten; ein nicht bewertbarer Amtsinhaber fällt bewusst auf den
+  gespeicherten Wert zurück (Vergleich gegen nichts würde auf keiner Evidenz promovieren).
+- Gate: **2000 Tests grün** (10 neue), ruff clean.
+- [ ] **Needs Nico: automatische Entthronung ja/nein?** Sie wäre die Fortsetzung des Prinzips „eine
+      leere Arena hat keinen Champion statt einen falschen", hat aber eine Live-Folge: ohne
+      `entry`-Champion handelt der **ML-Long-Bot** nicht mehr, ein Depot-Sleeve mit 12,5 % Gewicht.
+      Bewusst nicht automatisiert; der Zustand steht bis dahin jede Nacht im Log.
+- [ ] Wenn Achse 2 doch weitergehen soll: beim **Universum** anfangen, nicht bei der Zielgröße —
+      ein festes, ex-ante definiertes Trainingsuniversum (z. B. S&P-500-Mitglieder eines Stichtags)
+      statt der heutigen Watchlist. Behebt Selektions-Bias, Vergleichbarkeit zwischen Nächten und
+      Testmacht in einem Schritt. Ohne das misst jede weitere Achse auf wechselndem Boden.
+
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
   `./scripts/install_dash_service.sh` erneut ausführen (Unit ist gestaged, aktiviert sich nur mit
