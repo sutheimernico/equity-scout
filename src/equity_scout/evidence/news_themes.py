@@ -56,6 +56,24 @@ _STOPWORDS = frozenset(
     last still just even back live watch here look latest breaking update analysis""".split()
 )
 
+# Added 2026-08-11 after auditing which "themes" the live corpus actually produced: `buy` was
+# the second most common theme with 43 hits, followed by `know` (12), `com` (7), `higher` (6)
+# and `now`/`need`/`action` (4 each) — headline filler, not market themes. `com` comes from
+# domains and dotted names ("JD.Com", "finance.yahoo.com") surviving tokenization.
+#
+# Kept as a SEPARATE literal rather than pasted into the block above, because that block is
+# split on whitespace: a `#` comment inside it would silently become a stopword.
+#
+# Sector words that ARE real themes deliberately stay: earnings, bank, oil, tech, demand,
+# yields, growth, price. Any of those can genuinely dominate a news week, and dropping them
+# would hide the signal this collector exists to find.
+_FILLER_WORDS = frozenset(
+    """buy buys buying sell sells selling know knows need needs now right action
+    higher lower think thinks thinking com net org according via amp""".split()
+)
+
+_STOPWORDS = _STOPWORDS | _FILLER_WORDS
+
 
 @dataclass(frozen=True)
 class Headline:

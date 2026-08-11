@@ -4,6 +4,7 @@ from __future__ import annotations
 from equity_scout.evidence.base import STATUS_FETCH_FAILED, STATUS_OK
 from equity_scout.evidence.news_themes import (
     FEEDS,
+    _STOPWORDS,
     Headline,
     collect_news_themes,
     dedupe_headlines,
@@ -155,3 +156,31 @@ def test_distinct_headlines_still_produce_distinct_events():
         "Shell gains as energy prices climb",
         "Shell refinery halts output",
     ]
+
+
+def test_headline_filler_never_qualifies_as_a_theme():
+    """Audit 2026-08-11: `buy` was the second most common stored theme (43 hits), followed by
+    `know`, `com`, `higher`, `now`. None of them says anything about what a news week is about.
+    `com` came from domains and dotted names surviving tokenization."""
+    for filler in ("buy", "know", "com", "higher", "now", "need", "action"):
+        headlines = [
+            Headline(title=f"Investors {filler} more than ever", source=src)
+            for src in ("a", "b", "c")
+        ]
+        assert not [t for t in detect_themes(headlines) if t.keyword == filler], filler
+
+
+def test_real_sector_themes_still_qualify():
+    """The counter-requirement: dropping these would hide the signal the collector exists for."""
+    headlines = [
+        Headline(title="Oil prices climb on supply fears", source="a"),
+        Headline(title="Oil prices extend gains in Asia", source="b"),
+        Headline(title="Oil prices hit a monthly peak", source="c"),
+    ]
+    assert "oil prices" in {t.keyword for t in detect_themes(headlines)}
+
+
+def test_the_filler_list_contains_no_comment_debris():
+    """The stopword block is split on whitespace, so a `#` comment pasted inside it would
+    silently become a stopword. The filler words live in their own literal for that reason."""
+    assert not {"#", "2026-08-11", "auditing", "filler"} & _STOPWORDS

@@ -267,10 +267,18 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       Löschung ohne Zeitdruck, und sie entfernt auch **echte, aber mehrdeutige** Erwähnungen
       („Alibaba, JD.Com, Baidu" nennt drei Firmen → Ambiguitätsregel greift). Die Verzerrung geht
       bewusst in Richtung „weniger Evidenz statt falscher" — das ist Nicos Abwägung, nicht meine.
-- [ ] Beobachtung aus dem Audit, nicht mitgefixt: `buy`, `now`, `bank`, `price` qualifizieren sich
-      als Themen, obwohl sie in Finanz-Schlagzeilen Füllwörter sind — `_STOPWORDS` in
-      `news_themes.py` müsste kalibriert werden. Eigener Schritt, weil er die Themenerkennung
-      verändert und damit alle Evidenz-Zeitreihen.
+- [x] Themen-Kalibrierung — 2026-08-11 als eigener Schritt nachgezogen. Audit der tatsächlich
+      erzeugten Themen: **`buy` war mit 43 Treffern das zweithäufigste „Thema"**, dahinter `know`
+      (12), `com` (7), `higher` (6), `now`/`need`/`action` (4 je) — Schlagzeilen-Füllwörter, die
+      nichts darüber sagen, worum eine Nachrichtenwoche ging; `com` stammt aus Domains und
+      gepunkteten Namen („JD.Com", „finance.yahoo.com"), die die Tokenisierung überleben.
+      **8 Themen entfallen, 82 der 251 Zeilen (33 %) wären so nie entstanden.** Bewusst
+      KONSERVATIV: `earnings`, `bank`, `oil`, `tech`, `demand`, `yields`, `growth`, `price` bleiben
+      erlaubt — jedes davon kann eine Nachrichtenwoche echt dominieren, und sie zu sperren würde
+      genau das Signal verstecken, für das der Kollektor existiert. Die neuen Wörter liegen in
+      einem EIGENEN Literal, weil der bestehende Block per `split()` zerlegt wird: ein
+      `#`-Kommentar darin wäre still zum Stoppwort geworden (mir beim Schreiben genau so passiert
+      und vor dem Commit korrigiert) — ein Test pinnt, dass kein Kommentar-Müll in der Liste steht.
 - [x] A2 feat(exits): Trade-Lifecycle für Forward-Bots (ExitRules, Exit-Grund persistiert)
 - [x] B1 feat(events): Earnings-Kalender (yfinance) + Digest-Sektion + Intraday-Awareness
 - [x] C3 fix(pnl): Dividenden für Einzelaktien-Lanes/Portfolio (TTM anteilig)
