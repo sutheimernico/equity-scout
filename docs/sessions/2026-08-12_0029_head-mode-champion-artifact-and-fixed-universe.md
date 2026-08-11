@@ -13,7 +13,7 @@ Optionen.
 
 ## Ergebnis
 
-**23 Commits auf `autopilot/work`, NICHT gepusht. Gate zuletzt: 2050 Tests grün, ruff clean.**
+**25 Commits auf `autopilot/work`, NICHT gepusht. Gate zuletzt: 2050 Tests grün, ruff clean.**
 
 Der rote Faden: die Suche nach einem besseren Modell fand einen kaputten Schiedsrichter.
 
@@ -57,7 +57,8 @@ Singapore" → FOA). Die tragfähige Unterscheidung ist **Wortschatz, nicht Gro�
 Fehlzuordnungen bei den ledger-relevanten Calls **22 → 13**, jeder echte Treffer erhalten.
 Dazu: eine Schlagzeile ergibt nur noch EIN Event pro Ticker (Pseudo-Replikation), und
 Füllwort-Themen (`buy` war mit 43 Treffern das zweithäufigste „Thema") fallen weg.
-Reparaturskript für die Altlast liegt bereit, **nicht ausgeführt** (siehe To-dos Nico).
+Reparaturskript für die Altlast gebaut und am Sessionende auf Nicos Go **ausgeführt** — eigener
+Abschnitt weiter unten.
 
 ### 6. Bearische Calls zählen jetzt (`8743de4`)
 `Call.direction` + Vorzeichenumkehr in `score_persons`. Die Voice-Stichprobe wächst von 15 auf 35
@@ -87,9 +88,12 @@ unter derselben `fy`), und Restatements teilen ein Periodenende.
 
 - **Entthronung selbst entschieden** (nicht an Nico zurückgegeben), weil das Head-Mandat vorlag,
   es Paper-Geld ist und das Prinzip wörtlich im Code steht.
-- **Löschung der 121 Altlast-Zeilen NICHT selbst ausgeführt** — anders als die Entthronung ist sie
-  nicht per Konfiguration umkehrbar, hat keine Frist, und sie entfernt auch echte, aber
-  mehrdeutige Erwähnungen.
+- **Löschung der 121 Altlast-Zeilen zunächst NICHT selbst ausgeführt** — anders als die
+  Entthronung ist sie nicht per Konfiguration umkehrbar, hat keine Frist, und sie entfernt auch
+  echte, aber mehrdeutige Erwähnungen. **Nico hat am Sessionende zugestimmt („Löschen
+  wahrscheinlich smart"), danach ausgeführt** (eigener Abschnitt unten).
+- **Lehren in `LOOP.md` statt nur im Log**, weil LOOP.md jede Autopilot-Iteration liest — ein
+  Eintrag im Log wirkt auf nichts.
 - **VolTarget-Einbau auf nach der Nightly verschoben**, weil in derselben Nacht die Entthronung
   erstmals wirkt (Sleeve fällt weg, ~32 % Umschichtung). Zwei Eingriffe in einer Nacht hätten die
   Ursachenzuordnung zerstört.
