@@ -120,18 +120,28 @@ unter derselben `fy`), und Restatements teilen ein Periodenende.
 - Wenn nein: ist der Autotrader ein Risiko-System statt eines Alpha-Systems? Das wäre eine
   Projektentscheidung, keine technische.
 
+## Altlast-Bereinigung — AUSGEFÜHRT (Nicos Go am Sessionende)
+
+Nico: „Löschen wahrscheinlich smart". Danach auf der **Produktions-DB** ausgeführt:
+
+```
+uv run python scripts/fix_voice_misattributions_2026_08_11.py --apply --backup pre_fix_voices_2026-08-12.db
+```
+
+- **Gelöscht: 121 voice-Events + 7 offene Vorhersagen.** `evidence_events` gesamt 1557 → 1436,
+  voice-Events 296 → 175, voice-Vorhersagen 15 → 8.
+- **Aufgelöste Vorhersagen unangetastet** (es gab keine; der append-only-Vertrag hätte sie
+  ohnehin geschützt).
+- **Backup: `pre_fix_voices_2026-08-12.db` im Repo-Root, 81 MB, vollständig.** Durch `*.db` in
+  `.gitignore` nicht versionierbar. Zurückrollen = Datei über `equity_scout.db` kopieren, aber
+  **Achtung: sie ist ein Stand von 00:35 und würde alles Spätere verwerfen** (u. a. die Nightly).
+  Nach ein paar ruhigen Tagen löschen.
+
 ## To-dos
 
 ### Nico
 
-1. **Entscheiden, ob die 121 falschen Alt-Einträge gelöscht werden.** Sie verschmutzen weiter
-   Signal-Radar und Ledger. Das Skript ist fertig und gegen eine Kopie geprüft (296 → 175
-   Einträge, Backup inklusive):
-   `uv run python scripts/fix_voice_misattributions_2026_08_11.py --apply --backup pre_fix.db`
-   Wichtig: es entfernt auch echte, aber mehrdeutige Erwähnungen (eine Schlagzeile, die drei
-   Firmen nennt, gilt als nicht zuordenbar). Weniger Evidenz statt falscher — das ist die
-   Abwägung.
-2. **Morgen früh einmal ins Log schauen**, ob die Nacht durchgelaufen ist (`train.log`). Wenn das
+1. **Morgen früh einmal ins Log schauen**, ob die Nacht durchgelaufen ist (`train.log`). Wenn das
    Depot plötzlich stark umgeschichtet hat: das ist erwartet, kein Fehler.
 3. **Unverändert offen:** DASH_TOKEN erneuern, Namensliste der beobachteten Investoren bestätigen,
    Cockpit einmal am Handy durchklicken, Server-Frage (~5 €/Monat) ja/nein.
@@ -149,10 +159,47 @@ unter derselben `fy`), und Restatements teilen ein Periodenende.
 - **Danach Fundamentaldaten-Backfill** über die 445 Titel (~8 min bei EDGAR-Etikette), dann die
   F-Score-Kriterien additiv ins Entry-Modell, mit demselben Nachweis wie bei Evidenz/Volumen.
 - Probeläufe **immer gegen DB-Kopien** im Scratchpad, nie gegen die Produktions-DB.
+- **Vor dem Weiterbauen: die Gegenprüfung abwarten** (eigener Abschnitt unten). Ihr Ergebnis kann
+  die Entthronung oder den Nullbefund kippen — dann wäre jede darauf aufbauende Arbeit verschwendet.
+- Die Messregeln dieser Nacht stehen jetzt in `LOOP.md` („Measurement rules") und gelten für jede
+  Iteration.
+
+## Gegenprüfung durch einen unabhängigen Chat (Nicos ausdrücklicher Auftrag)
+
+**Diese Session prüft sich nicht selbst.** Alles Obige stammt aus einer einzigen langen
+Head-Modus-Nacht, in der derselbe Agent Befund, Fix und Verifikation geliefert hat — inklusive
+mehrerer Selbstkorrekturen, die genau zeigen, wie leicht hier ein Fehlschluss durchrutscht. Nico
+will deshalb morgen eine **unabhängige Zweitmeinung aus einem frischen Chat**, der diese Arbeit
+NICHT gebaut hat.
+
+Konkret zu challengen, in dieser Reihenfolge:
+
+1. **Die Entthronung** (`c771867`) — sie hat eine Live-Folge (ML-Long-Bot handelt nicht mehr,
+   Depot mit 7 statt 8 Sleeves). War die Begründung tragfähig, oder wurde ein funktionierendes
+   Sleeve auf Basis einer zu strengen Schwelle abgeschaltet? Gegenfrage an den Prüfer: ist
+   `NO_EDGE_BAND = 0,05` (AUC ≥ 0,55) die richtige Latte, oder ist SIE das eigentliche Problem?
+2. **Das feste Universum** (`14a76e8`) — 503 US-Titel aus einem Snapshot von 2026-07-02, trainiert
+   ab 2007. Der Survivorship-Bias ist im Doku-Abschnitt „Ehrliche Grenzen" benannt, aber nicht
+   quantifiziert. Wie groß ist er wirklich, und kippt er den Nullbefund?
+3. **Der Nullbefund selbst** (0 von 12 Presets) — ist er ein Befund über die DATEN oder über
+   dieses SETUP? Insbesondere: 20-Handelstage-Relativrendite als Ziel, monatliches Rebalance,
+   445 US-Large-Caps. Was davon ist Annahme, was ist Notwendigkeit?
+4. **Die VolTarget-Studie** (`dbd3392`) — der Divisor 1,341 ist out-of-sample geprüft, aber auf
+   EINEM Split (2017). Hält er auf anderen Splits? Und ist SPY ein zulässiger Proxy für die
+   Depot-Vola, oder verschiebt das die ganze Empfehlung?
+5. **Die gelöschten 121 Zeilen** — war „weniger Evidenz statt falscher" die richtige Abwägung,
+   oder wurden mit den Falschtreffern zu viele echte, nur mehrdeutige Erwähnungen entfernt?
+
+Material für den Prüfer: die vier Research-Dokumente unter `docs/research/2026-08-11-*` und
+`2026-08-12-*`, dieses Handoff, `AUTOPILOT_LOG.md` (letzte ~10 Einträge), und der Diff der
+24 Commits. Der Backup-Stand vor der Löschung liegt in `pre_fix_voices_2026-08-12.db`.
+
+**Nicht gesucht ist Zustimmung.** Am wertvollsten sind Stellen, an denen die Beweisführung dünner
+ist als der Ton, in dem sie geschrieben wurde.
 
 ## Einstieg für die nächste Session
 
-Branch `autopilot/work`, Tree sauber, **23 Commits vor `origin/main`, nicht gepusht**.
+Branch `autopilot/work`, Tree sauber, **25 Commits vor `origin/main`, nicht gepusht**.
 Erster Blick: `tail -50 train.log` — lief die Nightly um 03:08 durch, und steht dort
 `ENTTHRONT: v1`? Danach `PLAN.md` ab „Phase: Risiko-Schiene" (die zwei Einbau-Pflichten für
 VolTarget stehen dort als offene Punkte).

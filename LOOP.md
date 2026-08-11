@@ -27,6 +27,31 @@ Progress lives on disk (this file, `PLAN.md`, git history, `AUTOPILOT_LOG.md`) �
 - **Determinism in tests.** No live network/LLM calls in tests; use `FakeProvider` / `FakeAnalysis`.
 - **Pin new deps** with justification; prefer the simplest solution that meets the task.
 
+## Measurement rules (learned 2026-08-11/12, the night the champion turned out to be an artifact)
+Every one of these cost real time or real damage. They are cheap to follow and expensive to relearn.
+- **Stamp the sample's IDENTITY, not just its size.** The live champion held its title for five
+  weeks on an AUC measured over 220 rows while challengers were measured over 3 000+. The registry
+  row recorded `n_train` but not WHICH universe — so two incomparable numbers looked comparable.
+  Any metric that will later be compared must carry what it was measured on.
+- **Never compare a stored metric against a fresh one.** Re-measure the incumbent on the
+  challenger's own sample (`entry_model.evaluate_fitted_model`). Different samples, different
+  numbers — the comparison is meaningless otherwise, however many decimals it has.
+- **A gate that only checks on entry is half a gate.** The same bar that blocks a newcomer must be
+  able to remove an incumbent (`model_registry.demote_if_no_edge`).
+- **Overlapping windows are not independent observations.** A daily series of 20-day forwards
+  shares 19 of 20 days; treating it as independent inflates every statistic by ~sqrt(h). Use
+  `behaviour_study.independent_subsample`, and report the independent n.
+- **For any estimator that SCALES something, judge ranking and calibration separately.** Raw VIX
+  ranks forward volatility best and would still be wrong: it reads 36% high, and `VolTarget`
+  divides by it. A perfect ranking with a wrong level is a permanent, invisible bias.
+- **Measure one case before scaling to hundreds.** Checking a single EDGAR payload exposed two
+  silent traps and one of my own errors; pulling 445 tickers first would have been slower AND
+  quieter.
+- **A change is not verified until its CONSUMER has run.** The demotion was "done" until an
+  autotrader dry-run proved the depot survives a missing sleeve.
+- **Rehearse destructive steps against a COPY of the DB, never production** — and when a repair
+  script deletes, dry-run by default, `--apply` requires `--backup`.
+
 ## Gate (objective done-check)
 `uv run pytest -q` green + `uv run ruff check .` clean. Commit only a green gate.
 
