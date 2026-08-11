@@ -248,6 +248,16 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       Pseudo-Replikation, dieselbe Inflation, für die W0 korrigieren musste. Ehrliche Wirkung:
       **26 von 251 Zeilen (10 %)**, nicht die 80, die eine erste Zählung ergab — die übrigen 54
       sind die GEWOLLTE Wochenrotation der Event-Keys.
+- [ ] **Needs Nico: Altlast bereinigen.** Der Fix verhindert nur NEUE Fehlzuordnungen; **121 der
+      296 gespeicherten voice-Events sind mit dem heutigen Resolver nicht reproduzierbar** und
+      verschmutzen weiter Signal-Radar und Ledger (7 offene Vorhersagen hängen dran). Skript liegt
+      bereit, Trockenlauf ist Default, `--apply` verlangt `--backup`:
+      `uv run python scripts/fix_voice_misattributions_2026_08_11.py --apply --backup pre_fix.db`
+      Gegen eine DB-Kopie voll verifiziert (296 → 175 Events, 15 → 8 Vorhersagen, aufgelöste
+      Zeilen unberührt). **Bewusst nicht selbst ausgeführt**, obwohl Head-Mandat: es ist eine
+      Löschung ohne Zeitdruck, und sie entfernt auch **echte, aber mehrdeutige** Erwähnungen
+      („Alibaba, JD.Com, Baidu" nennt drei Firmen → Ambiguitätsregel greift). Die Verzerrung geht
+      bewusst in Richtung „weniger Evidenz statt falscher" — das ist Nicos Abwägung, nicht meine.
 - [ ] Beobachtung aus dem Audit, nicht mitgefixt: `buy`, `now`, `bank`, `price` qualifizieren sich
       als Themen, obwohl sie in Finanz-Schlagzeilen Füllwörter sind — `_STOPWORDS` in
       `news_themes.py` müsste kalibriert werden. Eigener Schritt, weil er die Themenerkennung
