@@ -217,7 +217,13 @@ def entry_champion(
 
 
 def promote_if_better(
-    db_path: str, version: int, *, metric_key: str = "auc", now: str = "", n_candidates: int = 1
+    db_path: str,
+    version: int,
+    *,
+    metric_key: str = "auc",
+    now: str = "",
+    n_candidates: int = 1,
+    incumbent_metric: float | None = None,
 ) -> bool:
     """Promote `version` to champion iff it clears the promotion gate (F2):
 
@@ -228,6 +234,20 @@ def promote_if_better(
     2. If a champion already exists, `version` must beat it by at least `_min_auc_delta(n_candidates)`
        — nightly retrains are nightly trials, so noise alone (a tie or a marginally-better score)
        must not be able to swap the champion.
+
+    `incumbent_metric` (2026-08-11) is the incumbent's metric RE-MEASURED on the challenger's own
+    OOS sample; when given it replaces the incumbent's stored value in step 2. Without it, step 2
+    compares two numbers from different samples — and since the training universe is the current
+    watchlist, that is almost every night. The live `entry` champion claimed AUC 0.6195 from 220
+    OOS rows and blocked every challenger for five weeks on that basis; re-scored on 3281 rows it
+    delivered 0.5152, below the 0.5348 of the challenger it was blocking. A stored number from a
+    smaller, older sample cannot carry an incumbency advantage.
+
+    The re-measurement is deliberately generous to the incumbent (see
+    `entry_model.evaluate_fitted_model`: part of it can be in-sample for it), so an incumbent that
+    loses under it has genuinely lost. Callers pass None when the incumbent cannot be scored on
+    this sample at all — a different feature block, an unloadable artifact — and the stored value
+    is then used unchanged, because a comparison against nothing would promote on no evidence.
 
     `n_candidates` (C2, multiple-testing guard) is how many presets are being tested against THIS
     SAME champion tonight — e.g. run_train_entry_all passes the preset count per family, not the
@@ -256,7 +276,16 @@ def promote_if_better(
         if _n_oos(cand[0]) < MIN_OOS_N or _no_edge(_raw_metric(cand[0], metric_key)):
             return False  # fails baseline quality → never becomes champion, first or not
         if champ is not None:
-            delta = _metric(cand[0], metric_key) - _metric(champ[1], metric_key)
+            # Non-finite is treated like None (fall back to the stored value), NOT passed through:
+            # `nan < threshold` is False, so a corrupt re-measurement would promote everything.
+            # Same reasoning as `_metric`, which maps NaN to −inf for the challenger side.
+            fresh = (
+                float(incumbent_metric)
+                if incumbent_metric is not None and math.isfinite(incumbent_metric)
+                else None
+            )
+            incumbent = fresh if fresh is not None else _metric(champ[1], metric_key)
+            delta = _metric(cand[0], metric_key) - incumbent
             if delta < _min_auc_delta(n_candidates):
                 return False  # improvement over the incumbent is below the noise-guard threshold
 

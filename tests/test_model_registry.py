@@ -358,3 +358,103 @@ def test_barrier_config_round_trips_through_registry(tmp_path):
     _, _, got_metrics = entry_champion(db, family="entry_tb")
     assert got_metrics["barrier_config"] == config.as_dict()
     assert BarrierConfig(**got_metrics["barrier_config"]) == config
+
+
+
+
+# --- incumbent re-measured on the challenger's own sample (2026-08-11) ------------
+
+def test_the_live_case_challenger_beats_the_re_measured_incumbent_but_has_no_edge(tmp_path):
+    """The live situation on 2026-08-11, pinned as-is because it holds TWO findings at once.
+
+    The `entry` champion claimed AUC 0.6195 from 220 OOS rows and blocked every challenger for
+    five weeks. Re-scored on 3281 rows of the current sample it delivered 0.5152 — below the
+    0.5348 of the challenger it was blocking. So the incumbency advantage was an artifact.
+
+    But the challenger STILL does not become champion, and that is correct: 0.5348 sits inside
+    the one-sided no-edge band (promotion needs >= 0.55). Fixing the comparison does not conjure
+    an edge that was never demonstrated — it stops a phantom from claiming one.
+    """
+    db = str(tmp_path / "reg.db")
+    incumbent = register_challenger(db, _model(1), metrics=_metrics(0.6195), n_train=520, now=NOW)
+    assert promote_if_better(db, incumbent) is True
+
+    challenger = register_challenger(
+        db, _model(2), metrics=_metrics(0.5348, n_oos=2431), n_train=3026, now=NOW
+    )
+    assert promote_if_better(db, challenger) is False  # vs the stored 0.6195, as for five weeks
+    # It also beats the re-measured incumbent by 0.0196 — and is still refused, on its own merits.
+    assert promote_if_better(db, challenger, incumbent_metric=0.5152) is False
+    assert entry_champion(db)[0] == incumbent
+
+
+def test_incumbent_metric_replaces_the_stored_value_in_the_comparison(tmp_path):
+    """The mechanism, with both sides clear of the no-edge band: a challenger that loses against
+    the incumbent's STORED value wins against the incumbent re-measured on its own sample."""
+    db = str(tmp_path / "reg.db")
+    incumbent = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=520, now=NOW)
+    assert promote_if_better(db, incumbent) is True
+
+    challenger = register_challenger(
+        db, _model(2), metrics=_metrics(0.60, n_oos=2431), n_train=3026, now=NOW
+    )
+    assert promote_if_better(db, challenger) is False  # 0.60 < 0.70 stored
+    assert promote_if_better(db, challenger, incumbent_metric=0.56) is True  # delta 0.04
+    assert entry_champion(db)[0] == challenger
+
+
+def test_a_re_measured_incumbent_that_still_leads_keeps_the_crown(tmp_path):
+    """The rule is neutral, not a demolition tool: an incumbent that holds up on the fresh sample
+    keeps blocking a weaker challenger."""
+    db = str(tmp_path / "reg.db")
+    incumbent = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=520, now=NOW)
+    assert promote_if_better(db, incumbent) is True
+    challenger = register_challenger(db, _model(2), metrics=_metrics(0.60), n_train=3000, now=NOW)
+    assert promote_if_better(db, challenger, incumbent_metric=0.62) is False
+    assert entry_champion(db)[0] == incumbent
+
+
+def test_the_min_delta_still_applies_against_the_re_measured_value(tmp_path):
+    """Re-measuring changes WHICH number is compared, not the noise guard on top of it."""
+    db = str(tmp_path / "reg.db")
+    incumbent = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=520, now=NOW)
+    assert promote_if_better(db, incumbent) is True
+    challenger = register_challenger(db, _model(2), metrics=_metrics(0.60), n_train=3000, now=NOW)
+    assert promote_if_better(db, challenger, incumbent_metric=0.596) is False  # delta 0.004
+    assert promote_if_better(db, challenger, incumbent_metric=0.58) is True  # delta 0.02
+
+
+def test_baseline_quality_still_blocks_a_no_edge_challenger_against_a_weak_incumbent(tmp_path):
+    """Re-measuring the incumbent must not open a back door: if the fresh value is near-random,
+    a near-random challenger STILL fails the one-sided no-edge band on its own merits."""
+    db = str(tmp_path / "reg.db")
+    incumbent = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=520, now=NOW)
+    assert promote_if_better(db, incumbent) is True
+    challenger = register_challenger(db, _model(2), metrics=_metrics(0.51), n_train=3000, now=NOW)
+    assert promote_if_better(db, challenger, incumbent_metric=0.40) is False
+    assert entry_champion(db)[0] == incumbent
+
+
+def test_none_incumbent_metric_falls_back_to_the_stored_value(tmp_path):
+    """When the incumbent cannot be scored on this sample (different feature block, unloadable
+    artifact), the stored value must still gate — comparing against nothing would promote on no
+    evidence."""
+    db = str(tmp_path / "reg.db")
+    incumbent = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=520, now=NOW)
+    assert promote_if_better(db, incumbent) is True
+    challenger = register_challenger(db, _model(2), metrics=_metrics(0.60), n_train=3000, now=NOW)
+    assert promote_if_better(db, challenger, incumbent_metric=None) is False
+    assert entry_champion(db)[0] == incumbent
+
+
+def test_a_non_finite_incumbent_metric_falls_back_instead_of_promoting_everything(tmp_path):
+    """`nan < threshold` is False, so a NaN re-measurement passed straight through would promote
+    ANY challenger. It must be treated like None — same reasoning as `_metric` on the challenger
+    side."""
+    db = str(tmp_path / "reg.db")
+    incumbent = register_challenger(db, _model(1), metrics=_metrics(0.70), n_train=520, now=NOW)
+    assert promote_if_better(db, incumbent) is True
+    challenger = register_challenger(db, _model(2), metrics=_metrics(0.60), n_train=3000, now=NOW)
+    assert promote_if_better(db, challenger, incumbent_metric=float("nan")) is False
+    assert promote_if_better(db, challenger, incumbent_metric=float("inf")) is False
+    assert entry_champion(db)[0] == incumbent

@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from equity_scout.ml.entry_eval import HORIZON_DAYS
 from equity_scout.ml.entry_features import FEATURE_COLUMNS
 from equity_scout.ml.entry_model import (
     EntryModel,
     _date_grouped_folds,
+    evaluate_fitted_model,
     train_entry_model,
     walk_forward_efficiency,
     walk_forward_evaluate,
@@ -234,3 +236,46 @@ def test_elastic_net_training_is_reproducible():
     np.random.seed(4242)
     second = train_entry_model(X, y, model="elastic_net").score_many(X.head(20))
     assert (first == second).all()
+
+
+# --- evaluate_fitted_model: the incumbent, re-scored on a challenger's own folds ---
+
+def test_fitted_model_is_scored_on_the_same_oos_folds_as_a_challenger():
+    """The comparison the promotion gate needs: same sample, same folds, one number each. Built
+    2026-08-11 after the live champion's stored 0.6195 (220 rows) turned into 0.5152 (3281 rows)."""
+    X, y, meta = _dataset(n_dates=120, per_date=6, informative=True, seed=7)
+    fitted = train_entry_model(X, y)
+    got = evaluate_fitted_model(fitted, X, y, meta, horizon_days=HORIZON_DAYS)
+    assert set(got) == {"auc", "brier", "rank_ic", "n_oos"}
+    assert got["n_oos"] > 0
+    challenger = walk_forward_evaluate(X, y, meta, horizon_days=HORIZON_DAYS)
+    # Both numbers must rest on the SAME out-of-sample rows — that is the whole point.
+    assert got["n_oos"] == challenger["n_oos"]
+
+
+def test_an_in_sample_fit_scores_high_on_its_own_rows():
+    """Pins the deliberate generosity toward the incumbent: the fitted model saw these rows, so
+    this measurement flatters it. An incumbent that loses ANYWAY has genuinely lost."""
+    X, y, meta = _dataset(n_dates=120, per_date=6, informative=True, seed=11)
+    fitted = train_entry_model(X, y)
+    got = evaluate_fitted_model(fitted, X, y, meta, horizon_days=HORIZON_DAYS)
+    honest = walk_forward_evaluate(X, y, meta, horizon_days=HORIZON_DAYS)
+    assert got["auc"] > honest["auc"]
+
+
+def test_a_model_needing_an_absent_column_raises_instead_of_scoring_wrongly():
+    """A champion with a different feature block must make the caller skip the comparison, not
+    get scored on a silently NaN-filled column."""
+    X, y, meta = _dataset(n_dates=12, per_date=10, informative=True, seed=3)
+    fitted = train_entry_model(X, y)
+    with pytest.raises(KeyError):
+        evaluate_fitted_model(fitted, X.drop(columns=[_SIGNAL_COL]), y, meta)
+
+
+def test_no_test_folds_yields_honest_nulls_not_a_crash():
+    """One as_of date cannot be split into walk-forward folds — the metrics must come back as
+    None/0, because a promotion decision on nothing must be impossible rather than accidental."""
+    X, y, meta = _dataset(n_dates=1, per_date=8, informative=True, seed=5)
+    fitted = train_entry_model(X, y)
+    got = evaluate_fitted_model(fitted, X, y, meta)
+    assert got == {"auc": None, "brier": None, "rank_ic": None, "n_oos": 0}

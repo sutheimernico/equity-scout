@@ -30,6 +30,7 @@ from equity_scout.ml.entry_dataset import build_backfill_dataset
 from equity_scout.ml.entry_eval import HORIZON_DAYS, SHORT_HORIZON_DAYS
 from equity_scout.ml.entry_model import (
     ENTRY_PRESETS,
+    evaluate_fitted_model,
     train_entry_model,
     walk_forward_evaluate,
 )
@@ -43,7 +44,10 @@ from equity_scout.ml.evidence_features import (
 from equity_scout.ml.labeling import BarrierConfig
 from equity_scout.ml.model_registry import (
     MIN_OOS_N,
+    NO_EDGE_BAND,
+    RegistryError,
     _no_edge,
+    entry_champion,
     promote_if_better,
     register_challenger,
 )
@@ -84,6 +88,74 @@ FAMILY_LABEL_DIRECTION = {"entry": "beats", "entry_short": "lags", "entry_tb": "
 FAMILY_PRINT_LABEL = {
     "entry": "Entry-Modell", "entry_short": "Short-Modell", "entry_tb": "Triple-Barrier-Entry-Modell",
 }
+
+
+def _incumbent_on_this_sample(
+    db_path: str,
+    X: pd.DataFrame,
+    y: pd.Series,
+    meta: pd.DataFrame,
+    *,
+    family: str,
+    horizon_days: int,
+    trading_days: pd.DatetimeIndex | None,
+) -> tuple[float | None, str]:
+    """The incumbent champion's AUC re-measured on THIS run's OOS folds, plus a line to print.
+
+    The gate used to compare a fresh challenger AUC against the incumbent's stored one — two
+    samples, two universes, two sizes (found 2026-08-11: the live entry champion claimed 0.6195
+    on 220 rows, delivered 0.5152 on 3281, and blocked a 0.5348 challenger for five weeks).
+
+    Returns (None, note) whenever the incumbent cannot be scored HERE — no champion yet, a
+    different feature block (an evidence-featured champion vs a price-only sample), or an
+    unloadable artifact. The gate then falls back to the stored value, because comparing against
+    nothing would promote on no evidence at all. Never raises: a failure to re-measure must not
+    take down a training run.
+    """
+    try:
+        incumbent = entry_champion(db_path, family=family)
+    except RegistryError as err:
+        return None, f"Amtsinhaber nicht ladbar ({err}) — Vergleich gegen den gespeicherten Wert."
+    if incumbent is None:
+        return None, ""  # empty arena: nothing to defend, baseline quality alone decides
+    version, model, stored = incumbent
+    try:
+        fresh = evaluate_fitted_model(
+            model, X, y, meta, horizon_days=horizon_days, trading_days=trading_days
+        )
+    except KeyError:
+        return None, (
+            f"Amtsinhaber v{version} trägt einen anderen Feature-Block als dieses Sample — "
+            "Vergleich gegen den gespeicherten Wert."
+        )
+    if fresh["auc"] is None:
+        return None, (
+            f"Amtsinhaber v{version} auf diesem Sample nicht bewertbar — "
+            "Vergleich gegen den gespeicherten Wert."
+        )
+    note = (
+        f"Amtsinhaber v{version} auf DIESEM Sample: AUC {_fmt(fresh['auc'])} "
+        f"(n_oos={fresh['n_oos']}) — gespeichert war {_fmt(_stored_auc(stored))} "
+        f"(n_oos={stored.get('n_oos')}). Der frische Wert ist die Vergleichsbasis."
+    )
+    if _no_edge(fresh["auc"]):
+        # The loudest line the nightly can print: the model that scores live has, on today's
+        # sample, no demonstrated edge — it would not clear its own promotion gate as a newcomer.
+        # Deliberately a REPORT, not an automatic demotion: dethroning empties the arena and stops
+        # the ML-Bot sleeve from trading, which is Nico's call, not the loop's.
+        threshold = f"{0.5 + NO_EDGE_BAND:.2f}".replace(".", ",")
+        note += (
+            f"\n  ⚠ Der Amtsinhaber liegt damit in der No-Edge-Bande (Promotion verlangt "
+            f"AUC ≥ {threshold}) — er würde heute NICHT promoten und regiert auf "
+            "einer Zahl, die sein eigenes Gate nicht mehr besteht."
+        )
+    return fresh["auc"], note
+
+
+def _stored_auc(metrics: dict) -> float | None:
+    """The incumbent's persisted AUC, for the honest side-by-side in the log."""
+    value = metrics.get("auc")
+    return None if value is None else float(value)
 
 
 def run_train_entry(
@@ -174,7 +246,14 @@ def run_train_entry(
     version = register_challenger(
         db_path, fitted, metrics=metrics, n_train=n_train, now=now, family=family
     )
-    promoted = promote_if_better(db_path, version, now=now, n_candidates=n_candidates)
+    incumbent_auc, incumbent_note = _incumbent_on_this_sample(
+        db_path, X, y, meta, family=family, horizon_days=horizon_days, trading_days=panel.dates
+    )
+    if incumbent_note:
+        print(incumbent_note)
+    promoted = promote_if_better(
+        db_path, version, now=now, n_candidates=n_candidates, incumbent_metric=incumbent_auc
+    )
 
     label = FAMILY_PRINT_LABEL.get(family, f"{family}-Modell")
     print(f"{label} v{version} ({model}) auf {n_train} Zeilen trainiert.")

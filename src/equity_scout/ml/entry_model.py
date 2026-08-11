@@ -253,3 +253,60 @@ def walk_forward_evaluate(
     if collect_oos:
         result["oos"] = {"prob": prob_oos, "y": y_oos}
     return result
+
+
+def evaluate_fitted_model(
+    fitted: EntryModel,
+    X: pd.DataFrame,
+    y: pd.Series,
+    meta: pd.DataFrame,
+    *,
+    n_splits: int = 4,
+    horizon_days: int = HORIZON_DAYS,
+    trading_days: pd.DatetimeIndex | None = None,
+) -> dict:
+    """Score an ALREADY-FITTED model on the same walk-forward test folds a challenger is
+    measured on, so the two numbers are comparable. Returns {auc, brier, rank_ic, n_oos}.
+
+    Why this exists (found 2026-08-11): the promotion gate compared a challenger's fresh AUC
+    against the incumbent's STORED AUC — two numbers from different samples, different
+    universes and wildly different sizes. The live `entry` champion claimed 0.6195 on 220 OOS
+    rows; re-scored here on 3281 rows it delivered 0.5152, while the challenger it kept
+    blocking measured 0.5348. AUCs from different samples are not comparable, and the
+    training universe is the current watchlist, so the sample changes almost every night.
+
+    This is DELIBERATELY generous to the incumbent: it was fitted on rows that may sit inside
+    these very folds, so part of this measurement is in-sample for it. An incumbent that loses
+    even with that advantage has genuinely lost. Returns n_oos=0 metrics of None when no fold
+    yields test rows.
+
+    Raises KeyError if `fitted` needs a column `X` does not carry — the caller must skip the
+    comparison rather than score a model on the wrong feature block (see `EntryModel.score_row`
+    for the same guard).
+    """
+    X = X.reset_index(drop=True)
+    y = y.reset_index(drop=True)
+    as_of = pd.to_datetime(meta["as_of"]).reset_index(drop=True)
+    realized = pd.to_numeric(meta["relative_return"]).reset_index(drop=True)
+
+    missing = [c for c in fitted.feature_columns if c not in X.columns]
+    if missing:
+        raise KeyError(f"fitted model needs columns absent from X: {missing}")
+
+    positions: list[int] = []
+    for _train_mask, test_mask in _date_grouped_folds(
+        as_of, n_splits=n_splits, horizon_days=horizon_days, trading_days=trading_days
+    ):
+        positions.extend(X.index[test_mask].tolist())
+    positions = sorted(set(positions))
+    if not positions:
+        return {"auc": None, "brier": None, "rank_ic": None, "n_oos": 0}
+
+    prob = fitted._proba(X.loc[positions])
+    scores = classification_scores(y.loc[positions].to_numpy(), prob)
+    return {
+        "auc": scores["auc"],
+        "brier": scores["brier"],
+        "rank_ic": rank_ic(prob, realized.loc[positions].to_numpy()),
+        "n_oos": len(positions),
+    }
