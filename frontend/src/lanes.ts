@@ -38,7 +38,10 @@ export const LANE_NOTES: Record<string, LaneNote> = {
     what:
       "Merkt sich die Kursspanne der ersten 30 Handelsminuten und kauft, wenn der Kurs " +
       "darüber ausbricht. Ziel und Stop richten sich nach der Breite dieser Spanne. Zum " +
-      "Handelsschluss ist die Lane immer flach — es bleibt nie etwas über Nacht liegen.",
+      "Handelsschluss ist die Lane immer flach — es bleibt nie etwas über Nacht liegen. " +
+      "Pausiert seit 17.08.2026: Die Einstiegsregel ist an 1.684 Ausbrüchen widerlegt, " +
+      "und auch mit Halten über Nacht bringt sie nichts, was ein Einstieg ohne Regel " +
+      "nicht auch bekäme. Das Buch bleibt sichtbar.",
   },
   crypto: {
     name: "Folgt Krypto-Ausbrüchen",

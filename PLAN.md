@@ -37,6 +37,14 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       - Nicos eigener Durchklick auf dem Handy steht seit dem 08.08. als Needs-Nico aus; ohne
         seine Funde ist "zu Ende" nicht bestimmbar.
 
+## Runde 2026-08-17 (Nicos Blanko-Go: Lernkreis vervollständigen)
+Plan: `docs/superpowers/plans/2026-08-16-no-trade-book-and-learning-loop.md`
+- **Session-Lane PAUSIERT (2026-08-17).** Einstiegsregel intraday widerlegt (16.08., 1.684
+  Ausbrüche) UND mit Overnight-Halten in allen drei Armen gegen den bedingungslosen
+  Benchmark verloren (`docs/research/2026-08-17-orb-overnight-backtest.md`). Cron-Zeile
+  entfernt (install_crontab.sh verwaltet das Fehlen), `st_session_sweep` bleibt im Nightly,
+  Buch bleibt im Cockpit lesbar. Reaktivierung = SESSION_LINE wieder eintragen.
+
 ## Iron principles (never overridden)
 - **Local & free only.** yfinance / SEC EDGAR (UA header) / public lists. No paid feeds, no
   real-money anything. A task needing a paid resource goes to "Needs Nico", never faked.
