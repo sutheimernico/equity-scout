@@ -2725,6 +2725,33 @@ code {
 }
 /* Benchmark and verdict, one line each, directly under the lane's own figures — they used to
    sit in a separate block above the cards, under a second set of names (2026-08-16). */
+/* Up or down has to survive a glance (Nico 2026-08-16: "die Zahl versteckt sich da so, nur
+   'n Plus"). Colour alone would not carry it — the arrow and the sign do the work, the tint
+   only reinforces them, same reasoning as the entry-zone bands. */
+.pd-return {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pd-return.up {
+  color: var(--positive);
+  background: color-mix(in srgb, var(--positive) 14%, transparent);
+}
+.pd-return.down {
+  color: var(--negative);
+  background: color-mix(in srgb, var(--negative) 14%, transparent);
+}
+.pd-return-arrow {
+  font-size: 0.8em;
+}
+.pd-lane-figures .pd-return {
+  font-size: 0.95rem;
+}
 .pd-lane-bench {
   margin: var(--space-1) 0 0;
   font-size: 0.78rem;

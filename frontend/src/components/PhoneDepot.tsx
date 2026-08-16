@@ -78,6 +78,21 @@ function toneOf(value: number | null | undefined): string {
   return value >= 0 ? "brief-good" : "brief-warn";
 }
 
+/** A return you can read without reading: arrow, sign and a tinted pill. The arrow carries the
+ *  direction on its own — colour is reinforcement, never the only channel. */
+function ReturnPill({ value }: { value: number | null | undefined }) {
+  if (value === null || value === undefined) return <b>—</b>;
+  const up = value >= 0;
+  return (
+    <b className={`pd-return ${up ? "up" : "down"}`}>
+      <span className="pd-return-arrow" aria-hidden="true">
+        {up ? "▲" : "▼"}
+      </span>
+      {pct(value)}
+    </b>
+  );
+}
+
 // `fixedBook` pins one view without the internal switch — the rebuilt DepotsView
 // (mockup v2) drives Langfrist/Kurzfrist from its own segment control.
 export function PhoneDepot({ fixedBook }: { fixedBook?: Book }) {
@@ -151,7 +166,7 @@ function LongTerm({ auto }: { auto: AutodepotResponse }) {
           <small>Depotwert</small>
         </span>
         <span>
-          <b className={toneOf(account.total_return)}>{pct(account.total_return)}</b>
+          <ReturnPill value={account.total_return} />
           <small>seit Start</small>
         </span>
         <span>
@@ -191,7 +206,7 @@ function DayTrader({ lanes }: { lanes: ShortTermLane[] }) {
           <small>Gesamtwert</small>
         </span>
         <span>
-          <b className={toneOf(totals.totalReturn)}>{pct(totals.totalReturn)}</b>
+          <ReturnPill value={totals.totalReturn} />
           <small>seit Start</small>
         </span>
         <span>
@@ -402,7 +417,7 @@ function LaneCard({ lane }: { lane: ShortTermLane }) {
         </button>
       </div>
       <div className="pd-lane-figures">
-        <span className={`${toneOf(lane.total_return)} num`}>{pct(lane.total_return)}</span>
+        <ReturnPill value={lane.total_return} />
         <span className="brief-muted">seit Start</span>
         <span className="brief-muted num pd-lane-equity">{money(lane.equity)}</span>
         {lane.promoted && <span className="pd-badge">handelt ein echtes Sleeve</span>}
