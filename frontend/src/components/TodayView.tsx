@@ -132,26 +132,43 @@ export function TodayView({
           Zum Depot →
         </button>
       </h2>
+      {/* The figure carries `num` (mobile keeps it on one line so no percentage ever breaks
+          mid-number); the words beside it must NOT, or the whole line goes nowrap and runs
+          off a 390 px screen — measured 2026-08-16: "im Schnitt über 3 Taktiken" was cut
+          after "Taktike". */}
       <dl className="brief-detail">
         <dt>Langfrist (ETFs)</dt>
-        <dd className="num">
-          {langBook?.total_return_pct != null
-            ? `${pct(langBook.total_return_pct / 100)} · ${
-                (langBook.vs_benchmark_pct ?? 0) >= 0 ? "vor" : "hinter"
-              } dem Markt`
-            : "—"}
+        <dd>
+          {langBook?.total_return_pct != null ? (
+            <>
+              <span className="num">{pct(langBook.total_return_pct / 100)}</span> ·{" "}
+              {(langBook.vs_benchmark_pct ?? 0) >= 0 ? "vor" : "hinter"} dem Markt
+            </>
+          ) : (
+            "—"
+          )}
         </dd>
         <dt>Kurzfrist (Trading)</dt>
-        <dd className="num">
-          {kurzMean !== null
-            ? `${pct(kurzMean / 100)} · im Schnitt über ${kurzBooks.length} Taktiken`
-            : "—"}
+        <dd>
+          {kurzMean !== null ? (
+            <>
+              <span className="num">{pct(kurzMean / 100)}</span> · im Schnitt über{" "}
+              {kurzBooks.length} Taktiken
+            </>
+          ) : (
+            "—"
+          )}
         </dd>
         <dt>Du (deine Käufe)</dt>
-        <dd className="num">
-          {duLane
-            ? `${pct(duLane.total_return)} · Markt ${pct(duLane.benchmark_return)}`
-            : "leer — noch kein Pitch gekauft"}
+        <dd>
+          {duLane ? (
+            <>
+              <span className="num">{pct(duLane.total_return)}</span> · Markt{" "}
+              <span className="num">{pct(duLane.benchmark_return)}</span>
+            </>
+          ) : (
+            "leer — noch kein Pitch gekauft"
+          )}
         </dd>
       </dl>
 

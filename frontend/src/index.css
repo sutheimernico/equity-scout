@@ -2114,6 +2114,43 @@ code {
     max-width: 100%;
     overflow-x: auto;
   }
+  /* ...but `table.history` (0,1,1) outranks the bare `table` above (0,0,1), and its
+     `overflow: hidden` — there only to clip the corners against the border radius — won.
+     Measured 2026-08-16 at 390 px: the depot's sleeve table rendered 328 px of content in
+     a 246 px box with no way to scroll, so "Kosten (USD)" was unreachable on a phone, and
+     the sector comparison in Labor hid five of its six columns. Same specificity trap the
+     `.num` rules above already document. Only the x-axis opens; y stays clipped so the
+     rounded corners survive. */
+  table.history {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  /* The buy list's five fixed columns (3+6+5+2.6+5.5rem plus four gaps) need ~400 px and
+     had 294 — measured 124 px of overflow, the widest on any view, which pushed the euro
+     amount clean off the screen. Two rows instead: identity and amount on top, bar and
+     share below. */
+  .buy-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "ticker name eur"
+      "bar bar pct";
+    gap: var(--space-1) var(--space-2);
+  }
+  .buy-ticker {
+    grid-area: ticker;
+  }
+  .buy-name {
+    grid-area: name;
+  }
+  .buy-bar {
+    grid-area: bar;
+  }
+  .buy-pct {
+    grid-area: pct;
+  }
+  .buy-eur {
+    grid-area: eur;
+  }
 
   /* CAUSE 4: one number per full-width card. Measured: three KPIs filled three screens,
      each tile ~130 px tall for a single figure. Two columns plus halved padding put the
