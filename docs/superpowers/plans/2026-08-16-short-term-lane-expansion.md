@@ -98,9 +98,19 @@ unterwegs weniger Gebühren.
       nennt 0,2–0,3 %. Die Frage ist an unseren Daten also gar nicht entscheidbar, und eine
       Lane, deren Zielgröße unter der Auflösung des Messgeräts liegt, liefert keine Antwort.
       Befund: `docs/research/2026-08-16-earnings-premium-backtest.md`.
-- [ ] **T7: Gap-Fade.** Handelt gegen die Eröffnungslücke. Intraday-Bars über Alpaca vorhanden.
-      Nachbar der bestehenden Intraday-Lane, deshalb bewusst zuletzt — geringste Unabhängigkeit
-      vom Bestand.
+- [x] **T7: Gap-Fade — Backtest POSITIV, Lane wartet auf T8.** Der einzige Kandidat, der jeder
+      Nachfrage standhält: monoton über sechs Lückenklassen (bei ≤ −5 % Lücke +228,68 bp
+      Tagesverlauf, t = 12,36; bei −1…−3 % noch +28,96 bp, t = 15,69), in **jeder** Teilperiode
+      signifikant (t = 4,61 bis 13,31), trägt Kosten bis 50 bp je Seite, und die Beobachtungen
+      überlappen nicht. Befund: `docs/research/2026-08-16-gap-fade-backtest.md`.
+
+- [ ] **T8: Gap-Fade — Ausführbarkeit auf Minutenbars (Vorbedingung für die Lane).**
+      **Das Signal ist der Eröffnungskurs, und der ist erst bekannt, wenn die Auktion vorbei
+      ist** — der Backtest kauft zu einem Preis, den man in dem Moment nicht mehr bekommt.
+      Denselben Test mit Einstieg zum ersten Kurs nach +5/+15/+30 Minuten wiederholen; die
+      Alpaca-Minutenbars liegen für die Session-Lane bereits vor. Bleibt nach 15 Minuten mehr
+      als die Kosten übrig, ist die Lane gerechtfertigt — sonst war der Effekt nie unserer.
+      Erst danach der Lane-Bauplan (sechs Schritte, siehe oben).
 
 ## Verworfen, mit Grund
 
