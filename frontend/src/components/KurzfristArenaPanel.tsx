@@ -270,7 +270,7 @@ export function KurzfristArenaPanel() {
   return (
     <>
       <Explain>
-        Drei Kurzfrist-Ansätze treten mit je 10.000 USD Spielgeld gegeneinander an — die Arena{" "}
+        Drei Short-Term-Ansätze treten mit je 10.000 USD Spielgeld gegeneinander an — die Arena{" "}
         <strong>misst</strong>, welcher seine Kosten überlebt. Ehrliche Erwartung aus der
         Forschung: Kurzfrist-Trading verliert im Retail-Rahmen nach Kosten meistens. Alle Lanes
         long-only, alle Fills mit Slippage; die Session-Lane rechnet zusätzlich mit einem

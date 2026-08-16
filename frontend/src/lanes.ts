@@ -66,3 +66,43 @@ export function closedLabel(count: number): string {
   if (count === 0) return "noch nichts abgeschlossen";
   return count === 1 ? "1 abgeschlossen" : `${count} abgeschlossen`;
 }
+
+/** The three lanes read as one book, the way Long Term already does (Nico 2026-08-16: "ich
+ *  hätte gerne so eine Zeile, wo ich alles direkt sehe … wie viel Plus ich gemacht hab seit
+ *  Start").
+ *
+ *  Deliberately WITHOUT a benchmark: two lanes measure against the S&P and one against
+ *  Bitcoin, so a single "vs. market" number would average two different questions. The
+ *  comparison stays on each lane, where its benchmark is named. */
+export function shortTermTotals(
+  lanes: { equity: number; initial_capital: number }[],
+): { equity: number; invested: number; totalReturn: number | null } {
+  const equity = lanes.reduce((sum, lane) => sum + lane.equity, 0);
+  const invested = lanes.reduce((sum, lane) => sum + lane.initial_capital, 0);
+  return { equity, invested, totalReturn: invested > 0 ? equity / invested - 1 : null };
+}
+
+/** Has this lane's result resolved, or is it still noise?
+ *
+ *  The page used to answer this from the calendar ("Messtag 25 von 60"), which on 2026-08-16
+ *  told Nico "too short for a verdict" about the crypto lane — while the trade-based test had
+ *  long since settled it at p = 0.0003. Trades are what the lane produces, days are not. */
+export function verdictLine(significance: {
+  verdict: string;
+  significant: boolean;
+  trades_missing: number | null;
+  n: number;
+}): { text: string; settled: boolean } {
+  if (significance.significant) {
+    const direction = significance.verdict === "positiv" ? "verdient Geld" : "verliert Geld";
+    return { text: `Urteil steht: ${direction}`, settled: true };
+  }
+  if (significance.verdict === "kein messbarer Effekt") {
+    return { text: "Kein messbarer Unterschied — zu nah an null", settled: false };
+  }
+  const missing = significance.trades_missing;
+  if (missing && missing > 0) {
+    return { text: `Noch kein Urteil — ${missing} Trades fehlen`, settled: false };
+  }
+  return { text: `Noch kein Urteil — erst ${significance.n} Trades`, settled: false };
+}

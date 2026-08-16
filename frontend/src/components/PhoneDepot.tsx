@@ -5,13 +5,21 @@ import {
   fetchShortterm,
   type AutodepotResponse,
   type AutodepotTrade,
+  type LaneSignificance,
   type ShortTermLane,
   type ShortTermPosition,
   type ShortTermResponse,
   type ShortTermTrade,
 } from "../api";
 import { ETF_NOTES, rowName } from "../etfs";
-import { closedLabel, LANE_NOTES, laneName, runningLabel } from "../lanes";
+import {
+  closedLabel,
+  LANE_NOTES,
+  laneName,
+  runningLabel,
+  shortTermTotals,
+  verdictLine,
+} from "../lanes";
 import { StockLogo } from "./StockLogo";
 import { Chevron } from "./ui/Chevron";
 import { InfoIcon } from "./ui/InfoIcon";
@@ -167,8 +175,34 @@ function LongTerm({ auto }: { auto: AutodepotResponse }) {
 
 function DayTrader({ lanes }: { lanes: ShortTermLane[] }) {
   if (lanes.length === 0) return <p className="brief-muted">Noch keine Lane-Bücher angelegt.</p>;
+  const totals = shortTermTotals(lanes);
+  // "je 10.000" is only true while the stakes are equal — a stake that silently differs would
+  // make the sum unreadable, so the line drops the claim instead of averaging it away.
+  const stake = lanes[0]?.initial_capital;
+  const sameStake = stake !== undefined && lanes.every((l) => l.initial_capital === stake);
   return (
     <>
+      {/* The same three-figure header Long Term has (Nico 2026-08-16). No benchmark column:
+          two lanes measure against the S&P and one against Bitcoin, and one averaged
+          "vs. market" would answer neither question. Each card names its own. */}
+      <div className="pd-kpis">
+        <span>
+          <b>{money(totals.equity)}</b>
+          <small>Gesamtwert</small>
+        </span>
+        <span>
+          <b className={toneOf(totals.totalReturn)}>{pct(totals.totalReturn)}</b>
+          <small>seit Start</small>
+        </span>
+        <span>
+          <b>{money(totals.invested)}</b>
+          <small>eingesetzt</small>
+        </span>
+      </div>
+      <p className="brief-muted pd-stamp">
+        {lanes.length} Taktiken{sameStake ? ` · je ${money(stake)} USD Spielgeld` : ""} · Vergleich
+        je Taktik unten
+      </p>
       {lanes.map((lane) => (
         <LaneCard key={lane.lane} lane={lane} />
       ))}
@@ -331,6 +365,19 @@ function RebalanceList({ trades }: { trades: AutodepotTrade[] }) {
  *  headings on one screen (Nico 2026-08-06: "die sind noch nicht klar abgetrennt. Da steht
  *  läuft noch, läuft noch zweimal"), so each lane now sits on its own surface, is named by
  *  what it does, and explains its rules behind an ⓘ. */
+/** One line on whether this lane's result is a verdict yet. Tone follows the finding, not the
+ *  sign: an open measurement stays muted however red it looks, a settled one speaks up. */
+function VerdictLine({ significance }: { significance: LaneSignificance }) {
+  const { text, settled } = verdictLine(significance);
+  if (!settled) return <p className="pd-lane-verdict brief-muted">{text}</p>;
+  const good = significance.verdict === "positiv";
+  return (
+    <p className={`pd-lane-verdict ${good ? "brief-good" : "brief-warn"}`}>
+      {good ? "✓" : "⚠"} {text}
+    </p>
+  );
+}
+
 function LaneCard({ lane }: { lane: ShortTermLane }) {
   const [explained, setExplained] = useState(false);
   const closed = (lane.recent_trades ?? []).filter(
@@ -360,6 +407,15 @@ function LaneCard({ lane }: { lane: ShortTermLane }) {
         <span className="brief-muted num pd-lane-equity">{money(lane.equity)}</span>
         {lane.promoted && <span className="pd-badge">handelt ein echtes Sleeve</span>}
       </div>
+      {/* Benchmark and verdict per lane — they used to live in a separate "Funktioniert es?"
+          block above, under a second set of names for the same three lanes, showing only the
+          gap to the market ("−3,1 %-Pkt.") while this lane was up 1.5 %. */}
+      <p className="pd-lane-bench brief-muted">
+        {lane.benchmark_return === null
+          ? "kein Vergleichswert"
+          : `${lane.benchmark_ticker === "BTC" ? "Bitcoin" : "Markt"} ${pct(lane.benchmark_return)} im selben Zeitraum`}
+      </p>
+      {lane.significance && <VerdictLine significance={lane.significance} />}
       {explained && (
         <p className="pd-lane-note">
           {note ? (

@@ -11,14 +11,16 @@ import { TimeContextBadge } from "./ui/TimeContextBadge";
 
 type DepotSicht = "lang" | "kurz" | "du";
 
-// 7 Depot-Tabs → 3 Sichten (mockup v2): Langfrist (Auto-Depot), Kurzfrist (Arena-Lanes),
+// 7 Depot-Tabs → 3 Sichten (mockup v2): Long Term (Auto-Depot), Short Term (Arena-Lanes),
 // Du (Arena-Wettkampf). The research depots (Screener-Depot, Strategie-Forward, ML-Bots)
 // moved to Mehr → Labor; the all-books overview keeps living here behind a disclosure —
-// nothing deleted, only re-filed. Every Sicht opens with the honest "Funktioniert es?"
-// header from /api/proof.
+// nothing deleted, only re-filed.
+//
+// English tab names at Nico's request (2026-08-16: "Nenn das bitte long term und short
+// term"), consistent with the switch PhoneDepot already used.
 const SICHTEN: { key: DepotSicht; label: string }[] = [
-  { key: "lang", label: "Langfrist" },
-  { key: "kurz", label: "Kurzfrist" },
+  { key: "lang", label: "Long Term" },
+  { key: "kurz", label: "Short Term" },
   { key: "du", label: "Du" },
 ];
 
@@ -85,7 +87,6 @@ export function DepotsView({ onNavigate }: { onNavigate: (view: string) => void 
   const books = proof?.books ?? [];
   const minDays = proof?.min_judge_days ?? 60;
   const langBooks = books.filter((b) => b.label === "Auto-Depot");
-  const kurzBooks = books.filter((b) => b.label.startsWith("Arena "));
 
   return (
     <>
@@ -93,7 +94,7 @@ export function DepotsView({ onNavigate }: { onNavigate: (view: string) => void 
         <p className="eyebrow">Depot</p>
         <h1>Drei Sichten, alles Papiergeld</h1>
         <p className="section-sub">
-          Langfrist (ETF-Autopilot), Kurzfrist (Trading-Experiment) und „Du" (deine eigenen
+          Long Term (ETF-Autopilot), Short Term (Trading-Experiment) und „Du" (deine eigenen
           Käufe im Wettkampf gegen den Autopiloten). Alles Spielgeld zu echten Kursen, keine
           Anlageberatung.
         </p>
@@ -124,7 +125,7 @@ export function DepotsView({ onNavigate }: { onNavigate: (view: string) => void 
           {/* "Wonach kauft der?" spelled out per Sicht (Nico 2026-08-08: three things
               called Autopilot next to each other read as one confusing thing). */}
           <article className="wie-card">
-            <h2>Wonach kauft der Langfrist-Autopilot?</h2>
+            <h2>Wonach kauft der Long-Term-Autopilot?</h2>
             <p>
               Er verteilt das Geld nach festen Regeln auf ETFs — mehrere Regelwerke,
               gewichtet nach ihrer bisherigen Güte — schichtet regelmäßig um und fährt bei
@@ -139,10 +140,13 @@ export function DepotsView({ onNavigate }: { onNavigate: (view: string) => void 
       )}
       {sicht === "kurz" && (
         <>
-          <FunktioniertEs books={kurzBooks} minDays={minDays} />
+          {/* No "Funktioniert es?" header here (2026-08-16): it listed the same three lanes a
+              second time under their technical names, and showed only their gap to the
+              benchmark — so a lane up 1.5 % read as "−3,1 %-Pkt.". Both figures now sit on the
+              lane's own card, with the verdict from the trade test instead of the calendar. */}
           <PhoneDepot fixedBook="day" />
           <article className="wie-card">
-            <h2>Wonach handeln die Kurzfrist-Taktiken?</h2>
+            <h2>Wonach handeln die Short-Term-Taktiken?</h2>
             <p>
               Drei feste Regelwerke mit je eigenem Spielgeld: <b>Ereignis-Trades</b> kaufen
               nach überraschend guten Quartalszahlen und halten Tage. <b>Tages-Handel</b>{" "}
@@ -162,7 +166,7 @@ export function DepotsView({ onNavigate }: { onNavigate: (view: string) => void 
             <h2>Du gegen den Vergleichs-Autopiloten</h2>
             <p>
               Dein Gegner hier heißt auch „Autopilot" — ist aber <b>nicht</b> der
-              ETF-Autopilot aus „Langfrist". Er ist dein automatischer Zwilling: Er kauft
+              ETF-Autopilot aus „Long Term". Er ist dein automatischer Zwilling: Er kauft
               selbstständig jeden Scout-Vorschlag, der in der Einstiegszone liegt und gut
               genug bewertet ist. Du entscheidest dieselben Vorschläge von Hand unter
               „Entscheiden". Gleiches Startkapital, gleiche Regeln — der Vergleich misst,

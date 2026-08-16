@@ -2723,6 +2723,17 @@ code {
 .pd-lane-equity {
   margin-left: auto;
 }
+/* Benchmark and verdict, one line each, directly under the lane's own figures — they used to
+   sit in a separate block above the cards, under a second set of names (2026-08-16). */
+.pd-lane-bench {
+  margin: var(--space-1) 0 0;
+  font-size: 0.78rem;
+}
+.pd-lane-verdict {
+  margin: 2px 0 var(--space-2);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
 .pd-lane-info {
   display: inline-flex;
   align-items: center;
