@@ -40,11 +40,15 @@ _MISS_PATTERNS = [
     r"\bfalls?\s+short\b",
     r"\bfell\s+short\b",
 ]
+# Guidance verbs sit further from their noun than beat verbs do ("raises fiscal 2026
+# full-year guidance" is routine wire wording), so the window is 30 here where the
+# result patterns keep 20 — measured 2026-08-17: guidance_up scored 0 of 603 live
+# headlines partly because the 20-char window dropped these.
 _GUIDANCE_UP_PATTERNS = [
-    r"\b(raises?|lifts?|boosts?|hikes?)\b.{0,20}\b(guidance|outlook|forecast)\b",
+    r"\b(raises?|lifts?|boosts?|hikes?)\b.{0,30}\b(guidance|outlook|forecast)\b",
 ]
 _GUIDANCE_DOWN_PATTERNS = [
-    r"\b(cuts?|lowers?|slashes?|trims?|reduces?)\b.{0,20}\b(guidance|outlook|forecast)\b",
+    r"\b(cuts?|lowers?|slashes?|trims?|reduces?)\b.{0,30}\b(guidance|outlook|forecast)\b",
 ]
 
 # A negation or hedge right before a matched phrase voids it ("fails to beat
@@ -71,11 +75,21 @@ def _matches(text: str, patterns: list[str]) -> bool:
     return False
 
 
+# Multi-match resolution goes by DIRECTION, not by count: "beats estimates and raises
+# guidance" is the single most common bullish earnings headline, and treating it as a
+# dual event classified the strongest signals as unknown (0 guidance_up in 603 live
+# headlines, measured 2026-08-17). Only matches in OPPOSITE directions stay unknown.
+_BULLISH_LABELS = (EVENT_BEAT, EVENT_GUIDANCE_UP)
+_BEARISH_LABELS = (EVENT_MISS, EVENT_GUIDANCE_DOWN)
+
+
 def classify_headline(title: str) -> str:
     """Map one news headline to beat/miss/guidance_up/guidance_down/unknown.
 
-    Conservative: no match, a negated match, or matches in more than one category all
-    fall back to "unknown" — never a guess (honesty over recall).
+    Conservative: no match, a negated match, or matches in OPPOSITE directions ("beats
+    estimates but cuts guidance") all fall back to "unknown" — never a guess (honesty
+    over recall). Matches that agree on direction keep it: the first matched label of
+    that direction wins, so "beats estimates and raises guidance" stays a beat.
     """
     text = (title or "").lower()
     hits = {
@@ -85,7 +99,13 @@ def classify_headline(title: str) -> str:
         EVENT_GUIDANCE_DOWN: _matches(text, _GUIDANCE_DOWN_PATTERNS),
     }
     matched = [label for label, hit in hits.items() if hit]
-    return matched[0] if len(matched) == 1 else EVENT_UNKNOWN
+    if not matched:
+        return EVENT_UNKNOWN
+    bullish = [label for label in matched if label in _BULLISH_LABELS]
+    bearish = [label for label in matched if label in _BEARISH_LABELS]
+    if bullish and bearish:
+        return EVENT_UNKNOWN
+    return matched[0]
 
 
 def classify_8k_items(items: list[str]) -> str:

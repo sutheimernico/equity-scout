@@ -148,3 +148,28 @@ def test_build_classified_events_skips_untitled_headlines():
     news_by_ticker = {"AAA": [{"title": "", "published": "2026-07-10"}]}
     events = build_classified_events(news_by_ticker=news_by_ticker, eightk_events=[])
     assert events == []
+
+
+def test_same_direction_dual_match_keeps_its_direction():
+    """The single most common bullish earnings headline is "beats estimates AND raises
+    guidance" — two matches, ONE direction. Classifying it unknown was the main reason
+    guidance_up scored 0 of 603 live headlines (measured 2026-08-17). The conservative
+    rule stays for MIXED directions only."""
+    assert classify_headline("Acme beats estimates and raises full-year guidance") == EVENT_BEAT
+    assert classify_headline("Acme tops expectations, lifts outlook") == EVENT_BEAT
+    assert classify_headline("Acme misses estimates and cuts guidance") == EVENT_MISS
+    # mixed directions stay unknown — never a guess
+    assert classify_headline("Acme beats estimates but cuts guidance") == EVENT_UNKNOWN
+    assert classify_headline("Acme raises outlook but falls short on revenue") == EVENT_UNKNOWN
+
+
+def test_guidance_phrases_carry_real_world_infixes():
+    """Guidance headlines routinely put 'fiscal 2026 full-year' between verb and noun —
+    a 20-char window silently dropped them."""
+    assert classify_headline("Acme raises fiscal 2026 full-year guidance") == EVENT_GUIDANCE_UP
+    assert classify_headline("Acme boosts full-year revenue forecast") == EVENT_GUIDANCE_UP
+    assert classify_headline("Acme hikes fiscal-year 2026 profit outlook") == EVENT_GUIDANCE_UP
+    assert classify_headline("Acme lowers fiscal 2026 full-year guidance") == EVENT_GUIDANCE_DOWN
+    # negation still voids the match
+    assert classify_headline("Acme does not raise guidance") == EVENT_UNKNOWN
+    assert classify_headline("Acme no longer lifts outlook") == EVENT_UNKNOWN
