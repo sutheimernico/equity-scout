@@ -37,13 +37,28 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       - Nicos eigener Durchklick auf dem Handy steht seit dem 08.08. als Needs-Nico aus; ohne
         seine Funde ist "zu Ende" nicht bestimmbar.
 
-## Runde 2026-08-17 (Nicos Blanko-Go: Lernkreis vervollständigen)
-Plan: `docs/superpowers/plans/2026-08-16-no-trade-book-and-learning-loop.md`
+## Runde 2026-08-17 (Nicos Blanko-Go: Lernkreis vervollständigen) — DONE
+Plan: `docs/superpowers/plans/2026-08-16-no-trade-book-and-learning-loop.md` (mit Outcome)
+- **Nicht-Trade-Buch (`st_rejections`).** Jede geprüfte, nicht gehandelte Gelegenheit wird
+  mit Grund persistiert (swing: not_bullish/too_old/cap_full/already_held/no_quote;
+  gapfade: below_threshold/stale_premarket), nachts mit den Live-Exit-Regeln simuliert
+  (`rejection_review.py`, Nightly-Step `rejection_review`) und im `lane_review` den
+  gehandelten Trades gegenübergestellt — brutto, steht überall dabei.
 - **Session-Lane PAUSIERT (2026-08-17).** Einstiegsregel intraday widerlegt (16.08., 1.684
   Ausbrüche) UND mit Overnight-Halten in allen drei Armen gegen den bedingungslosen
   Benchmark verloren (`docs/research/2026-08-17-orb-overnight-backtest.md`). Cron-Zeile
   entfernt (install_crontab.sh verwaltet das Fehlen), `st_session_sweep` bleibt im Nightly,
   Buch bleibt im Cockpit lesbar. Reaktivierung = SESSION_LINE wieder eintragen.
+- **Gap-Fade-Papierlane LIVE als Messinstrument** (lane `gapfade`, Cron `*/5 14-16` lokal,
+  ET-Gate im Runner): Pre-Market-Gap ≤ −2 % → Market-on-Open, Exit Market-on-Close (Settle
+  im Nightly). Misst live, was der Backtest nicht kann: Pre-Market→Open-Verrutschen
+  (`st_executions`) und die Schwellen-Kalibrierung über das Nicht-Trade-Buch. Abbruch:
+  nach 60 Trades entscheidet der Trade-Test, Verdict „negativ" beendet die Lane.
+- **Ereignis-Knappheit an der Wurzel:** News-Klassifikation läuft über `tracked_tickers()`
+  statt des 30er-Watchlist-Snapshots (Symmetrie mit 8-K), und gleichgerichtete
+  Doppel-Headlines („beats estimates and raises guidance") behalten ihre Richtung —
+  vorher 0 guidance_up in 603 Headlines, weil der stärkste bullische Headline-Typ als
+  Dual-Match auf unknown fiel.
 
 ## Iron principles (never overridden)
 - **Local & free only.** yfinance / SEC EDGAR (UA header) / public lists. No paid feeds, no
