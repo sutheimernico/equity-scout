@@ -33,11 +33,36 @@ def test_too_little_overlap_falls_back_to_equal_weight() -> None:
     assert allocation.sharpes == {}
 
 
-def test_sleeve_without_history_forces_anchor_for_everyone() -> None:
-    returns = _returns(120, {"a": 0.001, "b": 0.0})
-    allocation = blend_weights(returns, ["a", "b", "brand_new"])
+def test_a_new_sleeve_keeps_its_anchor_share_without_freezing_the_others() -> None:
+    """A newcomer must not be punished for being new — and must not freeze the rest either.
+
+    Until 2026-08-16 the whole allocation dropped to equal weight whenever ONE sleeve lacked
+    history, and the overlap was counted across all sleeves at once. Live consequence: the
+    depot took on four new lanes on 2026-08-14, which reset the shared clock to five
+    observations and pushed the first performance-based weighting from October to November.
+    Every future intake would have pushed it again.
+    """
+    returns = _returns(120, {"winner": 0.002, "loser": -0.002})
+    returns["brand_new"] = pd.NA
+    returns.iloc[-4:, returns.columns.get_loc("brand_new")] = 0.001
+    allocation = blend_weights(returns, ["winner", "loser", "brand_new"])
+    assert allocation.mode == "tilt"
+    # The newcomer sits at the equal-weight anchor: neither rewarded nor punished.
+    assert allocation.weights["brand_new"] == pytest.approx(1 / 3, abs=0.02)
+    # ...while the two with a track record are ranked against each other.
+    assert allocation.weights["winner"] > allocation.weights["loser"]
+    assert sum(allocation.weights.values()) == pytest.approx(1.0)
+    assert "brand_new" not in allocation.sharpes  # nothing measured, nothing claimed
+
+
+def test_all_sleeves_young_still_falls_back_to_equal_weight() -> None:
+    """With fewer than two measurable sleeves there is no ranking to make."""
+    returns = _returns(120, {"a": 0.001})
+    returns["b"] = pd.NA
+    returns.iloc[-3:, returns.columns.get_loc("b")] = 0.001
+    allocation = blend_weights(returns, ["a", "b"])
     assert allocation.mode == "anchor"
-    assert allocation.weights == pytest.approx({name: 1 / 3 for name in ("a", "b", "brand_new")})
+    assert allocation.weights == pytest.approx({"a": 0.5, "b": 0.5})
 
 
 def test_tilt_overweights_the_higher_sharpe_sleeve_within_bounds() -> None:

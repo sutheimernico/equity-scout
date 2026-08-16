@@ -124,29 +124,57 @@ def blend_weights(
 ) -> SleeveAllocation:
     """Blend an equal-weight anchor with a Sharpe-softmax tilt over the trailing window.
 
-    `sleeves` is the full list of currently active sleeve names — a sleeve missing from
-    `returns` (no forward history yet) forces anchor mode for everyone: tilting the sleeves
-    that happen to have history would silently punish the new lane for being new."""
+    A sleeve without enough history of its own is not ranked — it keeps the equal-weight
+    anchor share, so being new costs it nothing. The sleeves that DO have a track record are
+    still ranked against each other, on their own common window.
+
+    Until 2026-08-16 one young sleeve forced anchor mode on the whole depot, and the overlap
+    was counted across all sleeves at once (`dropna(how="any")`). Taking on four new lanes on
+    2026-08-14 therefore reset the shared clock to five observations and moved the first
+    performance-based weighting from October to November — and every future intake would have
+    moved it again. The intent behind that rule was right (do not punish a newcomer for being
+    new); the mechanism punished everyone instead.
+
+    The comparison still happens on ONE sample: the tilt reads the common window of the
+    seasoned sleeves only, never each sleeve's own private stretch of history."""
     if not sleeves:
         return SleeveAllocation(weights={}, mode="anchor")
     equal = {name: 1.0 / len(sleeves) for name in sleeves}
 
-    overlap = returns.reindex(columns=sleeves).dropna(how="any")
+    present = returns.reindex(columns=sleeves)
+    seasoned = [name for name in sleeves if int(present[name].notna().sum()) >= min_obs]
+    # One measurable sleeve is not a ranking, and zero is not a measurement.
+    if len(seasoned) < 2:
+        return SleeveAllocation(weights=equal, mode="anchor", window_obs=0)
+
+    overlap = present.reindex(columns=seasoned).dropna(how="any")
     if len(overlap) < min_obs:
         return SleeveAllocation(weights=equal, mode="anchor", window_obs=len(overlap))
 
     tail = overlap.iloc[-window:]
-    sharpes = {name: _annualised_sharpe(tail[name]) for name in sleeves}
+    sharpes = {name: _annualised_sharpe(tail[name]) for name in seasoned}
     peak = max(sharpes.values())
     exp = {name: math.exp(s - peak) for name, s in sharpes.items()}  # shift: overflow-safe
     total = sum(exp.values())
     softmax = {name: e / total for name, e in exp.items()}
 
-    blended = {
-        name: anchor * equal[name] + (1.0 - anchor) * softmax[name] for name in sleeves
+    # The young sleeves keep their anchor shares; the seasoned ones divide what is left,
+    # equal-weighted among themselves and then tilted.
+    #
+    # Floor and cap run on the seasoned part ALONE, rescaled into its share of the book. Run
+    # over everything, the cap's redistribution handed the newcomer the leftovers of whatever
+    # the top sleeve had to give up — a sleeve with no measurement ended up at the 40 % cap,
+    # which is a reward, not the neutrality the anchor is meant to express.
+    seasoned_share = sum(equal[name] for name in seasoned)
+    equal_seasoned = 1.0 / len(seasoned)
+    tilted = {
+        name: anchor * equal_seasoned + (1.0 - anchor) * softmax[name] for name in seasoned
     }
+    bounded = _clip_renormalise(tilted, floor / seasoned_share, cap / seasoned_share)
+    weights = {name: equal[name] for name in sleeves if name not in seasoned}
+    weights.update({name: share * seasoned_share for name, share in bounded.items()})
     return SleeveAllocation(
-        weights=_clip_renormalise(blended, floor, cap),
+        weights=weights,
         mode="tilt",
         sharpes=sharpes,
         window_obs=len(tail),
