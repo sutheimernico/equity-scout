@@ -63,6 +63,7 @@ from equity_scout.shortterm_storage import (
     load_book,
     persist_lane_step,
     record_execution,
+    record_rejections,
     set_lane_state,
 )
 from equity_scout.state_storage import record_heartbeat
@@ -86,6 +87,7 @@ from equity_scout.st_swing import (
     STOP_LOSS,
     check_exits,
     pick_entries,
+    pick_entries_explained,
 )
 
 SWING_SNAPSHOT = "data/prices/st_swing_panel.csv"
@@ -169,10 +171,16 @@ def run_swing(db: str, main_db: str, *, now: datetime) -> None:
     # otherwise a stopped-out name with the freshest event would claim its old slot back
     # at the same close it just exited on (churn, not a new decision).
     fresh_events = [e for e in events if (e.get("ticker") or "").upper() not in exited_today]
-    for candidate in pick_entries(fresh_events, book, now=now):
+    entries, rejections = pick_entries_explained(fresh_events, book, now=now)
+    for candidate in entries:
         price = prices.get(candidate["ticker"])
         if not price:
-            continue  # event ticker without a quote — honest skip
+            # event ticker without a quote — honest skip, and a row in the no-trade book
+            rejections.append({
+                "ticker": candidate["ticker"], "reason": "no_quote",
+                "seen_at": candidate["seen_at"], "detail": candidate["reason"],
+            })
+            continue
         book, fill = buy(book, candidate["ticker"], price, today,
                          fraction=SWING_FRACTION, reason=candidate["reason"])
         if fill:
@@ -183,8 +191,12 @@ def run_swing(db: str, main_db: str, *, now: datetime) -> None:
     marker_state = [(EVENTS_SEEN_KEY, max(e["seen_at"] for e in events))] if events else []
     persist_lane_step(db, book, updated_at=today, trades=fills, valuation=snap,
                       state=marker_state)
+    # after the book commit: rejection rows are observability, never worth aborting a
+    # persisted step over — and the UNIQUE key keeps a crash-rerun from double-counting
+    record_rejections(db, [{**r, "lane": "swing"} for r in rejections])
     print(f"Swing {today}: Equity {snap.equity:,.2f} ({snap.total_return:+.2%}), "
-          f"{len(book.positions)} offen, {len(fills)} Fills")
+          f"{len(book.positions)} offen, {len(fills)} Fills, "
+          f"{len(rejections)} verworfen (Nicht-Trade-Buch)")
     _print_fills(fills)
 
 

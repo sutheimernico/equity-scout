@@ -290,3 +290,33 @@ def test_session_lane_books_orb_fills_from_faked_bars(db, monkeypatch) -> None:
 
     runner.run_session(db, now=NOW)  # same bars -> marker makes it a no-op
     assert len(load_trades(db, "session")) == 1
+
+
+def test_swing_lane_persists_its_rejections(db, tmp_path, monkeypatch) -> None:
+    """The no-trade book: the run writes why candidates were NOT traded — the bearish
+    headline as not_bullish, the quoteless event ticker as no_quote — and a re-run over
+    the same inputs does not double-count them."""
+    from equity_scout.shortterm_storage import load_open_rejections
+
+    events = [
+        {"ticker": "AAPL", "event_type": "beat", "seen_at": "2026-07-20T14:00:00+00:00"},
+        {"ticker": "MSFT", "event_type": "miss", "seen_at": "2026-07-20T14:00:00+00:00",
+         "detail": "MSFT misses on revenue"},
+        {"ticker": "NOQT", "event_type": "beat", "seen_at": "2026-07-20T14:30:00+00:00"},
+    ]
+    monkeypatch.setattr(runner, "load_classified_events", lambda main_db: events)
+    index = pd.bdate_range("2026-07-01", periods=14)
+    panel = PricePanel(pd.DataFrame({"AAPL": 100.0, "SPY": 500.0}, index=index))
+    monkeypatch.setattr(runner, "load_price_history", lambda *a, **k: panel)
+
+    runner.run_swing(db, str(tmp_path / "main.db"), now=NOW)
+    rows = {r["ticker"]: r for r in load_open_rejections(db, "swing")}
+    assert rows["MSFT"]["reason"] == "not_bullish"
+    assert "misses on revenue" in rows["MSFT"]["detail"]
+    assert rows["NOQT"]["reason"] == "no_quote"
+    assert rows["NOQT"]["seen_at"] == "2026-07-20T14:30:00+00:00"
+    assert "AAPL" not in rows  # traded, not rejected
+
+    monkeypatch.setattr(runner, "load_classified_events", lambda main_db: events)
+    runner.run_swing(db, str(tmp_path / "main.db"), now=NOW)
+    assert len(load_open_rejections(db, "swing")) == 2

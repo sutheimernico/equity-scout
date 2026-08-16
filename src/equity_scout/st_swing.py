@@ -23,6 +23,72 @@ MAX_HOLDING_CALENDAR_DAYS = 7  # ≈ 5 trading days
 MAX_EVENT_AGE_BUSDAYS = 3  # v12 R11: after an outage, week-old news is no longer an entry
 
 
+# 8-K types never carry a direction by design (event_classifier), so they are not a
+# rejected opportunity — only these two are worth a row in the no-trade book.
+_REJECTABLE_NON_BULLISH = ("unknown", "miss")
+
+
+def pick_entries_explained(
+    events: list[dict],
+    book: LaneBook,
+    *,
+    now: datetime | None = None,
+    max_positions: int = MAX_POSITIONS,
+) -> tuple[list[dict], list[dict]]:
+    """Entry candidates plus WHY the others fell out (the no-trade book, 2026-08-17).
+
+    Picks: bullish events, newest first, one per ticker, never a ticker already held,
+    capped to the free position slots — identical to the historical pick_entries.
+    Rejections are pure data ({ticker, reason, seen_at, detail}); each keeps the EVENT's
+    timestamp as its idempotency key and as the honest start of any later simulation.
+    Not logged: empty tickers, same-run duplicates of a picked ticker, 8-K types.
+    With `now` set, events older than MAX_EVENT_AGE_BUSDAYS trading days are rejected —
+    a multi-day outage must not buy week-old news at today's price (v12 R11)."""
+    free_slots = max(0, max_positions - len(book.positions))
+    picks: list[dict] = []
+    rejections: list[dict] = []
+    seen: set[str] = set()
+    ordered = sorted(events, key=lambda e: e.get("seen_at") or "", reverse=True)
+    for event in ordered:
+        ticker = (event.get("ticker") or "").upper()
+        seen_at = event.get("seen_at") or ""
+        event_type = event.get("event_type")
+        if not ticker or ticker in seen:
+            continue
+
+        def _reject(reason: str, detail: str) -> None:
+            rejections.append(
+                {"ticker": ticker, "reason": reason, "seen_at": seen_at, "detail": detail}
+            )
+
+        if event_type not in BULLISH_EVENTS:
+            if event_type in _REJECTABLE_NON_BULLISH:
+                raw = str(event.get("detail") or "")[:120]
+                _reject("not_bullish", f"{event_type} — {raw}" if raw else str(event_type))
+            continue
+        if now is not None:
+            seen_date = seen_at[:10]
+            if not seen_date:
+                continue  # no timestamp, no stable key and no simulation start
+            age = int(np.busday_count(seen_date, now.date().isoformat()))
+            if age > MAX_EVENT_AGE_BUSDAYS:
+                _reject("too_old", f"{event_type}, {age} busdays old")
+                continue
+        if ticker in book.positions:
+            _reject("already_held", str(event_type))
+            continue
+        if len(picks) >= free_slots:
+            _reject("cap_full", f"{event_type}, book full at {max_positions}")
+            continue
+        seen.add(ticker)
+        # seen_at rides along so the runner can log a later price-less skip (no_quote)
+        # under the event's own timestamp instead of inventing one
+        picks.append(
+            {"ticker": ticker, "reason": f"event: {event['event_type']}", "seen_at": seen_at}
+        )
+    return picks, rejections
+
+
 def pick_entries(
     events: list[dict],
     book: LaneBook,
@@ -30,35 +96,7 @@ def pick_entries(
     now: datetime | None = None,
     max_positions: int = MAX_POSITIONS,
 ) -> list[dict]:
-    """Entry candidates from bullish events: newest first, one per ticker, never a ticker
-    already held, capped to the free position slots. Each result is {ticker, reason}.
-    With `now` set, events older than MAX_EVENT_AGE_BUSDAYS trading days are skipped —
-    a multi-day outage must not buy week-old news at today's price (v12 R11); the
-    event reaction is long priced in by then."""
-    free_slots = max(0, max_positions - len(book.positions))
-    if free_slots == 0:
-        # without this a full book still yielded one pick (the cap check below fires only
-        # AFTER an append), letting the lane creep past max_positions run by run (v13 R7)
-        return []
-    picks: list[dict] = []
-    seen: set[str] = set()
-    ordered = sorted(events, key=lambda e: e.get("seen_at") or "", reverse=True)
-    for event in ordered:
-        ticker = (event.get("ticker") or "").upper()
-        if not ticker or ticker in seen or ticker in book.positions:
-            continue
-        if event.get("event_type") not in BULLISH_EVENTS:
-            continue
-        if now is not None:
-            seen_date = (event.get("seen_at") or "")[:10]
-            today = now.date().isoformat()
-            if not seen_date or int(np.busday_count(seen_date, today)) > MAX_EVENT_AGE_BUSDAYS:
-                continue
-        seen.add(ticker)
-        picks.append({"ticker": ticker, "reason": f"event: {event['event_type']}"})
-        if len(picks) >= free_slots:
-            break
-    return picks
+    return pick_entries_explained(events, book, now=now, max_positions=max_positions)[0]
 
 
 def check_exits(
