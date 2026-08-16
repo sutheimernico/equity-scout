@@ -71,6 +71,9 @@ step st_swing          "$PY" scripts/run_shortterm.py --lane swing
 # session lane overnight sweep: outside the market window this flattens anything the
 # settled-bar delay let slip past the in-session force-flat (never holds overnight)
 step st_session_sweep  "$PY" scripts/run_shortterm.py --lane session
+# The no-trade book settles BEFORE the review so tonight's review can compare traded
+# against rejected. Read-only for trading; only stamps simulation results (2026-08-17).
+step rejection_review  "$PY" scripts/run_rejection_review.py
 # The review reads the books AFTER both lane steps, so "what changed tonight" includes
 # tonight. Read-only: it changes no rule and promotes nothing (2026-08-16).
 step lane_review       "$PY" scripts/run_lane_review.py
