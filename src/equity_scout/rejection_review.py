@@ -24,6 +24,9 @@ from equity_scout.lane_tuning import simulate_event
 # closes anyway ("Reihe zu Ende" / "keine Daten") — otherwise a delisted or never-quoted
 # ticker keeps a row open forever and the open-count stops meaning anything.
 GRACE_CALENDAR_DAYS = 14
+# The gap-fade lane holds open-to-close of ONE day; daily bars for that day arrive within
+# days or never, so its grace window is its own.
+GAPFADE_GRACE_DAYS = 7
 
 
 def _age_days(seen_at: str, now: datetime) -> int:
@@ -71,4 +74,41 @@ def resolve_swing_rejections(
         if reason == "Reihe zu Ende" and not overdue:
             continue  # no rule has fired yet — cutting off now would truncate the long runs
         _close(sim_return, reason)
+    return out
+
+
+def resolve_gapfade_rejections(
+    rejections: list[dict],
+    ohlc_by_ticker: dict[str, pd.DataFrame],
+    *,
+    now: datetime,
+) -> list[dict]:
+    """The gap-fade lane's counterfactual is one day long: what did open-to-close do on
+    the day the gap was rejected? Exactly the T7/T8 holding window, so the calibration
+    rows (below_threshold) answer whether -2 % is the right threshold — with numbers,
+    not with the backtest's memory. OHLC frames carry lowercase columns (ohlc_panel)."""
+    resolved_at = now.isoformat(timespec="seconds")
+    out: list[dict] = []
+    for rejection in rejections:
+        day = pd.Timestamp(rejection["seen_at"][:10])
+        overdue = _age_days(rejection["seen_at"], now) > GAPFADE_GRACE_DAYS
+        frame = ohlc_by_ticker.get(rejection["ticker"])
+        row = frame.loc[frame.index == day] if frame is not None else None
+        if row is None or row.empty:
+            if overdue:
+                out.append({"id": rejection["id"], "resolved_at": resolved_at,
+                            "sim_return": None, "sim_exit_reason": "keine Daten"})
+            continue
+        open_price = float(row["open"].iloc[0])
+        close_price = float(row["close"].iloc[0])
+        if open_price <= 0:
+            if overdue:
+                out.append({"id": rejection["id"], "resolved_at": resolved_at,
+                            "sim_return": None, "sim_exit_reason": "keine Daten"})
+            continue
+        out.append({
+            "id": rejection["id"], "resolved_at": resolved_at,
+            "sim_return": close_price / open_price - 1.0,
+            "sim_exit_reason": "Open→Close des Ablehnungstags",
+        })
     return out

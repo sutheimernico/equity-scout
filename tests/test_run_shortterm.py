@@ -1,7 +1,7 @@
 """Runner lanes end-to-end with faked feeds: fills persisted, markers, idempotency."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import pytest
@@ -320,3 +320,122 @@ def test_swing_lane_persists_its_rejections(db, tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(runner, "load_classified_events", lambda main_db: events)
     runner.run_swing(db, str(tmp_path / "main.db"), now=NOW)
     assert len(load_open_rejections(db, "swing")) == 2
+
+
+GAPFADE_SIGNAL_NOW = datetime(2026, 8, 17, 13, 20, tzinfo=timezone.utc)  # Mon 09:20 ET
+
+
+def _accepted_order(order_id: str):
+    from equity_scout.alpaca_broker import BrokerOrder
+
+    return BrokerOrder(order_id=order_id, status="accepted", filled_qty=0.0,
+                       filled_avg_price=None)
+
+
+def _filled_order(order_id: str, qty: float, price: float):
+    from equity_scout.alpaca_broker import BrokerOrder
+
+    return BrokerOrder(order_id=order_id, status="filled", filled_qty=qty,
+                       filled_avg_price=price)
+
+
+def test_gapfade_places_moo_orders_once_and_logs_calibration_rows(db, tmp_path, monkeypatch) -> None:
+    """Phase 1: inside the 09:00-09:28 ET window the lane sizes against the book, places
+    market-on-open orders for deep gaps, logs sub-threshold gaps into the no-trade book,
+    and a second run the same day is a no-op (day marker)."""
+    import json as jsonlib
+
+    from equity_scout.market import PricePanel
+    from equity_scout.shortterm_storage import get_lane_state, load_open_rejections
+
+    monkeypatch.setattr(runner, "tracked_tickers", lambda db_path: {"DOWN", "NEAR"})
+    index = pd.bdate_range("2026-08-03", periods=10)  # ends Fri 2026-08-14
+    panel = PricePanel(pd.DataFrame({"DOWN": 100.0, "NEAR": 100.0, "SPY": 500.0}, index=index))
+    monkeypatch.setattr(runner, "load_price_history", lambda *a, **k: panel)
+    fresh = GAPFADE_SIGNAL_NOW - timedelta(minutes=3)
+    monkeypatch.setattr(runner, "fetch_latest_trades",
+                        lambda tickers: {"DOWN": (97.0, fresh), "NEAR": (98.5, fresh)})
+    placed: list[tuple] = []
+
+    def fake_place(ticker, *, qty, side, auction):
+        placed.append((ticker, qty, side, auction))
+        return _accepted_order("moo-1")
+
+    monkeypatch.setattr(runner, "place_auction_order", fake_place)
+
+    runner.run_gapfade(db, str(tmp_path / "main.db"), now=GAPFADE_SIGNAL_NOW)
+    assert placed == [("DOWN", 15, "buy", "opg")]  # int(0.15 * 10_000 / 97.0)
+    rows = load_open_rejections(db, "gapfade")
+    assert [r["reason"] for r in rows] == ["below_threshold"]
+    assert get_lane_state(db, "gapfade", runner.GAPFADE_DAY_KEY) == "2026-08-17"
+    entry_orders = jsonlib.loads(get_lane_state(db, "gapfade", runner.GAPFADE_ENTRY_ORDERS_KEY))
+    assert entry_orders[0]["order_id"] == "moo-1"
+    assert entry_orders[0]["signal_price"] == pytest.approx(97.0)
+
+    runner.run_gapfade(db, str(tmp_path / "main.db"), now=GAPFADE_SIGNAL_NOW)
+    assert len(placed) == 1  # day marker: no second submission
+
+
+def test_gapfade_books_the_auction_fill_and_places_the_close(db, tmp_path, monkeypatch) -> None:
+    """Phase 2: the OPG fill is booked with the BROKER's quantity and price, the
+    signal-vs-fill drift lands in st_executions (the lane's core measurement), and a
+    market-on-close order takes over the exit."""
+    import json as jsonlib
+
+    from equity_scout.shortterm_storage import get_lane_state, load_executions, set_lane_state
+
+    set_lane_state(db, "gapfade", runner.GAPFADE_DAY_KEY, "2026-08-17")
+    set_lane_state(db, "gapfade", runner.GAPFADE_ENTRY_ORDERS_KEY, jsonlib.dumps([{
+        "order_id": "moo-1", "ticker": "DOWN", "signal_price": 97.0,
+        "signalled_at": "2026-08-17T13:20:00+00:00", "reason": "Gap -3.0% (Fade)",
+    }]))
+    monkeypatch.setattr(runner, "fetch_order", lambda oid: _filled_order(oid, 15.0, 96.8))
+    placed: list[tuple] = []
+
+    def fake_place(ticker, *, qty, side, auction):
+        placed.append((ticker, qty, side, auction))
+        return _accepted_order("moc-1")
+
+    monkeypatch.setattr(runner, "place_auction_order", fake_place)
+
+    later = datetime(2026, 8, 17, 14, 5, tzinfo=timezone.utc)  # 10:05 ET
+    runner.run_gapfade(db, str(tmp_path / "main.db"), now=later)
+    book = load_book(db, "gapfade")
+    assert book is not None and book.positions["DOWN"].qty == 15.0
+    assert book.positions["DOWN"].entry_price == pytest.approx(96.8)
+    assert placed == [("DOWN", 15.0, "sell", "cls")]
+    execution = load_executions(db, "gapfade")[0]
+    assert execution["expected_price"] == pytest.approx(97.0)
+    assert execution["actual_price"] == pytest.approx(96.8)
+    assert jsonlib.loads(get_lane_state(db, "gapfade", runner.GAPFADE_ENTRY_ORDERS_KEY)) == []
+    exit_orders = jsonlib.loads(get_lane_state(db, "gapfade", runner.GAPFADE_EXIT_ORDERS_KEY))
+    assert exit_orders[0]["order_id"] == "moc-1"
+
+
+def test_gapfade_settles_the_closing_auction(db, tmp_path, monkeypatch) -> None:
+    """Phase 3 (nightly): the CLS fill flattens the book, books realised P&L and writes a
+    valuation row."""
+    import json as jsonlib
+
+    from equity_scout.shortterm_book import buy as book_buy
+    from equity_scout.shortterm_storage import get_lane_state, save_book, set_lane_state
+
+    book = LaneBook.fresh("gapfade", benchmark_ticker="SPY")
+    book, _ = book_buy(book, "DOWN", 96.8, "2026-08-17T13:31:00+00:00",
+                       fraction=0.15, reason="Gap", slippage_bps=0.0, qty=15.0)
+    save_book(db, book, updated_at="2026-08-17")
+    set_lane_state(db, "gapfade", runner.GAPFADE_EXIT_ORDERS_KEY, jsonlib.dumps([{
+        "order_id": "moc-1", "ticker": "DOWN",
+        "signalled_at": "2026-08-17T14:05:00+00:00",
+    }]))
+    monkeypatch.setattr(runner, "fetch_order", lambda oid: _filled_order(oid, 15.0, 98.0))
+
+    nightly = datetime(2026, 8, 18, 0, 30, tzinfo=timezone.utc)
+    runner.run_gapfade(db, str(tmp_path / "main.db"), now=nightly)
+    book = load_book(db, "gapfade")
+    assert book is not None and book.positions == {}
+    sells = [t for t in load_trades(db, "gapfade") if t["side"] == "sell"]
+    assert len(sells) == 1
+    assert sells[0]["realized_pnl"] == pytest.approx(15.0 * (98.0 - 96.8))
+    assert jsonlib.loads(get_lane_state(db, "gapfade", runner.GAPFADE_EXIT_ORDERS_KEY)) == []
+    assert len(load_valuations(db, "gapfade")) == 1

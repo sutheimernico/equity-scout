@@ -23,6 +23,10 @@ PREFETCH_LINE="45 0 * * 1-6 flock -n /tmp/equity-scout-prefetch.lock ${REPO_DIR}
 # v11 crypto lane: Kraken data is real-time and the market never closes — every 15 min
 # around the clock; idempotent per completed bar, so overlaps/catch-ups book nothing twice.
 CRYPTO_LINE="*/15 * * * * flock -n /tmp/equity-scout-crypto.lock sh -c 'cd ${REPO_DIR} && { .venv/bin/python scripts/run_shortterm.py --lane crypto ; .venv/bin/python scripts/run_watchdog.py ; }' >> ${REPO_DIR}/shortterm.log 2>&1"
+# gapfade lane (2026-08-17): every 5 minutes in a window that covers 09:00-09:28 ET in
+# both DST regimes; the runner's internal ET gate does the actual timing, so the other
+# firings are silent no-ops. Closing-auction fills settle in the nightly chain.
+GAPFADE_LINE="*/5 14-16 * * 1-5 flock -n /tmp/equity-scout-gapfade.lock ${REPO_DIR}/scripts/gapfade_lane.sh >> ${REPO_DIR}/shortterm.log 2>&1"
 # v11 session lane: PAUSED 2026-08-17. Its ORB entry rule is refuted intraday (1,684
 # breakouts, t = -2.68) AND with overnight holding in all three arms
 # (docs/research/2026-08-17-orb-overnight-backtest.md) — a paused lane is one cron line
@@ -30,7 +34,7 @@ CRYPTO_LINE="*/15 * * * * flock -n /tmp/equity-scout-crypto.lock sh -c 'cd ${REP
 # REMOVES any leftover per-minute line. The nightly st_session_sweep keeps flattening
 # stragglers, and the book stays fully readable in the cockpit.
 
-MANAGED_SCRIPTS="daily_copilot.sh run_daily_guarded.sh receiver_keepalive.sh intraday_copilot.sh nightly_train.sh run_nightly_guarded.sh nightly_prefetch.sh run_shortterm.py run_watchdog.py session_lane.sh"
+MANAGED_SCRIPTS="daily_copilot.sh run_daily_guarded.sh receiver_keepalive.sh intraday_copilot.sh nightly_train.sh run_nightly_guarded.sh nightly_prefetch.sh run_shortterm.py run_watchdog.py session_lane.sh gapfade_lane.sh"
 
 current="$(crontab -l 2>/dev/null || true)"
 before="$current"
@@ -42,7 +46,7 @@ before="$current"
 for script in $MANAGED_SCRIPTS; do
   current="$(printf '%s\n' "$current" | grep -vF "scripts/${script}" || true)"
 done
-for line in "$CHAIN_LINE" "$RECEIVER_LINE" "$INTRADAY_LINE" "$NIGHTLY_LINE" "$PREFETCH_LINE" "$CRYPTO_LINE"; do
+for line in "$CHAIN_LINE" "$RECEIVER_LINE" "$INTRADAY_LINE" "$NIGHTLY_LINE" "$PREFETCH_LINE" "$CRYPTO_LINE" "$GAPFADE_LINE"; do
   current="${current}"$'\n'"${line}"
 done
 

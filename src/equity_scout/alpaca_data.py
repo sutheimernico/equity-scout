@@ -102,6 +102,47 @@ def regular_session_bars(
     return session_only.loc[session_only.index.date == day]
 
 
+def parse_latest_trades(payload: dict) -> dict[str, tuple[float, datetime]]:
+    """Alpaca's latest-trades response -> {ticker: (price, traded_at)}.
+
+    Gap-fade lane (2026-08-17): the pre-market signal is the latest IEX print. A ticker
+    without a pre-market trade is ABSENT from the result, never present with a zero —
+    absence means 'no signal', and the caller's quote-age gate handles stale prints.
+    """
+    if "trades" not in payload:
+        raise AlpacaDataError(
+            f"Antwort enthaelt kein 'trades' — Feed oder Plan falsch: {str(payload)[:200]}"
+        )
+    out: dict[str, tuple[float, datetime]] = {}
+    for ticker, trade in (payload["trades"] or {}).items():
+        price = (trade or {}).get("p")
+        stamp = (trade or {}).get("t")
+        if not price or not stamp:
+            continue
+        out[ticker] = (float(price), pd.Timestamp(stamp).to_pydatetime())
+    return out
+
+
+def fetch_latest_trades(tickers: list[str]) -> dict[str, tuple[float, datetime]]:
+    """Latest IEX trade per ticker (network) — pre-market prints included.
+
+    Raises AlpacaDataError on any non-200, same stance as fetch_bars: a silent empty
+    result would look exactly like 'no gap today'.
+    """
+    import httpx
+
+    with httpx.Client(headers=auth_headers(), timeout=30.0) as client:
+        response = client.get(
+            f"{DATA_BASE}/stocks/trades/latest",
+            params={"symbols": ",".join(tickers), "feed": FEED},
+        )
+    if response.status_code != 200:
+        raise AlpacaDataError(
+            f"GET /v2/stocks/trades/latest -> {response.status_code}: {response.text[:300]}"
+        )
+    return parse_latest_trades(response.json())
+
+
 def fetch_bars(
     tickers: list[str], *, now: datetime, bar_minutes: int, hours: int = 8
 ) -> dict[str, pd.DataFrame]:

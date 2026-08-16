@@ -13,8 +13,13 @@ from equity_scout.shortterm_book import LaneBook, LanePosition, LaneValuation, T
 
 DEFAULT_SHORTTERM_DB_PATH = "shortterm.db"
 
-LANES = ("swing", "session", "crypto")
-LANE_LABELS = {"swing": "Event-Swing", "session": "Intraday-Session", "crypto": "Crypto"}
+LANES = ("swing", "session", "crypto", "gapfade")
+LANE_LABELS = {
+    "swing": "Event-Swing",
+    "session": "Intraday-Session",
+    "crypto": "Crypto",
+    "gapfade": "Gap-Fade",
+}
 
 
 def init_shortterm_db(db_path: str | Path) -> None:

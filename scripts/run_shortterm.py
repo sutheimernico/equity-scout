@@ -19,7 +19,8 @@ import io
 import json
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from equity_scout.alpaca_broker import (
     AlpacaBrokerError,
@@ -29,7 +30,12 @@ from equity_scout.alpaca_broker import (
     fetch_fills,
 )
 from equity_scout.alpaca_broker import fetch_positions as fetch_broker_positions
-from equity_scout.alpaca_broker import place_bracket, settle_or_cancel
+from equity_scout.alpaca_broker import (
+    fetch_order,
+    place_auction_order,
+    place_bracket,
+    settle_or_cancel,
+)
 from equity_scout.alpaca_data import (
     RANGE_BAR_MINUTES,
     TRIGGER_BAR_MINUTES,
@@ -37,6 +43,8 @@ from equity_scout.alpaca_data import (
     regular_session_bars,
 )
 from equity_scout.alpaca_data import fetch_bars as alpaca_fetch_bars
+from equity_scout.alpaca_data import AlpacaDataError, fetch_latest_trades
+from equity_scout.tracked_tickers import tracked_tickers
 from equity_scout.constants import DEFAULT_DB_PATH, DISCLAIMER
 from equity_scout.data.etf_panel import load_price_history
 from equity_scout.evidence.event_storage import load_classified_events
@@ -79,6 +87,8 @@ from equity_scout.st_session import (
 )
 from equity_scout.exits import ExitRules
 from equity_scout.lane_params import load_params
+from equity_scout.st_gapfade import ENTRY_FRACTION as GAPFADE_FRACTION
+from equity_scout.st_gapfade import pick_gap_entries
 from equity_scout.st_swing import ENTRY_FRACTION as SWING_FRACTION
 from equity_scout.st_swing import (
     MAX_HOLDING_CALENDAR_DAYS,
@@ -198,6 +208,205 @@ def run_swing(db: str, main_db: str, *, now: datetime) -> None:
           f"{len(book.positions)} offen, {len(fills)} Fills, "
           f"{len(rejections)} verworfen (Nicht-Trade-Buch)")
     _print_fills(fills)
+
+
+# --- Gap-fade lane (2026-08-17): pre-market signal -> MOO entry -> MOC exit -------------
+GAPFADE_DAY_KEY = "gapfade_signal_day"
+GAPFADE_ENTRY_ORDERS_KEY = "gapfade_entry_orders"
+GAPFADE_EXIT_ORDERS_KEY = "gapfade_exit_orders"
+GAPFADE_SNAPSHOT = "data/prices/st_gapfade_panel.csv"
+_NY_TZ = ZoneInfo("America/New_York")
+# Alpaca accepts opg orders until ~09:28 ET; signalling earlier than 09:00 would judge
+# yesterday's pre-market prints.
+GAPFADE_SIGNAL_START = time(9, 0)
+GAPFADE_SIGNAL_END = time(9, 28)
+_TERMINAL_ORDER_STATES = ("canceled", "expired", "rejected", "done_for_day")
+
+
+def _gapfade_load_orders(db: str, key: str) -> list[dict]:
+    raw = get_lane_state(db, "gapfade", key)
+    return json.loads(raw) if raw else []
+
+
+def _gapfade_signals(db: str, main_db: str, book: LaneBook, *, now: datetime) -> None:
+    """Phase 1, once per day inside the window: signal, size, submit MOO, log rejections.
+
+    The day marker is set BEFORE the first submission (fail-closed): a crash between
+    order and marker must cost the day, never place the same auction order twice."""
+    et = now.astimezone(_NY_TZ)
+    tickers = sorted(tracked_tickers(main_db))
+    if not tickers:
+        set_lane_state(db, "gapfade", GAPFADE_DAY_KEY, et.date().isoformat())
+        print("Gap-Fade: keine getrackten Ticker — heute nichts zu prüfen.")
+        return
+    start = (now - timedelta(days=10)).date().isoformat()
+    panel = load_price_history(sorted({*tickers, "SPY"}), start=start,
+                               snapshot=GAPFADE_SNAPSHOT, refresh=True)
+    prev_closes: dict[str, float] = {}
+    for ticker in panel.tickers:
+        closes = panel.closes[ticker].dropna()
+        # rows stamped today (a half-written daily bar) must not serve as "yesterday"
+        closes = closes[closes.index.date < et.date()]
+        if len(closes):
+            prev_closes[ticker] = float(closes.iloc[-1])
+    try:
+        premarket = fetch_latest_trades(tickers)
+    except (AlpacaDataError, AlpacaBrokerError, OSError) as error:
+        # no day marker: the 5-minute cron retries inside the window
+        print(f"Gap-Fade: Pre-Market-Kurse nicht lesbar ({error}) — nächster Versuch in 5 Min.",
+              file=sys.stderr)
+        return
+    picks, rejections = pick_gap_entries(premarket, prev_closes, book, now=now, traded=set())
+    set_lane_state(db, "gapfade", GAPFADE_DAY_KEY, et.date().isoformat())
+    record_rejections(db, [{**r, "lane": "gapfade"} for r in rejections])
+    entry_orders = _gapfade_load_orders(db, GAPFADE_ENTRY_ORDERS_KEY)
+    for pick in picks:
+        qty = int(GAPFADE_FRACTION * book.cash / pick["signal_price"])
+        if qty < 1:
+            print(f"Gap-Fade: {pick['ticker']} unter einer ganzen Aktie — übersprungen.")
+            continue
+        try:
+            order = place_auction_order(pick["ticker"], qty=qty, side="buy", auction="opg")
+        except AlpacaBrokerError as error:
+            print(f"Gap-Fade: Order abgelehnt ({pick['ticker']}): {error}", file=sys.stderr)
+            continue
+        entry_orders.append({
+            "order_id": order.order_id, "ticker": pick["ticker"],
+            "signal_price": pick["signal_price"], "reason": pick["reason"],
+            "signalled_at": now.isoformat(timespec="seconds"),
+        })
+    set_lane_state(db, "gapfade", GAPFADE_ENTRY_ORDERS_KEY, json.dumps(entry_orders))
+    print(f"Gap-Fade {et.date().isoformat()}: {len(entry_orders)} MOO platziert, "
+          f"{len(rejections)} verworfen (Nicht-Trade-Buch).")
+
+
+def _gapfade_absorb_entries(db: str, book: LaneBook, *, now: datetime) -> LaneBook:
+    """Phase 2: read the auction fills back. The signal-vs-fill drift in st_executions is
+    the lane's core measurement; the exit is handed to a market-on-close order at once,
+    so no later run has to be awake at 16:00 ET to get out."""
+    orders = _gapfade_load_orders(db, GAPFADE_ENTRY_ORDERS_KEY)
+    if not orders:
+        return book
+    remaining: list[dict] = []
+    fills = []
+    exit_orders = _gapfade_load_orders(db, GAPFADE_EXIT_ORDERS_KEY)
+    for entry in orders:
+        try:
+            order = fetch_order(entry["order_id"])
+        except (AlpacaBrokerError, OSError) as error:
+            print(f"Gap-Fade: Order {entry['order_id']} nicht lesbar ({error}).", file=sys.stderr)
+            remaining.append(entry)
+            continue
+        if order.filled_qty and order.filled_avg_price is not None:
+            book, fill = buy(book, entry["ticker"], order.filled_avg_price,
+                             now.isoformat(timespec="seconds"), fraction=GAPFADE_FRACTION,
+                             reason=entry["reason"], slippage_bps=0.0, qty=order.filled_qty)
+            record_execution(db, lane="gapfade", ticker=entry["ticker"], side="buy",
+                             signalled_at=entry["signalled_at"],
+                             expected_price=entry["signal_price"],
+                             actual_price=order.filled_avg_price, qty=order.filled_qty,
+                             order_id=order.order_id)
+            if fill:
+                fills.append(fill)
+            try:
+                close = place_auction_order(entry["ticker"], qty=order.filled_qty,
+                                            side="sell", auction="cls")
+                exit_orders.append({
+                    "order_id": close.order_id, "ticker": entry["ticker"],
+                    "signalled_at": now.isoformat(timespec="seconds"),
+                })
+            except AlpacaBrokerError as error:
+                print(f"Gap-Fade: MOC-Order fehlgeschlagen ({entry['ticker']}): {error} — "
+                      f"nächster Lauf versucht es erneut.", file=sys.stderr)
+                exit_orders.append({"order_id": None, "ticker": entry["ticker"],
+                                    "signalled_at": now.isoformat(timespec="seconds")})
+        elif order.status in _TERMINAL_ORDER_STATES:
+            print(f"Gap-Fade: {entry['ticker']} in der Auktion nicht gefüllt "
+                  f"(status={order.status}).")
+        else:
+            remaining.append(entry)
+    persist_lane_step(
+        db, book, updated_at=now.isoformat(timespec="seconds"), trades=fills,
+        state=[(GAPFADE_ENTRY_ORDERS_KEY, json.dumps(remaining)),
+               (GAPFADE_EXIT_ORDERS_KEY, json.dumps(exit_orders))],
+    )
+    _print_fills(fills)
+    return book
+
+
+def _gapfade_settle_exits(db: str, book: LaneBook, *, now: datetime) -> LaneBook:
+    """Phase 3 (typically the nightly): the closing-auction fill flattens the book. An
+    exit order that died without filling gets a fresh MOC for the next session — a
+    position must never linger because its order went terminal."""
+    orders = _gapfade_load_orders(db, GAPFADE_EXIT_ORDERS_KEY)
+    if not orders:
+        return book
+    remaining: list[dict] = []
+    fills = []
+    for exit_entry in orders:
+        position = book.positions.get(exit_entry["ticker"])
+        if position is None:
+            continue  # already settled by an earlier run
+        order = None
+        if exit_entry.get("order_id"):
+            try:
+                order = fetch_order(exit_entry["order_id"])
+            except (AlpacaBrokerError, OSError) as error:
+                print(f"Gap-Fade: Exit-Order {exit_entry['order_id']} nicht lesbar "
+                      f"({error}).", file=sys.stderr)
+                remaining.append(exit_entry)
+                continue
+        if order is not None and order.filled_qty and order.filled_avg_price is not None:
+            book, fill = sell(book, exit_entry["ticker"], order.filled_avg_price,
+                              now.isoformat(timespec="seconds"),
+                              reason="Schlussauktion (Market-on-Close)", slippage_bps=0.0)
+            record_execution(db, lane="gapfade", ticker=exit_entry["ticker"], side="sell",
+                             signalled_at=exit_entry["signalled_at"],
+                             # a market-on-close carries no expectation to measure against
+                             expected_price=order.filled_avg_price,
+                             actual_price=order.filled_avg_price, qty=order.filled_qty,
+                             order_id=order.order_id)
+            if fill:
+                fills.append(fill)
+        elif order is None or order.status in _TERMINAL_ORDER_STATES:
+            try:
+                fresh = place_auction_order(exit_entry["ticker"], qty=position.qty,
+                                            side="sell", auction="cls")
+                remaining.append({"order_id": fresh.order_id, "ticker": exit_entry["ticker"],
+                                  "signalled_at": now.isoformat(timespec="seconds")})
+                print(f"Gap-Fade: Exit {exit_entry['ticker']} neu platziert "
+                      f"(alte Order terminal).", file=sys.stderr)
+            except AlpacaBrokerError as error:
+                print(f"Gap-Fade: Exit-Neuplatzierung fehlgeschlagen "
+                      f"({exit_entry['ticker']}): {error}.", file=sys.stderr)
+                remaining.append(exit_entry)
+        else:
+            remaining.append(exit_entry)
+    today = now.isoformat(timespec="seconds")
+    book = capture_benchmark(book, None)
+    snap = valuation(book, {}, None, today) if fills else None
+    persist_lane_step(
+        db, book, updated_at=today, trades=fills, valuation=snap,
+        state=[(GAPFADE_EXIT_ORDERS_KEY, json.dumps(remaining))],
+    )
+    _print_fills(fills)
+    return book
+
+
+def run_gapfade(db: str, main_db: str, *, now: datetime) -> None:
+    """The gap-fade measurement lane, phase-dispatched by wall clock (see st_gapfade's
+    module docstring for the evidence trail and the honesty boundary)."""
+    et = now.astimezone(_NY_TZ)
+    book = load_book(db, "gapfade") or LaneBook.fresh("gapfade", benchmark_ticker="SPY")
+    # Old business first, and strictly before new: an order placed in THIS run is only
+    # ever read back by the NEXT run — polling it seconds after submission would burn a
+    # request on an answer that cannot exist yet.
+    book = _gapfade_settle_exits(db, book, now=now)
+    book = _gapfade_absorb_entries(db, book, now=now)
+    in_window = et.weekday() < 5 and GAPFADE_SIGNAL_START <= et.time() <= GAPFADE_SIGNAL_END
+    already_signalled = get_lane_state(db, "gapfade", GAPFADE_DAY_KEY) == et.date().isoformat()
+    if in_window and not already_signalled:
+        _gapfade_signals(db, main_db, book, now=now)
 
 
 MAX_RUN_GAP = timedelta(minutes=5)
@@ -663,7 +872,7 @@ def run_crypto(db: str, *, now: datetime, fetch=fetch_ohlc) -> bool:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--lane", required=True, choices=("swing", "session", "crypto"))
+    ap.add_argument("--lane", required=True, choices=("swing", "session", "crypto", "gapfade"))
     ap.add_argument("--db", default=DEFAULT_SHORTTERM_DB_PATH, help="Shortterm DB path.")
     ap.add_argument("--main-db", default=DEFAULT_DB_PATH, help="Main DB (events).")
     args = ap.parse_args()
@@ -678,6 +887,18 @@ def main() -> None:
         body = io.StringIO()
         with contextlib.redirect_stdout(body):
             run_session(args.db, now=now)
+        if body.getvalue().strip():
+            print(header)
+            print(body.getvalue(), end="")
+            print(f"\n{DISCLAIMER}\n")
+        return
+
+    if args.lane == "gapfade":
+        # Same silence discipline as the session lane: the 5-minute cron produces mostly
+        # no-op runs, and only a run that actually said something earns a log block.
+        body = io.StringIO()
+        with contextlib.redirect_stdout(body):
+            run_gapfade(args.db, args.main_db, now=now)
         if body.getvalue().strip():
             print(header)
             print(body.getvalue(), end="")

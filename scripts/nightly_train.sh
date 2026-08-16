@@ -71,6 +71,9 @@ step st_swing          "$PY" scripts/run_shortterm.py --lane swing
 # session lane overnight sweep: outside the market window this flattens anything the
 # settled-bar delay let slip past the in-session force-flat (never holds overnight)
 step st_session_sweep  "$PY" scripts/run_shortterm.py --lane session
+# gapfade settle: the closing-auction fill happens at 16:00 ET (evening local) when no
+# morning cron is awake — this step reads it back, books the sell and the valuation
+step st_gapfade_settle "$PY" scripts/run_shortterm.py --lane gapfade
 # The no-trade book settles BEFORE the review so tonight's review can compare traded
 # against rejected. Read-only for trading; only stamps simulation results (2026-08-17).
 step rejection_review  "$PY" scripts/run_rejection_review.py

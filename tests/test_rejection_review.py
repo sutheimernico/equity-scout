@@ -100,3 +100,38 @@ def test_script_settles_open_rows_against_a_faked_panel(tmp_path, monkeypatch) -
     assert load_open_rejections(db, "swing") == []
     resolved = load_resolved_rejections(db, "swing")
     assert resolved[0]["sim_return"] == pytest.approx(0.06)
+
+
+def _ohlc(day: str, open_price: float, close_price: float) -> pd.DataFrame:
+    return pd.DataFrame(
+        {"open": [open_price], "high": [max(open_price, close_price)],
+         "low": [min(open_price, close_price)], "close": [close_price]},
+        index=pd.DatetimeIndex([pd.Timestamp(day)]),
+    )
+
+
+def test_gapfade_rejections_resolve_open_to_close_of_their_day() -> None:
+    from equity_scout.rejection_review import resolve_gapfade_rejections
+
+    rejections = [
+        {"id": 1, "lane": "gapfade", "ticker": "NEAR", "seen_at": "2026-07-30",
+         "reason": "below_threshold", "ref_price": 98.5, "detail": "gap -1.5%"},
+        {"id": 2, "lane": "gapfade", "ticker": "WAIT", "seen_at": "2026-07-31",
+         "reason": "below_threshold", "ref_price": 99.0, "detail": "gap -1.1%"},
+    ]
+    ohlc = {"NEAR": _ohlc("2026-07-30", 98.0, 99.96)}  # +2 % day recovery
+    resolved = resolve_gapfade_rejections(rejections, ohlc, now=NOW)
+    assert len(resolved) == 1  # WAIT has no bar yet and is inside the grace window
+    assert resolved[0]["id"] == 1
+    assert resolved[0]["sim_return"] == pytest.approx(0.02)
+    assert resolved[0]["sim_exit_reason"] == "Open→Close des Ablehnungstags"
+
+
+def test_gapfade_rejection_without_data_closes_after_grace() -> None:
+    from equity_scout.rejection_review import resolve_gapfade_rejections
+
+    rejections = [{"id": 1, "lane": "gapfade", "ticker": "GONE", "seen_at": "2026-07-01",
+                   "reason": "stale_premarket", "ref_price": 95.0, "detail": "gap -5%"}]
+    resolved = resolve_gapfade_rejections(rejections, {}, now=NOW)
+    assert resolved[0]["sim_exit_reason"] == "keine Daten"
+    assert resolved[0]["sim_return"] is None

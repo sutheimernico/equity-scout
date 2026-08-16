@@ -51,6 +51,16 @@ export const LANE_NOTES: Record<string, LaneNote> = {
       "Verkauft am Tief der letzten 10 Tage oder 2 % unter dem Einstieg. Handelt rund um " +
       "die Uhr, auch am Wochenende.",
   },
+  gapfade: {
+    name: "Kauft tiefe Abwärtslücken zur Eröffnung",
+    label: "Gap-Fade",
+    what:
+      "Kauft in der Eröffnungsauktion, wenn ein Kurs vorbörslich mindestens 2 % unter dem " +
+      "Vortagesschluss steht, und verkauft in der Schlussauktion desselben Tages. " +
+      "Eine Messlane, kein belegter Vorteil: Das Papierdepot misst, wie weit der echte " +
+      "Eröffnungskurs vom vorbörslichen Signal wegläuft — nicht, was eine echte Order " +
+      "in der Auktion bewegen würde. Nach 60 Trades entscheidet der Trade-Test.",
+  },
 };
 
 /** The plain name, or the raw key when a lane has no entry — never an invented name. */

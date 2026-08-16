@@ -125,3 +125,30 @@ def test_regular_session_can_be_pinned_to_a_given_day() -> None:
 
 def test_regular_session_on_an_empty_frame_is_empty_not_an_error() -> None:
     assert regular_session_bars(pd.DataFrame()).empty
+
+
+def test_parse_latest_trades_maps_price_and_time_and_skips_empty() -> None:
+    """Gap-fade lane: the pre-market signal is the LATEST IEX trade per ticker. A ticker
+    that has not printed pre-market is ABSENT, never a zero — absence means no signal."""
+    from datetime import datetime, timezone
+
+    from equity_scout.alpaca_data import parse_latest_trades
+
+    payload = {"trades": {
+        "NVDA": {"t": "2026-08-17T13:22:05.123456Z", "p": 97.5, "s": 100},
+        "GONE": {},
+    }}
+    trades = parse_latest_trades(payload)
+    assert set(trades) == {"NVDA"}
+    price, at = trades["NVDA"]
+    assert price == 97.5
+    assert at == datetime(2026, 8, 17, 13, 22, 5, 123456, tzinfo=timezone.utc)
+
+
+def test_parse_latest_trades_rejects_a_contract_break() -> None:
+    import pytest
+
+    from equity_scout.alpaca_data import AlpacaDataError, parse_latest_trades
+
+    with pytest.raises(AlpacaDataError):
+        parse_latest_trades({"error": "forbidden"})
