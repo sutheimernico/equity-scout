@@ -74,5 +74,8 @@ step st_session_sweep  "$PY" scripts/run_shortterm.py --lane session
 # The review reads the books AFTER both lane steps, so "what changed tonight" includes
 # tonight. Read-only: it changes no rule and promotes nothing (2026-08-16).
 step lane_review       "$PY" scripts/run_lane_review.py
+# Parameter search + automatic adoption behind its hurdle (T12, Nico 2026-08-16). Runs AFTER
+# the review because the review is what motivates it, and it prints its verdict either way.
+step lane_tuning       "$PY" scripts/run_lane_tuning.py
 step autotrader        "$PY" scripts/run_autotrader.py
 echo "[$(date -Is)] ===== nightly_train end =====" >> "$LOG"

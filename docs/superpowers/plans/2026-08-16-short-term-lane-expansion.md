@@ -144,11 +144,22 @@ unterwegs weniger Gebühren.
       Befund: `docs/research/2026-08-16-lane-parameter-search.md`.
       Gesucht wurde über `PROFIT_TARGET`, `STOP_LOSS` und `MAX_HOLDING_CALENDAR_DAYS`; die
       eigene Hürde und das eigene Ledger kommen mit T12, weil erst dort verglichen wird.
-- [ ] **T11: Parameter aus der DB statt aus Konstanten.** Die Lane liest ihre Knöpfe aus einer
+- [x] **T11: Parameter aus der DB statt aus Konstanten — GEBAUT.** `lane_params.py`:
+      persistierte Regeln je Lane, Konstanten als Rückfallebene, Änderungshistorie mit
+      Begründung und Belegen, Monatsbremse. Der Swing-Runner lädt sie und druckt sie, sobald
+      sie von den Standardwerten abweichen. Stand heute: keine Anpassung, Konstanten gelten.
+      (ursprünglicher Auftrag:)** Die Lane liest ihre Knöpfe aus einer
       persistierten Zeile; fehlt sie, gelten die heutigen Konstanten als Voreinstellung. Jede
       Änderung schreibt eine Historienzeile (wann, von was auf was, mit welcher Begründung),
       sonst ist ein Track im Nachhinein nicht mehr lesbar.
-- [ ] **T12: Automatische Übernahme mit Hürde.** Ein Gewinner wird übernommen, wenn er (a) die
+- [x] **T12: Automatische Übernahme mit Hürde — GEBAUT.** `lane_adoption.py` vergleicht
+      Herausforderer und Amtsinhaber **gepaart über dieselben Ereignisse** und übernimmt nur
+      über einer Hürde, die mit der Zahl der geprüften Kombinationen steigt; dazu die
+      Monatsbremse. Nächtlicher Schritt `run_lane_tuning.py` in `nightly_train.sh`.
+      **Erster Lauf gegen die echten Projektdaten: übersprungen** — die Ereignis-DB hält nur
+      15 bullische Ereignisse, die Suche verlangt 60. Gegen die 650 Proxy-Ereignisse aus
+      yfinance liegt der beste Kandidat gepaart bei t = 2,76 gegen eine Hürde von 3,28 —
+      also auch dort keine Änderung. (ursprünglicher Auftrag:)** Ein Gewinner wird übernommen, wenn er (a) die
       eigene DSR-Hürde schlägt und (b) den Amtsinhaber auf **derselben Stichprobe** schlägt
       (`evaluate_fitted_model`-Muster aus der Nacht vom 11.08. — ein gespeicherter Wert darf nie
       gegen einen frischen verglichen werden). Übernahme setzt den Forward-Track der Lane
@@ -199,12 +210,13 @@ könnte. Das ist eine offene Frage an Nico, keine Aufgabe (siehe unten).
    Baustelle: Wie gut sagt der Pre-Market-Kurs die Lücke vorher, wie liquide ist er bei diesen
    Titeln, und eine MOO-Order ist eine Order ohne Preisgrenze in die volatilste Auktion des
    Tages. Nur auf ausdrückliches Go.
-3. **Dürfen bewährte Lanes irgendwann ihre Parameter nachjustieren?** Heute verboten (siehe
-   oben). Das ist eine Grundsatzentscheidung, keine technische. Der erste konkrete Anlass liegt
-   inzwischen vor: Die nächtliche Lane-Auswertung zeigt, dass 59 % des Swing-Ergebnisses aus
-   dem Ablauf der Haltefrist stammen und nicht aus dem Gewinnziel — ein Hinweis, dass Ziel oder
-   Frist nicht zueinander passen.
-4. **Push nach origin** steht weiterhin aus.
+3. ~~Dürfen Lanes ihre Parameter nachjustieren?~~ **Entschieden am 2026-08-16: ja,
+   automatisch** — umgesetzt als T10–T12.
+4. ~~Push nach origin~~ **erledigt am 2026-08-16**, Secret-Scan sauber.
+5. **Session-Lane: abschalten oder laufen lassen?** Neu aus dieser Session: ihre
+   Einstiegsregel ist an 1.684 Ausbrüchen widerlegt (−8,94 bp nach 30 Min, t = −2,68), sie
+   handelt im renditelosen Teil des Tages, und sie steigt nach dem einzigen Moment ein, in dem
+   der Ausbruch etwas wert war. Dieselbe Frage wie bei der Krypto-Lane, dieselbe Zuständigkeit.
 
 ## Kontext, den ein frischer Agent braucht
 
