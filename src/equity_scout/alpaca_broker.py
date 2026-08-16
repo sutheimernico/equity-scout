@@ -119,6 +119,41 @@ def bracket_payload(ticker: str, *, qty: float, stop_price: float, target_price:
     }
 
 
+def auction_payload(ticker: str, *, qty: float, side: str, auction: str) -> dict:
+    """Market order routed into an auction: "opg" = opening (market-on-open), "cls" =
+    closing (market-on-close). Alpaca accepts these until ~9:28 / ~15:50 ET; later
+    submissions are rejected by the venue, not silently converted. Same whole-share
+    rounding stance as bracket_payload."""
+    if auction not in ("opg", "cls"):
+        raise AlpacaBrokerError(f"{ticker}: auction muss 'opg' oder 'cls' sein, nicht {auction!r}.")
+    whole = int(qty)
+    if whole < 1:
+        raise AlpacaBrokerError(
+            f"{ticker}: Position {qty:.4f} liegt unter einer ganzen Aktie — "
+            "Auktions-Order nicht moeglich."
+        )
+    return {
+        "symbol": ticker,
+        "qty": str(whole),
+        "side": side,
+        "type": "market",
+        "time_in_force": auction,
+    }
+
+
+def place_auction_order(ticker: str, *, qty: float, side: str, auction: str) -> BrokerOrder:
+    """Submit a market-on-open/close order (network). Raises on rejection — same stance
+    as place_bracket: a swallowed rejection leaves the book believing a lie."""
+    payload = auction_payload(ticker, qty=qty, side=side, auction=auction)
+    with _client() as client:
+        response = client.post(f"{PAPER_BASE}/orders", json=payload)
+    if response.status_code not in (200, 201):
+        raise AlpacaBrokerError(
+            f"POST /v2/orders ({ticker}, {auction}) -> {response.status_code}: {response.text[:300]}"
+        )
+    return parse_order(response.json())
+
+
 def parse_positions(rows: list[dict]) -> dict[str, BrokerPosition]:
     return {
         row["symbol"]: BrokerPosition(

@@ -272,3 +272,27 @@ def test_a_partial_fill_is_cancelled_down_to_what_really_filled() -> None:
     )
     assert cancelled == ["o8"]
     assert settled.filled_qty == 1.0 and settled.filled_avg_price == 497.90
+
+
+def test_auction_payload_market_on_open_and_close() -> None:
+    """Gap-fade lane (2026-08-17): entry as market-on-open (opg), exit as market-on-close
+    (cls) — plain market orders whose time_in_force routes them into the auction."""
+    from equity_scout.alpaca_broker import auction_payload
+
+    moo = auction_payload("NVDA", qty=2.7, side="buy", auction="opg")
+    assert moo == {
+        "symbol": "NVDA", "qty": "2", "side": "buy", "type": "market",
+        "time_in_force": "opg",
+    }
+    moc = auction_payload("NVDA", qty=2.0, side="sell", auction="cls")
+    assert moc["time_in_force"] == "cls"
+    assert moc["side"] == "sell"
+
+
+def test_auction_payload_rejects_bad_inputs() -> None:
+    from equity_scout.alpaca_broker import auction_payload
+
+    with pytest.raises(AlpacaBrokerError, match="unter einer ganzen Aktie"):
+        auction_payload("NVDA", qty=0.9, side="buy", auction="opg")
+    with pytest.raises(AlpacaBrokerError, match="auction"):
+        auction_payload("NVDA", qty=2.0, side="buy", auction="day")
