@@ -79,10 +79,15 @@ unterwegs weniger Gebühren.
       renditelosen Teil des Tages und ist per Konstruktion (immer flach zum Schluss) vom
       einzigen Zeitfenster mit Rückenwind ausgeschlossen. Gehört in ihre Beurteilung.
       Befund: `docs/research/2026-08-16-overnight-drift-backtest.md`.
-- [ ] **T5: Short-Term-Reversal, nur Backtest.** Kauft die Wochenverlierer. Neuere Arbeiten
-      zeigen: der Effekt sitzt in der Intraday-Bewegung, nicht in der Overnight-Bewegung — der
-      Backtest muss beide trennen, sonst misst er Rauschen. **Lane nur bei positivem
-      Nettobefund.**
+- [x] **T5: Short-Term-Reversal — geprüft, KEINE Lane.** Vorsprung des Verlierer-Fünftels
+      +0,29 pp auf 5 Tage (t = 2,68), aber vier unabhängige Gründe dagegen: in **keiner**
+      Teilperiode signifikant (t = 0,18 bis 2,33, Bonferroni-Schwelle ~2,5) und getragen von
+      der Stressphase 2020–2023; 40 % höhere Volatilität für den Vorsprung (10,63 % gegen
+      7,58 %), risikoadjustiert also nichts; unveränderte Trefferquote (51,9 % gegen 51,1 %),
+      der Mittelwert ist wieder ausreißergetragen; und Survivorship wirkt genau in Richtung
+      des Befunds. **Die Zerlegung nach Tageszeit repliziert Della Corte/Kosowski:** Signal aus
+      dem Intraday-Anteil t = 1,82, aus dem Overnight-Anteil **t = 0,03**.
+      Befund: `docs/research/2026-08-16-short-term-reversal-backtest.md`.
 
 ### Welle 3 — wenn Welle 1 und 2 stehen
 
