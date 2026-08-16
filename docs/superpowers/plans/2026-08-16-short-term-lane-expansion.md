@@ -68,11 +68,17 @@ unterwegs weniger Gebühren.
 
 ### Welle 2 — erst messen, dann entscheiden
 
-- [ ] **T4: Overnight-Drift, nur Backtest.** Kaufen zum Schluss, verkaufen zur Eröffnung.
-      Brutto spektakulär (717 % vs. 12 %, 1993–2020), aber die Literatur ist eindeutig: die
-      Handelskosten löschen den Effekt. Wir haben OHLC und einen Kostenboden — der Backtest
-      beantwortet, ob unter Alpaca-Paper-Bedingungen etwas übrig bleibt. **Lane nur bei
-      positivem Nettobefund.**
+- [x] **T4: Overnight-Drift — geprüft, KEINE eigene Lane, aber der stärkste Befund der Serie.**
+      Der Effekt ist massiv und robust: SPY +10,62 %/Jahr über Nacht (t = 5,23) gegen +2,43 %
+      tagsüber (t = 0,87); auf 91 Einzeltiteln 325.000 Beobachtungen, **93 % der Gesamtrendite
+      entsteht über Nacht** (t = 18,08 gegen 1,01). Keine Lane, weil sie Buy-and-Hold nicht
+      schlägt (10,62 % gegen 13,31 %) und bei ~2 bp je Seite kippt — genau der Bereich unserer
+      gemessenen Slippage (67 echte Fills: Median +0,40 bp), und die stammt aus dem
+      Intraday-Handel, nicht aus der teureren Eröffnungsauktion.
+      **Konsequenz für den Bestand:** die Intraday-Session-Lane handelt ausschließlich im
+      renditelosen Teil des Tages und ist per Konstruktion (immer flach zum Schluss) vom
+      einzigen Zeitfenster mit Rückenwind ausgeschlossen. Gehört in ihre Beurteilung.
+      Befund: `docs/research/2026-08-16-overnight-drift-backtest.md`.
 - [ ] **T5: Short-Term-Reversal, nur Backtest.** Kauft die Wochenverlierer. Neuere Arbeiten
       zeigen: der Effekt sitzt in der Intraday-Bewegung, nicht in der Overnight-Bewegung — der
       Backtest muss beide trennen, sonst misst er Rauschen. **Lane nur bei positivem
