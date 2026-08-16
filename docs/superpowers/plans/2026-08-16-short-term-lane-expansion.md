@@ -48,9 +48,14 @@ unterwegs weniger Gebühren.
       belegbar**, und 72 % davon gehen an die Handelskosten. Der Code bleibt als
       reproduzierbare Antwort liegen (`st_turnofmonth.py`, 8 Tests), die Lane wird nicht
       gebaut. Befund: `docs/research/2026-08-16-turn-of-month-backtest.md`.
-- [ ] **T2: 52-Wochen-Hoch-Ausbruch.** Kauft Titel, die ihr 52-Wochen-Hoch neu erreichen, hält
-      mit Trailing-Stop. Die Kennzahl existiert bereits (`signals.py`, seit v8) und wird
-      bisher nur angezeigt, nie gehandelt.
+- [x] **T2: 52-Wochen-Hoch — geprüft, KEINE Lane.** Event-Study über 91 US-Titel, 300.279
+      Fenster: nach dem Ausbruch +0,54 % auf 20 Tage gegen +0,72 % bei Titeln knapp UNTER dem
+      Hoch — der Ausbruchstag ist der schlechteste Einstieg der oberen Kursregionen, bei der
+      niedrigsten Trefferquote (52,6 % gegen 56,0 %). Konsistent über 5/20/60 Tage. Die
+      auffällige Zahl bei „weit weg vom Hoch" (+1,97 %) ist Survivorship und taugt für keine
+      Entscheidung. Befund: `docs/research/2026-08-16-52-week-high-backtest.md`.
+      **Anschlussidee (nicht in diesem Plan):** die Nähe zum Hoch als Rangfolge-Merkmal testen
+      statt als Auslöser — die Kennzahl liegt seit v8 in `signals.py`.
 - [ ] **T3: Volumen-Kapitulation.** Kauft nach einem Volumenschub von ≥3× dem eigenen
       20-Tage-Median bei fallendem Kurs, Stop unter dem Panik-Tief. Baustein liegt fertig da
       (`volume_signals.py`, v17) und fließt in keine Handelsentscheidung.
