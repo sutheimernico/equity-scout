@@ -38,7 +38,6 @@ from equity_scout.evidence.ledger import log_evidence
 from equity_scout.evidence.news_themes import collect_news_themes
 from equity_scout.evidence.storage import record_events
 from equity_scout.evidence.voices import collect_voices
-from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.tracked_tickers import tracked_tickers
 from equity_scout.universe import load_universe
 
@@ -84,21 +83,23 @@ def run_evidence(
     return {"lines": lines, "new_events": new_total, "ledgered": ledgered_total}
 
 
-def _watchlist_news(db_path: str) -> dict[str, list[dict]]:
-    """Fresh yfinance headlines (title/publisher/published/link) per watchlist ticker —
+def _tracked_news(db_path: str) -> dict[str, list[dict]]:
+    """Fresh yfinance headlines (title/publisher/published/link) per tracked ticker —
     one fetch shared by the news-theme matcher and the beat/miss/guidance classifier
     (Strang B3), so neither hits yfinance twice for the same ticker.
 
-    No watchlist -> {} (the theme radar still detects market-wide themes; it just
+    Scope is the tracked_tickers union, the same one 8-K already uses (symmetry fix,
+    2026-08-17): bullish events can ONLY come from news, and fetching news for just the
+    rotating 30-ticker watchlist snapshot produced 15 beats in 29 days against the lane
+    tuner's minimum of 60. Limit stays at 5 headlines per ticker (rate hygiene).
+
+    Empty union -> {} (the theme radar still detects market-wide themes; it just
     cannot attach any to tickers, and there is nothing to classify)."""
-    watchlist = load_latest_watchlist(db_path)
-    if watchlist is None:
+    tickers = tracked_tickers(db_path)
+    if not tickers:
         return {}
     provider = YFinanceNews(limit=5)
-    return {
-        entry["ticker"]: provider.news_for(entry["ticker"])
-        for entry in watchlist.get("entries", [])
-    }
+    return {ticker: provider.news_for(ticker) for ticker in sorted(tickers)}
 
 
 def _titles_only(news_by_ticker: dict[str, list[dict]]) -> dict[str, list[str]]:
@@ -123,11 +124,12 @@ def main() -> int:
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     universe = [(i.ticker, i.name) for i in load_universe(args.universe)]
-    news_by_ticker = _watchlist_news(args.db)
+    news_by_ticker = _tracked_news(args.db)
     ticker_headlines = _titles_only(news_by_ticker)
-    # Same watchlist tickers _watchlist_news already loaded — Form 4 is a per-issuer
-    # lookup, so it follows the watchlist's "actively tracked only" scope rather than
-    # the full universe (see evidence/form4.py's module docstring).
+    # Same tracked tickers _tracked_news already loaded — Form 4 is a per-issuer lookup,
+    # so it follows the "actively tracked only" scope rather than the full universe (see
+    # evidence/form4.py's module docstring). Since 2026-08-17 that scope is the
+    # tracked_tickers union: positions already held deserve insider evidence too.
     watchlist_tickers = list(ticker_headlines)
     # 8-K is per-issuer like Form 4, but scoped to the broader tracked-tickers union
     # (watchlist + main paper portfolio + both arena lanes, see tracked_tickers.py) —

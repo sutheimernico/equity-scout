@@ -62,3 +62,33 @@ def test_run_evidence_reports_failed_source_and_continues(tmp_path):
     result = run_evidence(db, collectors, now=NOW)
     assert result["new_events"] == 1  # the healthy source still landed
     assert any("[fetch_failed]" in line and "timeout" in line for line in result["lines"])
+
+
+def test_news_scope_is_the_tracked_tickers_union(monkeypatch) -> None:
+    """Symmetry fix (2026-08-17): bullish events can ONLY come from news, but news was
+    fetched for the 30-ticker watchlist snapshot while 8-K already used the broader
+    tracked_tickers union. Measured cost: 15 beats in 29 days — the lane tuner needs 60."""
+    import scripts.run_evidence as script
+
+    calls: list[str] = []
+
+    class FakeNews:
+        def __init__(self, limit: int) -> None:
+            self.limit = limit
+
+        def news_for(self, ticker: str) -> list[dict]:
+            calls.append(ticker)
+            return [{"title": f"{ticker} headline"}]
+
+    monkeypatch.setattr(script, "tracked_tickers", lambda db: {"AAPL", "HELD"})
+    monkeypatch.setattr(script, "YFinanceNews", FakeNews)
+    news = script._tracked_news("some.db")
+    assert sorted(calls) == ["AAPL", "HELD"]
+    assert set(news) == {"AAPL", "HELD"}
+
+
+def test_news_scope_empty_union_yields_nothing(monkeypatch) -> None:
+    import scripts.run_evidence as script
+
+    monkeypatch.setattr(script, "tracked_tickers", lambda db: set())
+    assert script._tracked_news("some.db") == {}
