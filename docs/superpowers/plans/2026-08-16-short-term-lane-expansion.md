@@ -113,6 +113,42 @@ unterwegs weniger Gebühren.
       Verbleibender Weg (Pre-Market-Schätzung + Market-on-Open-Order) steht unten unter „Offene
       Punkte für Nico" — eigene Baustelle, eigene Risiken, seine Entscheidung.
 
+## Nicos Entscheidungen vom 2026-08-16 (abends)
+
+1. **Krypto-Lane läuft weiter** — bewusst, trotz entschiedenem Negativbefund. Nicht antasten.
+2. **Gap-Fade: erst die Vorprüfung** (T9 unten), danach entscheidet er über die Lane.
+3. **Parameter-Nachjustierung: automatische Übernahme erlaubt** (T10–T12 unten). Meine
+   Bedenken stehen im Plan und bleiben stehen; die Umsetzung bekommt deshalb dieselben
+   Schutzmechanismen, die für die Regel-Strategien seit v14 gelten — kein Mensch muss
+   zustimmen, aber eine Hürde muss geschlagen werden.
+4. **Push nach origin: erledigt** (2026-08-16, Secret-Scan über alle 44 Commits sauber,
+   `autopilot/work` liegt auf GitHub).
+
+## Neue Aufgaben aus diesen Entscheidungen
+
+- [ ] **T9: Gap-Fade — sagt der vorbörsliche Kurs die Lücke vorher?** Reine Messung, keine Lane:
+      Für die Tage mit Abwärtslücke den letzten Pre-Market-Kurs (yfinance `prepost=True`) gegen
+      die tatsächliche Eröffnungslücke stellen. Zwei Zahlen entscheiden: die Korrelation und
+      der Anteil der Fälle, in denen das Vorzeichen stimmt. Danach legt Nico fest, ob eine Lane
+      mit Market-on-Open-Order gebaut wird.
+
+- [ ] **T10: Lane-Parametersuche mit eigenem Ledger.** Grid über die Knöpfe der Swing-Lane
+      (`PROFIT_TARGET`, `STOP_LOSS`, `MAX_HOLDING_CALENDAR_DAYS`), Backtest je Kombination auf
+      der Ereignishistorie. **Eigene Tabellen und eigene DSR-Hürde**, getrennt vom ML-Pool und
+      vom Strategie-Pool — dieselbe Multiple-Testing-Trennung, die v14 für die Regel-Strategien
+      eingeführt und per Test bewiesen hat. Anlass ist ein konkreter Befund: 59 % des
+      Swing-Ergebnisses stammen aus dem Ablauf der Haltefrist, nicht aus dem Gewinnziel.
+- [ ] **T11: Parameter aus der DB statt aus Konstanten.** Die Lane liest ihre Knöpfe aus einer
+      persistierten Zeile; fehlt sie, gelten die heutigen Konstanten als Voreinstellung. Jede
+      Änderung schreibt eine Historienzeile (wann, von was auf was, mit welcher Begründung),
+      sonst ist ein Track im Nachhinein nicht mehr lesbar.
+- [ ] **T12: Automatische Übernahme mit Hürde.** Ein Gewinner wird übernommen, wenn er (a) die
+      eigene DSR-Hürde schlägt und (b) den Amtsinhaber auf **derselben Stichprobe** schlägt
+      (`evaluate_fitted_model`-Muster aus der Nacht vom 11.08. — ein gespeicherter Wert darf nie
+      gegen einen frischen verglichen werden). Übernahme setzt den Forward-Track der Lane
+      zurück und stempelt den Bruch, weil die Lane danach eine andere Strategie ist.
+      **Sperre:** höchstens eine Parameteränderung pro Lane und Kalendermonat.
+
 ## Bilanz der Welle
 
 **Sieben Kandidaten geprüft, null Lanes gebaut.** Turn-of-Month, 52-Wochen-Hoch,
