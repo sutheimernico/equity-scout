@@ -50,8 +50,18 @@ def _closed(trades: list) -> list[float]:
     return out
 
 
-def review_lane(lane: str, trades: list, *, previous: LaneReview | dict | None = None) -> LaneReview:
-    """One lane's night: result, decomposition, verdict, and the move since the last review."""
+def review_lane(
+    lane: str,
+    trades: list,
+    *,
+    previous: LaneReview | dict | None = None,
+    rejections: list[dict] | None = None,
+) -> LaneReview:
+    """One lane's night: result, decomposition, verdict, and the move since the last review.
+
+    `rejections` are the RESOLVED no-trade-book rows for this lane (rejection_review) —
+    they answer Nico's question "hätten die verworfenen Signale funktioniert?" right where
+    the traded result is judged."""
     pnls = _closed(trades)
     net = sum(pnls)
     assessment = assess_trades(pnls)
@@ -83,6 +93,20 @@ def review_lane(lane: str, trades: list, *, previous: LaneReview | dict | None =
         notes.append(
             f"Noch kein Urteil: es fehlen {assessment.trades_missing} Trades. Bis dahin ist die "
             f"Zahl eine Messreihe, kein Befund über die Strategie."
+        )
+    settled = [r for r in (rejections or []) if r.get("sim_return") is not None]
+    if settled:
+        positive = sum(1 for r in settled if r["sim_return"] > 0)
+        mean = sum(r["sim_return"] for r in settled) / len(settled)
+        comparison = (
+            f"die gehandelten Trades brachten netto {net:+.2f} USD über {len(pnls)} Abschlüsse"
+            if pnls
+            else "zum Vergleich steht kein abgeschlossener eigener Trade"
+        )
+        notes.append(
+            f"Nicht-Trade-Buch: {len(settled)} verworfene Gelegenheiten aufgelöst, "
+            f"{positive}/{len(settled)} wären im Plus gelandet, im Schnitt {mean:+.1%} "
+            f"(brutto, simuliert — ohne Kosten); {comparison}."
         )
     return LaneReview(
         lane=lane,

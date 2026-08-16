@@ -13,27 +13,36 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timedelta, timezone
 
 from equity_scout.lane_review import render, review_lane
 from equity_scout.shortterm_storage import (
     LANES,
     get_lane_state,
+    load_resolved_rejections,
     load_trades,
     set_lane_state,
 )
 
 STATE_KEY = "last_review"
+# The review window for the no-trade book: one lane holding period, so "what would the
+# rejected have done" and "what did the traded do" cover comparable nights.
+REJECTION_WINDOW_DAYS = 7
 
 
 def run_lane_review(db_path: str) -> str:
     reviews = []
+    since = (
+        datetime.now(timezone.utc) - timedelta(days=REJECTION_WINDOW_DAYS)
+    ).isoformat(timespec="seconds")
     for lane in LANES:
         trades = load_trades(db_path, lane, limit=None)
-        if not trades:
+        rejections = load_resolved_rejections(db_path, lane, since=since)
+        if not trades and not rejections:
             continue
         raw = get_lane_state(db_path, lane, STATE_KEY)
         previous = json.loads(raw) if raw else None
-        review = review_lane(lane, trades, previous=previous)
+        review = review_lane(lane, trades, previous=previous, rejections=rejections)
         reviews.append(review)
         set_lane_state(db_path, lane, STATE_KEY, json.dumps(review.as_dict()))
     return render(reviews)

@@ -66,3 +66,35 @@ def test_render_leads_with_the_lane_that_needs_a_decision() -> None:
 
 def test_render_survives_a_night_with_no_lane_at_all() -> None:
     assert "keine Lane" in render([])
+
+
+def _resolved(sim_return: float | None, reason: str = "Maximale Haltedauer überschritten") -> dict:
+    return {"lane": "swing", "ticker": "R", "reason": "not_bullish",
+            "sim_return": sim_return, "sim_exit_reason": reason,
+            "resolved_at": "2026-08-21T02:30:00Z"}
+
+
+def test_resolved_rejections_enter_the_review_with_gross_wording() -> None:
+    """The no-trade book meets the review: how many rejected opportunities settled, how
+    many would have worked, and the direct traded-vs-rejected sentence — marked gross."""
+    trades = [_sell(10.0), _sell(-4.0)]
+    rejections = [_resolved(0.04), _resolved(0.02), _resolved(-0.01), _resolved(None, "keine Daten")]
+    review = review_lane("swing", trades, rejections=rejections)
+    note = " ".join(review.notes)
+    assert "3 verworfene" in note  # the no-data row is not a measured opportunity
+    assert "2/3" in note
+    assert "+1,7" in note or "+1.7" in note  # mean of 4, 2, -1 percent
+    assert "brutto" in note.lower()
+    assert "6,00 USD" in note or "6.00 USD" in note  # what the traded book actually made
+
+
+def test_review_without_rejections_keeps_its_old_shape() -> None:
+    review = review_lane("swing", [_sell(10.0)])
+    assert not any("verworfen" in n for n in review.notes)
+
+
+def test_rejections_without_any_closed_trade_still_reviewed() -> None:
+    review = review_lane("swing", [], rejections=[_resolved(0.03)])
+    note = " ".join(review.notes)
+    assert "1 verworfene" in note
+    assert "kein abgeschlossener eigener Trade" in note
