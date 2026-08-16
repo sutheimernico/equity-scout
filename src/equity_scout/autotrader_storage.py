@@ -283,9 +283,27 @@ def load_risk_events(db_path: str | Path, *, limit: int = 20) -> list[dict]:
 
 
 def save_sleeve_weights(db_path: str | Path, month: str, allocation: SleeveAllocation) -> None:
-    """Upsert the month's sleeve allocation (weight + Sharpe estimate + mode per sleeve)."""
+    """Replace the month's sleeve allocation (weight + Sharpe estimate + mode per sleeve).
+
+    The rows for a month are a COMPLETE picture of that month's allocation, so a sleeve
+    that is no longer allocated has to lose its row. An upsert alone can only rewrite the
+    names it still sees, and a dropped sleeve keeps its last weight forever — live on
+    2026-08-16 the ML Long Bot still held 12.5 % of August after losing its champion, so
+    the cockpit listed a sleeve that holds nothing and the weights summed to 112.5 %.
+
+    An EMPTY allocation is not such a picture — it says "nothing to allocate", which is
+    what a failed or skipped advance also looks like, so it deletes nothing.
+    """
     init_autotrader_db(db_path)
+    if not allocation.weights:
+        return
     with db.connect(db_path) as con:
+        names = list(allocation.weights)
+        con.execute(
+            "DELETE FROM autotrader_sleeve_weights WHERE month = ?"
+            f" AND strategy_name NOT IN ({','.join('?' * len(names))})",
+            (month, *names),
+        )
         con.executemany(
             "INSERT INTO autotrader_sleeve_weights (month, strategy_name, weight, sharpe, mode)"
             " VALUES (?, ?, ?, ?, ?) ON CONFLICT(month, strategy_name) DO UPDATE SET"

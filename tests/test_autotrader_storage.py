@@ -107,6 +107,39 @@ def test_latest_sleeve_weights_on_fresh_db_is_empty(db) -> None:
     assert load_latest_sleeve_weights(db) == []
 
 
+def test_sleeve_that_left_the_depot_is_dropped_from_its_month(db) -> None:
+    """A month's allocation is a complete picture, not a delta.
+
+    Live on 2026-08-16: the ML Long Bot lost its champion and stopped being a sleeve, but
+    its August row survived at the old 12.5 % — the upsert can only rewrite names it still
+    sees. The cockpit then listed a sleeve that holds nothing and the weights summed to
+    112.5 %.
+    """
+    with_bot = SleeveAllocation(
+        weights={"gem": 0.5, "ML Long Bot": 0.5}, mode="anchor"
+    )
+    save_sleeve_weights(db, "2026-08", with_bot)
+    without_bot = SleeveAllocation(weights={"gem": 0.6, "daa": 0.4}, mode="anchor")
+    save_sleeve_weights(db, "2026-08", without_bot)
+    rows = load_latest_sleeve_weights(db)
+    assert [r["strategy_name"] for r in rows] == ["gem", "daa"]
+    assert sum(r["weight"] for r in rows) == pytest.approx(1.0)
+
+
+def test_empty_allocation_does_not_wipe_the_month(db) -> None:
+    """An advance that produced no allocation says nothing — it must not erase the truth."""
+    save_sleeve_weights(db, "2026-08", SleeveAllocation(weights={"gem": 1.0}, mode="anchor"))
+    save_sleeve_weights(db, "2026-08", SleeveAllocation(weights={}, mode="anchor"))
+    assert [r["strategy_name"] for r in load_latest_sleeve_weights(db)] == ["gem"]
+
+
+def test_dropping_a_sleeve_leaves_other_months_untouched(db) -> None:
+    save_sleeve_weights(db, "2026-07", SleeveAllocation(weights={"gem": 1.0}, mode="anchor"))
+    save_sleeve_weights(db, "2026-08", SleeveAllocation(weights={"daa": 1.0}, mode="anchor"))
+    rows = load_latest_sleeve_weights(db)
+    assert [r["strategy_name"] for r in rows] == ["daa"]  # July's row is not collateral
+
+
 def test_persist_advance_commits_account_and_rows_together(db) -> None:
     account = AutoDepotAccount.fresh()
     persist_advance(db, account, _valuation(), updated_at="2026-07-20")
