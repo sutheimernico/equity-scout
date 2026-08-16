@@ -136,7 +136,12 @@ unterwegs weniger Gebühren.
       **Entscheidung Nico: Lane bauen (misst weiter, wo der Backtest endet, und liefert die
       echten Auktionskosten) oder abhaken?**
 
-- [ ] **T10: Lane-Parametersuche mit eigenem Ledger.** Grid über die Knöpfe der Swing-Lane
+- [x] **T10: Lane-Parametersuche — GEBAUT, erster Lauf sagt „nichts ändern".** 650 Ereignisse,
+      36 Kombinationen, simuliert mit derselben `exits.exit_reason` wie die Lane. Bester
+      Kandidat 5 %/5 %/14 Tage mit +1,19 % je Trade gegen +0,77 % heute (Rang 17 von 36) —
+      aber die Differenz trägt nur **t = 1,01 bei 36 Trials**, also kein belegbarer Vorsprung.
+      Bleibender Hinweis: **alle** sechs besten Kombinationen wollen einen weiteren Stop.
+      Befund: `docs/research/2026-08-16-lane-parameter-search.md`. (ursprünglich:) Grid über die Knöpfe der Swing-Lane
       (`PROFIT_TARGET`, `STOP_LOSS`, `MAX_HOLDING_CALENDAR_DAYS`), Backtest je Kombination auf
       der Ereignishistorie. **Eigene Tabellen und eigene DSR-Hürde**, getrennt vom ML-Pool und
       vom Strategie-Pool — dieselbe Multiple-Testing-Trennung, die v14 für die Regel-Strategien
