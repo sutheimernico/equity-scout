@@ -21,6 +21,22 @@ This file is the binding backlog for the autonomous loop. Each iteration picks t
 highest-value open `- [ ]` task, does it on `autopilot/work`, runs the gate, commits only if green,
 checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 
+## Von Nico angesetzt — nächste Session (notiert 2026-08-16, 03:00)
+- [ ] **Das Handy-Cockpit fertig bauen.** Nicos Ansage in der Nacht auf den 16.08.: "morgen die
+      App zu Ende bauen fürs Handy, das Dashboard". **Der Scope ist NICHT festgelegt — erster
+      Schritt ist die Klärung mit Nico, was "zu Ende" für ihn heißt, nicht das Bauen.**
+      Bekannte Kandidaten für diese Klärung:
+      - **Task 9** aus `docs/superpowers/plans/2026-08-06-phone-cockpit-beginner-friendly.md`
+        ("Mehr"-Ansichten einsteigerfreundlich, der große Durchgang über acht Panels). Durch den
+        Mockup-v2-Umbau vom 08.08. (13 Views → 5 Tabs) teilweise überholt — vor dem Anfangen
+        gegen die heutige IA neu bewerten, nicht blind abarbeiten. Task 8 desselben Plans gilt
+        durch den Assistent-Uplift vom 07.08. als erledigt, die Haken fehlen nur.
+      - `docs/superpowers/plans/2026-08-09-cockpit-refresh-buttons.md`: sieht im Code umgesetzt
+        aus (die Guard-Wrapper tragen die Plan-Kommentare wörtlich), aber alle Checkboxen sind
+        offen und ein Outcome-Abschnitt fehlt — verifizieren und den Plan schließen.
+      - Nicos eigener Durchklick auf dem Handy steht seit dem 08.08. als Needs-Nico aus; ohne
+        seine Funde ist "zu Ende" nicht bestimmbar.
+
 ## Iron principles (never overridden)
 - **Local & free only.** yfinance / SEC EDGAR (UA header) / public lists. No paid feeds, no
   real-money anything. A task needing a paid resource goes to "Needs Nico", never faked.
