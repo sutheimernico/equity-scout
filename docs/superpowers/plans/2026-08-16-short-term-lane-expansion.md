@@ -43,9 +43,11 @@ unterwegs weniger Gebühren.
 
 ### Welle 1 — die günstigen Regeln (wenige Trades)
 
-- [ ] **T1: Turn-of-Month.** Kauft am drittletzten Handelstag des Monats einen breiten Index-ETF,
-      verkauft am dritten Handelstag des Folgemonats. ~12 Roundtrips im Jahr, damit fast
-      kostenfrei und schnell falsifizierbar. Bausteine: EOD-Panel, `market_hours`.
+- [x] **T1: Turn-of-Month — geprüft, KEINE Lane.** Backtest über 31 Jahre SPY (349 Trades):
+      Fenster-Tage 7,72 bp/Tag gegen 3,75 bp an allen anderen, Differenz **t = 1,39 → nicht
+      belegbar**, und 72 % davon gehen an die Handelskosten. Der Code bleibt als
+      reproduzierbare Antwort liegen (`st_turnofmonth.py`, 8 Tests), die Lane wird nicht
+      gebaut. Befund: `docs/research/2026-08-16-turn-of-month-backtest.md`.
 - [ ] **T2: 52-Wochen-Hoch-Ausbruch.** Kauft Titel, die ihr 52-Wochen-Hoch neu erreichen, hält
       mit Trailing-Stop. Die Kennzahl existiert bereits (`signals.py`, seit v8) und wird
       bisher nur angezeigt, nie gehandelt.
