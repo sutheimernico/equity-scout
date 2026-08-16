@@ -56,11 +56,15 @@ unterwegs weniger Gebühren.
       Entscheidung. Befund: `docs/research/2026-08-16-52-week-high-backtest.md`.
       **Anschlussidee (nicht in diesem Plan):** die Nähe zum Hoch als Rangfolge-Merkmal testen
       statt als Auslöser — die Kennzahl liegt seit v8 in `signals.py`.
-- [ ] **T3: Volumen-Kapitulation.** Kauft nach einem Volumenschub von ≥3× dem eigenen
-      20-Tage-Median bei fallendem Kurs, Stop unter dem Panik-Tief. Baustein liegt fertig da
-      (`volume_signals.py`, v17) und fließt in keine Handelsentscheidung.
-      **Vorbehalt aus v17:** Volumen als Feature im Entry-Modell war ein klarer Nullbefund
-      (AUC −0,001). Als eigenständige Regel ist es ungetestet — der Backtest entscheidet.
+- [x] **T3: Volumen-Kapitulation — geprüft, KEINE Lane.** Auf überlappenden Fenstern sah es
+      nach dem ersten echten Treffer aus (20T: +1,25 pp, t = 3,73; 60T: t = 6,21). Auf
+      **nicht überlappenden** Fenstern bleibt t = 1,64 bzw. 0,34, und über sechs Startpunkte
+      der Teilstichprobe schwankt t zwischen 0,09 und 1,64 — das Urteil hängt an einer
+      willkürlichen Wahl. Dazu eine niedrigere Trefferquote als an gewöhnlichen Tagen (51,6 %
+      gegen 53,2 %), der Mittelwert ist also ausreißergetragen. Befund:
+      `docs/research/2026-08-16-capitulation-backtest.md`.
+      **Erster Fall, in dem die Überlappungsregel aus LOOP.md eine Fehlentscheidung verhindert
+      hat** — ohne sie wäre die Lane auf einem vierfach überhöhten t-Wert gebaut worden.
 
 ### Welle 2 — erst messen, dann entscheiden
 
