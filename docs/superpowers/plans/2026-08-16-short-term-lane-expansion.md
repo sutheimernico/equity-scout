@@ -104,13 +104,32 @@ unterwegs weniger Gebühren.
       signifikant (t = 4,61 bis 13,31), trägt Kosten bis 50 bp je Seite, und die Beobachtungen
       überlappen nicht. Befund: `docs/research/2026-08-16-gap-fade-backtest.md`.
 
-- [ ] **T8: Gap-Fade — Ausführbarkeit auf Minutenbars (Vorbedingung für die Lane).**
-      **Das Signal ist der Eröffnungskurs, und der ist erst bekannt, wenn die Auktion vorbei
-      ist** — der Backtest kauft zu einem Preis, den man in dem Moment nicht mehr bekommt.
-      Denselben Test mit Einstieg zum ersten Kurs nach +5/+15/+30 Minuten wiederholen; die
-      Alpaca-Minutenbars liegen für die Session-Lane bereits vor. Bleibt nach 15 Minuten mehr
-      als die Kosten übrig, ist die Lane gerechtfertigt — sonst war der Effekt nie unserer.
-      Erst danach der Lane-Bauplan (sechs Schritte, siehe oben).
+- [x] **T8: Gap-Fade — Ausführbarkeit geprüft, KEINE Lane.** 283 Lücken über 42 Handelstage auf
+      5-Minuten-Bars: Einstieg zum Eröffnungskurs +65,59 bp, nach 5 Min +29,97, **nach 15 Min
+      −0,09**, nach 30 Min −34,68 — Rendite und Trefferquote fallen beide monoton. Der Effekt
+      aus T7 existiert, aber er lebt in den ersten Minuten nach der Auktion und ist für
+      jemanden, der das Signal aus dem Eröffnungskurs ableitet, per Konstruktion unerreichbar.
+      Befund: `docs/research/2026-08-16-gap-fade-executability.md`.
+      Verbleibender Weg (Pre-Market-Schätzung + Market-on-Open-Order) steht unten unter „Offene
+      Punkte für Nico" — eigene Baustelle, eigene Risiken, seine Entscheidung.
+
+## Bilanz der Welle
+
+**Sieben Kandidaten geprüft, null Lanes gebaut.** Turn-of-Month, 52-Wochen-Hoch,
+Volumen-Kapitulation, Overnight-Drift, Short-Term-Reversal, Earnings-Premium, Gap-Fade — jeder
+mit Zahlen abgelehnt, keiner mit Bauchgefühl. Kosten: ein Tag Rechnen statt sieben Lanes über
+Monate Messzeit.
+
+Drei Erkenntnisse, die über die einzelnen Absagen hinausgehen:
+
+1. **93 % der Marktrendite entsteht über Nacht** (T4). Die bestehende Intraday-Lane handelt
+   ausschließlich im renditelosen Teil des Tages und ist per Konstruktion vom einzigen
+   Zeitfenster mit Rückenwind ausgeschlossen. Das gehört in jede Beurteilung ihres Ergebnisses.
+2. **Zwei Kandidaten starben an derselben Messfalle** (T3 Überlappung, T5 Survivorship), die im
+   Projekt schon dokumentiert war. Die Regeln aus `LOOP.md` haben zum ersten Mal konkrete
+   Fehlentscheidungen verhindert, statt nur Doku zu sein.
+3. **Nicht jede Frage ist an unseren Daten entscheidbar** (T6): Das Earnings-Premium liegt mit
+   0,2–0,3 % unter unserer Nachweisgrenze von 0,56 pp. Mehr Messzeit hilft dagegen nicht.
 
 ## Verworfen, mit Grund
 
@@ -128,11 +147,22 @@ könnte. Das ist eine offene Frage an Nico, keine Aufgabe (siehe unten).
 ## Offene Punkte für Nico
 
 1. **Soll die Krypto-Lane weiterlaufen?** Ihr Ergebnis ist statistisch entschieden (32 Trades,
-   p = 0,0003, negativ). Sie handelt weiter und zahlt weiter Gebühren. Stilllegen würde
-   Messkapazität für die neuen Lanes frei machen.
-2. **Dürfen bewährte Lanes irgendwann ihre Parameter nachjustieren?** Heute verboten (siehe
-   oben). Das ist eine Grundsatzentscheidung, keine technische.
-3. **Push nach origin** steht weiterhin aus — sieben Commits auf `autopilot/work`.
+   p = 0,0003, negativ). Sie handelt weiter und zahlt weiter Gebühren. Nach dem Ausgang dieser
+   Welle gibt es auch keine neue Lane mehr, für die man Kapazität frei machen müsste — die
+   Frage ist jetzt allein, ob eine erledigte Messung weiterlaufen soll.
+2. **Gap-Fade über Pre-Market + Market-on-Open?** Der einzige Effekt, der die Prüfungen bestand
+   (T7), ist nur zum Eröffnungskurs erreichbar — und den bekommt man nur mit einer Order, die
+   VOR der Auktion liegt, also auf Basis des vorbörslichen Kurses statt der fertigen Lücke.
+   Technisch möglich (Alpaca kann MOO, Pre-Market-Kurse gibt es frei), aber eine eigene
+   Baustelle: Wie gut sagt der Pre-Market-Kurs die Lücke vorher, wie liquide ist er bei diesen
+   Titeln, und eine MOO-Order ist eine Order ohne Preisgrenze in die volatilste Auktion des
+   Tages. Nur auf ausdrückliches Go.
+3. **Dürfen bewährte Lanes irgendwann ihre Parameter nachjustieren?** Heute verboten (siehe
+   oben). Das ist eine Grundsatzentscheidung, keine technische. Der erste konkrete Anlass liegt
+   inzwischen vor: Die nächtliche Lane-Auswertung zeigt, dass 59 % des Swing-Ergebnisses aus
+   dem Ablauf der Haltefrist stammen und nicht aus dem Gewinnziel — ein Hinweis, dass Ziel oder
+   Frist nicht zueinander passen.
+4. **Push nach origin** steht weiterhin aus.
 
 ## Kontext, den ein frischer Agent braucht
 
