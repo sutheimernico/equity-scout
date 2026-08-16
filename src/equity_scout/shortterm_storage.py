@@ -68,6 +68,19 @@ def init_shortterm_db(db_path: str | Path) -> None:
                 order_id TEXT NOT NULL,
                 UNIQUE (order_id)
             );
+            CREATE TABLE IF NOT EXISTS st_rejections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lane TEXT NOT NULL,
+                ticker TEXT NOT NULL,
+                seen_at TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                ref_price REAL,
+                detail TEXT,
+                resolved_at TEXT,
+                sim_return REAL,
+                sim_exit_reason TEXT,
+                UNIQUE (lane, ticker, seen_at, reason)
+            );
             """
         )
         # PRAGMA table_info + ALTER TABLE idiom as storage.py's init_db. Existing rows keep
@@ -281,6 +294,81 @@ def record_execution(
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (lane, ticker, side, signalled_at, expected_price, actual_price, qty, order_id),
         )
+
+
+_REJECTION_KEYS = (
+    "id", "lane", "ticker", "seen_at", "reason", "ref_price", "detail",
+    "resolved_at", "sim_return", "sim_exit_reason",
+)
+
+
+def record_rejections(db_path: str | Path, rejections: list[dict]) -> None:
+    """The no-trade book: every examined-but-not-traded opportunity, with its reason.
+
+    Keyed by (lane, ticker, seen_at, reason) so a lane re-run over the same inputs never
+    double-counts — the same idempotency contract as st_trades."""
+    if not rejections:
+        return
+    init_shortterm_db(db_path)
+    with db.connect(db_path) as con:
+        con.executemany(
+            "INSERT OR IGNORE INTO st_rejections"
+            " (lane, ticker, seen_at, reason, ref_price, detail)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (r["lane"], r["ticker"], r["seen_at"], r["reason"],
+                 r.get("ref_price"), r.get("detail"))
+                for r in rejections
+            ],
+        )
+
+
+def load_open_rejections(db_path: str | Path, lane: str | None = None) -> list[dict]:
+    init_shortterm_db(db_path)
+    where = "resolved_at IS NULL" + ("" if lane is None else " AND lane = ?")
+    params: tuple = () if lane is None else (lane,)
+    with db.connect(db_path) as con:
+        rows = con.execute(
+            f"SELECT {', '.join(_REJECTION_KEYS)} FROM st_rejections"
+            f" WHERE {where} ORDER BY seen_at ASC, id ASC",
+            params,
+        ).fetchall()
+    return [dict(zip(_REJECTION_KEYS, row)) for row in rows]
+
+
+def resolve_rejections(db_path: str | Path, resolutions: list[dict]) -> None:
+    """resolutions: [{id, resolved_at, sim_return, sim_exit_reason}] — one transaction,
+    because a nightly run may settle hundreds of rows at once."""
+    if not resolutions:
+        return
+    init_shortterm_db(db_path)
+    with db.connect(db_path) as con:
+        con.executemany(
+            "UPDATE st_rejections SET resolved_at = ?, sim_return = ?, sim_exit_reason = ?"
+            " WHERE id = ?",
+            [
+                (r["resolved_at"], r.get("sim_return"), r["sim_exit_reason"], r["id"])
+                for r in resolutions
+            ],
+        )
+
+
+def load_resolved_rejections(
+    db_path: str | Path, lane: str, *, since: str | None = None
+) -> list[dict]:
+    init_shortterm_db(db_path)
+    where = "lane = ? AND resolved_at IS NOT NULL"
+    params: list = [lane]
+    if since is not None:
+        where += " AND resolved_at >= ?"
+        params.append(since)
+    with db.connect(db_path) as con:
+        rows = con.execute(
+            f"SELECT {', '.join(_REJECTION_KEYS)} FROM st_rejections"
+            f" WHERE {where} ORDER BY seen_at ASC, id ASC",
+            params,
+        ).fetchall()
+    return [dict(zip(_REJECTION_KEYS, row)) for row in rows]
 
 
 def load_executions(db_path: str | Path, lane: str) -> list[dict]:

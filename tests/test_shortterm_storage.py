@@ -269,3 +269,75 @@ def test_a_better_than_expected_fill_counts_negative(tmp_path) -> None:
         actual_price=99.90, qty=1.0, order_id="buy-better",
     )
     assert slippage_summary(path)["mean_bps"] == pytest.approx(-10.0)
+
+
+def test_rejections_record_idempotently_and_resolve(db) -> None:
+    """The no-trade book: a rejection is written once, stays open until resolved, and a
+    resolution stamps what the rejected opportunity would have done."""
+    from equity_scout.shortterm_storage import (
+        load_open_rejections,
+        load_resolved_rejections,
+        record_rejections,
+        resolve_rejections,
+    )
+
+    rejection = {
+        "lane": "swing", "ticker": "AAPL", "seen_at": "2026-08-14T13:00:00Z",
+        "reason": "too_old", "ref_price": 101.5, "detail": "beat, 4 busdays old",
+    }
+    record_rejections(db, [rejection])
+    record_rejections(db, [rejection])  # re-run of the same lane step
+    open_rows = load_open_rejections(db, "swing")
+    assert len(open_rows) == 1
+    assert open_rows[0]["reason"] == "too_old"
+    assert open_rows[0]["resolved_at"] is None
+
+    resolve_rejections(db, [{
+        "id": open_rows[0]["id"], "resolved_at": "2026-08-21T02:30:00Z",
+        "sim_return": 0.031, "sim_exit_reason": "max_days",
+    }])
+    assert load_open_rejections(db, "swing") == []
+    resolved = load_resolved_rejections(db, "swing")
+    assert len(resolved) == 1
+    assert resolved[0]["sim_return"] == pytest.approx(0.031)
+    assert resolved[0]["sim_exit_reason"] == "max_days"
+
+
+def test_open_rejections_filter_by_lane_and_ref_price_is_optional(db) -> None:
+    from equity_scout.shortterm_storage import load_open_rejections, record_rejections
+
+    record_rejections(db, [
+        {"lane": "swing", "ticker": "MSFT", "seen_at": "2026-08-14T13:00:00Z",
+         "reason": "cap_full", "ref_price": None, "detail": "book full at 8"},
+        {"lane": "gapfade", "ticker": "NVDA", "seen_at": "2026-08-14T13:10:00Z",
+         "reason": "below_threshold", "ref_price": 88.0, "detail": "gap -1.4%"},
+    ])
+    assert [r["ticker"] for r in load_open_rejections(db, "swing")] == ["MSFT"]
+    assert load_open_rejections(db, "swing")[0]["ref_price"] is None
+    all_rows = load_open_rejections(db)
+    assert {r["lane"] for r in all_rows} == {"swing", "gapfade"}
+
+
+def test_resolved_rejections_respect_since_filter(db) -> None:
+    from equity_scout.shortterm_storage import (
+        load_open_rejections,
+        load_resolved_rejections,
+        record_rejections,
+        resolve_rejections,
+    )
+
+    record_rejections(db, [
+        {"lane": "swing", "ticker": "OLD", "seen_at": "2026-08-01T13:00:00Z",
+         "reason": "not_bullish", "ref_price": None, "detail": "unknown headline"},
+        {"lane": "swing", "ticker": "NEW", "seen_at": "2026-08-14T13:00:00Z",
+         "reason": "not_bullish", "ref_price": None, "detail": "unknown headline"},
+    ])
+    rows = {r["ticker"]: r for r in load_open_rejections(db, "swing")}
+    resolve_rejections(db, [
+        {"id": rows["OLD"]["id"], "resolved_at": "2026-08-08T02:30:00Z",
+         "sim_return": -0.01, "sim_exit_reason": "max_days"},
+        {"id": rows["NEW"]["id"], "resolved_at": "2026-08-21T02:30:00Z",
+         "sim_return": 0.02, "sim_exit_reason": "profit_target"},
+    ])
+    recent = load_resolved_rejections(db, "swing", since="2026-08-20T00:00:00Z")
+    assert [r["ticker"] for r in recent] == ["NEW"]
