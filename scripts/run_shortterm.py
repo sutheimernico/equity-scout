@@ -76,8 +76,17 @@ from equity_scout.st_session import (
     decide,
     opening_range,
 )
+from equity_scout.exits import ExitRules
+from equity_scout.lane_params import load_params
 from equity_scout.st_swing import ENTRY_FRACTION as SWING_FRACTION
-from equity_scout.st_swing import MAX_POSITIONS, check_exits, pick_entries
+from equity_scout.st_swing import (
+    MAX_HOLDING_CALENDAR_DAYS,
+    MAX_POSITIONS,
+    PROFIT_TARGET,
+    STOP_LOSS,
+    check_exits,
+    pick_entries,
+)
 
 SWING_SNAPSHOT = "data/prices/st_swing_panel.csv"
 CRYPTO_SLIPPAGE_BPS = 10.0
@@ -104,6 +113,21 @@ def _print_fills(fills: list) -> None:
 
 def run_swing(db: str, main_db: str, *, now: datetime) -> None:
     book = load_book(db, "swing") or LaneBook.fresh("swing", benchmark_ticker="SPY")
+    # Exit rules come from the database when something has tuned them, from the module
+    # constants otherwise (T11, 2026-08-16). Printed whenever they differ from the shipped
+    # values: a lane running on rules nobody sees is a track record nobody can read.
+    shipped = ExitRules(
+        profit_target=PROFIT_TARGET, stop_loss=STOP_LOSS,
+        max_holding_days=MAX_HOLDING_CALENDAR_DAYS,
+    )
+    rules = load_params(db, "swing", default=shipped)
+    if rules != shipped:
+        print(
+            f"Angepasste Regeln aktiv: Ziel {rules.profit_target:.0%}, "
+            f"Stop {rules.stop_loss:.0%}, Haltefrist {rules.max_holding_days} Tage "
+            f"(Standard: {shipped.profit_target:.0%}/{shipped.stop_loss:.0%}/"
+            f"{shipped.max_holding_days})."
+        )
     marker = get_lane_state(db, "swing", EVENTS_SEEN_KEY)
     if marker is None:
         # first run: only the last 24h of events — never buy the whole stored history
@@ -129,7 +153,12 @@ def run_swing(db: str, main_db: str, *, now: datetime) -> None:
 
     fills = []
     exited_today: set[str] = set()
-    for exit_order in check_exits(book, prices, today):
+    for exit_order in check_exits(
+        book, prices, today,
+        profit_target=rules.profit_target,
+        stop_loss=rules.stop_loss,
+        max_days=rules.max_holding_days,
+    ):
         book, fill = sell(book, exit_order["ticker"], exit_order["price"], today,
                           reason=exit_order["reason"])
         if fill:

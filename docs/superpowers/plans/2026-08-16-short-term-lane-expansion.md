@@ -141,12 +141,9 @@ unterwegs weniger Gebühren.
       Kandidat 5 %/5 %/14 Tage mit +1,19 % je Trade gegen +0,77 % heute (Rang 17 von 36) —
       aber die Differenz trägt nur **t = 1,01 bei 36 Trials**, also kein belegbarer Vorsprung.
       Bleibender Hinweis: **alle** sechs besten Kombinationen wollen einen weiteren Stop.
-      Befund: `docs/research/2026-08-16-lane-parameter-search.md`. (ursprünglich:) Grid über die Knöpfe der Swing-Lane
-      (`PROFIT_TARGET`, `STOP_LOSS`, `MAX_HOLDING_CALENDAR_DAYS`), Backtest je Kombination auf
-      der Ereignishistorie. **Eigene Tabellen und eigene DSR-Hürde**, getrennt vom ML-Pool und
-      vom Strategie-Pool — dieselbe Multiple-Testing-Trennung, die v14 für die Regel-Strategien
-      eingeführt und per Test bewiesen hat. Anlass ist ein konkreter Befund: 59 % des
-      Swing-Ergebnisses stammen aus dem Ablauf der Haltefrist, nicht aus dem Gewinnziel.
+      Befund: `docs/research/2026-08-16-lane-parameter-search.md`.
+      Gesucht wurde über `PROFIT_TARGET`, `STOP_LOSS` und `MAX_HOLDING_CALENDAR_DAYS`; die
+      eigene Hürde und das eigene Ledger kommen mit T12, weil erst dort verglichen wird.
 - [ ] **T11: Parameter aus der DB statt aus Konstanten.** Die Lane liest ihre Knöpfe aus einer
       persistierten Zeile; fehlt sie, gelten die heutigen Konstanten als Voreinstellung. Jede
       Änderung schreibt eine Historienzeile (wann, von was auf was, mit welcher Begründung),
