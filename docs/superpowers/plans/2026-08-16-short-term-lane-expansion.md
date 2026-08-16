@@ -126,11 +126,15 @@ unterwegs weniger Gebühren.
 
 ## Neue Aufgaben aus diesen Entscheidungen
 
-- [ ] **T9: Gap-Fade — sagt der vorbörsliche Kurs die Lücke vorher?** Reine Messung, keine Lane:
-      Für die Tage mit Abwärtslücke den letzten Pre-Market-Kurs (yfinance `prepost=True`) gegen
-      die tatsächliche Eröffnungslücke stellen. Zwei Zahlen entscheiden: die Korrelation und
-      der Anteil der Fälle, in denen das Vorzeichen stimmt. Danach legt Nico fest, ob eine Lane
-      mit Market-on-Open-Order gebaut wird.
+- [x] **T9: Vorbörsliche Vorhersage — gemessen, WARTET AUF NICO.** Der vorbörsliche Kurs sagt
+      die Lücke gut vorher (Korrelation 0,882; bei ≤ −2 % trifft die Schwelle in 61 % der
+      Fälle). Die handelbare Auswahl behält **zwei Drittel des Effekts**: +42,00 bp gegen
+      +65,59 bp bei rückschauender Auswahl. **Aber:** t = 1,00, Trefferquote 46,3 %, und die
+      Kosten einer Market-on-Open-Order in eine Auktion mit 2–3 % Abwärtslücke sind unbekannt.
+      Die Stichprobe kann nicht wachsen — vorbörsliche Kurse reichen frei nur 60 Tage zurück.
+      Befund: `docs/research/2026-08-16-premarket-gap-prediction.md`.
+      **Entscheidung Nico: Lane bauen (misst weiter, wo der Backtest endet, und liefert die
+      echten Auktionskosten) oder abhaken?**
 
 - [ ] **T10: Lane-Parametersuche mit eigenem Ledger.** Grid über die Knöpfe der Swing-Lane
       (`PROFIT_TARGET`, `STOP_LOSS`, `MAX_HOLDING_CALENDAR_DAYS`), Backtest je Kombination auf
