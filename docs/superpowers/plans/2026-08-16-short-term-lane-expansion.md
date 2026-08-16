@@ -91,9 +91,13 @@ unterwegs weniger Gebühren.
 
 ### Welle 3 — wenn Welle 1 und 2 stehen
 
-- [ ] **T6: Earnings-Announcement-Premium.** Kauft wenige Tage VOR dem Termin, verkauft direkt
-      danach — das Gegenstück zur bestehenden Swing-Lane, die nach der Meldung kauft. Der
-      Earnings-Kalender existiert seit v7.
+- [x] **T6: Earnings-Premium — geprüft, KEINE Lane.** 1.790 Termine, 80 Titel: vor der Meldung
+      −0,08 pp (t = −0,52), durch die Meldung +0,13 pp (t = 0,47), nur die Reaktion +0,14 pp
+      (t = 0,59). **Wichtiger als die Nullen ist die Nachweisgrenze:** bei 11,78 % Streuung je
+      Ereignis müsste ein Effekt über **0,56 pp** liegen, um sichtbar zu werden — die Literatur
+      nennt 0,2–0,3 %. Die Frage ist an unseren Daten also gar nicht entscheidbar, und eine
+      Lane, deren Zielgröße unter der Auflösung des Messgeräts liegt, liefert keine Antwort.
+      Befund: `docs/research/2026-08-16-earnings-premium-backtest.md`.
 - [ ] **T7: Gap-Fade.** Handelt gegen die Eröffnungslücke. Intraday-Bars über Alpaca vorhanden.
       Nachbar der bestehenden Intraday-Lane, deshalb bewusst zuletzt — geringste Unabhängigkeit
       vom Bestand.
