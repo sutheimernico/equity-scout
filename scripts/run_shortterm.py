@@ -383,8 +383,20 @@ def _gapfade_settle_exits(db: str, book: LaneBook, *, now: datetime) -> LaneBook
         else:
             remaining.append(exit_entry)
     today = now.isoformat(timespec="seconds")
-    book = capture_benchmark(book, None)
-    snap = valuation(book, {}, None, today) if fills else None
+    snap = None
+    if fills:
+        # SPY close from the lane's own snapshot: without it every valuation row would
+        # carry benchmark_return=None and the arena card could never compare this lane.
+        spy = None
+        try:
+            panel = load_price_history(["SPY"], start=(now - timedelta(days=10)).date().isoformat(),
+                                       snapshot=GAPFADE_SNAPSHOT, refresh=True)
+            closes = panel.closes["SPY"].dropna() if "SPY" in panel.tickers else None
+            spy = float(closes.iloc[-1]) if closes is not None and len(closes) else None
+        except (OSError, KeyError) as error:
+            print(f"Gap-Fade: SPY-Benchmark nicht lesbar ({error}).", file=sys.stderr)
+        book = capture_benchmark(book, spy)
+        snap = valuation(book, {}, spy, today)
     persist_lane_step(
         db, book, updated_at=today, trades=fills, valuation=snap,
         state=[(GAPFADE_EXIT_ORDERS_KEY, json.dumps(remaining))],

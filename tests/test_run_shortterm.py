@@ -429,11 +429,17 @@ def test_gapfade_settles_the_closing_auction(db, tmp_path, monkeypatch) -> None:
         "signalled_at": "2026-08-17T14:05:00+00:00",
     }]))
     monkeypatch.setattr(runner, "fetch_order", lambda oid: _filled_order(oid, 15.0, 98.0))
+    from equity_scout.market import PricePanel
+
+    index = pd.bdate_range("2026-08-10", periods=6)
+    spy_panel = PricePanel(pd.DataFrame({"SPY": 500.0}, index=index))
+    monkeypatch.setattr(runner, "load_price_history", lambda *a, **k: spy_panel)
 
     nightly = datetime(2026, 8, 18, 0, 30, tzinfo=timezone.utc)
     runner.run_gapfade(db, str(tmp_path / "main.db"), now=nightly)
     book = load_book(db, "gapfade")
     assert book is not None and book.positions == {}
+    assert book.benchmark_entry_price == pytest.approx(500.0)
     sells = [t for t in load_trades(db, "gapfade") if t["side"] == "sell"]
     assert len(sells) == 1
     assert sells[0]["realized_pnl"] == pytest.approx(15.0 * (98.0 - 96.8))

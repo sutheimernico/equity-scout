@@ -6,7 +6,8 @@
 # (d) the nightly training chain at 02:30 Tue-Sat (post-US-close; v10.1: via the
 # guarded wrapper — flock + per-day marker live inside run_nightly_guarded.sh so
 # cron, systemd catch-up and Windows task arbitrate cleanly) and (e) the nightly
-# universe prefetch at 00:45 Mon-Sat (cache warm-up rotation).
+# universe prefetch at 00:45 Mon-Sat (cache warm-up rotation), plus the crypto lane
+# every 15 min and the gapfade lane every 5 min in its morning window (2026-08-17).
 # Any existing line referencing a managed script is REPLACED by its canonical form
 # (so cadence changes don't leave the old schedule running in parallel); unmanaged
 # entries (e.g. the forward-paper line) are preserved untouched.
