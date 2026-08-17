@@ -16,12 +16,17 @@ import pandas as pd
 MIN_DAYS_FOR_RATES = 60  # below this, annualised rates are noise, not evidence
 TRADING_DAYS_PER_YEAR = 252
 
-# What WOULD justify trusting this system with real money (rendered on the proof
-# surfaces so the bar is explicit, not vibes; the decision itself stays Nico's):
+# What WOULD justify trusting this system with real money (rendered on the proof surfaces so
+# the bar is explicit, not vibes; the decision itself stays Nico's). Reframed 2026-08-17: the
+# old bar (Sharpe > 1 AND MaxDD < 15 % in 180 days) sat above what institutional CTAs sustain
+# long-run and 180 days cannot statistically separate Sharpe 1 from 0 — a bar that can only
+# fire on luck. W0 (2026-08-11) showed what this data CAN deliver: returns are not predictable,
+# risk is. So the bar now asks for exactly that, after costs, on a track long enough to mean
+# something: not behind the benchmark, at materially lower drawdown.
 CONVICTION_THRESHOLDS = {
-    "min_track_days": 180,
-    "min_sharpe_after_costs": 1.0,
-    "max_drawdown_pct": 15.0,
+    "min_track_days": 730,  # ~2 years — the shortest track that can carry this verdict
+    "min_vs_benchmark_pct": 0.0,  # after costs, not behind the benchmark
+    "max_drawdown_ratio_vs_benchmark": 0.60,  # depot MaxDD <= 60 % of the benchmark's MaxDD
 }
 
 
@@ -49,7 +54,8 @@ def book_report(
         return {
             "label": label, "n_days": 0, "period": None,
             "total_return_pct": None, "cagr_pct": None, "sharpe_annualised": None,
-            "max_drawdown_pct": None, "realized_win_rate": None,
+            "max_drawdown_pct": None, "benchmark_max_drawdown_pct": None,
+            "realized_win_rate": None,
             "cost_share_of_pnl": None, "vs_benchmark_pct": None,
             "verdict_label": "Noch kein Track Record (weniger als 2 Bewertungspunkte).",
         }
@@ -84,13 +90,18 @@ def book_report(
         cost_share = costs_paid / gross if gross > 0 else None
 
     vs_benchmark: float | None = None
+    benchmark_max_drawdown: float | None = None
     if benchmark_curve:
         bench = _daily_series(benchmark_curve)
         overlap = bench.loc[(bench.index >= series.index[0]) & (bench.index <= series.index[-1])]
-        if len(overlap) >= 2 and total_return is not None:
-            bench_return = _total_return(overlap)
-            if bench_return is not None:
-                vs_benchmark = (total_return - bench_return) * 100.0
+        if len(overlap) >= 2:
+            # the benchmark's OWN drawdown on the same window — the reframed real-money bar
+            # asks for a RATIO, so the reference leg has to be measured, not assumed
+            benchmark_max_drawdown = float((1.0 - overlap / overlap.cummax()).max())
+            if total_return is not None:
+                bench_return = _total_return(overlap)
+                if bench_return is not None:
+                    vs_benchmark = (total_return - bench_return) * 100.0
 
     if n_days < MIN_DAYS_FOR_RATES:
         verdict = (
@@ -114,6 +125,9 @@ def book_report(
         "cagr_pct": cagr,
         "sharpe_annualised": sharpe,
         "max_drawdown_pct": max_drawdown * 100.0,
+        "benchmark_max_drawdown_pct": (
+            None if benchmark_max_drawdown is None else benchmark_max_drawdown * 100.0
+        ),
         "realized_win_rate": win_rate,
         "cost_share_of_pnl": cost_share,
         "vs_benchmark_pct": vs_benchmark,

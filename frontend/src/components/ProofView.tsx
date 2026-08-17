@@ -203,10 +203,11 @@ export function ProofView() {
       {data.conviction && (
         <Explain tone="hint">
           Was würde den Einsatz von echtem Geld rechtfertigen? Mindestens{" "}
-          <b>{data.conviction.min_track_days} Tage</b> Track Record, Rendite-Risiko-Verhältnis
-          nach Kosten <b>&gt; {data.conviction.min_sharpe_after_costs}</b>, max. Rückgang{" "}
-          <b>&lt; {data.conviction.max_drawdown_pct} %</b> — und selbst dann bleibt es deine
-          Entscheidung, nicht die des Systems.
+          <b>{data.conviction.min_track_days} Tage</b> Track Record, nach Kosten{" "}
+          <b>nicht hinter der Benchmark</b>, und ein maximaler Rückgang von höchstens{" "}
+          <b>{Math.round(data.conviction.max_drawdown_ratio_vs_benchmark * 100)} %</b> des
+          Benchmark-Rückgangs — Rendite liefert der Markt, die Maschine liefert Disziplin und
+          Risikokontrolle. Und selbst dann bleibt es deine Entscheidung, nicht die des Systems.
         </Explain>
       )}
 

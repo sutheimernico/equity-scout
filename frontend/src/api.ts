@@ -659,6 +659,7 @@ export interface ProofBook {
   cagr_pct: number | null;
   sharpe_annualised: number | null;
   max_drawdown_pct: number | null;
+  benchmark_max_drawdown_pct: number | null;
   realized_win_rate: number | null;
   cost_share_of_pnl: number | null;
   vs_benchmark_pct: number | null;
@@ -670,8 +671,8 @@ export interface ProofResponse {
   books?: ProofBook[];
   conviction?: {
     min_track_days: number;
-    min_sharpe_after_costs: number;
-    max_drawdown_pct: number;
+    min_vs_benchmark_pct: number;
+    max_drawdown_ratio_vs_benchmark: number;
   };
   // proof.MIN_DAYS_FOR_RATES, joined on by the endpoint so the "Urteil ab Tag N"
   // progress never hardcodes a second copy of the threshold.

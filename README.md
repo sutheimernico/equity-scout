@@ -341,9 +341,15 @@ bei Verlust-Büchern (Nenner-Formel korrigiert). Kennzahlen aus der Zeit davor s
 dieser Unschärfe zu lesen; gemessen wird seitdem korrekt.
 
 **Der Weg zu echtem Geld** ist eine Nico-Entscheidung, kein Systemfeature: erst wenn der
-Track Record die im Code hinterlegten Schwellen (`proof.CONVICTION_THRESHOLDS`: ≥ 180 Tage,
-Sharpe nach Kosten > 1, Max-Drawdown < 15 %) über Monate hält, lohnt die Diskussion über
-einen Broker. Seit 2026-08-04 darf die Session-Lane an ein **Paper**-Konto routen (Alpaca) —
+Track Record die im Code hinterlegten Schwellen (`proof.CONVICTION_THRESHOLDS`: ≥ 730 Tage,
+nach Kosten nicht hinter der Benchmark, Max-Drawdown ≤ 60 % des Benchmark-Drawdowns) hält,
+lohnt die Diskussion über einen Broker. **Neu gefasst 2026-08-17** (Review 2026-08-16): die
+alte Latte (Sharpe > 1 und Max-DD < 15 % über 180 Tage) lag über dem, was institutionelle CTAs
+langfristig halten, und 180 Tage können Sharpe 1 statistisch nicht von Sharpe 0 trennen — eine
+Hürde, die nur durch Glück fallen kann. Die Latte fragt jetzt nach dem, was der W0-Befund als
+erreichbar ausweist: Rendite ist an diesen Daten nicht vorhersagbar, Risiko schon — also
+marktähnliche Rendite bei deutlich weniger Rückgang, gemessen über einen Zeitraum, der das
+Urteil tragen kann. Seit 2026-08-04 darf die Session-Lane an ein **Paper**-Konto routen (Alpaca) —
 das ist eine Messmaßnahme gegen den Executability-Bias, keine Annäherung an Echtgeld.
 Echtgeld bleibt per `LOOP.md` ausgeschlossen und ist allein Nicos Entscheidung.
 

@@ -91,7 +91,7 @@ def test_proof_endpoint_renders_report_cards(tmp_path) -> None:
     assert depot["label"] == "Auto-Depot"
     assert "zu kurz" in depot["verdict_label"]  # 3 days of history: honest, no rates
     assert depot["sharpe_annualised"] is None
-    assert body["conviction"]["min_track_days"] == 180
+    assert body["conviction"]["min_track_days"] == 730  # risk-reframed bar, 2026-08-17
 
 
 def test_proof_endpoint_is_honest_when_empty(tmp_path) -> None:

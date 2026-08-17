@@ -79,3 +79,25 @@ def test_cost_share_zero_gross_stays_none() -> None:
 def test_flat_curve_has_no_sharpe() -> None:
     report = book_report(_curve(100, daily=0.0), label="Flach")
     assert report["sharpe_annualised"] is None  # zero variance is not evidence
+
+
+def test_conviction_thresholds_are_the_risk_reframed_bar() -> None:
+    from equity_scout.proof import CONVICTION_THRESHOLDS
+
+    assert CONVICTION_THRESHOLDS == {
+        "min_track_days": 730,
+        "min_vs_benchmark_pct": 0.0,
+        "max_drawdown_ratio_vs_benchmark": 0.60,
+    }
+
+
+def test_book_report_carries_benchmark_max_drawdown() -> None:
+    curve = [("2026-01-01", 100.0), ("2026-01-02", 110.0), ("2026-01-03", 105.0)]
+    bench = [("2026-01-01", 100.0), ("2026-01-02", 90.0), ("2026-01-03", 95.0)]
+    report = book_report(curve, label="t", benchmark_curve=bench)
+    assert report["benchmark_max_drawdown_pct"] == pytest.approx(10.0)
+
+
+def test_book_report_benchmark_drawdown_none_without_benchmark() -> None:
+    curve = [("2026-01-01", 100.0), ("2026-01-02", 110.0)]
+    assert book_report(curve, label="t")["benchmark_max_drawdown_pct"] is None
