@@ -48,7 +48,7 @@ The depot's `VolTarget` throttles on trailing 20-day vol — i.e. after vol has 
 - Modify: `scripts/run_autotrader.py` (`advance_autotrader` ~line 266, `main()` ~line 441)
 - Test: `tests/test_vol_forecast.py` (new), `tests/test_autotrader_protections.py` (extend)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_vol_forecast.py`:
 
@@ -143,12 +143,12 @@ def test_vol_target_multiplier_scales_the_estimate():
     assert event is not None and "VIX-Prognose" in event.detail
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/test_vol_forecast.py -q`
 Expected: FAIL/ERROR with `ModuleNotFoundError: equity_scout.vol_forecast`
 
-- [ ] **Step 3: Implement `src/equity_scout/vol_forecast.py`**
+- [x] **Step 3: Implement `src/equity_scout/vol_forecast.py`**
 
 ```python
 """VIX-calibrated forward-vol multiplier for the VolTarget protection (study 2026-08-12).
@@ -212,7 +212,7 @@ def vix_multiplier(vix_level: float | None, spy_closes: pd.Series | None) -> flo
     return min(ratio, high)
 ```
 
-- [ ] **Step 4: Extend `RiskContext` and `VolTarget` in `autotrader_protections.py`**
+- [x] **Step 4: Extend `RiskContext` and `VolTarget` in `autotrader_protections.py`**
 
 Add one field to `RiskContext` (after `drawdown`):
 
@@ -251,7 +251,7 @@ Replace the body of `VolTarget.apply` (keep signature):
 
 Update the `VolTarget` docstring to state: estimator = own trailing vol × VIX-forecast multiplier when available (study 2026-08-12), trailing alone otherwise; behaviour change dated 2026-08-16, visible per-event via the `(VIX-Prognose)`/`(trailing)` label in the RiskEvent detail.
 
-- [ ] **Step 5: Thread the multiplier through `advance_depot`**
+- [x] **Step 5: Thread the multiplier through `advance_depot`**
 
 In `src/equity_scout/autotrader_engine.py`, add to the `advance_depot` keyword parameters (after `depot_returns`):
 
@@ -268,7 +268,7 @@ and extend the `RiskContext(...)` construction (~line 424):
     )
 ```
 
-- [ ] **Step 6: Wire it in `scripts/run_autotrader.py`**
+- [x] **Step 6: Wire it in `scripts/run_autotrader.py`**
 
 Add import near the other `equity_scout` imports:
 
@@ -303,22 +303,22 @@ def _collect_vol_multiplier(panel: PricePanel) -> float | None:
 
 Add `vol_multiplier: float | None = None` to `advance_autotrader`'s keyword parameters and pass it into `advance_depot(...)` (next to `depot_returns=...`). In `main()`, pass `vol_multiplier=_collect_vol_multiplier(panel)` in the `advance_autotrader(...)` call.
 
-- [ ] **Step 7: Run the tests**
+- [x] **Step 7: Run the tests**
 
 Run: `uv run pytest tests/test_vol_forecast.py tests/test_autotrader_protections.py tests/test_autotrader_engine.py -q`
 Expected: PASS (existing engine tests pass unchanged — the new parameter defaults to None).
 
-- [ ] **Step 8: Dry-run against the live DB (consumer check — LOOP rule)**
+- [x] **Step 8: Dry-run against the live DB (consumer check — LOOP rule)**
 
 Run: `uv run python scripts/run_autotrader.py --dry-run`
 Expected: prints the sleeves + either a normal valuation or "Bereits aktuell"; if VIX fetch fails, the stderr warning appears and the run still completes. Nothing persisted.
 
-- [ ] **Step 9: Documentation + PLAN.md bookkeeping**
+- [x] **Step 9: Documentation + PLAN.md bookkeeping**
 
 - README "Auto-Depot" section: change the risk-layer sentence to say the 12% vol target uses the depot's trailing vol scaled by a VIX-forecast multiplier (study 2026-08-12), with trailing-only fallback.
 - PLAN.md: check off the two open boxes under "Phase: Risiko-Schiene — VolTarget nutzt den schwächeren Schätzer (2026-08-12)" and append a one-line outcome (deployed date, constants: divisor 1.341, clamp 0.5–3.0).
 
-- [ ] **Step 10: Gate + commit**
+- [x] **Step 10: Gate + commit**
 
 ```bash
 uv run pytest -q && uv run ruff check .
@@ -339,7 +339,7 @@ The current bar (`Sharpe > 1` after costs AND `MaxDD < 15 %` in 180 days) is set
 - Modify: `frontend/src/api.ts:671-675`, `frontend/src/components/ProofView.tsx:203-210`
 - Test: `tests/test_proof.py` (extend; check first whether threshold keys are pinned anywhere: `grep -rn "min_sharpe_after_costs" tests/`)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `tests/test_proof.py` (match existing test style there):
 
@@ -371,12 +371,12 @@ def test_book_report_benchmark_drawdown_none_without_benchmark():
     assert book_report(curve, label="t")["benchmark_max_drawdown_pct"] is None
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/test_proof.py -q`
 Expected: FAIL (old threshold keys; missing report key)
 
-- [ ] **Step 3: Implement in `proof.py`**
+- [x] **Step 3: Implement in `proof.py`**
 
 Replace the thresholds block (lines 19-25) with:
 
@@ -421,7 +421,7 @@ Add to the returned dict (next to `max_drawdown_pct`):
 
 Also add the key with value `None` to the early-return dict at the top of `book_report` (the `len(series) < 2` branch), so the shape is stable.
 
-- [ ] **Step 4: Update the frontend**
+- [x] **Step 4: Update the frontend**
 
 `frontend/src/api.ts` — replace the `conviction` shape (lines 671-675):
 
@@ -454,16 +454,16 @@ and add to `ProofBook` (near `max_drawdown_pct` at line ~661):
       )}
 ```
 
-- [ ] **Step 5: Run tests + frontend build**
+- [x] **Step 5: Run tests + frontend build**
 
 Run: `uv run pytest tests/test_proof.py tests/test_api.py -q` — PASS.
 Run: `npm run build --prefix frontend` — clean (this also typechecks; if a separate `npm run typecheck --prefix frontend` script exists, run it too).
 
-- [ ] **Step 6: Docs**
+- [x] **Step 6: Docs**
 
 README "Kann das funktionieren?" + "Der Weg zu echtem Geld" paragraphs: replace the `proof.CONVICTION_THRESHOLDS`-Werte (≥ 180 Tage, Sharpe > 1, MaxDD < 15 %) with the new bar and one sentence why (risk goal instead of alpha goal, review 2026-08-16).
 
-- [ ] **Step 7: Gate + commit**
+- [x] **Step 7: Gate + commit**
 
 ```bash
 uv run pytest -q && uv run ruff check .
@@ -483,7 +483,7 @@ The crypto lane's verdict "negativ, statistisch entschieden" (32 trades, −451.
 - Modify: `PLAN.md` (replace the open "Beobachten: Crypto-Lane auf Tagesbars" item), `README.md` (crypto lane bullet)
 - Test: `tests/test_lane_review.py` (extend; create if missing)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `tests/test_lane_review.py`, following the existing trade-dict shape (`executed_at`, `ticker`, `side`, `qty`, `price`, `fees`, `reason`, `realized_pnl`):
 
@@ -515,12 +515,12 @@ def test_other_lanes_keep_their_full_history():
 
 (Field names verified against `lane_review.py:27-37` — `LaneReview` carries `n_closed` and `notes` exactly as asserted.)
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/test_lane_review.py -q`
 Expected: FAIL with `ImportError: cannot import name 'MEASUREMENT_EPOCHS'`
 
-- [ ] **Step 3: Implement in `lane_review.py`**
+- [x] **Step 3: Implement in `lane_review.py`**
 
 Add near the top of the module:
 
@@ -553,11 +553,11 @@ And append a note (where the other `notes` are collected):
 
 Known, accepted edge: a position OPENED under the old regime but CLOSED after the epoch counts into the new window (trade rows carry the close timestamp). One transition trade at most; noting it here is cheaper than plumbing open timestamps through.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `uv run pytest tests/test_lane_review.py -q` — PASS.
 
-- [ ] **Step 5: Pre-register the kill criterion (docs, no code)**
+- [x] **Step 5: Pre-register the kill criterion (docs, no code)**
 
 - PLAN.md: replace the open item "Beobachten: ob die Crypto-Lane auf Tagesbars einen positiven Erwartungswert zeigt…" with:
 
@@ -573,7 +573,7 @@ Run: `uv run pytest tests/test_lane_review.py -q` — PASS.
 
 - README crypto lane bullet: add one sentence — verdict window starts 2026-08-10 (daily-bars regime), kill criterion ≥30 daily-era trades + verdict "negativ".
 
-- [ ] **Step 6: Gate + commit**
+- [x] **Step 6: Gate + commit**
 
 ```bash
 uv run pytest -q && uv run ruff check .
@@ -593,7 +593,7 @@ A Sharpe estimate over 63 daily observations has a standard error of ~2 annualis
 - Modify: `README.md` (Auto-Depot section wording)
 - Test: `tests/test_autotrader_allocator.py` (extend + adjust pins)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/test_autotrader_allocator.py` (three sleeves on purpose: with only two, `_clip_renormalise` widens the cap to 1/n = 0.5 and pins both there, hiding the tilt):
 
@@ -625,12 +625,12 @@ def test_sharpes_are_still_reported_but_do_not_drive_weights():
     assert allocation.weights["calm"] > allocation.weights["lucky_wild"]
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/test_autotrader_allocator.py -q`
 Expected: new tests FAIL (mode is "tilt", weights follow Sharpe)
 
-- [ ] **Step 3: Implement in `blend_weights`**
+- [x] **Step 3: Implement in `blend_weights`**
 
 Replace the softmax block (lines 154-159):
 
@@ -658,7 +658,7 @@ and in the blend below, use `tilt[name]` instead of `softmax[name]`, and return 
 
 Update the module docstring (Sharpe-softmax → inverse-vol, why) and the `SleeveAllocation.mode` comment (`"anchor" | "tilt_invvol"`; the retired `"tilt"` only exists in old DB rows).
 
-- [ ] **Step 4: Retire stored `"tilt"` rows honestly in `resolve_allocation`**
+- [x] **Step 4: Retire stored `"tilt"` rows honestly in `resolve_allocation`**
 
 In `scripts/run_autotrader.py:217`, the stored-weights reuse must not carry a retired scheme through the month. Change the condition to:
 
@@ -681,20 +681,20 @@ and update `mode_note` in `main()`:
     )
 ```
 
-- [ ] **Step 5: Fix the pins**
+- [x] **Step 5: Fix the pins**
 
 Run: `uv run pytest tests/test_autotrader_allocator.py tests/test_autotrader_storage.py -q` and update every existing test that pins `mode == "tilt"` or softmax-derived weight values. The invariants that MUST survive unchanged: weights sum to 1, floor/cap respected, young sleeves keep anchor shares, anchor mode below `MIN_OVERLAP_OBS`.
 
-- [ ] **Step 6: Dry-run (consumer check)**
+- [x] **Step 6: Dry-run (consumer check)**
 
 Run: `uv run python scripts/run_autotrader.py --dry-run`
 Expected: allocation recomputes under `tilt_invvol` (stored `tilt` rows for this month are ignored), weights within floor/cap, no crash. Note the one-time reallocation size in the output for the commit message.
 
-- [ ] **Step 7: Docs**
+- [x] **Step 7: Docs**
 
 README Auto-Depot section: "Sharpe-softmax tilt" → "inverse-vol tilt (Sharpe weiterhin angezeigt, aber nicht gewichtsbestimmend — Begründung: Schätzfehler, DeMiguel 2009, Review 2026-08-16)".
 
-- [ ] **Step 8: Gate + commit**
+- [x] **Step 8: Gate + commit**
 
 ```bash
 uv run pytest -q && uv run ruff check .
@@ -715,7 +715,7 @@ All sleeves rebalance on month-end. Hoffstein/Faber/Braun (2020) show the rebala
 - Create (after running): `docs/research/2026-08-XX-rebalance-timing-luck.md` (XX = run date)
 - Test: `tests/test_engine_rebalance_override.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_engine_rebalance_override.py`:
 
@@ -759,12 +759,12 @@ def test_default_behaviour_unchanged_without_override():
 
 (If `weights_by_date` only records dates with turnover > eps, adjust the first assertion to check `trades` only — read `engine.py:104-107`: `weight_rows[date] = target` records EVERY rebalance date, turnover or not, so the assertion above holds.)
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/test_engine_rebalance_override.py -q`
 Expected: FAIL with `TypeError: run_backtest() got an unexpected keyword argument 'rebalance_dates'`
 
-- [ ] **Step 3: Implement the engine override**
+- [x] **Step 3: Implement the engine override**
 
 In `engine.py`, extend the signature:
 
@@ -791,11 +791,11 @@ and replace line 69:
 
 (rename the two usages of the old `rebalance_dates` local accordingly).
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `uv run pytest tests/test_engine_rebalance_override.py tests/test_engine.py -q` — PASS (test_engine.py exists and pins the default path).
 
-- [ ] **Step 5: Write the study script**
+- [x] **Step 5: Write the study script**
 
 Create `scripts/run_timing_luck_study.py`:
 
@@ -890,12 +890,12 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 6: Run the study and write the research doc**
+- [x] **Step 6: Run the study and write the research doc**
 
 Run: `uv run python scripts/run_timing_luck_study.py` (first run may need `--refresh`; ~1-2 min).
 Write `docs/research/<today>-rebalance-timing-luck.md`: the table, the verdict per the Lesart line, and the explicit build/no-build recommendation for tranching. Add the corresponding follow-up item (build tranching OR close the question) under a new phase note in `PLAN.md`.
 
-- [ ] **Step 7: Gate + commit**
+- [x] **Step 7: Gate + commit**
 
 ```bash
 uv run pytest -q && uv run ruff check .
@@ -918,7 +918,7 @@ Fail direction, deliberately split: reference UNREACHABLE → warn + advance (a 
 - Modify: `scripts/run_autotrader.py` (`main()`, after `combined_panel`), `LOOP.md` (data-source list), `README.md` (one sentence)
 - Test: `tests/test_stooq.py`, `tests/test_price_crosscheck.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_stooq.py`:
 
@@ -976,12 +976,12 @@ def test_tolerance_is_two_percent():
     assert TOLERANCE == 0.02
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `uv run pytest tests/test_stooq.py tests/test_price_crosscheck.py -q`
 Expected: FAIL with ModuleNotFoundError
 
-- [ ] **Step 3: Implement `src/equity_scout/data/stooq.py`**
+- [x] **Step 3: Implement `src/equity_scout/data/stooq.py`**
 
 ```python
 """Independent EOD close reference from Stooq (free CSV, no key) — the depot's price
@@ -1037,7 +1037,7 @@ def fetch_latest_closes(tickers: list[str]) -> dict[str, tuple[str, float]]:
     return out
 ```
 
-- [ ] **Step 4: Implement `src/equity_scout/price_crosscheck.py`**
+- [x] **Step 4: Implement `src/equity_scout/price_crosscheck.py`**
 
 ```python
 """Compare the depot panel's latest closes against an independent reference (pure logic).
@@ -1081,11 +1081,11 @@ def crosscheck(
     return problems
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `uv run pytest tests/test_stooq.py tests/test_price_crosscheck.py -q` — PASS.
 
-- [ ] **Step 6: Wire into `run_autotrader.main()`**
+- [x] **Step 6: Wire into `run_autotrader.main()`**
 
 Imports:
 
@@ -1112,14 +1112,14 @@ In `main()`, directly after `panel = combined_panel(...)` and before the advance
             raise SystemExit(2)
 ```
 
-- [ ] **Step 7: Live smoke + docs**
+- [x] **Step 7: Live smoke + docs**
 
 Run: `uv run python scripts/run_autotrader.py --dry-run` — expect either a silent pass (prices agree), or the honest warn-and-continue if Stooq is unreachable. Never an abort unless prices genuinely diverge — if it aborts, INVESTIGATE before proceeding (that is the gate working).
 
 - LOOP.md hard-constraints bullet: extend the source list — "Data only from yfinance / SEC EDGAR (UA header) / public constituent lists / Stooq (free EOD quotes, read-only price cross-check)".
 - README Automation section: one sentence — the nightly depot advance aborts (and the guarded chain retries) when the panel contradicts an independent Stooq reference by > 2 %.
 
-- [ ] **Step 8: Gate + commit**
+- [x] **Step 8: Gate + commit**
 
 ```bash
 uv run pytest -q && uv run ruff check .
@@ -1140,7 +1140,7 @@ Achse 2 exhausted the 10/20/60-day target families at coin-flip AUC on 54k OOS r
 - Modify: `PLAN.md` (fundamentals follow-up items)
 - Test: `tests/test_entry_eval.py` (extend; file exists)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 def test_fundamentals_horizon_is_six_months_and_distinct():
@@ -1155,12 +1155,12 @@ def test_fundamentals_horizon_is_six_months_and_distinct():
     assert SHORT_HORIZON_DAYS < HORIZON_DAYS < SECONDARY_HORIZON_DAYS < FUND_HORIZON_DAYS
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `uv run pytest tests/test_entry_eval.py -q`
 Expected: FAIL with ImportError
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `src/equity_scout/ml/entry_eval.py`, after line 28:
 
@@ -1171,15 +1171,15 @@ FUND_HORIZON_DAYS = 126  # ~6 months — the fundamentals experiment's target (f
 # weeks. Testing them against the settled short horizons would re-run a null result.
 ```
 
-- [ ] **Step 4: Run test**
+- [x] **Step 4: Run test**
 
 Run: `uv run pytest tests/test_entry_eval.py -q` — PASS.
 
-- [ ] **Step 5: Update PLAN.md**
+- [x] **Step 5: Update PLAN.md**
 
 In the "Fundamentaldaten-Schiene" phase, amend the two open follow-up items: the backfill collector's monthly Stichtage feed a label with horizon `FUND_HORIZON_DAYS = 126` (family `entry_fund`), evaluated with the same `volume_index=None`-style additive proof as evidence/volume. Reference this plan.
 
-- [ ] **Step 6: Gate + commit**
+- [x] **Step 6: Gate + commit**
 
 ```bash
 uv run pytest -q && uv run ruff check .
@@ -1195,6 +1195,80 @@ git commit -m "feat(ml): pre-register 126d target horizon for the fundamentals e
 - **Track honesty:** Task 1 marks itself per-event (`VIX-Prognose` label), Task 4 via the stored `tilt_invvol` mode rows. No `protection_regime`-style account stamp is added — that field is single-use and already consumed by the 2026-08-10 cap change; the audit trail carries the dates.
 - **Self-review before each commit** (CLAUDE.md): diff gegenlesen — correctness, simplicity, repo conventions.
 
-## Outcome
+## Outcome (2026-08-17)
 
-_To be filled after execution: what shipped, deviations, open points._
+**Alle 7 Tasks umgesetzt**, jeder mit eigenem Commit auf `autopilot/work`, Gate pro Task grün
+(`uv run pytest -q` + `uv run ruff check .`), Frontend `tsc --noEmit` clean und 127 Vitest-Tests
+grün. Reihenfolge: 1 → 2 → 3 → 5 → 6 → 7 → 4.
+
+| Task | Commit | Live-Wirkung |
+|---|---|---|
+| 1 VIX-Multiplikator in VolTarget | `93bd8dd` | **ja**, ab Nightly Di 18.08. 02:30 |
+| 2 Echtgeld-Latte als Risikoziel | `b5537e6` | nur Anzeige/Schwelle |
+| 3 Regime-saubere Crypto-Bewertung | `8af23c7` | nur Messung (kein Trading) |
+| 5 Timing-Luck-Studie | `015c88f` | keine (Messung + Engine-Override) |
+| 6 Unabhängiger EOD-Kreuzcheck | `e3297e7` | **ja**, Abbruchpfad vor dem Advance |
+| 7 126-Tage-Horizont vorab registriert | `e77c2b8` | keine (Konstante + Doku) |
+| 4 Inverse-Vol-Tilt | `e122b8f` | **heute keine** (Anker-Modus, siehe unten) |
+
+### Abweichungen vom Plan
+
+1. **Task 6 hat eine andere Datenquelle als geplant: Stooq ist tot.** `stooq.com/q/l/?...&e=csv`
+   antwortet 404 (auf .com und .pl), und die History-CSV liegt hinter einer
+   JavaScript-Proof-of-Work-Bot-Wall. Ersatz: **Alpaca-Tagesbars** über die im Repo bereits
+   vorhandenen Paper-Keys (`src/equity_scout/data/eod_reference.py` statt `data/stooq.py`). Das ist
+   eine offizielle Broker-API statt eines Scrapers, also als unabhängige Referenz eher stärker als
+   Stooq — aber nicht keylos. Kein neues Konto, keine Kosten, LOOP.md-Quellenliste entsprechend
+   erweitert. Gemessene Übereinstimmung am 14.08. über SPY/IEF/GLD: **0,007 %** (Toleranz 2 %).
+   Zusätzlich gegenüber dem Plan: nur Bars ABGESCHLOSSENER Tage gelten als Referenz — ein Bar der
+   laufenden Sitzung ist kein EOD-Close und hätte eine Divergenz aus der Uhr erfunden.
+2. **Task 4 durfte doch am selben Tag wie Task 1 ausgerollt werden.** Die Attributionsregel des
+   Plans setzt voraus, dass beide das Buch bewegen. Nachgewiesen ist das Gegenteil: das Depot
+   läuft seit Juli durchgehend im `anchor`-Modus (11 Sleeves à 9,09 %, gespeicherte Zeilen
+   `anchor`), ein Tilt hat noch nie stattgefunden, und der Dry-Run nach dem Umbau liefert
+   unverändert Anker mit 9,1 %. Erster möglicher Tilt: `MIN_OVERLAP_OBS = 60`, aktuell führen die
+   ältesten Sleeves mit 19 Beobachtungen → grob Mitte Oktober 2026. Einzige
+   Verhaltensänderung dieser Nacht ist damit Task 1.
+3. **Task 3 brauchte einen Zusatz, den der Plan nicht sah: das Bewegungs-Delta.** Der erste
+   Review nach der Epoche schrumpft von 32 Trades / −451,60 auf 4 / −129,72 — die Nachtzeile hätte
+   „seit letzter Auswertung +321,88 USD" gemeldet, also eine Gebührenrückerstattung erfunden, die
+   die Lane nie verdient hat. `LaneReview` trägt jetzt sein `epoch` mit; ein Vergleich über eine
+   Fenstergrenze wird ausgesetzt und benannt. Auf echten Live-Daten verifiziert.
+4. **Task 5: die Studie gibt alle vier Offsets aus, nicht nur min..max.** Ohne die Per-Offset-
+   Spalten ist Kalenderglück nicht von einem systematischen Monatseffekt zu trennen — und die
+   Antwort ändert die Empfehlung. Ergebnis: kein Offset gewinnt systematisch (Mittel +8,77 /
+   +8,32 / +9,19 / +8,27 %), also Glück. Aber material für die signalgetriebenen Sleeves:
+   Mean-Reversion 5,85 pp CAGR, DAA 4,15, GEM 3,63, Momentum 3,12; die Allokations-Sleeves sind
+   immun (0,23–0,48 pp).
+5. **Task 4: drei bestehende Tests mussten inhaltlich umgeschrieben werden, nicht nur ihr
+   `mode`-Pin.** Ihre Fixtures unterschieden sich nur in der Drift, bei identischem Noise — nach
+   dem Wechsel auf Inverse-Vol hätten sie nur noch den Zufall des Seeds geprüft. Sie laufen jetzt
+   über einen deterministischen Vol-Helper (`_vol_frame`).
+6. **Task 6: eine Aussage des Plans über die guarded chain war falsch** („retries the slot").
+   `run_nightly_guarded.sh` holt einen verpassten TAG nach, nicht einen abgebrochenen Step in
+   einem Tag, der schon lief. Abbruchtext und Kommentar sagen jetzt, was wirklich passiert: die
+   nächste Buchung ist die nächste Nacht, der Advance ist idempotent pro Panel-Datum, eine
+   bleibende Divergenz ist ein Fall für Nico.
+
+### Verifikation über die Tests hinaus
+
+- Task 1: Dry-Run gegen die Live-DB ohne VIX-Warnung; Multiplikator am 17.08. **0,795** (VIX 14,25,
+  SPY-trailing 13,4 %) — das Depot drosselt aktuell also SCHWÄCHER als mit trailing, weil die
+  Prognose die nächsten 20 Tage ruhiger sieht als die letzten 20.
+- Task 3: `run_lane_review.py` auf einer WAL-vollständigen DB-Kopie — Crypto liest jetzt 4 Trades
+  / −129,72 mit Fenster-Notiz statt „negativ, statistisch entschieden" über 32 Trades.
+- Task 6: beide Fehlrichtungen live geprüft — echter Lauf still bestanden, und mit manipulierter
+  Referenz (SPY 700 statt 776,34) bricht der Advance mit `SystemExit 2` und nennt die Abweichung.
+
+### Offene Punkte / Needs Nico
+
+- **Task 2: die drei Schwellenwerte sind Plan-Defaults** (730 Tage Track, nach Kosten nicht hinter
+  der Benchmark, MaxDD ≤ 60 % des Benchmark-MaxDD) — Vetorecht liegt bei Nico, Änderung ist ein
+  Einzeiler in `proof.CONVICTION_THRESHOLDS`.
+- **Task 5: Tranching bauen?** Nico-Gate, in PLAN.md als offener Punkt notiert. Preis: jeder
+  getrancht laufende Sleeve ist eine neue Strategie-Identität mit frischem Forward-Track.
+- **Verify in der Nacht Mo→Di:** `train.log` auf den `autotrader`-Step ansehen — erwartet wird ein
+  Advance mit einem VolTarget-Event, das `(VIX-Prognose)` trägt (sofern die Vola über dem Ziel
+  liegt), und kein Kreuzcheck-Abbruch.
+- **Crypto-Kill-Kriterium läuft:** ab ≥ 30 Daily-Ära-Abschlüssen entscheidet
+  `significance.assess_trades`; Stand jetzt 4.
