@@ -23,3 +23,7 @@ keepalive.log
 # Minute-bar store for the signal matrix: ~70 tickers x 11 years, several GB. Reproducible
 # via scripts/fetch_minute_history.py, so it is derived data, not source.
 data/minutes/
+
+# News history store (Alpaca/Benzinga wire), derived data — see scripts/run_news_latency.py
+data/news/
+data/matrix_cells.jsonl
