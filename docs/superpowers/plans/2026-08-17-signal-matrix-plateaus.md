@@ -1645,6 +1645,68 @@ git commit -m "docs(research): signal matrix over minute bars - plateau search a
 - **What this plan does NOT decide:** whether to trade any of it. That is Nico's call on the
   follow-up plan, and it starts with the feed-difference measurement, not with an order.
 
-## Outcome
+## Outcome (2026-08-17, Bau abgeschlossen — Messung läuft über Nacht)
 
-_To be filled after execution: space size, plateaus found, hold-out verdict, deviations._
+**Die komplette Maschinerie steht und ist getestet** (6 Commits, Gate grün, ruff clean). Der
+Datenlauf läuft; die Befunde stehen morgen in `docs/research/`.
+
+### Was gegenüber diesem Plan erweitert wurde — auf Nicos Nachträge vom selben Abend
+
+1. **Zeitscheiben bis 1 Monat, nicht nur bis 60 Minuten.** `TIME_SLICES` = 1min/5min/15min/
+   30min/60min/1D/1W/1M. `resample_bars` verzweigt: Intraday-Scheiben werden pro HANDELSTAG
+   gruppiert (sonst verschweißt eine 5-Minuten-Bar 15:59 mit dem nächsten 09:30), Swing-Scheiben
+   bewusst nicht — dass sie Sitzungen überspannen, ist ihr Zweck. Jahresskala verworfen: bei 10
+   Jahren sind das 10 Beobachtungen pro Ticker, die Stichprobenschwelle würde jede Zelle
+   verwerfen, und das Ergebnis wäre eine Zeile „nicht messbar" für einen Rechentag.
+2. **Asset-Klasse als eigene Achse** (Nicos Frage „unterscheiden sich Aktien und Rohstoffe?").
+   70 Instrumente in 8 Klassen: Aktien, Index-ETFs, Sektoren, Rohstoffe (Gold, Silber, Öl, Gas,
+   Kupfer, Platin, Agrar), Anleihen, Währungen, Volatilität, REITs. Klassen verschmelzen NICHT in
+   der Plateau-Nachbarschaft — „wirkt auf Gold und auf Anleihen" ist ein Befund, keine Zelle.
+3. **Ein siebtes Signal** (`breakout_high`, Donchian auf jeder Scheibe) neben den sechs geplanten.
+4. **News-Latenz-Zerfallskurve** (`matrix/latency.py`, `data/news_history.py`,
+   `scripts/run_news_latency.py`) — Nicos Frage, ob wir viele Quellen scrapen sollen, um schneller
+   zu sein. Sie ist messbar statt diskutierbar, weil Alpaca den Benzinga-Wire ab 2016 mit
+   **sekundengenauem** `created_at` liefert. Gemessen wird pro Verzögerungsstufe (0/1/2/5/15/30
+   Min), was ein langsamerer Einsteiger VERPASST und was er noch verdient. `decay_verdict()` gibt
+   dazu einen von drei klaren Sätzen aus — hält der Effekt ≥ 5 Minuten, ist Latenz nicht der
+   Engpass und ein Scraping-Netz wäre Aufwand ohne Gegenwert; existiert er nur in Minute 0-1, ist
+   es ein Rennen gegen Mikrosekunden-Gegner, das mit ~5 s Signal-zu-Fill nicht zu gewinnen ist.
+5. **Nachtlauf-Tauglichkeit:** JSONL-Checkpoint pro Ticker (`data/matrix_cells.jsonl`), ein
+   Ticker nach dem anderen im Speicher (statt 70 Millionen Zeilen gleichzeitig), Wiederaufnahme
+   überspringt fertige Ticker, und eine abgerissene letzte Zeile nach einem Kill ist kein Fehler.
+6. **Laufzeit-Optimierung, ohne die es kein Nachtlauf wäre:** die Kostenachse ändert nicht, WELCHE
+   Trades stattfinden — also werden Trades einmal pro (Signal, Schwelle, Scheibe, Haltedauer)
+   berechnet und alle vier Kostenstufen davon abgeleitet. Die Auswahl läuft über die
+   Signal-Indizes statt über jede Bar. Ergebnis: **SPY mit 979.348 Bars → 7.280 Zellen in 19 s**
+   (eine Bar-für-Bar-Schleife hätte pro Ticker Stunden gebraucht).
+
+### Zwei harte Datengrenzen, gemessen statt vermutet
+
+- **Das laufende Jahr ist gesperrt.** Jede 2026-Anfrage antwortet `HTTP 403 subscription does not
+  permit querying recent SIP data`. Nutzbar sind **2016-2025**; `FULL_YEARS` wurde entsprechend
+  gekürzt. Der Hold-out (ab 2023) umfasst damit drei vollständige Jahre.
+- **Der Feed-Bruch ist real und bleibt:** Historie = SIP (konsolidiert), live = IEX (~2-3 % des
+  Volumens). Genau deshalb ist ein bestätigtes Plateau ein Kandidat und kein Live-Edge.
+
+### Ein Bug, den die Tests gefangen haben (und der still Plateaus erfunden hätte)
+
+Die Achsen-Nachbarschaft wurde zuerst aus den VORHANDENEN Zellen abgeleitet. Damit wären zwei
+Zellen zu Nachbarn geworden, sobald die Zelle dazwischen unter die Stichprobenschwelle fällt —
+1D direkt neben 1M, wenn 1W zu dünn ist. Aus zwei unabhängigen Einzelfunden wäre so ein
+„Plateau" entstanden, also genau das Artefakt, gegen das der ganze Ansatz gebaut ist. Die
+Nachbarschaft kommt jetzt aus der DEKLARIERTEN Achse (`slice_order`).
+
+### Vorbefund aus dem Probelauf (SPY allein, 2016-2025)
+
+1.984 messbare Zellen, davon **206 nach Kosten positiv, aber nur 2 mit t ≥ 2 — und beide
+isoliert, also kein Plateau.** Bei 20 bp Kosten überlebt nichts. Die beste Einzelzelle
+(`gap_up`, 30min, Halten 12, bei 2 bp: +14,86 bp, t = 2,20) sitzt mit n = 284 knapp über der
+Schwelle. Das ist genau die Struktur, die die Plateau-Regel aussortieren soll — der volle Lauf
+über 70 Instrumente hat je Zelle ein Vielfaches der Stichprobe.
+
+### Offen
+
+- [ ] Nachtlauf-Ergebnisse lesen: `docs/research/2026-08-1x-signal-matrix.md` und
+      `...-news-latency-decay.md`, dann Outcome hier vervollständigen.
+- [ ] Nico-Gate: nur falls ein Plateau den Hold-out überlebt → Folgeplan, dessen ERSTER Schritt
+      eine Signal-vs-Fill-Messung auf IEX ist, nicht eine Lane.
