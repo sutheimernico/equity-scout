@@ -253,7 +253,12 @@ the depot's own trailing vol scaled by a VIX-forecast multiplier (study 2026-08-
 predicts the next 20 days better than the trailing window; divisor 1.341 for the variance risk
 premium, clamp 0.5–3.0, trailing-only fallback whenever the VIX leg is missing), and a tiered
 drawdown breaker (≥ 10 % → half, ≥ 20 % → cash, staged recovery after a cooldown). It advances
-nightly in `nightly_train.sh` right after the sleeves. Every trade, weight, and risk
+nightly in `nightly_train.sh` right after the sleeves. **Before it books anything** the advance
+cross-checks its panel against an independent EOD reference (Alpaca daily bars on the existing
+paper credentials — an official API, unlike the yfinance scraper): a divergence above 2 % aborts
+the advance loudly, an unreachable reference only warns and lets it proceed. Rationale: a missing
+price degrades honestly everywhere, a WRONG price would book silently into the track record.
+Every trade, weight, and risk
 intervention is persisted (`autotrader.db`) and surfaced: digest block, `/api/autodepot`,
 dashboard tab.
 

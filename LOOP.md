@@ -17,8 +17,10 @@ Progress lives on disk (this file, `PLAN.md`, git history, `AUTOPILOT_LOG.md`) �
    another task, or exit. Never sign up for anything paid. Never fake data or metrics.
 
 ## Project-specific hard constraints (never override)
-- **Local & free.** Data only from yfinance / SEC EDGAR (UA header) / public constituent lists.
-  No paid feeds. **No real-money trading — ever.** Order routing to a PAPER broker account is
+- **Local & free.** Data only from yfinance / SEC EDGAR (UA header) / public constituent lists /
+  Kraken public bars / Alpaca's free IEX data on the existing paper credentials (lane bars, and
+  since 2026-08-17 the depot's read-only EOD price cross-check). No paid feeds, no new accounts.
+  **No real-money trading — ever.** Order routing to a PAPER broker account is
   allowed since 2026-08-04 (Nico's explicit decision, for the session lane on Alpaca Paper);
   a live/funded endpoint or live API key is never used. The loop never widens this line itself.
 - **Honesty guardrails.** Every output surface carries the `DISCLAIMER`. The data-completeness gate

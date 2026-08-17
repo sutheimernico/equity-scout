@@ -42,6 +42,7 @@ from equity_scout.constants import (
     ML_SLEEVE_NAMES,
 )
 from equity_scout.forward_storage import load_account
+from equity_scout.data.eod_reference import EodReferenceError, fetch_latest_closes
 from equity_scout.data.etf_panel import load_etf_panel, load_price_history
 from equity_scout.data.ohlc_panel import load_ohlc_panel
 from equity_scout.digest import MATERIAL_DELTA_WEIGHT, format_de
@@ -51,6 +52,7 @@ from equity_scout.state_storage import record_heartbeat
 from equity_scout.telegram_client import TelegramError, load_telegram_config, send_message
 from equity_scout.market import PricePanel
 from equity_scout.autotrader_protections import RiskEvent
+from equity_scout.price_crosscheck import CHECK_TICKERS, crosscheck
 from equity_scout.promotion import lane_promotion_status, trailing_net_pnl
 from equity_scout.radar_storage import load_latest_watchlist
 from equity_scout.shortterm_storage import DEFAULT_SHORTTERM_DB_PATH
@@ -468,6 +470,30 @@ def main() -> None:
     )
     as_of = panel.dates[-1].date()
     print(f"\nAuto-Depot — advancing to {as_of} ({len(panel.dates)} panel days)\n")
+
+    # Independent price cross-check before anything books. Fail directions are deliberately
+    # split: reference UNREACHABLE -> warn and advance (a missing check must never stop the
+    # depot); reference CONTRADICTS the panel -> abort loudly, because a wrong price books
+    # into the track record and nothing downstream would ever catch it.
+    #
+    # What an abort costs, precisely: THIS advance. run_nightly_guarded.sh catches up a missed
+    # DAY, not a failed step inside a day that already ran, so the next booking is the next
+    # night — and since the advance is idempotent per panel date, that night books the same
+    # state once the prices agree. A divergence that persists is a case for Nico, not a retry.
+    if os.environ.get("EQUITY_SCOUT_SKIP_CROSSCHECK") != "1":
+        try:
+            reference = fetch_latest_closes(list(CHECK_TICKERS))
+        except EodReferenceError as err:
+            print(f"Warnung: Preis-Kreuzcheck nicht erreichbar ({err}) — "
+                  "Advance läuft ohne Referenz.", file=sys.stderr)
+            reference = {}
+        problems = crosscheck(panel.closes, reference)
+        if problems:
+            print("ABBRUCH: Panel widerspricht der unabhängigen Referenz — kein Advance auf"
+                  " möglicherweise falschen Kursen. Nächste Buchung erst in der nächsten Nacht"
+                  " (Advance ist idempotent pro Panel-Datum); bleibt der Widerspruch, prüfen:"
+                  "\n  " + "\n  ".join(problems), file=sys.stderr)
+            raise SystemExit(2)
 
     account, valuation = advance_autotrader(
         panel, strategies,
