@@ -91,11 +91,26 @@ def test_dry_run_persists_nothing(dbs) -> None:
 def test_resolve_allocation_reuses_same_month_same_sleeves(dbs) -> None:
     autotrader_db, forward_db = dbs
     as_of = pd.Timestamp("2026-07-13")
-    stored = SleeveAllocation(weights={"a": 0.7, "b": 0.3}, mode="tilt", sharpes={"a": 1.0, "b": 0.1})
+    stored = SleeveAllocation(
+        weights={"a": 0.7, "b": 0.3}, mode="tilt_invvol", sharpes={"a": 1.0, "b": 0.1}
+    )
     save_sleeve_weights(autotrader_db, "2026-07", stored)
     allocation = resolve_allocation(autotrader_db, forward_db, ["a", "b"], as_of)
     assert allocation.weights == {"a": 0.7, "b": 0.3}
-    assert allocation.mode == "tilt"
+    assert allocation.mode == "tilt_invvol"
+
+
+def test_resolve_allocation_refuses_to_carry_a_retired_scheme_through_the_month(dbs) -> None:
+    # "tilt" = Sharpe softmax, retired 2026-08-17. Reusing such a row would run the book on a
+    # scheme the code no longer implements, for the rest of the month.
+    autotrader_db, forward_db = dbs
+    as_of = pd.Timestamp("2026-07-13")
+    save_sleeve_weights(
+        autotrader_db, "2026-07", SleeveAllocation(weights={"a": 0.7, "b": 0.3}, mode="tilt")
+    )
+    allocation = resolve_allocation(autotrader_db, forward_db, ["a", "b"], as_of)
+    assert allocation.mode == "anchor"  # recomputed; no forward history in the tmp DB
+    assert allocation.weights == {"a": 0.5, "b": 0.5}
 
 
 def test_resolve_allocation_recomputes_when_sleeve_set_changes(dbs) -> None:

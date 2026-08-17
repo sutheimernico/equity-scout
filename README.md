@@ -245,7 +245,9 @@ uv run python scripts/run_insider_shadow.py --dry-run                      # nur
 ONE automatically traded **paper** depot that combines every strategy lane: the rule-based
 sleeves (DCA, 60/40, Permanent, Vol-Target, GEM, DAA, Sector-Rotation) plus each ML bot with a
 promoted champion. Sleeve weights come from each sleeve's own forward track record — a 50 %
-equal-weight anchor blended with a Sharpe-softmax tilt over a 63-day walk-forward window
+equal-weight anchor blended with an inverse-vol tilt over a 63-day walk-forward window
+(Sharpes are still shown but no longer decide weights — a Sharpe estimated on 63 daily
+observations is dominated by estimation error, DeMiguel 2009; changed 2026-08-17)
 (floor 5 % / cap 40 %, monthly recompute; the shrinkage lesson of the 1/N literature). The
 aggregated per-ticker book then passes a composable risk layer, in order: single-name cap 10 %,
 regime gate (red light → half exposure), a 12 % vol target (never levers up) whose estimator is

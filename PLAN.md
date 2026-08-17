@@ -37,6 +37,27 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       - Nicos eigener Durchklick auf dem Handy steht seit dem 08.08. als Needs-Nico aus; ohne
         seine Funde ist "zu Ende" nicht bestimmbar.
 
+## Phase: Allocator-Tilt auf Inverse-Vol statt Sharpe-Softmax (2026-08-17) — DONE
+Task 4 aus `docs/superpowers/plans/2026-08-16-autotrader-review-upgrades.md`.
+
+- **Warum:** eine Sharpe-Schätzung über 63 Tagesbeobachtungen hat einen Standardfehler von grob
+  2 annualisierten Einheiten — der Softmax-Exponent rankte also Rauschen (DeMiguel/Garlappi/Uppal
+  2009). Genau der Schätzfehler, gegen den der 50-%-Anker existiert, kam über den Tilt zurück.
+  Volatilität IST auf 63 Beobachtungen schätzbar, und der W0-Befund sagt dasselbe von der
+  Datenseite: Rendite ist hier nicht vorhersagbar, Risiko schon.
+- **Was bleibt:** 50-%-Equal-Weight-Anker, Floor 5 % / Cap 40 %, seasoned/young-Trennung,
+  monatliche Neuberechnung, Sharpes auf allen Oberflächen sichtbar — sie bestimmen nur keine
+  Gewichte mehr. Modus heißt jetzt `tilt_invvol`; gespeicherte `tilt`-Zeilen (Altschema) werden
+  nicht mehr durch den Monat getragen, sondern neu berechnet.
+- **Live-Wirkung heute: null, nachgewiesen.** Das Depot läuft seit Juli durchgehend im
+  `anchor`-Modus (11 Sleeves à 9,09 %); ein Tilt hat noch nie stattgefunden. Der Dry-Run nach dem
+  Umbau liefert unverändert Anker mit 9,1 %, die gespeicherten Zeilen bleiben `anchor`. Deshalb
+  war die Attributionsregel des Plans (Task 1 und 4 nicht in derselben Nacht) hier nicht
+  einschlägig — die einzige Verhaltensänderung dieser Nacht ist der VIX-Multiplikator.
+- **Wann er erstmals greift:** `MIN_OVERLAP_OBS = 60` gemeinsame Beobachtungen bei ≥ 2 Sleeves.
+  Stand 2026-08-17 führen die ältesten sechs Sleeves mit **19** Beobachtungen — bei täglichem
+  Forward-Lauf also grob **Mitte Oktober 2026**.
+
 ## Phase: Rebalance-Timing-Glück gemessen (2026-08-17) — STUDIE DONE, Bau wartet auf Nico
 Task 5 aus `docs/superpowers/plans/2026-08-16-autotrader-review-upgrades.md`. Doku:
 `docs/research/2026-08-17-rebalance-timing-luck.md`, reproduzierbar über

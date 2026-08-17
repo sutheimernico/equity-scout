@@ -5,12 +5,18 @@ weights come from each sleeve's OWN forward track record (`forward_valuations` e
 the sleeves keep running untouched as measurement instruments; nothing is re-simulated.
 
 Weighting follows the shrinkage lesson of the 1/N literature (DeMiguel et al. 2009: estimation
-error eats optimisation on short samples): a fixed equal-weight anchor blended with a Sharpe-
-softmax tilt over a trailing walk-forward window, then floored/capped per sleeve so noisy
-short-sample Sharpe estimates can neither zero out nor dominate a lane. While the sleeves have
-fewer than `min_obs` overlapping daily observations there is nothing honest to tilt on, so the
-allocation is pure equal weight and says so (`mode="anchor"`) — the same "no track record, no
-claim" stance as `MLBot.ready`.
+error eats optimisation on short samples): a fixed equal-weight anchor blended with an
+INVERSE-VOL tilt over a trailing walk-forward window, then floored/capped per sleeve so no lane
+is zeroed out or dominates. While the sleeves have fewer than `min_obs` overlapping daily
+observations there is nothing honest to tilt on, so the allocation is pure equal weight and says
+so (`mode="anchor"`) — the same "no track record, no claim" stance as `MLBot.ready`.
+
+Tilt basis changed 2026-08-17 (review 2026-08-16): it used to be a Sharpe softmax. A Sharpe
+estimated on 63 daily observations has a standard error of roughly 2 annualised units, so the
+softmax exponent was dominated by noise — the same estimation-error trap the anchor exists to
+shrink, re-entered through the tilt. Volatility IS estimable on 63 observations, and the depot's
+own W0 finding says the same thing from the data side: returns are not predictable here, risk
+is. Sharpes stay reported on every surface, they just no longer decide weights.
 """
 from __future__ import annotations
 
@@ -37,7 +43,9 @@ class SleeveAllocation:
     Sharpe estimates behind a tilt (empty in anchor mode — there was nothing to estimate)."""
 
     weights: dict[str, float]
-    mode: str  # "anchor" (pure equal weight) | "tilt" (anchor-blended Sharpe softmax)
+    # "anchor" (pure equal weight) | "tilt_invvol" (anchor-blended inverse-vol tilt).
+    # The retired "tilt" (Sharpe softmax) only exists in DB rows written before 2026-08-17.
+    mode: str
     sharpes: dict[str, float] = field(default_factory=dict)
     window_obs: int = 0
 
@@ -122,7 +130,7 @@ def blend_weights(
     floor: float = FLOOR,
     cap: float = CAP,
 ) -> SleeveAllocation:
-    """Blend an equal-weight anchor with a Sharpe-softmax tilt over the trailing window.
+    """Blend an equal-weight anchor with an inverse-vol tilt over the trailing window.
 
     A sleeve without enough history of its own is not ranked — it keeps the equal-weight
     anchor share, so being new costs it nothing. The sleeves that DO have a track record are
@@ -152,11 +160,23 @@ def blend_weights(
         return SleeveAllocation(weights=equal, mode="anchor", window_obs=len(overlap))
 
     tail = overlap.iloc[-window:]
+    # Sharpes stay REPORTED (dashboard/CLI transparency) but no longer drive weights: over 63
+    # daily observations the Sharpe standard error is ~2 annualised units, so a softmax on it
+    # ranks noise (DeMiguel et al. 2009; review 2026-08-16). Vol IS estimable on this window.
     sharpes = {name: _annualised_sharpe(tail[name]) for name in seasoned}
-    peak = max(sharpes.values())
-    exp = {name: math.exp(s - peak) for name, s in sharpes.items()}  # shift: overflow-safe
-    total = sum(exp.values())
-    softmax = {name: e / total for name, e in exp.items()}
+    vols = {
+        name: float(tail[name].std(ddof=1)) * math.sqrt(TRADING_DAYS_PER_YEAR)
+        for name in seasoned
+    }
+    inverse = {
+        name: (1.0 / vol) if vol > 0 and math.isfinite(vol) else 0.0
+        for name, vol in vols.items()
+    }
+    total_inverse = sum(inverse.values())
+    if total_inverse <= 0:
+        # every seasoned sleeve is flat: no risk to differentiate, so no claim to make
+        return SleeveAllocation(weights=equal, mode="anchor", window_obs=len(tail))
+    tilt = {name: value / total_inverse for name, value in inverse.items()}
 
     # The young sleeves keep their anchor shares; the seasoned ones divide what is left,
     # equal-weighted among themselves and then tilted.
@@ -168,14 +188,14 @@ def blend_weights(
     seasoned_share = sum(equal[name] for name in seasoned)
     equal_seasoned = 1.0 / len(seasoned)
     tilted = {
-        name: anchor * equal_seasoned + (1.0 - anchor) * softmax[name] for name in seasoned
+        name: anchor * equal_seasoned + (1.0 - anchor) * tilt[name] for name in seasoned
     }
     bounded = _clip_renormalise(tilted, floor / seasoned_share, cap / seasoned_share)
     weights = {name: equal[name] for name in sleeves if name not in seasoned}
     weights.update({name: share * seasoned_share for name, share in bounded.items()})
     return SleeveAllocation(
         weights=weights,
-        mode="tilt",
+        mode="tilt_invvol",
         sharpes=sharpes,
         window_obs=len(tail),
     )

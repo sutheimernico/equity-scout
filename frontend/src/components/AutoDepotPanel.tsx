@@ -93,7 +93,7 @@ export function AutoDepotPanel() {
         <div className="chip-row" style={{ marginBottom: "var(--space-3)" }}>
           {account.last_as_of && <Chip>Stand {account.last_as_of}</Chip>}
           <Chip>
-            {account.sleeve_mode === "anchor" ? "Anker-Phase (Equal-Weight)" : "Sharpe-Tilt aktiv"}
+            {account.sleeve_mode === "anchor" ? "Anker-Phase (Equal-Weight)" : "Inverse-Vol-Tilt aktiv"}
           </Chip>
           {latest && <Chip>Exposure {pct(latest.gross_exposure, 0)}</Chip>}
         </div>

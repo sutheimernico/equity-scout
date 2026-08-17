@@ -1,7 +1,7 @@
 """CLI: advance the Auto-Depot (vision v10) one step on the latest prices.
 
 The one meta book over all strategy sleeves: sleeve weights from each sleeve's own forward
-track record (equal-weight anchor + Sharpe-softmax tilt, monthly recompute), look-through
+track record (equal-weight anchor + inverse-vol tilt, monthly recompute), look-through
 aggregation to per-ticker targets, protection chain (concentration cap, regime gate, vol
 target, drawdown breaker), then the same look-ahead-safe close-fill execution as forward
 paper. Trades, valuations, and risk interventions are persisted to the autotrader DB and
@@ -218,8 +218,14 @@ def resolve_allocation(
     would silently ignore the new lane). Recompute uses only history strictly before as_of."""
     month = as_of.strftime("%Y-%m")
     stored = load_latest_sleeve_weights(autotrader_db)
-    if stored and stored[0]["month"] == month and {r["strategy_name"] for r in stored} == set(
-        sleeve_names
+    # A stored row from the retired "tilt" scheme (Sharpe softmax, until 2026-08-17) must not be
+    # carried through the rest of the month — recompute instead, so the book runs on the scheme
+    # the code documents.
+    if (
+        stored
+        and stored[0]["month"] == month
+        and stored[0]["mode"] in ("anchor", "tilt_invvol")
+        and {r["strategy_name"] for r in stored} == set(sleeve_names)
     ):
         return SleeveAllocation(
             weights={r["strategy_name"]: r["weight"] for r in stored},
@@ -515,7 +521,7 @@ def main() -> None:
     mode_note = (
         "Anker-Phase: zu wenig Forward-Historie für Performance-Tilt — reines Equal-Weight"
         if account.sleeve_mode == "anchor"
-        else "Tilt: Sharpe-Softmax auf 63-Tage-Fenster, 50% Equal-Weight-Anker"
+        else "Tilt: Inverse-Vol auf 63-Tage-Fenster, 50% Equal-Weight-Anker"
     )
     print(f"Sleeves ({len(strategies)}): {mode_note}")
     for name, weight in sorted(account.sleeve_weights.items(), key=lambda kv: -kv[1]):
