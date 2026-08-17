@@ -184,3 +184,15 @@ def test_triple_barrier_entry_label_vol_scaling_flips_the_same_move():
     label_wild = triple_barrier_entry_label(wild, at, horizon_days=9, k_pt=2.0, k_sl=1.0, vol_window=60)
     assert label_calm == 1
     assert label_wild == 0
+
+
+def test_fundamentals_horizon_is_six_months_and_distinct():
+    from equity_scout.ml.entry_eval import (
+        FUND_HORIZON_DAYS,
+        HORIZON_DAYS,
+        SECONDARY_HORIZON_DAYS,
+        SHORT_HORIZON_DAYS,
+    )
+
+    assert FUND_HORIZON_DAYS == 126
+    assert SHORT_HORIZON_DAYS < HORIZON_DAYS < SECONDARY_HORIZON_DAYS < FUND_HORIZON_DAYS

@@ -1002,12 +1002,19 @@ der Entthronung, die heute Nacht erstmals wirkt.
   (bis 769 Tage). Aussagekräftig ist das **Minimum: 30–34 Tage**. Docstring korrigiert, Test
   ergänzt, der genau diese Verwechslung pinnt.
 - Gate: 2050 Tests grün (11 neue), ruff clean.
+- **Zielgröße vorab registriert (2026-08-17, Task 7 aus `plans/2026-08-16-autotrader-review-upgrades.md`):**
+  `entry_eval.FUND_HORIZON_DAYS = 126` (~6 Monate), Familie `entry_fund`. Begründung: die
+  10/20/60-Tage-Familien sind bei Münzwurf-AUC ausgereizt (Achse 2, 2026-08-11), und
+  Fundamentaldaten wirken über Quartale. Gegen dieselben kurzen Horizonte zu testen hieße, einen
+  erledigten Nullbefund nochmal zu produzieren. Festgelegt VOR dem Kollektor, damit die Zielgröße
+  nicht nachträglich zum Ergebnis passend gewählt werden kann.
 - [ ] Nächster Schritt: Backfill-Kollektor über das feste Trainingsuniversum (445 Titel), der pro
       monatlichem Stichtag die dann sichtbaren zwei Fiskaljahre zieht. Kosten und Fallen sind jetzt
-      bekannt; EDGAR-Etikette (ein Abruf pro Sekunde) macht daraus ~8 Minuten Laufzeit.
+      bekannt; EDGAR-Etikette (ein Abruf pro Sekunde) macht daraus ~8 Minuten Laufzeit. Label:
+      `FUND_HORIZON_DAYS = 126` pro monatlichem Stichtag.
 - [ ] Erst danach: die F-Score-Kriterien als Feature-Block additiv ins Entry-Modell, mit demselben
       Nachweis wie bei Evidenz und Volumen — `volume_index=None`-Muster, damit der Vergleich die
-      FEATURES misst und nicht ein geändertes Sample.
+      FEATURES misst und nicht ein geändertes Sample, ausgewertet auf dem 126-Tage-Ziel.
 
 ## Needs Nico (loop cannot do these itself)
 - **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),

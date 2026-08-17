@@ -26,6 +26,10 @@ from equity_scout.ml.labeling import trailing_daily_vol, triple_barrier_labels
 HORIZON_DAYS = 20  # ~4 weeks, the primary forward horizon
 SECONDARY_HORIZON_DAYS = 60  # ~12 weeks
 SHORT_HORIZON_DAYS = 10  # ~2 weeks — the ML bots' shorter trading horizon (plan v6 P2/P3)
+FUND_HORIZON_DAYS = 126  # ~6 months — the fundamentals experiment's target (family `entry_fund`).
+# Pre-registered 2026-08-17, BEFORE the backfill collector exists: the 10/20/60d families are
+# exhausted at coin-flip AUC (Achse 2, 2026-08-11), and fundamentals act over quarters, not
+# weeks. Testing them against the settled short horizons would re-run a null result.
 
 
 def forward_return(prices: pd.Series, at: pd.Timestamp, horizon_days: int) -> float | None:
