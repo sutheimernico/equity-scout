@@ -239,6 +239,7 @@ def advance_depot(
     protections: list[ProtectionRule] | None = None,
     regime_level: str | None = None,
     depot_returns: pd.Series | None = None,
+    vol_multiplier: float | None = None,
     fx_rate: float | None = None,
     costs_bps: float = 10.0,
     borrow_bps_per_day: float = BORROW_BPS_PER_DAY,
@@ -423,7 +424,7 @@ def advance_depot(
     # 4. Protection chain (may mutate ctx.breaker — the account persists it).
     ctx = RiskContext(
         as_of=today, regime_level=regime_level, depot_returns=depot_returns,
-        drawdown=drawdown, breaker=account.breaker,
+        drawdown=drawdown, breaker=account.breaker, vol_multiplier=vol_multiplier,
     )
     chain = default_protections() if protections is None else protections
     targets, risk_events = apply_protections(raw_targets, chain, ctx)

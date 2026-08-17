@@ -248,7 +248,10 @@ promoted champion. Sleeve weights come from each sleeve's own forward track reco
 equal-weight anchor blended with a Sharpe-softmax tilt over a 63-day walk-forward window
 (floor 5 % / cap 40 %, monthly recompute; the shrinkage lesson of the 1/N literature). The
 aggregated per-ticker book then passes a composable risk layer, in order: single-name cap 10 %,
-regime gate (red light → half exposure), 12 % vol target (never levers up), and a tiered
+regime gate (red light → half exposure), a 12 % vol target (never levers up) whose estimator is
+the depot's own trailing vol scaled by a VIX-forecast multiplier (study 2026-08-12: implied vol
+predicts the next 20 days better than the trailing window; divisor 1.341 for the variance risk
+premium, clamp 0.5–3.0, trailing-only fallback whenever the VIX leg is missing), and a tiered
 drawdown breaker (≥ 10 % → half, ≥ 20 % → cash, staged recovery after a cooldown). It advances
 nightly in `nightly_train.sh` right after the sleeves. Every trade, weight, and risk
 intervention is persisted (`autotrader.db`) and surfaced: digest block, `/api/autodepot`,

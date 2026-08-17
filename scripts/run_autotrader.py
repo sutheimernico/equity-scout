@@ -61,8 +61,10 @@ from equity_scout.strategies.base import TargetWeight
 from equity_scout.strategies.ensemble import EnsembleStrategy
 from equity_scout.strategies.ml_bot import SHORTABLE_TICKERS, MLLongStrategy, MLShortStrategy
 from equity_scout.strategies.registry import default_strategies
+from equity_scout.vol_forecast import vix_multiplier
 
 ML_BOTS_SNAPSHOT = "data/prices/ml_bots_panel.csv"  # same stock panel the forward bots trade
+VIX_SNAPSHOT = "data/prices/vix_level.csv"  # VolTarget's forward-vol input (vol_forecast.py)
 
 
 # A sleeve needs at least this much of its OWN forward track before it may earn depot
@@ -271,6 +273,7 @@ def advance_autotrader(
     forward_db: str,
     shortterm_db: str | None = None,
     regime_level: str | None = None,
+    vol_multiplier: float | None = None,
     fx_rate: float | None = None,
     costs_bps: float = 10.0,
     persist: bool = True,
@@ -314,6 +317,7 @@ def advance_autotrader(
         account, strategies, allocation, panel,
         regime_level=regime_level,
         depot_returns=depot_return_series(autotrader_db),
+        vol_multiplier=vol_multiplier,
         fx_rate=fx_rate,
         costs_bps=costs_bps,
         sleeve_holdings=ml_sleeve_holdings(forward_db, [s.name for s in strategies]),
@@ -417,6 +421,33 @@ def _collect_regime_level(panel: PricePanel) -> str | None:
         return None
 
 
+def _collect_vol_multiplier(panel: PricePanel) -> float | None:
+    """VIX close -> VolTarget forecast multiplier; any failure -> None (trailing fallback).
+
+    Loud on stderr for the same reason as _collect_regime_level: a permanently silent None
+    means the depot quietly runs on the weaker estimator forever."""
+    try:
+        vix_panel = load_price_history(
+            ["^VIX"], start="2024-01-01", snapshot=VIX_SNAPSHOT, refresh=True
+        )
+        vix_level = float(vix_panel.closes["^VIX"].dropna().iloc[-1])
+    except Exception as err:  # noqa: BLE001 — feed down = honest fallback, not a crash
+        print(
+            f"Warnung: VIX nicht ladbar ({type(err).__name__}: {err}) — "
+            "VolTarget nutzt trailing Vola.",
+            file=sys.stderr,
+        )
+        return None
+    spy = panel.closes["SPY"].dropna() if "SPY" in panel.closes.columns else None
+    multiplier = vix_multiplier(vix_level, spy)
+    if multiplier is None:
+        print(
+            "Warnung: VIX-Multiplikator nicht berechenbar — VolTarget nutzt trailing Vola.",
+            file=sys.stderr,
+        )
+    return multiplier
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default=DEFAULT_AUTOTRADER_DB_PATH, help="Autotrader DB path.")
@@ -443,6 +474,7 @@ def main() -> None:
         autotrader_db=args.db, forward_db=args.forward_db,
         shortterm_db=args.shortterm_db,
         regime_level=_collect_regime_level(panel),
+        vol_multiplier=_collect_vol_multiplier(panel),
         fx_rate=eur_rate("USD"),
         costs_bps=args.cost_bps,
         persist=not args.dry_run,

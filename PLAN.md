@@ -929,15 +929,23 @@ reproduzierbar über `scripts/run_vol_forecast_study.py`.
 - **Erster positiver Befund dieser Serie** — Evidenz, Volumen, Zielgröße und Universum waren alle
   Nullbefunde.
 - Gate: 2039 Tests grün (6 neue auf synthetischen Regimewechseln), ruff clean.
-- [ ] **Einbau — bewusst NICHT in derselben Nacht.** Er greift in eine live laufende Risikoschicht
+- [x] **Einbau — bewusst NICHT in derselben Nacht.** Er greift in eine live laufende Risikoschicht
       ein, und heute Nacht wirkt zum ersten Mal die Entthronung (Sleeve fällt weg, einmalige
       Umschichtung ~32 %). Zwei Eingriffe in einer Nacht würden die Ursachenzuordnung zerstören.
       Nächster Schritt nach der Nightly-Verifikation.
-- [ ] Beim Einbau zwingend: **dimensionsloser Multiplikator** (`VIX-Prognose / SPY-trailing`) auf
+- [x] Beim Einbau zwingend: **dimensionsloser Multiplikator** (`VIX-Prognose / SPY-trailing`) auf
       die EIGENE trailing Depot-Vola, nie das SPY-Niveau direkt — das Depot ist Multi-Asset und
       hat niedrigere Vola, ein SPY-Niveau würde die Drosselung dauerhaft verschärfen. Und:
       **fällt der VIX aus, Rückfall auf die trailing Vola, nicht Schutz aus** — eine Datenlücke
       darf nie als „kein Risiko" gelesen werden.
+- **Outcome (2026-08-17, Task 1 aus `plans/2026-08-16-autotrader-review-upgrades.md`):** eingebaut
+  als `src/equity_scout/vol_forecast.py` + `RiskContext.vol_multiplier`; Konstanten Divisor 1,341,
+  Fenster 20 Tage, Clamp 0,5–3,0 (asymmetrisch: implausibel NIEDRIG ⇒ misstrauen und trailing
+  nutzen, weil ein Fehldruck den Schutz sonst abschaltet; extrem HOCH ⇒ auf 3,0 kappen, da mehr
+  Drosselung die sichere Richtung ist). Jedes `RiskEvent` nennt seinen Schätzer als
+  `(VIX-Prognose)` bzw. `(trailing)`. Messwert beim Einbau: VIX 14,25 / SPY-trailing 13,4 % ⇒
+  Multiplikator **0,795**, das Depot drosselt aktuell also SCHWÄCHER als vorher — die Prognose
+  sieht die kommenden 20 Tage ruhiger als die vergangenen 20. Live ab Nightly Di 18.08. 02:30.
 
 ## Phase: Fundamentaldaten-Schiene — Machbarkeit geprüft, Baustein gebaut (2026-08-12)
 Zweite Schiene meiner Empfehlung (nach Risiko). Bewusst parallel begonnen, weil sie das Depot NICHT

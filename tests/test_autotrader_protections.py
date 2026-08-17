@@ -28,6 +28,12 @@ def _returns(vol_daily: float, days: int = 40) -> pd.Series:
     return pd.Series(rng.normal(0.0, vol_daily, size=days))
 
 
+def _alternating_returns(daily: float, days: int = 30) -> pd.Series:
+    # +daily/-daily alternating -> mean ~0, stdev ~daily; annualised ~daily*sqrt(252).
+    # Deterministic on purpose: these tests sit right at the target threshold.
+    return pd.Series([daily if i % 2 == 0 else -daily for i in range(days)])
+
+
 class TestConcentrationCap:
     def test_clips_only_offenders_and_reports_them(self) -> None:
         weights = {"AAPL": 0.25, "MSFT": 0.05, "TSLA": -0.18}
@@ -117,6 +123,21 @@ class TestVolTarget:
         out, event = VolTarget(target=0.12).apply({"SPY": 0.5}, ctx)
         assert out == {"SPY": 0.5}
         assert event is None
+
+    def test_without_multiplier_behaves_as_before(self) -> None:
+        # trailing ~11.4% annualised, just UNDER the 12% target -> no action, exactly as today
+        ctx = _ctx(depot_returns=_alternating_returns(0.007))
+        out, event = VolTarget().apply({"SPY": 0.8}, ctx)
+        assert out == {"SPY": 0.8}
+        assert event is None
+
+    def test_multiplier_scales_the_estimate(self) -> None:
+        # same trailing vol, forecast multiplier 2.0 -> estimate ~22.8% > 12% -> throttles,
+        # and the event names the forecast source
+        ctx = _ctx(depot_returns=_alternating_returns(0.007), vol_multiplier=2.0)
+        out, event = VolTarget().apply({"SPY": 0.8}, ctx)
+        assert out["SPY"] < 0.8
+        assert event is not None and "VIX-Prognose" in event.detail
 
 
 class TestDrawdownBreaker:

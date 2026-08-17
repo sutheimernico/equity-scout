@@ -49,6 +49,8 @@ class RiskContext:
     depot_returns: pd.Series | None = None  # the depot's own daily return history
     drawdown: float | None = None  # current drawdown from peak equity, >= 0
     breaker: BreakerState = BreakerState()
+    # VIX-forecast/trailing ratio (vol_forecast.py); None = trailing estimator only
+    vol_multiplier: float | None = None
 
 
 class ProtectionRule(Protocol):
@@ -160,7 +162,14 @@ class RegimeGate:
 class VolTarget:
     """Scale exposure down to a target annualised depot vol (Moreira & Muir 2017). Never
     scales up (no leverage). Inactive until the depot has `window` + 1 own return points —
-    a vol estimate from less history would be noise, so the protection honestly waits."""
+    a vol estimate from less history would be noise, so the protection honestly waits.
+
+    Estimator since 2026-08-17: the depot's own trailing vol scaled by a VIX-forecast
+    multiplier when `ctx.vol_multiplier` is set (study 2026-08-12 — implied vol predicts the
+    next 20 days better than the trailing window it replaces), trailing alone whenever the
+    VIX leg is missing or implausible. That is a behaviour change on the live depot, so each
+    event names its estimator via the `(VIX-Prognose)`/`(trailing)` label in `detail`.
+    """
 
     target: float = 0.12
     window: int = 20
@@ -173,15 +182,20 @@ class VolTarget:
         if returns is None or len(returns) < self.window + 1 or not weights:
             return weights, None
         recent = returns.iloc[-self.window:]
-        vol = float(recent.std(ddof=1)) * math.sqrt(TRADING_DAYS_PER_YEAR)
-        if not math.isfinite(vol) or vol <= self.target:
+        trailing = float(recent.std(ddof=1)) * math.sqrt(TRADING_DAYS_PER_YEAR)
+        if not math.isfinite(trailing):
+            return weights, None
+        multiplier = ctx.vol_multiplier if ctx.vol_multiplier is not None else 1.0
+        vol = trailing * multiplier
+        if vol <= self.target:
             return weights, None
         factor = self.target / vol
+        source = "VIX-Prognose" if ctx.vol_multiplier is not None else "trailing"
         return _scale(weights, factor), RiskEvent(
             protection=self.name,
             action=f"scale_{factor:.2f}",
             detail=(
-                f"Depot-Vol {vol:.1%} über Ziel {self.target:.0%} — "
+                f"Depot-Vol ({source}) {vol:.1%} über Ziel {self.target:.0%} — "
                 f"Exposure auf {factor:.0%} skaliert"
             ),
         )
