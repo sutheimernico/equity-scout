@@ -1704,9 +1704,90 @@ isoliert, also kein Plateau.** Bei 20 bp Kosten überlebt nichts. Die beste Einz
 Schwelle. Das ist genau die Struktur, die die Plateau-Regel aussortieren soll — der volle Lauf
 über 70 Instrumente hat je Zelle ein Vielfaches der Stichprobe.
 
+### Welle 2 (2026-08-17 nachts): „alle Parameter gegen alle Parameter"
+
+Nicos Präzisierung: nicht nur Parameter gegen Zeitscheiben, sondern **Parameter gegen Parameter**,
+und Beispiele wie „hoher Greed-Index UND dazu eine positive News". Umgesetzt als eigene Achsen-Art
+in `matrix/contexts.py`:
+
+- **Signale: 7 → 13.** Neu: `gap_down`, `spike_pullback` (**Nicos Setup**: großer Aufwärtssprung,
+  dann sofortiger Rücksetzer), `spike_fade` (Erschöpfung nach Abwärtssprung), `consecutive_down`
+  (n rote Bars — der häufigste menschliche Grund, einen Dip zu kaufen), `range_contraction`
+  („coiled spring"), `new_low_20`.
+- **Bedingungs-Achse, 23 Werte.** Marktkontext (`first_hour`, `midday`, `last_hour`,
+  `high_rel_volume`, `uptrend`, `downtrend`, `after_news`, `calm_market`, `stressed_market`) plus
+  **jedes Signal als Zustand** (`after_<signal>`) — das ist „jeder Parameter gegen jeden".
+- **Warum Zustand und nicht Koinzidenz** (der Punkt, an dem der naive Ansatz scheitert): zwei
+  Ereignisse, die je 1 % der Bars treffen, fallen auf 0,01 % der Bars zusammen — rund 100 Fälle
+  in einer Million Bars, also unter dem Stichprobenboden. Als Zustand („B hat in den letzten 10
+  Bars gefeuert, dann feuerte A") deckt dieselbe Bedingung ein Vielfaches ab und wird messbar,
+  ohne die Behauptung zu verwässern. Das Gate-Fenster ist um eine Bar verschoben: die Bedingung
+  muss VOR dem Signal stehen.
+- **Tiefe bleibt eins.** Signal × EINE Bedingung, nie gestapelt. Jede weitere Bedingung schneidet
+  die Stichprobe: ein Filter, der ein Drittel der Bars behält, macht aus 900 Trades 300, zwei
+  gestapelte machen 100 — unter dem Boden. Die ehrliche Grenze von zehn Jahren Minutendaten ist
+  eine Bedingung. `none` läuft immer mit, damit der BEITRAG der Bedingung sichtbar bleibt.
+- **Greed-Index → VIX-Bänder.** Der Fear-&-Greed-Komposit wurde in diesem Repo am 2026-08-11
+  gemessen und war **schwächer als seine beste Zutat**, also wird die Zutat verwendet
+  (`calm_market` < 15, `stressed_market` > 22, jeweils der Vortags-Close, damit keine Bar weiß,
+  wie die Angst nach ihrem Handel endete).
+- **Zwei Korrektheitsfixes, die dabei auffielen:** (1) die Schwellen-Achse wird jetzt PRO SIGNAL
+  gebildet — global gemischt hätte `consecutive_down` (Achse zählt Bars: 2,3,4,5) die
+  Nachbarschaft der Prozent-Signale zerschnitten; (2) die Bedingung ist Gruppierungs- und keine
+  Nachbarschaftsachse, damit „wirkt nur nach einer Meldung" nicht mit „wirkt immer" verschmilzt.
+- **Laufzeit:** 109.749 Zellen pro Ticker in **41 s**; 70 Instrumente also < 1 h. Der Checkpoint
+  wächst auf ~7,7 Mio Zeilen / 2,2 GB, weshalb das Pooling auf **inkrementelle Summen pro
+  Anlageklasse** umgestellt wurde (Rows pro Schlüssel zu sammeln hätte Gigabytes RAM gebraucht).
+
+**Vorbefund Welle 2 (SPY allein):** 32.236 messbare gepoolte Zellen, davon qualifizieren
+**47 (0,1 %)** — die Zufallserwartung bei reinem Rauschen läge bei ~741. Die Ausbeute liegt also
+UNTER dem, was Rauschen liefern würde, und **kein einziges Plateau** entsteht: die Sieger liegen
+isoliert. Alle fünf Spitzenzellen stehen bei 2 bp, der unrealistischsten Kostenstufe.
+
+## Faktor-Inventar: was noch in die Matrix kann (Nicos Frage nach den weiteren Parametern)
+
+Das Projekt berechnet weit mehr als die 13 Signale. Was davon wie einfließen kann, hängt an einer
+harten Eigenschaft: **ein Faktor kann nur dann ein TRIGGER sein, wenn er minutengenau existiert.**
+Alles Tagesbasierte kann ausschließlich BEDINGUNG sein — es ändert sich einmal pro Tag und kann
+daher keinen Einstiegszeitpunkt bestimmen, nur einen Zeitraum qualifizieren.
+
+| Faktor | Quelle im Repo | Auflösung | Rolle | Status |
+|---|---|---|---|---|
+| Preis/Volumen-Muster | Minutenbars | Minute | Trigger | **drin** (13 Signale) |
+| Wire-Meldung | `news_history` | Sekunde | Trigger + Bedingung | **drin** (`after_news`) |
+| VIX-Level | `data/prices/vix_level.csv` | Tag | Bedingung | **drin** (2 Bänder) |
+| Tageszeit / Sitzungsphase | Bar-Zeitstempel | Minute | Bedingung | **drin** (3 Werte) |
+| Trend (schneller Schnitt) | Bars | je Scheibe | Bedingung | **drin** (up/down) |
+| Relatives Volumen | Bars | je Scheibe | Bedingung | **drin** |
+| VIX-Terminstruktur (VIX/VIX3M) | `run_behaviour_study` | Tag | Bedingung | offen — W0 fand inkrementell nur 0,08, also niedrige Priorität |
+| VIX9D/VIX (Kurzfrist-Stress) | `run_behaviour_study` | Tag | Bedingung | offen |
+| Marktbreite (% über 200d) | `regime.sector_breadth` | Tag | Bedingung | offen |
+| Zinskurve (^TNX − ^IRX) | `regime.build_regime` | Tag | Bedingung | offen |
+| SPY-Trend vs. 200d | `ml/features` | Tag | Bedingung | offen |
+| SPY-Volumenratio, OBV-Trend | `run_behaviour_study` | Tag | Bedingung | offen |
+| Depot-Drawdown | `ml/features` | Tag | Bedingung | offen |
+| Momentum 3M/6M, 52-Wochen-Nähe | `factors.py` | Tag | Bedingung | offen |
+| Value (KGV, KBV), Quality (ROE, Marge) | `factors.py` | Quartal | Bedingung | offen — nur für Einzelaktien, nicht für ETFs |
+| F-Score (9 Kriterien) | `fscore.py` | Quartal | Bedingung | offen — Ziel-Horizont ist bereits auf 126 Tage vorregistriert |
+| Insider-Käufe (Form 4) | `evidence/` | Tag (mit Meldeverzug) | Bedingung | offen |
+| Congress-Trades, 13F | `evidence/` | Wochen Verzug | Bedingung | evidenzbasiert tot (Congress-Lane), niedrige Priorität |
+| Earnings-Termin (vor/nach) | `evidence/` | Tag | Bedingung | offen — als „Tage bis/nach Bericht" |
+
+**Reihenfolge, in der ich das ergänzen würde** (jeweils eine Welle, weil jede Bedingung den Raum
+verbreitert und damit die Beweislast erhöht): (1) die drei Tages-Regime-Bedingungen aus `regime.py`
+— Marktbreite, Zinskurve, SPY-Trend, weil sie fertig berechnet vorliegen und das ganze Universum
+betreffen; (2) Earnings-Nähe, weil sie der stärkste bekannte Ereignis-Taktgeber ist; (3)
+Momentum/52-Wochen-Nähe je Titel; (4) Fundamentaldaten, sobald der Backfill-Kollektor steht.
+
+Nicht aufgenommen und warum: **Twitter/X und andere Social-Quellen.** Historische Tweets sind
+nicht frei beziehbar (API kostenpflichtig, Scraping gegen die Nutzungsbedingungen und technisch
+geblockt), also ließe sich die Hypothese nicht einmal testen — und die Latenzfrage, um die es
+dabei geht, beantwortet die Zerfallskurve billiger.
+
 ### Offen
 
 - [ ] Nachtlauf-Ergebnisse lesen: `docs/research/2026-08-1x-signal-matrix.md` und
       `...-news-latency-decay.md`, dann Outcome hier vervollständigen.
 - [ ] Nico-Gate: nur falls ein Plateau den Hold-out überlebt → Folgeplan, dessen ERSTER Schritt
       eine Signal-vs-Fill-Messung auf IEX ist, nicht eine Lane.
+- [ ] Welle 3: die vier Ausbaustufen aus dem Inventar oben, in der genannten Reihenfolge.
