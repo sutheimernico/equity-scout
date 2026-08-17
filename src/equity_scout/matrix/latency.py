@@ -15,8 +15,17 @@ not the binding constraint and no scraping network is needed. If after(1min) is 
 while before(1min) is large, the whole move happens instantly — and then nothing we can build
 catches it, because our signal-to-fill path is ~5 seconds against microsecond competition.
 
-Entries use the first bar whose interval STARTS at or after the delayed timestamp, so a fill is
-never booked at a price that existed before the trader could have acted.
+Anchor choice, and why it is OPENs and not closes: a bar's close is only known ~60 s after the
+bar begins. Anchoring the pre-news price at the close of the first bar AFTER the wire (the old
+construction) put the anchor ~90 s past the news — before(0) was identically zero and the whole
+reaction invisible. Now the pre-news anchor is the OPEN of the bar that CONTAINS the wire stamp
+(printed at most ~60 s before it), and entries/exits are the OPEN of the first bar starting at
+or after their target time — the earliest price a delayed trader could realistically touch.
+
+Events are dropped, not repaired, when their bars do not exist where they should (session
+edges, overnight): a wire item published at 20:00 ET "entering" at the next morning's open
+would turn an overnight gap into a fake news reaction. Every drop is COUNTED per reason, so
+the measurement reports which slice of the news flow it actually covers.
 """
 from __future__ import annotations
 
@@ -28,12 +37,22 @@ import pandas as pd
 DELAY_MINUTES = (0, 1, 2, 5, 15, 30)  # entry delay after the wire timestamp
 HOLD_MINUTES = (5, 15, 30, 60)  # holding window measured from the delayed entry
 MIN_EVENTS = 100  # below this an event bucket reports its count and nothing else
+DROP_REASONS = (
+    "no_pre_bar", "pre_too_far", "no_entry_bar", "entry_gap",
+    "no_exit_bar", "exit_gap", "bad_price",
+)
 
 
 def _position_at_or_after(index: pd.DatetimeIndex, stamp: pd.Timestamp) -> int | None:
-    """Index of the first bar at or after `stamp`, or None when the series ends first."""
+    """Index of the first bar STARTING at or after `stamp`, or None when the series ends."""
     position = int(index.searchsorted(stamp, side="left"))
     return position if position < len(index) else None
+
+
+def _position_containing(index: pd.DatetimeIndex, stamp: pd.Timestamp) -> int | None:
+    """Index of the last bar STARTING at or before `stamp` — the bar the stamp falls into."""
+    position = int(index.searchsorted(stamp, side="right")) - 1
+    return position if position >= 0 else None
 
 
 def event_moves(
@@ -46,35 +65,50 @@ def event_moves(
 ) -> dict:
     """Per-event (before, after) moves in bp for one (delay, hold) combination.
 
-    `max_gap_minutes` guards the session edge: a wire item published at 20:00 ET would otherwise
-    "enter" at the next morning's open, turning an overnight gap into a fake news reaction. An
-    event whose entry bar sits further than this from the intended entry time is dropped.
+    `max_gap_minutes` guards every anchor: pre-news bar, delayed entry and exit must each sit
+    within this distance of their intended time, otherwise the event lands across a session
+    break and is dropped — and counted under its reason in `dropped`.
     """
     index = bars.index
-    closes = bars["close"].to_numpy(dtype=float)
+    opens = bars["open"].to_numpy(dtype=float)
     before: list[float] = []
     after: list[float] = []
+    dropped = dict.fromkeys(DROP_REASONS, 0)
+    gap = pd.Timedelta(minutes=max_gap_minutes)
     for stamp in stamps:
-        base = _position_at_or_after(index, stamp)
-        if base is None:
+        pre = _position_containing(index, stamp)
+        if pre is None:
+            dropped["no_pre_bar"] += 1
+            continue
+        if (stamp - index[pre]) > gap:
+            dropped["pre_too_far"] += 1  # wire landed outside the session (evening, weekend)
             continue
         entry_time = stamp + pd.Timedelta(minutes=delay_minutes)
         entry = _position_at_or_after(index, entry_time)
         if entry is None:
+            dropped["no_entry_bar"] += 1
             continue
-        if (index[entry] - entry_time) > pd.Timedelta(minutes=max_gap_minutes):
-            continue  # entry would land after a session break — not this event's reaction
+        if (index[entry] - entry_time) > gap:
+            dropped["entry_gap"] += 1  # entry would land after a session break
+            continue
         exit_time = index[entry] + pd.Timedelta(minutes=hold_minutes)
         exit_position = _position_at_or_after(index, exit_time)
         if exit_position is None:
+            dropped["no_exit_bar"] += 1
             continue
-        if (index[exit_position] - exit_time) > pd.Timedelta(minutes=max_gap_minutes):
+        if (index[exit_position] - exit_time) > gap:
+            dropped["exit_gap"] += 1
             continue
-        if closes[base] <= 0 or closes[entry] <= 0:
+        if opens[pre] <= 0 or opens[entry] <= 0:
+            dropped["bad_price"] += 1
             continue
-        before.append((closes[entry] / closes[base] - 1.0) * 10_000.0)
-        after.append((closes[exit_position] / closes[entry] - 1.0) * 10_000.0)
-    return {"before_bp": np.asarray(before), "after_bp": np.asarray(after)}
+        before.append((opens[entry] / opens[pre] - 1.0) * 10_000.0)
+        after.append((opens[exit_position] / opens[entry] - 1.0) * 10_000.0)
+    return {
+        "before_bp": np.asarray(before),
+        "after_bp": np.asarray(after),
+        "dropped": dropped,
+    }
 
 
 def summarise(moves: dict, *, cost_bps: float) -> dict:

@@ -56,6 +56,30 @@ def test_a_gap_between_wire_and_entry_bar_beyond_the_guard_is_dropped():
     assert len(moves["after_bp"]) == 0  # would otherwise book the overnight gap as a reaction
 
 
+def test_a_jump_inside_the_wire_bar_is_visible_not_zero():
+    # Wire at 14:30:30, the +100 bp jump happens INSIDE the 14:30 bar (open 100, close 101).
+    # The old close-anchored construction reported before(0) == 0 here — the reaction was
+    # invisible by construction and the verdict a confident false negative.
+    closes = [101.0] * 61
+    bars = _bars(closes)
+    bars.iloc[0, bars.columns.get_loc("open")] = 100.0
+    stamps = pd.Series([pd.Timestamp("2024-01-02T14:30:30Z")])
+    moves = event_moves(bars, stamps, delay_minutes=0, hold_minutes=5)
+    assert round(float(moves["before_bp"][0])) == 100  # the fastest entry still pays the jump
+    assert round(float(moves["after_bp"][0])) == 0
+
+
+def test_drops_are_counted_per_reason():
+    bars = pd.concat([
+        _bars([100.0] * 5, start="2024-01-02T20:55:00Z"),
+        _bars([105.0] * 60, start="2024-01-03T14:30:00Z"),
+    ])
+    stamps = pd.Series([pd.Timestamp("2024-01-02T23:00:00Z")])  # lands after the close
+    moves = event_moves(bars, stamps, delay_minutes=0, hold_minutes=5)
+    assert moves["dropped"]["pre_too_far"] == 1
+    assert sum(moves["dropped"].values()) == 1
+
+
 def test_summarise_reports_only_the_count_below_the_event_floor():
     bars = _bars([100.0, 101.0] + [101.0] * 60)
     stamps = pd.Series([pd.Timestamp("2024-01-02T14:30:00Z")])

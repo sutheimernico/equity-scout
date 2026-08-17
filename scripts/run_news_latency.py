@@ -52,16 +52,20 @@ from scripts.fetch_minute_history import FULL_YEARS, MINUTE_UNIVERSE  # noqa: E4
 COST_BPS = 4.0  # liquid-name roundtrip; the matrix's own cost axis covers the rest
 
 
-def phase_fetch(years: list[int], tickers: list[str]) -> None:
+def phase_fetch(years: list[int], tickers: list[str]) -> int:
+    """Returns the number of FAILED years — the chain must see a non-zero exit instead of
+    logging OK over a fetch that silently delivered nothing."""
     pending = [y for y in years if not news_path(y).exists()]
     print(f"Phase 1 — News: {len(pending)} Jahre offen "
           f"({len(years) - len(pending)} schon auf Platte)", flush=True)
     started = time.time()
+    failed = 0
     for i, year in enumerate(pending, start=1):
         try:
             frame = fetch_news_year(year, tickers=tickers)
         except NewsHistoryError as err:
             print(f"  FEHLER {year}: {err}", file=sys.stderr, flush=True)
+            failed += 1
             continue
         if frame.empty:
             print(f"  {year}: keine Artikel", flush=True)
@@ -70,14 +74,26 @@ def phase_fetch(years: list[int], tickers: list[str]) -> None:
         elapsed = time.time() - started
         print(f"  [{i}/{len(pending)}] {year}: {len(frame):,} Artikel "
               f"({elapsed / i:.0f}s/Jahr)", flush=True)
+    if failed:
+        print(f"{failed} Jahr(e) fehlgeschlagen — Skript erneut ausführen.", file=sys.stderr)
+    return failed
 
 
-def phase_measure(years: list[int], tickers: list[str], out: str | None) -> int:
+def phase_measure(
+    years: list[int], tickers: list[str], out: str | None, *, force: bool = False
+) -> int:
+    missing_years = [y for y in years if not news_path(y).exists()]
+    if missing_years and not force:
+        print(f"News fehlen für {missing_years} — Messung auf einem Teilbestand würde als "
+              f"vollständig aussehen. Erst --phase fetch, oder bewusst mit --force.",
+              file=sys.stderr)
+        return 2
     news = load_news(years)
     if news.empty:
         print("Keine News auf Platte — erst --phase fetch laufen lassen.", file=sys.stderr)
         return 2
-    print(f"\nPhase 2 — {len(news):,} Artikel, "
+    distinct = len(news.drop_duplicates(subset=["created_at", "headline"]))
+    print(f"\nPhase 2 — {len(news):,} Artikel ({distinct:,} distinkte Wire-Items), "
           f"{news['created_at'].min().date()} bis {news['created_at'].max().date()}")
 
     # Accumulate per (delay, hold) across tickers: one ticker's bars in memory at a time.
@@ -85,6 +101,8 @@ def phase_measure(years: list[int], tickers: list[str], out: str | None) -> int:
         (delay, hold): [] for delay in DELAY_MINUTES for hold in HOLD_MINUTES
     }
     covered = 0
+    dropped_fastest: dict[str, int] = {}
+    fastest = (min(DELAY_MINUTES), min(HOLD_MINUTES))
     for ticker in tickers:
         loaded = load_minutes([ticker], years=years)
         if ticker not in loaded:
@@ -96,8 +114,15 @@ def phase_measure(years: list[int], tickers: list[str], out: str | None) -> int:
         for (delay, hold), store in buckets.items():
             moves = event_moves(loaded[ticker], stamps, delay_minutes=delay, hold_minutes=hold)
             store.append(moves)
+            if (delay, hold) == fastest:
+                for reason, count in moves["dropped"].items():
+                    dropped_fastest[reason] = dropped_fastest.get(reason, 0) + count
         print(f"  {ticker}: {len(stamps):,} Artikel gegen {len(loaded[ticker]):,} Bars",
               flush=True)
+
+    drops = {k: v for k, v in sorted(dropped_fastest.items(), key=lambda kv: -kv[1]) if v}
+    print(f"\nVerworfene Events (schnellste Stufe {fastest[0]}min/{fastest[1]}min): {drops}"
+          f" — v.a. Meldungen außerhalb der Handelszeit. Gemessen wird NUR Intraday-News.")
 
     rows = []
     for (delay, hold), store in sorted(buckets.items()):
@@ -123,11 +148,12 @@ def phase_measure(years: list[int], tickers: list[str], out: str | None) -> int:
 
     verdict = decay_verdict(rows)
     print(f"\nURTEIL: {verdict}")
-    _write_doc(out, news, covered, rows, verdict)
+    _write_doc(out, news, covered, rows, verdict, drops)
     return 0
 
 
-def _write_doc(out, news: pd.DataFrame, covered: int, rows: list[dict], verdict: str) -> None:
+def _write_doc(out, news: pd.DataFrame, covered: int, rows: list[dict], verdict: str,
+               drops: dict[str, int] | None = None) -> None:
     path = Path(out or f"docs/research/{date.today().isoformat()}-news-latency-decay.md")
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
@@ -176,6 +202,14 @@ def _write_doc(out, news: pd.DataFrame, covered: int, rows: list[dict], verdict:
         "- **Kein Richtungsfilter.** Alle Artikel zählen gleich; „gute\" und „schlechte\" "
         "Nachrichten sind nicht getrennt. Ein Richtungssignal wäre der nächste Schritt, aber "
         "erst wenn die Zerfallskurve zeigt, dass überhaupt Zeit zum Handeln bleibt.",
+        "- **Nur Intraday-News.** Meldungen außerhalb der Handelszeit (Pre-Market, After-Hours "
+        "— also die Mehrheit der Earnings) werden verworfen, weil ihr „Einstieg\" sonst ein "
+        "Overnight-Gap als Reaktion buchen würde. Verworfen (schnellste Stufe): "
+        + (", ".join(f"{k} {v:,}" for k, v in (drops or {}).items()) or "—") + ".",
+        "- **Ein Wire-Item mit mehreren Symbolen zählt pro Symbol.** Eine Makro-Headline über "
+        "SPY/QQQ/IWM liefert fast identische Renditen mehrfach; die t-Werte sind dadurch "
+        "überzeichnet. Die Zahl distinkter Items steht oben; eine geclusterte Statistik ist "
+        "der nächste Härtungsschritt.",
         "- **Long-only, kein Hebel, Papier.** Wie überall in diesem Projekt.",
     ]
     path.write_text("\n".join(lines) + "\n")
@@ -188,13 +222,20 @@ def main() -> int:
     parser.add_argument("--tickers", nargs="*", default=list(MINUTE_UNIVERSE))
     parser.add_argument("--phase", choices=("all", "fetch", "measure"), default="all")
     parser.add_argument("--out", default=None)
+    parser.add_argument("--force", action="store_true",
+                        help="measure even when requested news years are missing on disk")
     args = parser.parse_args()
 
+    failed = 0
     if args.phase in ("all", "fetch"):
-        phase_fetch(args.years, args.tickers)
+        failed = phase_fetch(args.years, args.tickers)
     if args.phase == "fetch":
-        return 0
-    return phase_measure(args.years, args.tickers, args.out)
+        return 1 if failed else 0
+    if failed and not args.force:
+        print("Messung übersprungen: der Fetch hat Jahre verloren (--force überstimmt).",
+              file=sys.stderr)
+        return 1
+    return phase_measure(args.years, args.tickers, args.out, force=args.force)
 
 
 if __name__ == "__main__":

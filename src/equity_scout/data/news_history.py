@@ -24,7 +24,9 @@ import pandas as pd
 NEWS_BASE = "https://data.alpaca.markets/v1beta1/news"
 DATA_BASE_PATH = "data/news"
 PAGE_LIMIT = 50  # Alpaca's per-call maximum for this endpoint
-COLUMNS = ("created_at", "symbols", "headline", "source")
+COLUMNS = ("id", "created_at", "symbols", "headline", "source")
+RETRY_STATUS = (429, 500, 502, 503, 504)  # worth waiting for; anything else raises immediately
+MAX_RETRIES = 6
 
 
 class NewsHistoryError(RuntimeError):
@@ -47,6 +49,9 @@ def parse_news_page(payload: dict) -> tuple[pd.DataFrame, str | None]:
         if not stamp or not headline:
             continue
         rows.append({
+            # The wire id is what makes deduplication possible at all: re-published items and
+            # page overlaps would otherwise count one story as several "independent" events.
+            "id": str(item.get("id") or ""),
             "created_at": stamp,
             "symbols": ",".join(item.get("symbols") or []),
             "headline": headline,
@@ -66,8 +71,28 @@ def save_year(frame: pd.DataFrame, year: int, *, root: Path | str = DATA_BASE_PA
     return path
 
 
+def dedupe_news(frame: pd.DataFrame) -> pd.DataFrame:
+    """One row per wire item: by `id` where present, by (created_at, headline) otherwise.
+
+    Without this a re-published story counts as several "independent" events and every
+    downstream t-statistic is inflated by the duplicate factor.
+    """
+    if frame.empty:
+        return frame
+    if "id" in frame.columns:
+        ids = frame["id"].fillna("").astype(str)
+        with_id = frame.loc[ids != ""].drop_duplicates(subset=["id"])
+        without = frame.loc[ids == ""].drop_duplicates(subset=["created_at", "headline"])
+        frame = pd.concat([with_id, without])
+    else:
+        frame = frame.drop_duplicates(subset=["created_at", "headline"])
+    return frame.sort_values("created_at").reset_index(drop=True)
+
+
 def load_news(years: list[int], *, root: Path | str = DATA_BASE_PATH) -> pd.DataFrame:
-    """All stored news of `years`, UTC-stamped and sorted. Missing years are simply absent."""
+    """All stored news of `years`, UTC-stamped, deduplicated and sorted. Missing years are
+    simply absent. Files written before the `id` column existed load fine — dedup then falls
+    back to (created_at, headline)."""
     parts = []
     for year in years:
         path = news_path(year, root=root)
@@ -79,7 +104,7 @@ def load_news(years: list[int], *, root: Path | str = DATA_BASE_PATH) -> pd.Data
         parts.append(frame)
     if not parts:
         return pd.DataFrame(columns=list(COLUMNS))
-    return pd.concat(parts).sort_values("created_at").reset_index(drop=True)
+    return dedupe_news(pd.concat(parts))
 
 
 def items_for_ticker(news: pd.DataFrame, ticker: str) -> pd.DataFrame:
@@ -95,8 +120,29 @@ def items_for_ticker(news: pd.DataFrame, ticker: str) -> pd.DataFrame:
     return news.loc[mask]
 
 
+def _get_with_backoff(client, url: str, params: dict, *, year: int):
+    """GET with retries on 429/5xx — thousands of pages against a 200/min limit WILL hit 429,
+    and treating that as fatal would abort a whole year over a speed bump. Honours Retry-After
+    when the server sends one; anything not retryable raises immediately."""
+    import time as _time
+
+    for attempt in range(MAX_RETRIES):
+        response = client.get(url, params=params)
+        if response.status_code == 200:
+            return response
+        if response.status_code not in RETRY_STATUS or attempt == MAX_RETRIES - 1:
+            raise NewsHistoryError(
+                f"news {year}: HTTP {response.status_code} {response.text[:160]}"
+            )
+        retry_after = response.headers.get("retry-after")
+        wait = float(retry_after) if retry_after else min(2.0 ** attempt, 30.0)
+        _time.sleep(wait)
+    raise NewsHistoryError(f"news {year}: retries exhausted")  # pragma: no cover
+
+
 def fetch_news_year(year: int, *, tickers: list[str] | None = None) -> pd.DataFrame:
-    """Every news item of one year (optionally restricted to `tickers`), following paging."""
+    """Every news item of one year (optionally restricted to `tickers`), following paging,
+    deduplicated by wire id."""
     import httpx
 
     from equity_scout.alpaca_broker import auth_headers
@@ -115,11 +161,7 @@ def fetch_news_year(year: int, *, tickers: list[str] | None = None) -> pd.DataFr
                 params["symbols"] = ",".join(tickers)
             if token:
                 params["page_token"] = token
-            response = client.get(NEWS_BASE, params=params)
-            if response.status_code != 200:
-                raise NewsHistoryError(
-                    f"news {year}: HTTP {response.status_code} {response.text[:160]}"
-                )
+            response = _get_with_backoff(client, NEWS_BASE, params, year=year)
             frame, token = parse_news_page(response.json())
             if not frame.empty:
                 pages.append(frame)
@@ -127,4 +169,4 @@ def fetch_news_year(year: int, *, tickers: list[str] | None = None) -> pd.DataFr
                 break
     if not pages:
         return pd.DataFrame(columns=list(COLUMNS))
-    return pd.concat(pages).sort_values("created_at").reset_index(drop=True)
+    return dedupe_news(pd.concat(pages))
