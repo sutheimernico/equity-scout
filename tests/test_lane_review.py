@@ -98,3 +98,56 @@ def test_rejections_without_any_closed_trade_still_reviewed() -> None:
     note = " ".join(review.notes)
     assert "1 verworfene" in note
     assert "kein abgeschlossener eigener Trade" in note
+
+
+def _dated_sell(executed_at: str, pnl: float) -> dict:
+    return {
+        "executed_at": executed_at, "ticker": "BTC/USD", "side": "sell",
+        "qty": 1.0, "price": 100.0, "fees": 0.1, "reason": "channel_exit",
+        "realized_pnl": pnl,
+    }
+
+
+def test_crypto_review_starts_at_the_daily_bars_epoch() -> None:
+    from equity_scout.lane_review import MEASUREMENT_EPOCHS
+
+    assert MEASUREMENT_EPOCHS["crypto"] == "2026-08-10"
+    trades = [
+        _dated_sell("2026-07-01T10:00:00", -400.0),
+        _dated_sell("2026-08-12T10:00:00", 5.0),
+    ]
+    review = review_lane("crypto", trades)
+    assert review.n_closed == 1  # the 15-minute-era trade is outside the verdict window
+    assert review.net == 5.0
+    assert any("2026-08-10" in note for note in review.notes)
+
+
+def test_other_lanes_keep_their_full_history() -> None:
+    trades = [_dated_sell("2026-07-01T10:00:00", -1.0), _dated_sell("2026-08-12T10:00:00", 2.0)]
+    assert review_lane("swing", trades).n_closed == 2
+
+
+def test_a_trade_without_a_timestamp_is_not_silently_dropped() -> None:
+    # live rows always carry executed_at (NOT NULL); a row without one must still be counted
+    # rather than vanish from the book behind an epoch filter
+    assert review_lane("crypto", [_sell(3.0)]).n_closed == 1
+
+
+def test_a_window_change_suspends_the_movement_comparison() -> None:
+    # the last review was measured over the full history (no epoch); reporting the shrink as
+    # a gain would invent a fee refund the lane never earned
+    previous = {"n_closed": 32, "net": -451.60}  # pre-epoch shape: no "epoch" key at all
+    review = review_lane("crypto", [_dated_sell("2026-08-12T10:00:00", -129.72)], previous=previous)
+    assert review.delta_net is None and review.delta_trades is None
+    assert any("anderen Bewertungsfenster" in note for note in review.notes)
+
+
+def test_movement_returns_once_both_reviews_share_the_window() -> None:
+    previous = {"n_closed": 1, "net": -100.0, "epoch": "2026-08-10"}
+    review = review_lane(
+        "crypto",
+        [_dated_sell("2026-08-12T10:00:00", -100.0), _dated_sell("2026-08-13T10:00:00", 20.0)],
+        previous=previous,
+    )
+    assert review.delta_trades == 1
+    assert review.delta_net == 20.0

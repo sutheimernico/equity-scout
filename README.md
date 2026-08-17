@@ -308,9 +308,15 @@ short-term trading is that none do, and the arena will say so either way:
   therefore too favourable — the dashboard labels it (`execution_regime`) and the two periods
   must not be read as one series. `--feed yfinance` still reaches the old path, so a broken key
   degrades the lane loudly instead of stopping it.
-- **`crypto`** — Crypto-Daytrader: Donchian 20/10 breakout on Kraken's free, keyless,
-  REAL-TIME 15-minute bars (BTC/ETH/SOL/XRP vs USD), 24/7 cron. Benchmark: BTC
-  buy-and-hold — the honest bar, not cash.
+- **`crypto`** — Crypto-Daytrader: Donchian 20/10 breakout on Kraken's free, keyless bars
+  (BTC/ETH/SOL/XRP vs USD), 24/7 cron. Benchmark: BTC buy-and-hold — the honest bar, not
+  cash. On **daily** bars since 2026-08-10: on 15-minute bars roughly all of the 451.60 USD
+  loss was fees (±0 before costs), so the timescale changed rather than the fee assumption.
+  That is a regime break, so the lane's verdict window starts at that date
+  (`lane_review.MEASUREMENT_EPOCHS`) — the full curve stays visible, but a number measured on
+  the retired rule no longer decides anything. Pre-registered kill criterion: once ≥ 30
+  daily-era trades are closed, a "negativ" verdict ends the lane (cron line removed, book
+  stays readable).
 
 All lanes are long-only (shorting without borrow/margin realism would be fantasy), all
 fills charge slippage, per-trade realized P&L / win rate / fees are first-class

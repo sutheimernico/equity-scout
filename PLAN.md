@@ -669,9 +669,15 @@ den Crypto-Teil: `docs/superpowers/plans/2026-08-10-crypto-lane-cost-honest-hold
       niemand sie als Versäumnis „behebt".
 - [x] **Folgebefund `insights` passt nicht mehr in sein Budget** — gemessen und behoben
       2026-08-11, siehe eigene Phase unten.
-- [ ] Beobachten: ob die Crypto-Lane auf Tagesbars einen positiven Erwartungswert zeigt. n=0
-      auf der neuen Zeitskala; bei 20/10 Tagen über 4 Paare sind grob 1–3 Trades pro Monat und
-      Paar zu erwarten — belastbar erst in Monaten.
+- [ ] **Crypto-Lane Kill-Kriterium (vorab registriert 2026-08-17):** Urteil ausschließlich auf
+      Daily-Ära-Trades (`lane_review.MEASUREMENT_EPOCHS`, Epoche 2026-08-10). Nach ≥ 30
+      geschlossenen Daily-Ära-Trades entscheidet `significance.assess_trades`: Verdict „negativ"
+      ⇒ Cron-Zeile entfernen (Lane-Ende, Buch bleibt lesbar — Session-Lane-Präzedenz);
+      „positiv" ⇒ Promotion-Gate wie jede Lane. Bei 20/10-Donchian über 4 Paare sind das
+      grob 12–24 Monate — wer früher urteilen will, braucht ein anderes Kriterium, nicht
+      dieselben Daten nochmal. Stand beim Einbau: 4 Daily-Ära-Abschlüsse, −129,72 USD, Verdict
+      „zu wenige Trades" (vorher las die Lane regime-gemischt „negativ, entschieden" über 32
+      Trades / −451,60 USD — eine Zahl über eine Regel, die es nicht mehr gibt).
 
 ## Phase: v16 „Alpha-Fabrik" Welle 1 — vier neue Strategiefamilien (2026-08-10) — DONE
 Plan + alle Zahlen: `docs/superpowers/plans/2026-08-10-v16-alpha-factory.md`. Autonom
