@@ -17,10 +17,10 @@ step() {
   if "$@" >> "$LOG" 2>&1; then echo "[$(date -Is)] OK" >> "$LOG"
   else echo "[$(date -Is)] FAILED (exit $?) — weiter" >> "$LOG"; fi
 }
-step depth2 uv run python scripts/run_signal_matrix.py --pairs --depth 2 \
-  --checkpoint data/matrix_cells_d2.jsonl \
-  --out "docs/research/$(date +%F)-signal-matrix-depth2.md"
-step depth3 uv run python scripts/run_signal_matrix.py --pairs --depth 3 \
-  --tickers $LEADERS --checkpoint data/matrix_cells_d3.jsonl \
-  --out "docs/research/$(date +%F)-signal-matrix-depth3.md"
+# CELLS-ONLY wie Welle 1: die Report-Phase (Pooling, Plateaus, Hold-out) läuft erst nach der
+# Pooling-Härtung — das Hold-out wird nicht auf aufgeblähte t-Werte ausgegeben (2026-08-18).
+step depth2 uv run python scripts/run_signal_matrix.py --pairs --depth 2 --phase cells \
+  --checkpoint data/matrix_cells_d2.jsonl
+step depth3 uv run python scripts/run_signal_matrix.py --pairs --depth 3 --phase cells \
+  --tickers $LEADERS --checkpoint data/matrix_cells_d3.jsonl
 echo "[$(date -Is)] ===== Welle 3 Ende =====" >> "$LOG"
