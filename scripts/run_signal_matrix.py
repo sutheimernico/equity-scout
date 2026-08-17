@@ -28,7 +28,6 @@ import argparse
 import json
 import sys
 import time
-from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
@@ -42,7 +41,6 @@ from equity_scout.matrix.grid import (  # noqa: E402
     HOLD_OUT_START,
     MIN_TRADES,
     cell_from_returns,
-    pool_cells,
     split_periods,
     trade_returns,
 )
@@ -215,9 +213,27 @@ def phase_cells(tickers: list[str], years: list[int], path: Path, *, pairs: bool
               f"~{(len(pending) - i) * elapsed / i / 60:.0f} min übrig)", flush=True)
 
 
-def pooled_cells(path: Path, window: str) -> list[dict]:
-    """Cells of one window, pooled per asset class over the tickers in it."""
-    groups: dict[tuple, list[dict]] = defaultdict(list)
+def asset_classes_in(path: Path) -> list[str]:
+    """The asset classes present in the checkpoint — the outer loop of the report phase."""
+    seen = set()
+    with path.open() as handle:
+        for line in handle:
+            try:
+                seen.add(json.loads(line)["asset_class"])
+            except (json.JSONDecodeError, KeyError):
+                continue
+    return sorted(seen)
+
+
+def pooled_cells(path: Path, window: str, *, klass: str | None = None) -> list[dict]:
+    """Cells of one window (optionally one asset class), pooled over the tickers in it.
+
+    Aggregates INCREMENTALLY — running sums per key instead of collecting the rows. With the
+    condition axis the checkpoint reaches ~7.7 million rows / 2+ GB, and holding the rows per key
+    would need gigabytes of RAM. Reading the file once per asset class costs seconds and keeps
+    memory proportional to the number of keys of ONE class.
+    """
+    acc: dict[tuple, dict] = {}
     with path.open() as handle:
         for line in handle:
             try:
@@ -226,28 +242,70 @@ def pooled_cells(path: Path, window: str) -> list[dict]:
                 continue
             if row.get("window") != window:
                 continue
+            if klass is not None and row["asset_class"] != klass:
+                continue
             key = (row["asset_class"], row["signal"], row["threshold"], row["slice"],
                    row["hold_bars"], row["cost_bps"], row.get("context", "none"))
-            groups[key].append(row)
+            slot = acc.get(key)
+            if slot is None:
+                slot = acc[key] = {"n": 0, "tickers": 0, "tickers_measurable": 0,
+                                   "w": 0.0, "gross": 0.0, "net": 0.0, "hit": 0.0,
+                                   "t_num": 0.0, "t_w": 0.0}
+            n = row["n"]
+            slot["n"] += n
+            slot["tickers"] += 1
+            if row["net_bp"] is None:
+                continue
+            slot["tickers_measurable"] += 1
+            slot["w"] += n
+            slot["gross"] += row["gross_bp"] * n
+            slot["net"] += row["net_bp"] * n
+            slot["hit"] += row["hit_rate"] * n
+            if row["t"] is not None:
+                slot["t_num"] += row["t"] * (n ** 0.5)
+                slot["t_w"] += n
     out = []
-    for (klass, signal, threshold, slice_label, hold, cost, context), rows in groups.items():
-        out.append(pool_cells(
-            rows, asset_class=klass, signal=signal, threshold=threshold,
-            slice=slice_label, hold_bars=hold, cost_bps=cost, context=context,
-        ))
+    for (klass_, signal, threshold, slice_label, hold, cost, context), slot in acc.items():
+        cell = {
+            "asset_class": klass_, "signal": signal, "threshold": threshold,
+            "slice": slice_label, "hold_bars": hold, "cost_bps": cost, "context": context,
+            "n": slot["n"], "tickers": slot["tickers"],
+            "tickers_measurable": slot["tickers_measurable"],
+            "gross_bp": None, "net_bp": None, "t": None, "hit_rate": None,
+        }
+        if slot["w"] > 0:
+            cell["gross_bp"] = slot["gross"] / slot["w"]
+            cell["net_bp"] = slot["net"] / slot["w"]
+            cell["hit_rate"] = slot["hit"] / slot["w"]
+            if slot["t_w"] > 0:
+                # Stouffer-style pooled t, as in grid.pool_cells — conservative on purpose.
+                cell["t"] = slot["t_num"] / (slot["t_w"] ** 0.5)
+        out.append(cell)
     return out
 
 
 def phase_report(path: Path, out_path: str | None) -> int:
-    search = pooled_cells(path, "search")
-    if not search:
+    classes = asset_classes_in(path)
+    if not classes:
         print("Keine Zellen im Checkpoint — erst --phase cells laufen lassen.", file=sys.stderr)
         return 2
-    measurable = [c for c in search if c["net_bp"] is not None]
-    print(f"\nPhase 2 — Suchfenster: {len(search)} gepoolte Zellen, "
-          f"{len(measurable)} über der Stichprobenschwelle ({MIN_TRADES} Trades)")
-
-    plateaus = find_plateaus(search, slice_order=TIME_SLICES)
+    print(f"\nPhase 2 — Pooling je Anlageklasse: {', '.join(classes)}")
+    plateaus: list[dict] = []
+    counted = {"cells": 0, "measurable": 0}
+    per_class: dict[str, int] = {}
+    for klass in classes:
+        cells = pooled_cells(path, "search", klass=klass)
+        measurable_here = [c for c in cells if c["net_bp"] is not None]
+        counted["cells"] += len(cells)
+        counted["measurable"] += len(measurable_here)
+        per_class[klass] = len(measurable_here)
+        found = find_plateaus(cells, slice_order=TIME_SLICES)
+        plateaus.extend(found)
+        print(f"  {klass}: {len(cells):,} Zellen, {len(measurable_here):,} messbar, "
+              f"{len(found)} Plateau(s)", flush=True)
+    print(f"\nGesamt: {counted['cells']:,} gepoolte Zellen, "
+          f"{counted['measurable']:,} über der Stichprobenschwelle ({MIN_TRADES} Trades)")
+    plateaus = sorted(plateaus, key=lambda p: (-p["size"], -p["median_net_bp"]))
     print(f"\nPhase 3 — {len(plateaus)} Plateau(s) im Suchfenster:")
     for p in plateaus:
         print(f"  {p['signal']} [{p['context']}] / {p['asset_class']} "
@@ -256,11 +314,11 @@ def phase_report(path: Path, out_path: str | None) -> int:
               f"schlechtestes t {p['worst_t']:.2f}, Slices {p['slices']}, Holds {p['hold_bars']}")
 
     print(f"\n=== HOLD-OUT ({HOLD_OUT_START}+) wird jetzt EINMAL geöffnet ===")
-    holdout = {
-        (c["asset_class"], c["signal"], c["threshold"], c["slice"], c["hold_bars"],
-         c["cost_bps"], c.get("context", "none")): c
-        for c in pooled_cells(path, "holdout")
-    }
+    holdout = {}
+    for klass in sorted({p["asset_class"] for p in plateaus}):
+        for cell in pooled_cells(path, "holdout", klass=klass):
+            holdout[(cell["asset_class"], cell["signal"], cell["threshold"], cell["slice"],
+                     cell["hold_bars"], cell["cost_bps"], cell["context"])] = cell
     survivors = [_validate(p, holdout) for p in plateaus]
     for s in survivors:
         median = "—" if s["median_net_bp"] is None else f"{s['median_net_bp']:+.2f} bp"
@@ -269,7 +327,7 @@ def phase_report(path: Path, out_path: str | None) -> int:
               f"{'BESTÄTIGT' if s['holds'] else 'GEFALLEN'} — {s['positive_cells']}/{s['cells']} "
               f"Zellen positiv, Median {median}")
 
-    _write_doc(out_path, search, plateaus, survivors)
+    _write_doc(out_path, counted, per_class, plateaus, survivors)
     return 0
 
 
@@ -297,13 +355,10 @@ def _validate(plateau: dict, holdout: dict) -> dict:
     }
 
 
-def _write_doc(out, search: list[dict], plateaus: list[dict], survivors: list[dict]) -> None:
+def _write_doc(out, counted: dict, by_class: dict, plateaus: list[dict],
+               survivors: list[dict]) -> None:
     path = Path(out or f"docs/research/{date.today().isoformat()}-signal-matrix.md")
     path.parent.mkdir(parents=True, exist_ok=True)
-    measurable = [c for c in search if c["net_bp"] is not None]
-    by_class: dict[str, int] = defaultdict(int)
-    for cell in measurable:
-        by_class[cell["asset_class"]] += 1
     lines = [
         f"# Signal-Matrix: Plateaus statt Siegerzellen ({date.today().isoformat()})",
         "",
@@ -315,27 +370,31 @@ def _write_doc(out, search: list[dict], plateaus: list[dict], survivors: list[di
         "## Messraum",
         "",
         f"- {len(SIGNALS)} Signale x je 4 Schwellen x {len(TIME_SLICES)} Zeitscheiben "
-        f"(1min bis 1M) x {len(HOLD_BARS)} Haltedauern x {len(COST_BPS)} Kostenstufen",
-        f"- {len(search)} gepoolte Zellen, davon **{len(measurable)}** über der "
-        f"Stichprobenschwelle ({MIN_TRADES} Trades)",
+        f"(1min bis 1M) x {len(HOLD_BARS)} Haltedauern x {len(COST_BPS)} Kostenstufen "
+        f"x Bedingungen (Marktkontext + jedes Signal als Zustand)",
+        "- Bedingungen sind KEINE Nachbarschaftsachse: „wirkt nur nach einer Meldung\" ist eine "
+        "andere Behauptung als „wirkt immer\", also bekommt jede Bedingung eigene Regionen",
+        f"- {counted['cells']:,} gepoolte Zellen, davon **{counted['measurable']:,}** über "
+        f"der Stichprobenschwelle ({MIN_TRADES} Trades)",
         "- messbare Zellen je Anlageklasse: "
         + ", ".join(f"{k} {v}" for k, v in sorted(by_class.items(), key=lambda kv: -kv[1])),
         f"- Suchfenster bis {HOLD_OUT_START}, Hold-out danach — **einmal** geöffnet",
         "",
         "## Plateaus im Suchfenster",
         "",
-        "| Signal | Klasse | Kosten | Zellen | Median netto | schlecht. t | Slices | Holds |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Signal | Bedingung | Klasse | Kosten | Zellen | Median netto | schlecht. t | Slices | Holds |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for p in plateaus:
         lines.append(
-            f"| {p['signal']} | {p['asset_class']} | {p['cost_bps']:.0f} bp | {p['size']} | "
+            f"| {p['signal']} | {p['context']} | {p['asset_class']} | "
+            f"{p['cost_bps']:.0f} bp | {p['size']} | "
             f"{p['median_net_bp']:+.2f} bp | {p['worst_t']:.2f} | "
             f"{', '.join(p['slices'])} | {p['hold_bars']} |"
         )
     if not plateaus:
         lines += [
-            "| — | — | — | — | — | — | — | — |",
+            "| — | — | — | — | — | — | — | — | — |",
             "",
             "**Kein Plateau gefunden.** Das ist ein Ergebnis, kein Fehler: in diesem Raum gibt es",
             "keine zusammenhängende Region, die nach Kosten positiv UND einzeln signifikant ist.",
@@ -343,17 +402,17 @@ def _write_doc(out, search: list[dict], plateaus: list[dict], survivors: list[di
             "sieben Tagen — die Frage „wir haben nie richtig hingeschaut“ ist beantwortet.",
         ]
     lines += ["", "## Hold-out", "",
-              "| Signal | Klasse | Kosten | Zellen positiv | Median netto | Suchfenster | Urteil |",
-              "|---|---|---|---|---|---|---|"]
+              "| Signal | Bedingung | Klasse | Kosten | Zellen positiv | Median netto | Suchfenster | Urteil |",
+              "|---|---|---|---|---|---|---|---|"]
     for s in survivors:
         median = "—" if s["median_net_bp"] is None else f"{s['median_net_bp']:+.2f} bp"
         lines.append(
-            f"| {s['signal']} | {s['asset_class']} | {s['cost_bps']:.0f} bp | "
-            f"{s['positive_cells']}/{s['cells']} | {median} | "
+            f"| {s['signal']} | {s['context']} | {s['asset_class']} | "
+            f"{s['cost_bps']:.0f} bp | {s['positive_cells']}/{s['cells']} | {median} | "
             f"{s['search_median_bp']:+.2f} bp | {'BESTÄTIGT' if s['holds'] else 'GEFALLEN'} |"
         )
     if not survivors:
-        lines.append("| — | — | — | — | — | — | — |")
+        lines.append("| — | — | — | — | — | — | — | — |")
     lines += [
         "",
         "## Grenzen dieser Messung",
