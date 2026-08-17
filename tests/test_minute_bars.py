@@ -6,6 +6,7 @@ from equity_scout.data.minute_bars import (
     REGULAR_CLOSE_ET,
     REGULAR_OPEN_ET,
     bars_path,
+    bars_request_params,
     load_minutes,
     parse_bars_page,
     regular_session_only,
@@ -59,6 +60,27 @@ def test_session_filter_is_dst_correct():
 
 def test_regular_session_constants_are_the_us_cash_session():
     assert (REGULAR_OPEN_ET, REGULAR_CLOSE_ET) == ("09:30", "16:00")
+
+
+def test_bars_are_requested_split_and_dividend_adjusted():
+    # Raw prices would book AAPL's 2020 4:1 split as a -75 % return inside a holding window;
+    # "all" also folds dividends back in, so bond/REIT ETFs stop gapping down every ex-div day.
+    params = bars_request_params("AAPL", 2020)
+    assert params["adjustment"] == "all"
+    assert "page_token" not in params
+    assert bars_request_params("AAPL", 2020, "tok")["page_token"] == "tok"
+
+
+def test_half_days_are_capped_at_the_calendar_close():
+    # 2020-11-27 closed 13:00 ET: the 12:59 bar (17:59Z) stays, the 13:01 print (18:01Z) goes.
+    index = pd.to_datetime(["2020-11-27T17:59:00Z", "2020-11-27T18:01:00Z"])
+    frame = pd.DataFrame({"close": [1.0, 2.0]}, index=index)
+    capped = regular_session_only(
+        frame, session_close_minutes={"2020-11-27": 13 * 60}
+    )
+    assert capped["close"].tolist() == [1.0]
+    # A day the calendar does not list falls back to the 16:00 default.
+    assert regular_session_only(frame)["close"].tolist() == [1.0, 2.0]
 
 
 def test_save_and_load_roundtrip(tmp_path):

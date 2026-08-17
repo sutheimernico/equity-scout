@@ -9,13 +9,18 @@ Universe design, per Nico's brief (2026-08-17): not only stocks — indices, com
 currencies and volatility, so the matrix can answer whether a pattern behaves DIFFERENTLY per
 asset class. Asset class is therefore a matrix axis, and every ticker carries its class here.
 
-Two honest limits of this universe:
+Three honest limits of this universe:
 - **ETFs, not futures.** Alpaca serves US equities and ETFs; there is no CL/GC futures feed.
   So "oil" means USO (which carries roll cost and tracking error), not the WTI contract. Good
   enough to measure signal MECHANICS, not good enough to quote a commodity's own return.
 - **Liquidity bias, deliberately.** These are the most liquid instruments in their class, i.e.
   the cheapest possible case for trading costs. A signal that fails here fails everywhere more
   expensive; the reverse does not follow, and the research doc says so.
+- **Survivorship in the stock class.** The 30 single stocks are the 2026 mega-cap list applied
+  backwards to 2016 — every name that fell out of the top in between is absent. Absolute bp
+  numbers for `stock` are upward-biased, and dip-buying signals especially so: in this sample
+  every dip was eventually bought back by a survivor. Read the stock class relative to its own
+  unconditional mean, never as an absolute edge. The ETF classes do not carry this bias.
 
 Usage:
     uv run python scripts/fetch_minute_history.py               # all missing ticker-years
@@ -87,13 +92,15 @@ def asset_class(ticker: str) -> str:
 def missing_jobs(
     tickers: list[str], years: list[int], *, root: Path | str = DATA_BASE_PATH
 ) -> list[tuple[str, int]]:
-    """The (ticker, year) pairs with no file yet — the resume list."""
-    return [
-        (ticker, year)
-        for ticker in tickers
-        for year in years
-        if not bars_path(ticker, year, root=root).exists()
-    ]
+    """The (ticker, year) pairs with no usable file yet — the resume list. A zero-byte file
+    (a crashed write before saves became atomic) counts as missing, not as done."""
+    jobs = []
+    for ticker in tickers:
+        for year in years:
+            path = bars_path(ticker, year, root=root)
+            if not path.exists() or path.stat().st_size == 0:
+                jobs.append((ticker, year))
+    return jobs
 
 
 def summarise_coverage(

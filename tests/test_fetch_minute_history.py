@@ -33,9 +33,14 @@ def test_the_current_year_is_excluded_because_the_plan_blocks_recent_sip():
     assert FULL_YEARS == tuple(range(2016, 2026))
 
 
-def test_missing_jobs_lists_only_absent_ticker_years(tmp_path):
+def test_missing_jobs_lists_absent_and_zero_byte_ticker_years(tmp_path):
+    # A zero-byte file is a crashed write, not a downloaded year — it must stay on the list,
+    # otherwise the resume skips it forever and load_minutes crashes the night run on it.
     (tmp_path / "AAPL-2024.csv.gz").write_bytes(b"")
-    assert missing_jobs(["AAPL", "MSFT"], [2024], root=tmp_path) == [("MSFT", 2024)]
+    (tmp_path / "SPY-2024.csv.gz").write_bytes(b"real-enough-content")
+    assert missing_jobs(["AAPL", "MSFT", "SPY"], [2024], root=tmp_path) == [
+        ("AAPL", 2024), ("MSFT", 2024),
+    ]
 
 
 def test_summarise_coverage_counts_rows_and_flags_thin_years(tmp_path):

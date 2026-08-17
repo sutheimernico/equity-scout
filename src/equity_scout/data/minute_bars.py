@@ -17,12 +17,18 @@ pyarrow is not a dependency of this repo, and a nightly batch job does not justi
 """
 from __future__ import annotations
 
+import os
+from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
 
 DATA_BASE_PATH = "data/minutes"
 FEED = "sip"  # history only; live lanes use IEX — see module docstring
+# "all" = split- AND dividend-adjusted. Raw prices would book every split as a -66..-95 % return
+# (AAPL 2020, TSLA, AMZN/GOOGL 20:1 ...) and every ex-div day as a fake gap the holder never
+# lost — with adjustment the series is a total-return path, which is what a price P&L needs.
+ADJUSTMENT = "all"
 HISTORY_START = "2016-01-01"  # earliest bar Alpaca serves (measured 2026-08-17)
 PAGE_LIMIT = 10_000  # Alpaca's per-call maximum
 REGULAR_OPEN_ET = "09:30"
@@ -56,28 +62,73 @@ def parse_bars_page(payload: dict, ticker: str) -> tuple[pd.DataFrame, str | Non
     return frame[list(COLUMNS)].sort_index(), token
 
 
-def regular_session_only(frame: pd.DataFrame) -> pd.DataFrame:
-    """Keep 09:30 <= t < 16:00 America/New_York (DST-correct via tz conversion).
+def regular_session_only(
+    frame: pd.DataFrame, *, session_close_minutes: dict[str, int] | None = None
+) -> pd.DataFrame:
+    """Keep 09:30 <= t < session close, America/New_York (DST-correct via tz conversion).
 
     Pre- and after-market bars are dropped on purpose: they are thin, their spreads are
     multiples of the regular session's, and a signal measured across them would book a cost
-    assumption that does not hold. The 16:00 stamp is excluded (it is the end of the 15:59
+    assumption that does not hold. The close stamp is excluded (it is the end of the last
     bar's interval, not a tradable minute of its own).
+
+    `session_close_minutes` maps ISO dates to that day's close as minutes-of-day ET — the
+    exchange calendar's answer to half days. Without it every day is assumed to close 16:00,
+    which lets ~140 near-zero-volume post-close prints per half day through (measured: SPY
+    2020-11-27 traded to 15:58 on a 13:00 close).
     """
     if frame.empty:
         return frame
     local = frame.index.tz_convert("America/New_York")
     minutes = local.hour * 60 + local.minute
-    return frame.loc[(minutes >= 9 * 60 + 30) & (minutes < 16 * 60)]
+    if session_close_minutes is None:
+        close = 16 * 60
+    else:
+        days = local.strftime("%Y-%m-%d")
+        close = pd.Index([session_close_minutes.get(d, 16 * 60) for d in days])
+    return frame.loc[(minutes >= 9 * 60 + 30) & (minutes < close)]
+
+
+@lru_cache(maxsize=None)
+def session_close_minutes(year: int) -> dict[str, int]:
+    """{ISO date: close as minutes-of-day ET} from the exchange calendar, one call per year.
+
+    Raises MinuteBarError on failure instead of silently assuming 16:00 — a missing calendar
+    must not quietly re-admit the half-day after-hours prints this exists to drop.
+    """
+    import httpx
+
+    from equity_scout.alpaca_broker import PAPER_BASE, auth_headers
+
+    with httpx.Client(headers=auth_headers(), timeout=30.0) as client:
+        response = client.get(
+            f"{PAPER_BASE}/calendar",
+            params={"start": f"{year}-01-01", "end": f"{year}-12-31"},
+        )
+    if response.status_code != 200:
+        raise MinuteBarError(
+            f"calendar {year}: HTTP {response.status_code} {response.text[:160]}"
+        )
+    out: dict[str, int] = {}
+    for day in response.json():
+        hour, minute = day["close"].split(":")
+        out[day["date"]] = int(hour) * 60 + int(minute)
+    return out
 
 
 def save_year(
     frame: pd.DataFrame, ticker: str, year: int, *, root: Path | str = DATA_BASE_PATH
 ) -> Path:
-    """Persist one ticker-year. Overwrites: a re-fetch is the correction path."""
+    """Persist one ticker-year. Overwrites: a re-fetch is the correction path.
+
+    Written to a temp name and renamed atomically — a kill mid-write must leave either the
+    old file or the new one, never a truncated year that a later resume treats as done.
+    """
     path = bars_path(ticker, year, root=root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(path, compression="gzip", index_label="t")
+    tmp = path.with_name(path.name + ".tmp")
+    frame.to_csv(tmp, compression="gzip", index_label="t")
+    os.replace(tmp, path)
     return path
 
 
@@ -109,6 +160,27 @@ def load_minutes(
     return out
 
 
+def bars_request_params(ticker: str, year: int, token: str | None = None) -> dict:
+    """The bars request, as data — split out so a test can pin `adjustment` without HTTP.
+
+    The pin matters: without `adjustment` Alpaca serves RAW prices, and ten splits between
+    -66 % and -95 % (GOOGL, AMZN, NFLX, NVDA, TSLA, AAPL, AVGO, WMT) land in the matrix as
+    real returns, dominating any few-bp cell they touch.
+    """
+    params = {
+        "symbols": ticker,
+        "timeframe": "1Min",
+        "start": f"{year}-01-01",
+        "end": f"{year}-12-31",
+        "feed": FEED,
+        "adjustment": ADJUSTMENT,
+        "limit": PAGE_LIMIT,
+    }
+    if token:
+        params["page_token"] = token
+    return params
+
+
 def fetch_minute_year(ticker: str, year: int) -> pd.DataFrame:
     """All regular-session minute bars of one ticker-year, following Alpaca's paging.
 
@@ -119,20 +191,12 @@ def fetch_minute_year(ticker: str, year: int) -> pd.DataFrame:
 
     from equity_scout.alpaca_broker import DATA_BASE, auth_headers
 
+    closes = session_close_minutes(year)
     pages: list[pd.DataFrame] = []
     token: str | None = None
     with httpx.Client(headers=auth_headers(), timeout=60.0) as client:
         while True:
-            params = {
-                "symbols": ticker,
-                "timeframe": "1Min",
-                "start": f"{year}-01-01",
-                "end": f"{year}-12-31",
-                "feed": FEED,
-                "limit": PAGE_LIMIT,
-            }
-            if token:
-                params["page_token"] = token
+            params = bars_request_params(ticker, year, token)
             response = client.get(f"{DATA_BASE}/stocks/bars", params=params)
             if response.status_code != 200:
                 raise MinuteBarError(
@@ -145,4 +209,6 @@ def fetch_minute_year(ticker: str, year: int) -> pd.DataFrame:
                 break
     if not pages:
         return pd.DataFrame(columns=list(COLUMNS))
-    return regular_session_only(pd.concat(pages).sort_index())
+    return regular_session_only(
+        pd.concat(pages).sort_index(), session_close_minutes=closes
+    )
