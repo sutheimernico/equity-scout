@@ -58,15 +58,21 @@ def run_backtest(
     panel: PricePanel,
     *,
     rebalance: str = "ME",
+    rebalance_dates: pd.DatetimeIndex | None = None,
     costs_bps: float = 10.0,
     initial_capital: float = 1.0,
     sweep_bps: tuple[float, ...] = (),
 ) -> BacktestResult:
+    """`rebalance_dates` overrides the `rebalance` frequency with an explicit date list — the
+    timing-luck study runs the same strategy on month-end + k trading days (Hoffstein/Faber/
+    Braun 2020: the rebalance DAY alone disperses long-run results)."""
     # Vectorised once into a numpy array so the daily drift loop avoids per-day pandas label lookups
     # (the hot path: ~5000 days). A missing day = price unchanged (return 0).
     returns_values = np.nan_to_num(panel.closes.pct_change().to_numpy(), nan=0.0)
     col = {ticker: j for j, ticker in enumerate(panel.closes.columns)}
-    rebalance_dates = set(panel.rebalance_dates(rebalance))
+    rebalance_days = set(
+        panel.rebalance_dates(rebalance) if rebalance_dates is None else rebalance_dates
+    )
     cost_rate = costs_bps / 10_000.0
 
     weights: dict[str, float] = {}  # current invested weights; remainder is cash (return 0)
@@ -92,7 +98,7 @@ def run_backtest(
                     ticker: w * (1.0 + row[col[ticker]]) / growth for ticker, w in weights.items()
                 }
 
-        if date in rebalance_dates:
+        if date in rebalance_days:
             view = MarketView(panel, date)
             if view.has_data:
                 target = weights_dict(normalise_weights(strategy.decide(date, view)))

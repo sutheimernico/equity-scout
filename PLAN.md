@@ -37,6 +37,24 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
       - Nicos eigener Durchklick auf dem Handy steht seit dem 08.08. als Needs-Nico aus; ohne
         seine Funde ist "zu Ende" nicht bestimmbar.
 
+## Phase: Rebalance-Timing-Glück gemessen (2026-08-17) — STUDIE DONE, Bau wartet auf Nico
+Task 5 aus `docs/superpowers/plans/2026-08-16-autotrader-review-upgrades.md`. Doku:
+`docs/research/2026-08-17-rebalance-timing-luck.md`, reproduzierbar über
+`scripts/run_timing_luck_study.py`. Keine Live-Änderung — reine Messung.
+
+- **Material, aber gespalten:** signalgetriebene Sleeves streuen allein durch den Rebalance-Tag
+  **1,6–5,9 pp CAGR** (Mean-Reversion 5,85 · DAA 4,15 · GEM 3,63 · Momentum 12-1 3,12 · Sektor
+  2,46 · VolTarget 2,31 · Low-Vol 1,60); die Allokations-Sleeves ohne Signal-Stichtag sind immun
+  (60/40 0,23 · DCA 0,25 · Permanent 0,27 · Risk Parity 0,48).
+- **Glück, kein Kalendereffekt:** über alle Strategien gemittelt +8,77 / +8,32 / +9,19 / +8,27 %
+  für Offset 0/5/10/15, und der Sieger wechselt pro Strategie. Es gibt keinen besseren Tag zu
+  wählen, nur eine Streuung zu mitteln (passt zum widerlegten Turn-of-Month-Effekt, 2026-08-16).
+- [ ] **Nico-Gate: Tranching für die 7 signalgetriebenen Sleeves bauen?** Vier Tranchen à 25 %
+      (Offsets 0/5/10/15), Ergebnis gemittelt. Preis: jeder getrancht laufende Sleeve ist eine
+      **neue Strategie-Identität mit frischem Forward-Track** — der bisherige Track endet. Die
+      vier immunen Sleeves bleiben am Monatsende. Ohne Go bleibt der Punkt gemessen-und-erledigt,
+      und die Streuung ist als bekannte Unsicherheit des Live-Tracks dokumentiert.
+
 ## Runde 2026-08-17 (Nicos Blanko-Go: Lernkreis vervollständigen) — DONE
 Plan: `docs/superpowers/plans/2026-08-16-no-trade-book-and-learning-loop.md` (mit Outcome)
 - **Nicht-Trade-Buch (`st_rejections`).** Jede geprüfte, nicht gehandelte Gelegenheit wird
