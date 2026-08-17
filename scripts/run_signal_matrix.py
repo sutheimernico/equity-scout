@@ -101,6 +101,46 @@ def build_conditions(*, pairs: bool) -> dict:
     return conditions
 
 
+def combine_conditions(conditions: dict, depth: int) -> dict:
+    """Add AND-combinations of conditions up to `depth` — Nico's "maybe it takes three or four
+    parameters together".
+
+    The combinatorics are brutal and that is the point of measuring rather than arguing: 22
+    single conditions give 231 pairs, 1540 triples and 7315 quadruples. Each AND cuts the sample
+    further, so most deep cells land under MIN_TRADES and report their count instead of a number.
+    That is the honest answer to "how deep can we go" — the matrix states it per cell rather than
+    me asserting a limit.
+
+    Two guards keep the space from being nonsense rather than merely large:
+    - `none` never enters a combination (it is the baseline, and "none AND x" is just "x").
+    - Time-of-day conditions are mutually exclusive, so combining two of them yields an empty
+      mask. They are excluded from each other's combinations instead of being measured as zero.
+    """
+    from itertools import combinations
+
+    exclusive = {"first_hour", "midday", "last_hour"}
+    base = {k: v for k, v in conditions.items() if k != "none"}
+    out = dict(conditions)
+    for size in range(2, depth + 1):
+        for names in combinations(sorted(base), size):
+            if len(exclusive.intersection(names)) > 1:
+                continue  # an empty intersection by construction
+            masks = [base[n] for n in names]
+            out["+".join(names)] = _and_masks(masks)
+    return out
+
+
+def _and_masks(masks: list):
+    """One callable that ANDs several condition masks over the same bars."""
+    def combined(bars, **kwargs):
+        result = masks[0](bars, **kwargs)
+        for mask in masks[1:]:
+            result = result & mask(bars, **kwargs)
+        return result
+
+    return combined
+
+
 def cells_for_ticker(
     bars, ticker: str, window: str, *, conditions: dict | None = None,
     news_stamps=None, vix_closes=None,
@@ -173,8 +213,12 @@ def done_tickers(path: Path) -> set[str]:
     return seen
 
 
-def phase_cells(tickers: list[str], years: list[int], path: Path, *, pairs: bool) -> None:
+def phase_cells(
+    tickers: list[str], years: list[int], path: Path, *, pairs: bool, depth: int = 1
+) -> None:
     conditions = build_conditions(pairs=pairs)
+    if depth > 1:
+        conditions = combine_conditions(conditions, depth)
     news = load_news(years) if any(
         "news" in spec.needs for spec in CONTEXTS.values()
     ) else None
@@ -440,6 +484,8 @@ def main() -> int:
     parser.add_argument("--phase", choices=("all", "cells", "report"), default="all")
     parser.add_argument("--pairs", action="store_true",
                         help="jedes Signal zusätzlich als Bedingung für jedes andere")
+    parser.add_argument("--depth", type=int, default=1,
+                        help="Kombinationstiefe der Bedingungen (1=einzeln, 2=Paare, ...)")
     parser.add_argument("--checkpoint", default=str(CHECKPOINT))
     parser.add_argument("--out", default=None, help="research doc path (default: docs/research/)")
     args = parser.parse_args()
@@ -447,7 +493,7 @@ def main() -> int:
     path = Path(args.checkpoint)
     path.parent.mkdir(parents=True, exist_ok=True)
     if args.phase in ("all", "cells"):
-        phase_cells(args.tickers, args.years, path, pairs=args.pairs)
+        phase_cells(args.tickers, args.years, path, pairs=args.pairs, depth=args.depth)
     if args.phase == "cells":
         return 0
     return phase_report(path, args.out)

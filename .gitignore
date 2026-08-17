@@ -27,3 +27,5 @@ data/minutes/
 # News history store (Alpaca/Benzinga wire), derived data — see scripts/run_news_latency.py
 data/news/
 data/matrix_cells.jsonl
+
+data/matrix_cells_d*.jsonl

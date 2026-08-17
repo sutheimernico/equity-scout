@@ -74,3 +74,41 @@ def test_pooled_cells_groups_per_asset_class_and_ignores_other_windows(tmp_path)
     by_class = {cell["asset_class"]: cell for cell in pooled}
     assert by_class["stock"]["n"] == 400 and by_class["stock"]["tickers"] == 2
     assert by_class["commodity"]["n"] == 500
+
+
+def test_combination_depth_grows_the_condition_axis_as_documented():
+    from scripts.run_signal_matrix import build_conditions, combine_conditions
+
+    base = build_conditions(pairs=True)
+    assert len(base) == 23
+    assert len(combine_conditions(base, 1)) == 23  # depth 1 changes nothing
+    assert len(combine_conditions(base, 2)) == 251
+    assert len(combine_conditions(base, 3)) == 1733
+
+
+def test_the_baseline_never_enters_a_combination():
+    from scripts.run_signal_matrix import build_conditions, combine_conditions
+
+    combined = combine_conditions(build_conditions(pairs=False), 2)
+    assert not any("none+" in name or name.endswith("+none") for name in combined)
+
+
+def test_mutually_exclusive_times_of_day_are_not_combined():
+    from scripts.run_signal_matrix import build_conditions, combine_conditions
+
+    combined = combine_conditions(build_conditions(pairs=False), 2)
+    # "first_hour AND last_hour" is empty by construction — measuring it would be a wasted cell
+    assert "first_hour+last_hour" not in combined
+    assert "first_hour+midday" not in combined
+    assert "first_hour+uptrend" in combined  # a legitimate pair survives
+
+
+def test_a_combined_condition_is_the_logical_and_of_its_parts():
+    from scripts.run_signal_matrix import combine_conditions
+
+    bars = _bars(60)
+    always = lambda b, **_: pd.Series(True, index=b.index)  # noqa: E731
+    never = lambda b, **_: pd.Series(False, index=b.index)  # noqa: E731
+    combined = combine_conditions({"none": always, "a": always, "b": never}, 2)
+    assert combined["a+b"](bars).sum() == 0
+    assert combined["a"](bars).all()
