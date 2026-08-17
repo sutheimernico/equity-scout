@@ -70,7 +70,12 @@ ASSET_CLASSES: dict[str, str] = {
     "AMD": "stock", "NFLX": "stock", "INTC": "stock", "CSCO": "stock", "BA": "stock",
 }
 MINUTE_UNIVERSE: tuple[str, ...] = tuple(ASSET_CLASSES)
-FULL_YEARS = tuple(range(2016, 2027))
+# 2016-2025. The CURRENT year is deliberately absent: the free plan answers historical SIP
+# requests but refuses recent ones ("subscription does not permit querying recent SIP data",
+# measured 2026-08-17 on every 2026 request). That is the same feed boundary the matrix's
+# executability caveat is about — history is SIP, live is IEX. Ten full years is what this
+# subscription honestly provides, and the hold-out (2023+) still spans three of them.
+FULL_YEARS = tuple(range(2016, 2026))
 THIN_YEAR_BARS = 50_000  # a full ticker-year is ~98k regular-session bars; below this = gap
 
 
