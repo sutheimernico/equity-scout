@@ -120,3 +120,35 @@ def test_none_valued_cells_are_ignored_not_treated_as_zero():
 def test_the_bars_are_the_documented_ones():
     assert MIN_PLATEAU_CELLS == 4
     assert PLATEAU_T == 2.0
+
+
+def test_threshold_neighbourhood_is_per_signal_not_global():
+    # consecutive_down counts BARS (2,3), the others count percent (0.005, 0.01). A global
+    # threshold axis would put 0.01 between nothing and 2, breaking adjacency for one of them.
+    cells = [
+        _cell("consecutive_down", 2.0, "5min", 2, 4.0, 6.0, 3.0),
+        _cell("consecutive_down", 3.0, "5min", 2, 4.0, 6.5, 3.2),
+        _cell("consecutive_down", 2.0, "5min", 3, 4.0, 5.9, 2.8),
+        _cell("consecutive_down", 3.0, "5min", 3, 4.0, 6.1, 3.0),
+        # a percent-threshold signal in the same matrix must not disturb the axis above
+        _cell("momentum_up", 0.005, "5min", 2, 4.0, 6.0, 3.0),
+        _cell("momentum_up", 0.01, "5min", 2, 4.0, 6.0, 3.0),
+        _cell("momentum_up", 0.005, "5min", 3, 4.0, 6.0, 3.0),
+        _cell("momentum_up", 0.01, "5min", 3, 4.0, 6.0, 3.0),
+    ]
+    found = _find(cells)
+    assert len(found) == 2  # both signals form their own 4-cell plateau
+    assert {p["signal"] for p in found} == {"consecutive_down", "momentum_up"}
+
+
+def test_the_condition_axis_separates_regions():
+    cells = [
+        _cell("hammer", 2.0, "5min", 2, 4.0, 6.0, 3.0),
+        _cell("hammer", 2.0, "5min", 3, 4.0, 6.0, 3.0),
+        _cell("hammer", 3.0, "5min", 2, 4.0, 6.0, 3.0),
+        _cell("hammer", 3.0, "5min", 3, 4.0, 6.0, 3.0),
+    ]
+    for cell in cells[:2]:
+        cell["context"] = "after_news"  # half the region sits under a condition
+    found = _find(cells)
+    assert found == []  # two pairs of two, neither reaches the minimum size

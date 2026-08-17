@@ -101,6 +101,64 @@ def gap_up(bars: pd.DataFrame, *, threshold: float) -> pd.Series:
     return (gap >= threshold).fillna(False)
 
 
+def gap_down(bars: pd.DataFrame, *, threshold: float) -> pd.Series:
+    """This bar opened `threshold` BELOW the previous close — buying the gap, not fading it."""
+    gap = bars["open"] / bars["close"].shift(1) - 1.0
+    return (gap <= -threshold).fillna(False)
+
+
+def spike_pullback(bars: pd.DataFrame, *, threshold: float) -> pd.Series:
+    """Nico's setup: a big UP move, then an immediate small give-back — buy the dip in the spike.
+
+    Fires when the bar before last rose at least `threshold` and the last bar gave part of it
+    back (a red bar, but less than the spike itself, so this is a pullback and not a full
+    reversal). The economic story is short-lived overreaction to the buying pressure, which is a
+    different claim from `reversal_down` (that one needs no prior spike at all).
+    """
+    change = bars["close"] / bars["open"] - 1.0
+    spike = change.shift(1) >= threshold
+    give_back = (change < 0) & (change.abs() < change.shift(1).abs())
+    return (spike & give_back).fillna(False)
+
+
+def spike_fade(bars: pd.DataFrame, *, threshold: float) -> pd.Series:
+    """The opposite claim on the same event: after an outsized DOWN move, buy the exhaustion.
+
+    Long-only, so this is the tradable half of "fade the overreaction". It fires one bar after
+    the drop, which is what makes it distinguishable from `reversal_down` firing on the drop bar
+    itself — the two together answer whether the entry timing matters.
+    """
+    change = bars["close"] / bars["open"] - 1.0
+    return ((change.shift(1) <= -threshold) & (change >= 0)).fillna(False)
+
+
+def consecutive_down(bars: pd.DataFrame, *, threshold: float) -> pd.Series:
+    """`threshold` red bars in a row (threshold is a COUNT here, not a percentage).
+
+    The pure "it has fallen long enough" reflex, with no size condition at all — worth measuring
+    precisely because it is the most common human reason to buy a dip.
+    """
+    red = (bars["close"] < bars["open"]).astype(int)
+    streak = red.rolling(int(threshold)).sum()
+    return (streak >= int(threshold)).fillna(False)
+
+
+def range_contraction(bars: pd.DataFrame, *, threshold: float) -> pd.Series:
+    """This bar's range is at most `threshold` times the trailing average range — the "coiled
+    spring" idea (contraction precedes expansion). Fires on the quiet bar, so the trade is on
+    what comes AFTER the calm, not on the move itself."""
+    span = bars["high"] - bars["low"]
+    baseline = span.rolling(VOLUME_LOOKBACK).mean().shift(1)
+    return ((span <= threshold * baseline) & (baseline > 0)).fillna(False)
+
+
+def new_low_20(bars: pd.DataFrame, *, threshold: float) -> pd.Series:
+    """Close breaks `threshold` below the lowest close of the previous TREND_LOOKBACK bars —
+    the mirror of breakout_high, and the setup a trend follower would refuse to touch."""
+    prior_low = bars["close"].rolling(TREND_LOOKBACK).min().shift(1)
+    return (bars["close"] <= prior_low * (1.0 - threshold)).fillna(False)
+
+
 SIGNALS: dict[str, SignalSpec] = {
     "momentum_up": SignalSpec(
         momentum_up, (0.002, 0.005, 0.01, 0.02), "Bar schließt X über eigenem Open"
@@ -122,5 +180,27 @@ SIGNALS: dict[str, SignalSpec] = {
     ),
     "gap_up": SignalSpec(
         gap_up, (0.002, 0.005, 0.01, 0.02), "Open X über vorherigem Close"
+    ),
+    "gap_down": SignalSpec(
+        gap_down, (0.002, 0.005, 0.01, 0.02), "Open X unter vorherigem Close"
+    ),
+    "spike_pullback": SignalSpec(
+        spike_pullback, (0.002, 0.005, 0.01, 0.02),
+        "Großer Aufwärtssprung, dann sofortiger Rücksetzer (Nicos Setup)"
+    ),
+    "spike_fade": SignalSpec(
+        spike_fade, (0.002, 0.005, 0.01, 0.02),
+        "Nach übermäßigem Abwärtssprung die Erschöpfung kaufen"
+    ),
+    "consecutive_down": SignalSpec(
+        consecutive_down, (2.0, 3.0, 4.0, 5.0),
+        "X rote Bars in Folge (Schwelle ist eine ANZAHL, kein Prozentwert)"
+    ),
+    "range_contraction": SignalSpec(
+        range_contraction, (0.3, 0.5, 0.7, 0.9),
+        "Bar-Range höchstens X der Trailing-Durchschnittsrange"
+    ),
+    "new_low_20": SignalSpec(
+        new_low_20, (0.0, 0.002, 0.005, 0.01), "Close bricht 20-Bar-Tief um X"
     ),
 }

@@ -20,7 +20,8 @@ def _bars(rows: list[dict]) -> pd.DataFrame:
 def test_registry_exposes_every_detector_with_a_plateau_capable_axis():
     assert set(SIGNALS) == {
         "momentum_up", "reversal_down", "volume_spike", "breakout_high",
-        "hammer", "bullish_engulfing", "gap_up",
+        "hammer", "bullish_engulfing", "gap_up", "gap_down", "spike_pullback",
+        "spike_fade", "consecutive_down", "range_contraction", "new_low_20",
     }
     for name, spec in SIGNALS.items():
         assert callable(spec.detect), name
