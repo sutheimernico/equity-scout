@@ -92,6 +92,19 @@ def test_the_axes_are_the_documented_ones():
     assert MIN_TRADES == 200
 
 
+def test_the_per_ticker_floor_lets_thin_cells_report_for_the_pool():
+    # 88 daily trades per ticker are not evidence alone, but 70 tickers x 88 pooled are —
+    # the per-ticker floor only guards against single-digit-noise cells.
+    from equity_scout.matrix.grid import MIN_TRADES_TICKER, cell_from_returns
+    import numpy as np
+
+    assert MIN_TRADES_TICKER == 20
+    gross = np.full(88, 5.0)
+    assert cell_from_returns(gross, cost_bps=2.0)["net_bp"] is None  # default floor: 200
+    thin = cell_from_returns(gross, cost_bps=2.0, min_trades=MIN_TRADES_TICKER)
+    assert thin["net_bp"] == 3.0 and thin["n"] == 88
+
+
 def test_trade_returns_and_cell_from_returns_match_the_wrapper():
     from equity_scout.matrix.grid import cell_from_returns, trade_returns
 

@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from statistics import median
 
+from equity_scout.matrix.grid import MIN_TRADES
+
 MIN_PLATEAU_CELLS = 4  # fewer cells cannot show that neighbours agree
 PLATEAU_T = 2.0  # every member cell must clear this on its own
 _ADJACENCY_AXES = ("threshold", "slice", "hold_bars")
@@ -36,12 +38,17 @@ def _axis_values(cells: list[dict], key: str, order: dict | None = None) -> list
 
 
 def qualifying_cells(cells: list[dict]) -> list[dict]:
-    """Cells that qualify for membership: measurable, positive after costs, individually
-    significant. Everything else cannot be part of a plateau, including cells that are merely
-    'not negative' — a plateau of coin flips is still a coin flip."""
+    """Cells that qualify for membership: enough POOLED trades to be evidence, positive after
+    costs, individually significant. Everything else cannot be part of a plateau, including
+    cells that are merely 'not negative' — a plateau of coin flips is still a coin flip.
+
+    The pooled floor lives HERE (not per ticker) since the per-ticker floor dropped to
+    MIN_TRADES_TICKER: thin per-ticker cells may now contribute to a pool, but a pool that
+    never reaches MIN_TRADES stays coverage, not evidence."""
     return [
         cell for cell in cells
         if cell.get("net_bp") is not None and cell.get("t") is not None
+        and cell.get("n", 0) >= MIN_TRADES
         and cell["net_bp"] > 0 and cell["t"] >= PLATEAU_T
     ]
 

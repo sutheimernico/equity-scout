@@ -33,10 +33,28 @@ def test_cells_carry_every_axis_and_the_asset_class():
 
 
 def test_a_slice_too_coarse_for_the_sample_floor_is_skipped_not_faked():
-    # 2000 one-minute bars can never yield 200 monthly bars
+    # 2000 one-minute bars can never yield 20 monthly bars
     rows = cells_for_ticker(_bars(2000), "SPY", "search")
     assert "1M" not in {row["slice"] for row in rows}
     assert "1min" in {row["slice"] for row in rows}
+
+
+def test_a_thin_instrument_can_be_restricted_to_swing_slices():
+    # CPER's median day has ~34 "minute" bars that really span 10-30 minutes each — intraday
+    # cells there would measure sampling frequency, not behaviour.
+    rows = cells_for_ticker(_bars(2000), "SPY", "search", slices=("1D", "1W", "1M"))
+    assert {row["slice"] for row in rows} <= {"1D", "1W", "1M"}
+    assert "1min" not in {row["slice"] for row in rows}
+
+
+def test_median_bars_per_day_counts_et_trading_days():
+    from scripts.run_signal_matrix import median_bars_per_day
+
+    full = _bars(390, day="2022-06-01")  # one full session
+    thin = _bars(30, day="2022-06-02")  # one thin session
+    both = pd.concat([full, thin])
+    assert median_bars_per_day(both) == 210.0  # median of {390, 30}
+    assert median_bars_per_day(thin) == 30.0
 
 
 def test_unknown_tickers_are_labelled_rather_than_guessed():
@@ -44,14 +62,17 @@ def test_unknown_tickers_are_labelled_rather_than_guessed():
     assert {row["asset_class"] for row in rows} == {"unknown"}
 
 
-def test_done_tickers_reads_the_checkpoint_and_survives_a_torn_line(tmp_path):
+def test_done_tickers_requires_the_complete_sentinel_and_survives_a_torn_line(tmp_path):
+    # GLD has rows but no sentinel — a kill mid-write. It must re-run, not count as done:
+    # otherwise its missing cells would silently rest the pool on different ticker sets.
     path = tmp_path / "cells.jsonl"
     path.write_text(
         json.dumps({"ticker": "SPY", "window": "search"}) + "\n"
+        + json.dumps({"ticker": "SPY", "complete": True}) + "\n"
         + json.dumps({"ticker": "GLD", "window": "search"}) + "\n"
         + '{"ticker": "AAPL", "wind'  # killed mid-write
     )
-    assert done_tickers(path) == {"SPY", "GLD"}
+    assert done_tickers(path) == {"SPY"}
 
 
 def test_done_tickers_on_a_missing_file_is_empty(tmp_path):

@@ -25,6 +25,14 @@ def test_an_isolated_winning_cell_is_not_a_plateau():
     assert _find([_cell("momentum_up", 0.005, "5min", 3, 4.0, 8.0, 4.0)]) == []
 
 
+def test_a_pooled_cell_below_the_evidence_floor_cannot_qualify():
+    # Per-ticker cells may now carry as few as MIN_TRADES_TICKER trades into the pool; the
+    # evidence floor therefore lives here — a 50-trade pooled cell is coverage, not a finding.
+    thin = _cell("momentum_up", 0.005, "5min", 3, 4.0, 8.0, 4.0, n=50)
+    assert qualifying_cells([thin]) == []
+    assert qualifying_cells([_cell("momentum_up", 0.005, "5min", 3, 4.0, 8.0, 4.0, n=200)])
+
+
 def test_a_connected_region_of_winners_is_a_plateau():
     # neighbours along the threshold axis AND the hold axis -> 4 connected cells
     cells = [

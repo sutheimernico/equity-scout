@@ -25,7 +25,14 @@ import pandas as pd
 
 HOLD_BARS = (1, 2, 3, 6, 12)  # in units of the cell's own slice
 COST_BPS = (2.0, 4.0, 10.0, 20.0)  # roundtrip; 4 bp = liquid names, 10 bp = realistic
-MIN_TRADES = 200  # below this a cell is not evidence
+# Two sample floors, deliberately split: MIN_TRADES is the EVIDENCE floor and applies to the
+# POOLED cell — no pooled cell below it can qualify for a plateau. MIN_TRADES_TICKER is the
+# reporting floor per ticker: a single ticker's 88 daily-scale trades are not evidence alone,
+# but 70 tickers x 88 trades pooled are — a per-ticker floor of 200 silently muted every slice
+# above 60min (7 years ≈ 1,760 daily bars; a 5 % fire rate never reaches 200), which is exactly
+# the "months too" part of the brief.
+MIN_TRADES = 200  # pooled evidence floor — enforced where plateaus qualify
+MIN_TRADES_TICKER = 20  # per-ticker reporting floor — below this a cell reports only its count
 HOLD_OUT_START = "2023-01-01"  # opened ONCE, at the end of a matrix run
 
 
@@ -63,10 +70,12 @@ def trade_returns(bars: pd.DataFrame, signal: pd.Series, *, hold_bars: int) -> n
     return (closes[taken + hold_bars] / closes[taken] - 1.0) * 10_000.0
 
 
-def cell_from_returns(gross_bp: np.ndarray, *, cost_bps: float) -> dict:
-    """One cell's statistics from pre-computed gross returns; None below the sample floor."""
+def cell_from_returns(
+    gross_bp: np.ndarray, *, cost_bps: float, min_trades: int = MIN_TRADES
+) -> dict:
+    """One cell's statistics from pre-computed gross returns; None below `min_trades`."""
     n = len(gross_bp)
-    if n < MIN_TRADES:
+    if n < min_trades:
         return {"n": n, "gross_bp": None, "net_bp": None, "t": None, "hit_rate": None}
     net = gross_bp - cost_bps
     std = float(net.std(ddof=1))

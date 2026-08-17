@@ -40,6 +40,7 @@ from equity_scout.matrix.grid import (  # noqa: E402
     HOLD_BARS,
     HOLD_OUT_START,
     MIN_TRADES,
+    MIN_TRADES_TICKER,
     cell_from_returns,
     split_periods,
     trade_returns,
@@ -57,6 +58,11 @@ from scripts.fetch_minute_history import (  # noqa: E402
 
 CHECKPOINT = Path("data/matrix_cells.jsonl")
 GATE_WINDOW_BARS = 10  # how long a signal counts as "recently fired" when it acts as a condition
+# Instruments whose median day has fewer bars than this are excluded from the INTRADAY slices:
+# a "1min" bar that really spans 10-30 minutes (CPER: median 34 bars/day, FXB: 29) makes holds
+# and per-bar volatility incomparable across tickers — the matrix would measure sampling
+# frequency, not behaviour. Daily-and-up slices stay, they are honest for thin instruments.
+MIN_BARS_PER_DAY = 200
 
 
 VIX_SNAPSHOT = "data/prices/vix_level.csv"  # written by run_autotrader's VolTarget collector
@@ -141,9 +147,17 @@ def _and_masks(masks: list):
     return combined
 
 
+def median_bars_per_day(bars) -> float:
+    """Median regular-session bar count per ET trading day — the thin-instrument gate's input."""
+    import pandas as pd
+
+    days = pd.Series(bars.index.tz_convert("America/New_York").date)
+    return float(days.value_counts().median())
+
+
 def cells_for_ticker(
     bars, ticker: str, window: str, *, conditions: dict | None = None,
-    news_stamps=None, vix_closes=None,
+    news_stamps=None, vix_closes=None, slices: tuple[str, ...] = TIME_SLICES,
 ) -> list[dict]:
     """Every cell of the axis product for one ticker and one period window.
 
@@ -157,12 +171,12 @@ def cells_for_ticker(
     rows: list[dict] = []
     klass = asset_class(ticker)
     conditions = conditions or {"none": CONTEXTS["none"].mask}
-    for slice_label in TIME_SLICES:
+    for slice_label in slices:
         resampled = resample_bars(
             bars, slice_label, keep_incomplete=slice_label in INTRADAY_SLICES
         )
-        if len(resampled) < MIN_TRADES:
-            continue  # this slice cannot reach the sample floor for this ticker
+        if len(resampled) < MIN_TRADES_TICKER:
+            continue  # this slice cannot reach the per-ticker floor for this ticker
         masks = {
             name: mask(resampled, news_stamps=news_stamps, vix_closes=vix_closes)
             for name, mask in conditions.items()
@@ -177,7 +191,7 @@ def cells_for_ticker(
                     gated = flags & condition if condition_name != "none" else flags
                     for hold in HOLD_BARS:
                         gross = trade_returns(resampled, gated, hold_bars=hold)
-                        if len(gross) < MIN_TRADES:
+                        if len(gross) < MIN_TRADES_TICKER:
                             # One row records the count so coverage stays visible, but the four
                             # cost variants of an unmeasurable cell carry no extra information.
                             rows.append({
@@ -194,20 +208,30 @@ def cells_for_ticker(
                                 "signal": signal_name, "threshold": threshold,
                                 "slice": slice_label, "hold_bars": hold, "cost_bps": cost,
                                 "context": condition_name,
-                                **cell_from_returns(gross, cost_bps=cost),
+                                **cell_from_returns(
+                                    gross, cost_bps=cost, min_trades=MIN_TRADES_TICKER
+                                ),
                             })
     return rows
 
 
 def done_tickers(path: Path) -> set[str]:
-    """Tickers already in the checkpoint — the resume set."""
+    """Tickers whose COMPLETE sentinel is in the checkpoint — the resume set.
+
+    The sentinel is the last line a ticker writes. Without it a kill mid-write left the
+    ticker's earlier rows in the file, the resume counted it as done, and different cells of
+    one "plateau" silently rested on different ticker sets. Partial rows without a sentinel
+    are re-measured (their ticker re-runs); duplicate rows cannot happen because a re-run
+    appends after a filter step — see phase_cells."""
     if not path.exists():
         return set()
     seen = set()
     with path.open() as handle:
         for line in handle:
             try:
-                seen.add(json.loads(line)["ticker"])
+                row = json.loads(line)
+                if row.get("complete"):
+                    seen.add(row["ticker"])
             except (json.JSONDecodeError, KeyError):
                 continue  # a torn last line from a kill is skipped, not fatal
     return seen
@@ -236,6 +260,13 @@ def phase_cells(
         if ticker not in loaded:
             print(f"  {ticker}: keine Bars auf Platte — übersprungen", flush=True)
             continue
+        density = median_bars_per_day(loaded[ticker])
+        slices = TIME_SLICES
+        if density < MIN_BARS_PER_DAY:
+            slices = tuple(s for s in TIME_SLICES if s not in INTRADAY_SLICES)
+            print(f"  {ticker}: Median {density:.0f} Bars/Tag < {MIN_BARS_PER_DAY} — "
+                  f"nur Swing-Scheiben (1D+), Intraday wäre Sampling-Frequenz statt Verhalten",
+                  flush=True)
         search, held = split_periods(loaded[ticker])
         stamps = None
         if news is not None and not news.empty:
@@ -246,11 +277,14 @@ def phase_cells(
                 continue
             rows += cells_for_ticker(
                 frame, ticker, label, conditions=conditions,
-                news_stamps=stamps, vix_closes=vix,
+                news_stamps=stamps, vix_closes=vix, slices=slices,
             )
         with path.open("a") as handle:
             for row in rows:
                 handle.write(json.dumps(row) + "\n")
+            # Last line on purpose: only a ticker whose sentinel reached the disk counts as
+            # done on resume — everything before a kill is re-measured, never half-trusted.
+            handle.write(json.dumps({"ticker": ticker, "complete": True}) + "\n")
         elapsed = time.time() - started
         print(f"  [{i}/{len(pending)}] {ticker}: {len(loaded[ticker]):,} Bars -> "
               f"{len(rows)} Zellen ({elapsed / i:.0f}s/Ticker, "
