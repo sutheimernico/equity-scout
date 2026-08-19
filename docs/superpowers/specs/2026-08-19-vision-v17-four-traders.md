@@ -63,17 +63,25 @@ Zurücklegen gezogen, wodurch Querschnitts- **und** Zeitabhängigkeit erhalten b
 wegannahmiert zu werden. Dazu `grid.trade_returns_with_times`, weil der Bootstrap die
 Zeitstempel braucht, die `trade_returns` verwirft. 13 Tests.
 
-### #3 Matrix — Blocker B: es gibt keine Leitung zum Handel (OFFEN)
+### #3 Matrix — Blocker B: die Leitung zum Handel (BEHOBEN 2026-08-19)
 
-`find_plateaus` liefert Plateaus, aber kein `Strategy`-Objekt liest sie, kein Sleeve entsteht
-daraus. Die Matrix ist ein Messgerät ohne Auslöser. Was fehlt:
+`find_plateaus` lieferte Plateaus, aber kein `Strategy`-Objekt las sie. Jetzt gebaut:
 
-- [ ] `MatrixStrategy(Strategy)`: übersetzt eine qualifizierte Plateau-Region in `TargetWeight`s.
-- [ ] Ein Register qualifizierter Plateaus mit Herkunft (Signal, Schwelle, Slice, Hold, Kosten,
-      Bootstrap-Statistik, Hold-out-Ergebnis) — nachvollziehbar, warum gehandelt wird.
-- [ ] Risikoabschätzung → Positionsgröße (Nicos „mit Risikoabschätzung entsprechende Hebel"):
-      Größe aus der Bootstrap-Streuung, nicht aus dem Punktschätzer.
-- [ ] Eigenes Buch + eigene Bewertungsreihe, damit der Track Record vergleichbar ist.
+- [x] `matrix/registry.py`: Register mit vier geordneten Gates und vollem Herkunftsnachweis
+      (Signal, Schwellen, Slices, Holds, Kosten, Bootstrap-Zahlen, Hold-out-Ergebnis). Auch
+      Ablehnungen bleiben stehen — der Friedhof ist Evidenz.
+- [x] `strategies/matrix_strategy.py`: handelt das Register und bewertet die Evidenz zur
+      Handelszeit ausdrücklich NICHT neu (zweimal suchen ist der Fehler, der fünf Wochen kostete).
+- [x] Positionsgröße aus der Bootstrap-Unsicherheit: t = 8 volles Gewicht, t = 2 ein Viertel.
+      Bruttoexposure hart auf 1× — die Schutzkette setzt das voraus.
+- [x] Short über die `side=`-Naht: ein Plateau mit konsistent negativen Folgereturns geht short.
+      In `grid.cell_from_returns` korrekt gerechnet (`-gross - cost`, nicht `-(gross - cost)` —
+      sonst würde jeder verlierende Long als gewinnender Short erscheinen).
+- [x] `scripts/run_matrix_qualify.py`: die Kette Zelle → Plateau → Bootstrap → Robustheit →
+      Hold-out, streamend über die 61 GB Checkpoints.
+- [x] Als Sleeve registriert; `ready=False` solange nichts qualifiziert ist — verifiziert: das
+      Depot listet weiter genau seine 11 ETF-Sleeves.
+- [ ] Eigenes Buch + eigene Bewertungsreihe (offen — läuft bis dahin über die Sleeve-Mechanik).
 
 ### #3 Matrix — Blocker C: das Hold-out ist ein Einmalschuss (DISZIPLIN)
 
@@ -117,12 +125,20 @@ Nicos Vorgabe „alle Art Informationen, die die anderen haben" ist damit der ei
 
 ## Reihenfolge
 
-1. ✅ Kalenderblock-Bootstrap (Blocker A) — steht, 13 Tests, an echten Daten verifiziert.
-2. Katalysator-Signale als Matrix-Achse — verbindet die heutige Arbeit mit der Matrix.
-3. Plateau → Strategie → Sleeve (Blocker B) — die fehlende Leitung.
-4. Hold-out-Register + Pflicht-Nachmessungen, dann Hold-out **einmal** öffnen (Blocker C).
-5. ML-Featureblöcke aus allen Quellen (#4), Universum erweitern, nächtliches Retraining.
-6. Dashboard: vier Trader in einer Ansicht.
+1. ✅ Kalenderblock-Bootstrap (Blocker A) — 16 Tests, an echten Daten verifiziert (Faktor 1,9).
+2. ⏳ Katalysator-Signale als Matrix-Achse — Code geliefert (`matrix/catalyst_axis.py`,
+   neue Einträge in `signals.py`/`contexts.py`), Gate grün, **mein Review steht noch aus**.
+3. ✅ Plateau → Register → Strategie → Sleeve (Blocker B) — die Leitung steht.
+4. ✅ Hold-out-Register + Robustheits-Nachmessung gebaut (Blocker C). Das Öffnen selbst ist
+   bewusst ein separater, manueller Aufruf: `--open-holdout --hypothesis "…"`, einmalig.
+5. ⏳ ML-Featureblöcke aus Katalysator- und Ereignisdaten (#4) — Code geliefert
+   (`ml/catalyst_features.py`), Gate grün, **Review und die Verdrahtung in `entry_dataset.py`
+   stehen noch aus**. Ohne diese Verdrahtung trainiert das Modell weiter ohne die neuen Merkmale.
+6. ✅ `/api/traders`: vier Trader in einer Ansicht, jeder mit Zustand und Blocker.
+
+**Offen:** OHLCV-Panel für alle Strategien (heute nur die Matrix-Sleeve), eigenes Buch je
+Trader, Frontend-Kachel für `/api/traders`, und der erste vollständige Qualifikationslauf über
+die 61 GB Checkpoints (Stunden, eigener Lauf).
 
 ## Ehrliche Erwartung
 

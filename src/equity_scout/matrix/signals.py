@@ -21,6 +21,8 @@ from typing import Callable
 
 import pandas as pd
 
+from equity_scout.matrix.catalyst_axis import catalyst_age_bars, catalyst_window
+
 VOLUME_LOOKBACK = 20  # bars for the trailing median in volume_spike
 TREND_LOOKBACK = 20  # bars for the breakout high in breakout_high
 
@@ -30,6 +32,10 @@ class SignalSpec:
     detect: Callable[..., pd.Series]
     thresholds: tuple[float, ...]
     description: str
+    # Extra inputs the detector needs beyond OHLCV, same idiom as ContextSpec.needs: "catalysts"
+    # means the runner has to hand it this ticker's catalyst events. Empty for every price-only
+    # detector, so the caller can pass the extra kwarg selectively instead of to all of them.
+    needs: tuple[str, ...] = ()
 
 
 def _body(bars: pd.DataFrame) -> pd.Series:
@@ -159,6 +165,41 @@ def new_low_20(bars: pd.DataFrame, *, threshold: float) -> pd.Series:
     return (bars["close"] <= prior_low * (1.0 - threshold)).fillna(False)
 
 
+def catalyst_age(
+    bars: pd.DataFrame, *, threshold: float, catalyst_events: pd.DataFrame | None = None
+) -> pd.Series:
+    """A classified catalyst became public EXACTLY `threshold` bars ago (a COUNT, not a percent).
+
+    The exact age rather than a window is what makes this a measurement of entry TIMING: crossing
+    the threshold axis (0, 1, 2, 3, 6) reads off the decay curve, and a plateau over neighbouring
+    thresholds is the statement "a whole range of delays pays", which is the only version of this
+    claim worth trading. A window instead would smear the same-bar reaction together with the
+    third-day drift and report one number for two different economics — and the catalyst plan's
+    first honesty limit says the jump itself is usually not catchable, so where the tradable part
+    of the reaction sits is precisely the open question.
+
+    Without `catalyst_events` this fires nowhere. Fail-closed on purpose: a detector that treated
+    "no catalyst history loaded" as "catalyst everywhere" would invent trades.
+    """
+    age = catalyst_age_bars(bars, catalyst_events)
+    return (age == float(int(threshold))).fillna(False)
+
+
+def catalyst_volume_spike(
+    bars: pd.DataFrame, *, threshold: float, catalyst_events: pd.DataFrame | None = None
+) -> pd.Series:
+    """Nico's conjunction, as ONE signal: a fresh catalyst AND volume `threshold`x its median.
+
+    Kept as a signal instead of leaving it to the (signal x context) crossing because the two
+    halves are one event here — the crowd reacting to the news — and the crossing measures the
+    volume spike as the entry with the catalyst as a mere state. Both readings are registered, so
+    the matrix can say which framing carries the trades. Volume thresholds mirror `volume_spike`
+    so the two are directly comparable.
+    """
+    fresh = catalyst_window(bars, catalyst_events)
+    return volume_spike(bars, threshold=threshold) & fresh
+
+
 SIGNALS: dict[str, SignalSpec] = {
     "momentum_up": SignalSpec(
         momentum_up, (0.002, 0.005, 0.01, 0.02), "Bar schließt X über eigenem Open"
@@ -202,5 +243,15 @@ SIGNALS: dict[str, SignalSpec] = {
     ),
     "new_low_20": SignalSpec(
         new_low_20, (0.0, 0.002, 0.005, 0.01), "Close bricht 20-Bar-Tief um X"
+    ),
+    "catalyst_age": SignalSpec(
+        catalyst_age, (0.0, 1.0, 2.0, 3.0, 6.0),
+        "Katalysator liegt genau X Bars zurück (Schwelle ist eine ANZAHL)",
+        needs=("catalysts",),
+    ),
+    "catalyst_volume_spike": SignalSpec(
+        catalyst_volume_spike, (2.0, 3.0, 5.0, 8.0),
+        "Frischer Katalysator UND Volumen X-fach über Trailing-Median",
+        needs=("catalysts",),
     ),
 }

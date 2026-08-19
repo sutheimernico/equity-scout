@@ -27,6 +27,8 @@ from typing import Callable
 
 import pandas as pd
 
+from equity_scout.matrix.catalyst_axis import WINDOW_BARS, catalyst_window, select_events
+
 TREND_LOOKBACK = 50  # bars for the slow average behind uptrend/downtrend
 VOLUME_LOOKBACK = 20  # bars for the relative-volume baseline
 NEWS_WINDOW_MINUTES = 30  # how long a wire item counts as "just happened"
@@ -113,6 +115,52 @@ def after_news(bars: pd.DataFrame, *, news_stamps: pd.Series | None = None, **_)
     return fresh
 
 
+def _catalyst_mask(
+    bars: pd.DataFrame, catalyst_events: pd.DataFrame | None, family: str
+) -> pd.Series:
+    """Shared body of the catalyst conditions: this family's events, then the bar window.
+
+    Restricting by kind family rather than by single kind keeps the axis measurable — see
+    catalyst_axis.FAMILIES for why 16 separate conditions would be a sample the archive cannot
+    fill. Absent events mean the condition never holds, and the runner then drops it from the
+    axis entirely: missing catalyst history is COVERAGE, not a result.
+    """
+    return catalyst_window(bars, select_events(catalyst_events, family=family))
+
+
+def after_catalyst(
+    bars: pd.DataFrame, *, catalyst_events: pd.DataFrame | None = None, **_
+) -> pd.Series:
+    """Any classified catalyst became public within the last WINDOW_BARS bars.
+
+    This is the condition half of Nico's "und dann kommen noch News dazu", one level sharper than
+    `after_news`: that one fires on ANY wire item about the instrument (mostly ordinary
+    commentary), this one only on items the catalyst classifier recognised as a jump-maker. Both
+    stay registered so the difference between "any headline" and "a real catalyst" is measured
+    rather than assumed.
+    """
+    return _catalyst_mask(bars, catalyst_events, "any")
+
+
+def after_hard_catalyst(
+    bars: pd.DataFrame, *, catalyst_events: pd.DataFrame | None = None, **_
+) -> pd.Series:
+    """Deal, regulator or trial readout within the last WINDOW_BARS bars — the re-pricing class."""
+    return _catalyst_mask(bars, catalyst_events, "hard")
+
+
+def after_fundamental_catalyst(
+    bars: pd.DataFrame, *, catalyst_events: pd.DataFrame | None = None, **_
+) -> pd.Series:
+    """Earnings, guidance or a large order within the last WINDOW_BARS bars.
+
+    A separate condition from `after_hard_catalyst` because the economics differ: a takeover bid
+    ends the price discovery, a beat-and-raise starts it. Merging them would hide whichever of the
+    two carries the effect.
+    """
+    return _catalyst_mask(bars, catalyst_events, "fundamental")
+
+
 def _vix_for_bars(bars: pd.DataFrame, vix_closes: pd.Series | None) -> pd.Series | None:
     """The PREVIOUS session's VIX close aligned to each bar — never the same day's, which would
     let a bar know how the fear gauge ended after it traded."""
@@ -186,5 +234,19 @@ CONTEXTS: dict[str, ContextSpec] = {
     ),
     "stressed_market": ContextSpec(
         stressed_market, f"VIX (Vortag) über {VIX_STRESS:.0f} — Fear-Seite", needs=("vix",)
+    ),
+    "after_catalyst": ContextSpec(
+        after_catalyst, f"Klassifizierter Katalysator in den letzten {WINDOW_BARS} Bars",
+        needs=("catalysts",),
+    ),
+    "after_hard_catalyst": ContextSpec(
+        after_hard_catalyst,
+        f"Übernahme/Zulassung/Studienergebnis in den letzten {WINDOW_BARS} Bars",
+        needs=("catalysts",),
+    ),
+    "after_fundamental_catalyst": ContextSpec(
+        after_fundamental_catalyst,
+        f"Quartalszahlen/Prognose/Großauftrag in den letzten {WINDOW_BARS} Bars",
+        needs=("catalysts",),
     ),
 }

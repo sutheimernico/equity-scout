@@ -101,10 +101,13 @@ def test_combination_depth_grows_the_condition_axis_as_documented():
     from scripts.run_signal_matrix import build_conditions, combine_conditions
 
     base = build_conditions(pairs=True)
-    assert len(base) == 23
-    assert len(combine_conditions(base, 1)) == 23  # depth 1 changes nothing
-    assert len(combine_conditions(base, 2)) == 251
-    assert len(combine_conditions(base, 3)) == 1733
+    # 13 market contexts + 15 signals-as-conditions. The pair and triple counts are the full
+    # combinatorics minus the mutually exclusive times of day: C(27,2) = 351 pairs less the 3
+    # impossible ones, C(27,3) = 2925 triples less the 73 carrying two or more of them.
+    assert len(base) == 28
+    assert len(combine_conditions(base, 1)) == 28  # depth 1 changes nothing
+    assert len(combine_conditions(base, 2)) == 376
+    assert len(combine_conditions(base, 3)) == 3228
 
 
 def test_the_baseline_never_enters_a_combination():

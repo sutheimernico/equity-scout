@@ -34,7 +34,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from equity_scout.data.minute_bars import load_minutes  # noqa: E402
+from equity_scout.catalyst_storage import DEFAULT_CATALYST_DB_PATH  # noqa: E402
 from equity_scout.data.news_history import items_for_ticker, load_news  # noqa: E402
+from equity_scout.matrix.catalyst_axis import (  # noqa: E402
+    events_for_ticker,
+    events_from_catalyst_db,
+    events_from_news_archive,
+    merge_events,
+)
 from equity_scout.matrix.grid import (  # noqa: E402
     COST_BPS,
     HOLD_BARS,
@@ -157,7 +164,8 @@ def median_bars_per_day(bars) -> float:
 
 def cells_for_ticker(
     bars, ticker: str, window: str, *, conditions: dict | None = None,
-    news_stamps=None, vix_closes=None, slices: tuple[str, ...] = TIME_SLICES,
+    news_stamps=None, vix_closes=None, catalyst_events=None,
+    slices: tuple[str, ...] = TIME_SLICES,
 ) -> list[dict]:
     """Every cell of the axis product for one ticker and one period window.
 
@@ -178,7 +186,8 @@ def cells_for_ticker(
         if len(resampled) < MIN_TRADES_TICKER:
             continue  # this slice cannot reach the per-ticker floor for this ticker
         masks = {
-            name: mask(resampled, news_stamps=news_stamps, vix_closes=vix_closes)
+            name: mask(resampled, news_stamps=news_stamps, vix_closes=vix_closes,
+                       catalyst_events=catalyst_events)
             for name, mask in conditions.items()
         }
         # A condition that never holds for this ticker/slice is dropped rather than measured as
@@ -186,7 +195,15 @@ def cells_for_ticker(
         masks = {name: m for name, m in masks.items() if bool(m.any())}
         for signal_name, spec in SIGNALS.items():
             for threshold in spec.thresholds:
-                flags = spec.detect(resampled, threshold=threshold)
+                # The catalyst kwarg is passed ONLY to detectors that declare the need: a
+                # blanket kwarg would break the 13 price detectors, whose signature is
+                # (bars, *, threshold).
+                flags = (
+                    spec.detect(resampled, threshold=threshold,
+                                catalyst_events=catalyst_events)
+                    if "catalysts" in spec.needs
+                    else spec.detect(resampled, threshold=threshold)
+                )
                 for condition_name, condition in masks.items():
                     gated = flags & condition if condition_name != "none" else flags
                     for hold in HOLD_BARS:
@@ -246,6 +263,20 @@ def phase_cells(
     news = load_news(years) if any(
         "news" in spec.needs for spec in CONTEXTS.values()
     ) else None
+    # The catalyst axis (v17): classify the whole news archive ONCE with the same rules the live
+    # lane uses, then hand each ticker its own events. Loaded only when something actually needs
+    # them, so a price-only run pays nothing for this.
+    needs_catalysts = any("catalysts" in spec.needs for spec in CONTEXTS.values()) or any(
+        "catalysts" in spec.needs for spec in SIGNALS.values()
+    )
+    catalysts = None
+    if needs_catalysts:
+        catalysts = merge_events(
+            events_from_news_archive(news if news is not None else load_news(years)),
+            events_from_catalyst_db(DEFAULT_CATALYST_DB_PATH),
+        )
+        print(f"Katalysator-Ereignisse: {len(catalysts):,} über "
+              f"{catalysts['ticker'].nunique() if len(catalysts) else 0} Ticker", flush=True)
     vix = _vix_closes()
     print(f"Bedingungen: {len(conditions)} "
           f"({'Signal-Paare aktiv' if pairs else 'nur Marktkontext'}), "
@@ -277,7 +308,9 @@ def phase_cells(
                 continue
             rows += cells_for_ticker(
                 frame, ticker, label, conditions=conditions,
-                news_stamps=stamps, vix_closes=vix, slices=slices,
+                news_stamps=stamps, vix_closes=vix,
+                catalyst_events=events_for_ticker(catalysts, ticker),
+                slices=slices,
             )
         with path.open("a") as handle:
             for row in rows:
