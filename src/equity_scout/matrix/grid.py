@@ -70,6 +70,39 @@ def trade_returns(bars: pd.DataFrame, signal: pd.Series, *, hold_bars: int) -> n
     return (closes[taken + hold_bars] / closes[taken] - 1.0) * 10_000.0
 
 
+def trade_returns_with_times(
+    bars: pd.DataFrame, signal: pd.Series, *, hold_bars: int
+) -> tuple[np.ndarray, pd.DatetimeIndex]:
+    """Like `trade_returns`, but also returns each trade's ENTRY timestamp.
+
+    The timestamps are what the calendar-block bootstrap needs (see matrix/bootstrap.py): to
+    resample dependent trades correctly you have to know WHEN each one happened. `trade_returns`
+    discards them, which is why the pooled statistic had to fall back on an independence
+    assumption that does not hold.
+
+    Kept as a separate function rather than changing `trade_returns`: that one runs over the
+    whole grid where the timestamps are dead weight, and this one runs only on the plateau
+    candidates where they decide the verdict.
+    """
+    closes = bars["close"].to_numpy(dtype=float)
+    candidates = np.flatnonzero(signal.to_numpy(dtype=bool))
+    limit = len(closes) - hold_bars
+    entries: list[int] = []
+    next_free = 0
+    for position in candidates:
+        if position >= limit:
+            break
+        if position < next_free or closes[position] <= 0:
+            continue
+        entries.append(int(position))
+        next_free = position + hold_bars
+    if not entries:
+        return np.empty(0, dtype=float), pd.DatetimeIndex([], tz="UTC")
+    taken = np.asarray(entries)
+    gross = (closes[taken + hold_bars] / closes[taken] - 1.0) * 10_000.0
+    return gross, bars.index[taken]
+
+
 def cell_from_returns(
     gross_bp: np.ndarray, *, cost_bps: float, min_trades: int = MIN_TRADES
 ) -> dict:
