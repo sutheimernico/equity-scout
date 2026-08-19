@@ -175,3 +175,33 @@ def test_trade_returns_with_times_on_no_signal():
     returns, stamps = trade_returns_with_times(
         bars, pd.Series([False] * 10, index=index), hold_bars=2)
     assert len(returns) == 0 and len(stamps) == 0
+
+
+# --- the short side ------------------------------------------------------------------------
+
+def test_short_cell_pays_costs_instead_of_being_credited_with_them():
+    """The trap this guards: net_short = -(gross - cost) would hand the short the costs the long
+    paid, turning every losing long into a winning short. Correct is -gross - cost."""
+    from equity_scout.matrix.grid import cell_from_returns
+
+    gross = np.full(300, -30.0)  # the long loses 30 bp gross
+    long_cell = cell_from_returns(gross, cost_bps=10.0, min_trades=100, side="long")
+    short_cell = cell_from_returns(gross, cost_bps=10.0, min_trades=100, side="short")
+
+    assert long_cell["net_bp"] == pytest.approx(-40.0)   # -30 - 10
+    assert short_cell["net_bp"] == pytest.approx(20.0)   # +30 - 10, NOT +40
+    assert short_cell["net_bp"] != -long_cell["net_bp"]
+
+
+def test_short_cell_reports_gross_from_its_own_side():
+    from equity_scout.matrix.grid import cell_from_returns
+    cell = cell_from_returns(np.full(300, -25.0), cost_bps=5.0, min_trades=100, side="short")
+    assert cell["gross_bp"] == pytest.approx(25.0)
+    assert cell["net_bp"] == pytest.approx(20.0)
+    assert cell["hit_rate"] == 1.0  # every trade profitable on the short side
+
+
+def test_unknown_side_is_rejected():
+    from equity_scout.matrix.grid import cell_from_returns
+    with pytest.raises(ValueError, match="side"):
+        cell_from_returns(np.ones(300), cost_bps=5.0, min_trades=100, side="sideways")

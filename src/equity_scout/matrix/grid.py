@@ -104,17 +104,30 @@ def trade_returns_with_times(
 
 
 def cell_from_returns(
-    gross_bp: np.ndarray, *, cost_bps: float, min_trades: int = MIN_TRADES
+    gross_bp: np.ndarray, *, cost_bps: float, min_trades: int = MIN_TRADES,
+    side: str = "long",
 ) -> dict:
-    """One cell's statistics from pre-computed gross returns; None below `min_trades`."""
+    """One cell's statistics from pre-computed gross returns; None below `min_trades`.
+
+    `side="short"` measures the SHORT of the same signal, and the sign is deliberately not just
+    flipped: a short earns `-gross` but still pays the full roundtrip cost, so its net is
+    `-gross - cost`, never `-(gross - cost)`. Mirroring the long net would credit the short with
+    the costs the long paid — the arithmetic that makes every losing long look like a winning
+    short. Borrow cost is NOT modelled here; it belongs to the executing lane, which is also the
+    only place that knows whether a borrow exists at all.
+    """
     n = len(gross_bp)
     if n < min_trades:
         return {"n": n, "gross_bp": None, "net_bp": None, "t": None, "hit_rate": None}
-    net = gross_bp - cost_bps
+    if side not in ("long", "short"):
+        raise ValueError(f"side must be 'long' or 'short', got {side!r}")
+    net = (gross_bp - cost_bps) if side == "long" else (-gross_bp - cost_bps)
     std = float(net.std(ddof=1))
     return {
         "n": n,
-        "gross_bp": float(gross_bp.mean()),
+        # Reported from the cell's own side, so gross and net never contradict each other in
+        # one row (a short cell with +32 bp gross and -42 bp net would read as a bug).
+        "gross_bp": float(gross_bp.mean()) if side == "long" else float(-gross_bp.mean()),
         "net_bp": float(net.mean()),
         "t": float(net.mean()) / (std / math.sqrt(n)) if std > 0 else None,
         "hit_rate": float((net > 0).mean()),

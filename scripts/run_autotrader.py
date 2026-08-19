@@ -61,6 +61,9 @@ from equity_scout.shortterm_storage import load_trades as load_lane_trades
 from equity_scout.shortterm_storage import load_valuations as load_lane_valuations
 from equity_scout.strategies.base import TargetWeight
 from equity_scout.strategies.ensemble import EnsembleStrategy
+from equity_scout.matrix.daily_panel import DailyOHLCV, make_ohlcv_signal_fires
+from equity_scout.matrix.live_signal import evaluable_signals, make_signal_fires
+from equity_scout.strategies.matrix_strategy import MatrixStrategy
 from equity_scout.strategies.ml_bot import SHORTABLE_TICKERS, MLLongStrategy, MLShortStrategy
 from equity_scout.strategies.registry import default_strategies
 from equity_scout.vol_forecast import vix_multiplier
@@ -78,6 +81,28 @@ VIX_SNAPSHOT = "data/prices/vix_level.csv"  # VolTarget's forward-vol input (vol
 # gate (quality is the promotion gate's job). The eight established sleeves carry 7-14
 # sessions and are unaffected.
 MIN_SLEEVE_FORWARD_SESSIONS = 5
+
+
+def _matrix_signal_source(universe: list[str]):
+    """Signal evaluator for the matrix sleeve, OHLCV where available.
+
+    Two sources, and the choice is about how many rules the trader can actually act on. The
+    depot's own panel carries closes only, which leaves 3 of 15 matrix signals evaluable (probed
+    2026-08-19: the other 12 need open/high/volume). `data/daily/` carries real OHLCV for 6241
+    tradable stocks, so it unlocks all of them.
+
+    The close-only path stays as the fallback, and it REFUSES the signals it cannot evaluate
+    rather than running them against substitute columns — a momentum rule with open == close is
+    silently always False, which would look like "no opportunity today" forever.
+    """
+    source = DailyOHLCV(tickers=universe)
+    if source.tickers:
+        return make_ohlcv_signal_fires(source)
+    usable, blocked = evaluable_signals()
+    if blocked:
+        print("Matrix-Signale ohne OHLCV nicht auswertbar (data/daily fehlt): "
+              + ", ".join(sorted(blocked)))
+    return make_signal_fires(usable=usable)
 
 
 def active_sleeves(main_db: str, forward_db: str | None = None) -> list:
@@ -98,6 +123,16 @@ def active_sleeves(main_db: str, forward_db: str | None = None) -> list:
         MLShortStrategy.from_registry(main_db),
     ]
     sleeves.extend(bot for bot in bots if bot.ready)
+    # Trader #3 (v17): the matrix strategy. `ready` is False until a plateau has passed all four
+    # gates, so on a machine whose register is empty this line adds nothing — which is the honest
+    # state, not a bug. Signals that need OHLC or volume cannot be evaluated on the depot's
+    # close-only panel; make_signal_fires refuses those rather than trading substitute data, and
+    # names them here once so the limit stays visible.
+    matrix_sleeve = MatrixStrategy(
+        universe=long_universe, signal_fires=_matrix_signal_source(long_universe)
+    )
+    if matrix_sleeve.ready:
+        sleeves.append(matrix_sleeve)
     if forward_db is None:
         return sleeves
     frame = sleeve_return_frame(forward_db, [s.name for s in sleeves])

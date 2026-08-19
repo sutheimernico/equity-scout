@@ -23,6 +23,10 @@ keepalive.log
 # Minute-bar store for the signal matrix: ~70 tickers x 11 years, several GB. Reproducible
 # via scripts/fetch_minute_history.py, so it is derived data, not source.
 data/minutes/
+# Daily OHLCV for the spike study / matrix trader: 6241 tickers x 7 years, regenerable
+# via scripts/fetch_spike_history.py. Raw market data never goes into the repo.
+data/daily/
+data/minutes-raw-*/
 
 # News history store (Alpaca/Benzinga wire), derived data — see scripts/run_news_latency.py
 data/news/

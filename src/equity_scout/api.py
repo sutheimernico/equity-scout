@@ -1599,6 +1599,105 @@ def create_app(
             }
         )
 
+    @app.get("/api/traders")
+    def traders() -> JSONResponse:
+        # The four-trader overview (vision v17). One card per trader with the SAME three facts:
+        # does it trade, what does it trade by, and what is its record. The point of putting them
+        # side by side is that "not trading" is a visible state with a stated reason — trader #3
+        # and #4 both sit behind evidence gates, and a dashboard that hid that would suggest four
+        # working traders where there are two.
+        from equity_scout.matrix.registry import (
+            DEFAULT_MATRIX_DB_PATH,
+            STAGE_QUALIFIED,
+            load_all,
+            load_qualified,
+        )
+        from equity_scout.shortterm_storage import LANE_LABELS, load_trades
+
+        out: list[dict] = []
+
+        # 1 - long term: the ETF depot
+        depot = load_autotrader_depot(autotrader_db)
+        out.append({
+            "key": "longterm", "name": "Langfrist (ETF-Regeln)",
+            "trades": bool(depot), "rule": "11 regelbasierte ETF-Sleeves, gleichgewichtet",
+            "equity": getattr(depot, "equity", None),
+            "benchmark_equity": getattr(depot, "benchmark_equity", None),
+            "detail": (f"{len(getattr(depot, 'sleeve_weights', {}) or {})} Sleeves, Modus "
+                       f"{getattr(depot, 'sleeve_mode', '?')}") if depot else "kein Depotstand",
+            "blocker": None,
+        })
+
+        # 2 - short term: the arena lanes
+        lanes = []
+        if Path(shortterm_db).exists():
+            for lane, label in LANE_LABELS.items():
+                trades = load_trades(shortterm_db, lane, limit=None)
+                closed = [t for t in trades if t.get("side") == "sell"]
+                if not trades:
+                    continue
+                lanes.append({
+                    "lane": lane, "label": label, "trades": len(trades),
+                    "closed": len(closed),
+                    "realized": round(sum(t.get("realized_pnl") or 0.0 for t in closed), 2),
+                })
+        out.append({
+            "key": "shortterm", "name": "Kurzfrist (Arena-Lanes)",
+            "trades": bool(lanes),
+            "rule": "je Lane eine eigene Regel; Promotion ins Depot ab 30 Trades / 60 Tagen",
+            "lanes": lanes, "blocker": None,
+            "detail": f"{len(lanes)} Lanes mit Historie",
+        })
+
+        # 3 - matrix
+        matrix_db = os.getenv("EQUITY_SCOUT_MATRIX_DB", DEFAULT_MATRIX_DB_PATH)
+        qualified = load_qualified(matrix_db)
+        registered = load_all(matrix_db)
+        by_stage: dict[str, int] = {}
+        for row in registered:
+            by_stage[row["stage"]] = by_stage.get(row["stage"], 0) + 1
+        out.append({
+            "key": "matrix", "name": "Matrix (qualifizierte Plateaus)",
+            "trades": bool(qualified),
+            "rule": ("eine Auswahl von Gewinnerzellen über alle Parameter und Zeitscheiben; "
+                     "Positionsgröße aus der Bootstrap-Streuung"),
+            "qualified": len(qualified), "by_stage": by_stage,
+            "plateaus": [{
+                "signal": p.signal, "side": p.side, "slices": p.slices,
+                "thresholds": p.thresholds, "median_net_bp": p.median_net_bp,
+                "bootstrap_t": p.bootstrap_t, "trades": p.total_trades,
+            } for p in qualified[:10]],
+            "blocker": None if qualified else (
+                "Kein Plateau hat alle vier Gates bestanden (Plateau, Bootstrap, Robustheit, "
+                "Hold-out) — ohne Nachweis kein Kapital."),
+            "detail": f"{len(registered)} Plateaus im Register, {by_stage.get(STAGE_QUALIFIED, 0)} handelbar",
+        })
+
+        # 4 - machine learning
+        champion = None
+        try:
+            from equity_scout.ml.model_registry import entry_champion
+            champion = entry_champion(db_path)
+        except Exception:  # noqa: BLE001 - an absent registry is a state, not an error
+            champion = None
+        out.append({
+            "key": "ml", "name": "Machine Learning (fortlaufend lernend)",
+            "trades": bool(champion),
+            "rule": "nächtlich neu trainiert; handelt nur mit befördertem Champion",
+            "champion": bool(champion),
+            "blocker": None if champion else (
+                "Kein befördertes Modell: keine Version hat die AUC-Hürde erreicht. Die "
+                "Datengrundlage wird gerade um Katalysator- und Ereignis-Merkmale erweitert."),
+            "detail": "Champion vorhanden" if champion else "kein Champion",
+        })
+
+        return JSONResponse({
+            "traders": out,
+            "note": ("Vier Trader, ein Rahmen: Langfrist und Kurzfrist handeln, Matrix und ML "
+                     "warten auf ihren Nachweis. Alles Papierhandel."),
+            "disclaimer": DISCLAIMER,
+        })
+
     @app.get("/api/catalysts")
     def catalysts() -> JSONResponse:
         # Catalyst radar (v16): what the market-wide watch has seen. Three sources in one
