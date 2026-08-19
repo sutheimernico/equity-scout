@@ -119,6 +119,63 @@ def bracket_payload(ticker: str, *, qty: float, stop_price: float, target_price:
     }
 
 
+def limit_bracket_payload(
+    ticker: str, *, qty: float, limit_price: float, stop_price: float, target_price: float
+) -> dict:
+    """LIMIT entry with a resting stop and target (catalyst radar, 2026-08-19).
+
+    Why the ignition lane cannot use bracket_payload's market entry: it buys stocks in the
+    middle of a violent move, where the spread is the dominant cost. Measured on 2026-08-19
+    at the moment MRNA traded 120 million shares, the IEX quote was bid 138.00 / ask 143.63 —
+    400 bp wide. A market order crosses all of it; a limit order at or below our own price
+    either fills at a price we chose or does not fill at all, and a missed entry on a
+    stock that already jumped is the cheapest possible outcome.
+
+    Same whole-share rounding stance as bracket_payload — Alpaca rejects fractional
+    quantities for bracket orders, and rounding up would take more risk than the book sized
+    for.
+    """
+    whole = int(qty)
+    if whole < 1:
+        raise AlpacaBrokerError(
+            f"{ticker}: Position {qty:.4f} liegt unter einer ganzen Aktie — "
+            "Limit-Bracket-Order nicht moeglich."
+        )
+    if not limit_price > 0:
+        raise AlpacaBrokerError(f"{ticker}: Limitpreis {limit_price} ist unbrauchbar.")
+    return {
+        "symbol": ticker,
+        "qty": str(whole),
+        "side": "buy",
+        "type": "limit",
+        "limit_price": f"{limit_price:.2f}",
+        "time_in_force": "day",
+        "order_class": "bracket",
+        "stop_loss": {"stop_price": f"{stop_price:.2f}"},
+        "take_profit": {"limit_price": f"{target_price:.2f}"},
+    }
+
+
+def place_limit_bracket(
+    ticker: str, *, qty: float, limit_price: float, stop_price: float, target_price: float
+) -> BrokerOrder:
+    """Submit a limit-entry bracket (network). Raises on rejection, same stance as
+    place_bracket: a swallowed rejection would leave the book believing it holds something
+    it does not."""
+    payload = limit_bracket_payload(
+        ticker, qty=qty, limit_price=limit_price,
+        stop_price=stop_price, target_price=target_price,
+    )
+    with _client() as client:
+        response = client.post(f"{PAPER_BASE}/orders", json=payload)
+    if response.status_code not in (200, 201):
+        raise AlpacaBrokerError(
+            f"POST /v2/orders ({ticker}, limit) -> {response.status_code}: "
+            f"{response.text[:300]}"
+        )
+    return parse_order(response.json())
+
+
 def auction_payload(ticker: str, *, qty: float, side: str, auction: str) -> dict:
     """Market order routed into an auction: "opg" = opening (market-on-open), "cls" =
     closing (market-on-close). Alpaca accepts these until ~9:28 / ~15:50 ET; later

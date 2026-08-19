@@ -10,7 +10,7 @@ import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -1598,6 +1598,44 @@ def create_app(
                 "disclaimer": DISCLAIMER,
             }
         )
+
+    @app.get("/api/catalysts")
+    def catalysts() -> JSONResponse:
+        # Catalyst radar (v16): what the market-wide watch has seen. Three sources in one
+        # feed — `scan` (a verified price/volume ignition happening now), `news` (a
+        # market-wide wire headline classified as a jump-maker), `calendar` (a dated
+        # catalyst still ahead). The rejection summary is shown deliberately: it is the
+        # answer to "what did the radar look at and wave through", and without it the
+        # thresholds could only ever be defended by argument.
+        from equity_scout.catalyst_storage import (
+            DEFAULT_CATALYST_DB_PATH,
+            load_signals,
+            stats as catalyst_stats,
+        )
+        now = datetime.now(timezone.utc)
+        since_24h = (now - timedelta(hours=24)).isoformat(timespec="seconds")
+        catalyst_db = os.getenv("EQUITY_SCOUT_CATALYST_DB", DEFAULT_CATALYST_DB_PATH)
+        if not Path(catalyst_db).exists():
+            # The radar has never run here. An empty feed is the honest answer — not an error,
+            # and not a fabricated "all quiet".
+            return JSONResponse({
+                "signals": [], "stats": {"total": 0, "by_source": {}, "by_kind": {},
+                                         "rejections": {}},
+                "upcoming": [], "names": {}, "active": False,
+                "disclaimer": DISCLAIMER,
+            })
+        signals = load_signals(catalyst_db, since=since_24h, limit=60)
+        upcoming = [s for s in load_signals(catalyst_db, source="calendar", limit=40)
+                    if (s.get("due_date") or "") >= now.date().isoformat()]
+        names = _known_company_names(db_path)
+        return JSONResponse({
+            "signals": [{**s, "name": names.get(s["ticker"])} for s in signals],
+            "upcoming": [{**s, "name": names.get(s["ticker"])} for s in upcoming],
+            "stats": catalyst_stats(catalyst_db, since=since_24h),
+            "names": names,
+            "active": True,
+            "disclaimer": DISCLAIMER,
+        })
 
     @app.post("/api/inbox/{pitch_id}/decision")
     def inbox_decision(pitch_id: int, body: dict) -> JSONResponse:

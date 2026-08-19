@@ -281,7 +281,7 @@ def position_targets(lane: str, *, entry_price: float) -> dict:
 
     Imports are local: this module is the pure book, and the lane runners import IT.
     """
-    from equity_scout import st_crypto, st_swing
+    from equity_scout import st_crypto, st_ignition, st_swing
 
     if lane == "swing":
         return {
@@ -314,5 +314,12 @@ def position_targets(lane: str, *, entry_price: float) -> dict:
                 "Handelstages; sie stehen nicht als fester Kurs im Buch. Spätestens zum "
                 "Handelsschluss wird glattgestellt."
             ),
+        }
+    if lane == "ignition":
+        return {
+            "target_price": None,
+            "stop_price": entry_price * (1.0 - st_ignition.STOP_LOSS),
+            "max_hold_days": st_ignition.MAX_HOLD_DAYS,
+            "rule": st_ignition.position_rule_text(),
         }
     return {"target_price": None, "stop_price": None, "max_hold_days": None, "rule": ""}

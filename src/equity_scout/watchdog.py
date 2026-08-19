@@ -22,6 +22,10 @@ SCHEDULER_TZ = "Europe/Berlin"
 
 CHAIN_SLAS: dict[str, timedelta] = {
     "crypto": timedelta(hours=2),  # */15 cron, around the clock; 2h = several missed cycles
+    # Catalyst radar (v16). The news sweep is the only radar leg that runs around the clock,
+    # so it is the one that can be judged on a flat age. 2h = 120 missed minute cycles: well
+    # past a transient outage, well short of crying wolf over a restart.
+    "news_sweep": timedelta(hours=2),
 }
 
 
@@ -45,6 +49,14 @@ class ChainSchedule:
 
 
 CHAIN_SCHEDULES: dict[str, ChainSchedule] = {
+    # Catalyst ignition scan: every minute Mon-Fri inside the US session. Judged as a cadence
+    # chain, not on a flat age — its heartbeat is legitimately ~65h old on a Monday morning,
+    # and a flat SLA would have repeated the weekend false alarm the nightly chain taught us
+    # about on 2026-08-10. Earliest slot: 09:30 ET = 15:30 Berlin (winter 16:30, absorbed by
+    # the slack).
+    "catalyst_scan": ChainSchedule(hour=15, minute=30,
+                                   weekdays=frozenset({0, 1, 2, 3, 4}),
+                                   slack=timedelta(hours=3)),
     # cron `0 18 * * 1-5` + user timer 18:05
     "daily": ChainSchedule(hour=18, minute=0, weekdays=frozenset({0, 1, 2, 3, 4})),
     # cron `30 2 * * 2-6` + user timer 02:35 — Tue–Sat, no Sunday/Monday slot

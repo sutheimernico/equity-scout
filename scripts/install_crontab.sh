@@ -35,7 +35,20 @@ GAPFADE_LINE="*/5 14-16 * * 1-5 flock -n /tmp/equity-scout-gapfade.lock ${REPO_D
 # REMOVES any leftover per-minute line. The nightly st_session_sweep keeps flattening
 # stragglers, and the book stays fully readable in the cockpit.
 
-MANAGED_SCRIPTS="daily_copilot.sh run_daily_guarded.sh receiver_keepalive.sh intraday_copilot.sh nightly_train.sh run_nightly_guarded.sh nightly_prefetch.sh run_shortterm.py run_watchdog.py session_lane.sh gapfade_lane.sh"
+# Catalyst radar (v16, 2026-08-19). Three cadences, three reasons:
+#   radar    every minute in a window covering 09:30-16:50 ET in both central European DST
+#            regimes; the runners' own market-window guards decide what actually happens, so
+#            the firings outside the session are silent no-ops. Scan and lane run in ONE
+#            script because the lane can only act on signals the scan just wrote.
+#   news     every minute AROUND THE CLOCK — approvals, merger agreements and trial readouts
+#            are published outside market hours more often than inside them.
+#   calendar once a day at 12:30 local (before the US open), because trial completion dates
+#            and earnings dates move on the scale of days.
+RADAR_LINE="* 15-23 * * 1-5 flock -n /tmp/equity-scout-catalyst-radar.lock ${REPO_DIR}/scripts/catalyst_radar.sh >> ${REPO_DIR}/catalyst.log 2>&1"
+NEWS_LINE="* * * * * flock -n /tmp/equity-scout-news-sweep.lock ${REPO_DIR}/scripts/news_sweep.sh >> ${REPO_DIR}/catalyst.log 2>&1"
+CALENDAR_LINE="30 12 * * * flock -n /tmp/equity-scout-catalyst-calendar.lock ${REPO_DIR}/scripts/catalyst_calendar.sh >> ${REPO_DIR}/catalyst.log 2>&1"
+
+MANAGED_SCRIPTS="daily_copilot.sh run_daily_guarded.sh receiver_keepalive.sh intraday_copilot.sh nightly_train.sh run_nightly_guarded.sh nightly_prefetch.sh run_shortterm.py run_watchdog.py session_lane.sh gapfade_lane.sh catalyst_radar.sh news_sweep.sh catalyst_calendar.sh"
 
 current="$(crontab -l 2>/dev/null || true)"
 before="$current"
@@ -47,7 +60,7 @@ before="$current"
 for script in $MANAGED_SCRIPTS; do
   current="$(printf '%s\n' "$current" | grep -vF "scripts/${script}" || true)"
 done
-for line in "$CHAIN_LINE" "$RECEIVER_LINE" "$INTRADAY_LINE" "$NIGHTLY_LINE" "$PREFETCH_LINE" "$CRYPTO_LINE" "$GAPFADE_LINE"; do
+for line in "$CHAIN_LINE" "$RECEIVER_LINE" "$INTRADAY_LINE" "$NIGHTLY_LINE" "$PREFETCH_LINE" "$CRYPTO_LINE" "$GAPFADE_LINE" "$RADAR_LINE" "$NEWS_LINE" "$CALENDAR_LINE"; do
   current="${current}"$'\n'"${line}"
 done
 
