@@ -16,6 +16,7 @@ from __future__ import annotations
 import pandas as pd
 
 from equity_scout.market import PricePanel
+from equity_scout.ml.catalyst_features import CATALYST_FEATURE_COLUMNS, CatalystIndex
 from equity_scout.ml.entry_eval import (
     HORIZON_DAYS,
     beats_benchmark_label,
@@ -44,6 +45,7 @@ def build_backfill_dataset(
     barrier_config: BarrierConfig | None = None,
     evidence_index: EvidenceIndex | None = None,
     volume_index: VolumeIndex | None = None,
+    catalyst_index: CatalystIndex | None = None,
 ) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
     """Assemble aligned (X, y, meta) from a stock+benchmark `PricePanel`.
 
@@ -119,6 +121,13 @@ def build_backfill_dataset(
             # layout byte for byte, so a plain run and a volume run are the same sample.
             if volume_index is not None:
                 features = {**features, **volume_index.features(ticker, as_of)}
+            # v17 trader #4: the catalyst block, additive in exactly the same way. Nico's ask was
+            # that the model see "alle Art Informationen, die die anderen haben" — until now its
+            # features were price and momentum only, which the W0 finding says cannot predict
+            # return at all. Coverage is honestly thin (5.9 % of cells carry a catalyst within
+            # 30 days), so this widens the input, it does not promise an edge.
+            if catalyst_index is not None:
+                features = {**features, **catalyst_index.features(ticker, as_of)}
             if as_of not in pair.index:  # benchmark gap on the decision day — cannot label honestly
                 continue
             if label_direction == "triple_barrier":
@@ -144,6 +153,8 @@ def build_backfill_dataset(
         columns += list(EVIDENCE_FEATURE_COLUMNS)
     if volume_index is not None:
         columns += list(VOLUME_FEATURE_COLUMNS)
+    if catalyst_index is not None:
+        columns += list(CATALYST_FEATURE_COLUMNS)
     X = pd.DataFrame([r[2] for r in rows], columns=columns)
     # No-op today by construction (every row's feature dict is already complete before it lands
     # in `rows`, verified 0 NaN on real data) — but `pd.DataFrame(..., columns=...)` silently

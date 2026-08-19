@@ -18,6 +18,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import sys
 from datetime import datetime, timezone
 
 import numpy as np
@@ -26,6 +27,12 @@ from sklearn.isotonic import IsotonicRegression
 
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.market import PricePanel
+from equity_scout.ml.catalyst_features import (
+    CATALYST_ACTIVE_COLUMN,
+    CATALYST_FEATURE_COLUMNS,
+    CatalystIndex,
+    load_catalyst_index,
+)
 from equity_scout.ml.entry_dataset import build_backfill_dataset
 from equity_scout.ml.entry_eval import HORIZON_DAYS, SHORT_HORIZON_DAYS
 from equity_scout.ml.entry_model import (
@@ -178,6 +185,7 @@ def run_train_entry(
     barrier_config: BarrierConfig | None = None,
     n_candidates: int = 1,
     evidence_index: EvidenceIndex | None = None,
+    catalyst_index: CatalystIndex | None = None,
 ) -> dict:
     """Build the backfill, evaluate OUT-OF-SAMPLE, fit on the full set (with OOS isotonic
     calibration when the sample supports it), register the challenger and promote it iff it clears
@@ -216,7 +224,7 @@ def run_train_entry(
     X, y, meta = build_backfill_dataset(
         panel, tickers, benchmark=benchmark, horizon_days=horizon_days,
         label_direction=label_direction, barrier_config=tb_config,
-        evidence_index=evidence_index,
+        evidence_index=evidence_index, catalyst_index=catalyst_index,
     )
     n_train = len(X)
     if n_train == 0:
@@ -250,6 +258,19 @@ def run_train_entry(
     # WHICH universe this model was measured on. Its absence is why the champion defect stayed
     # invisible for five weeks: the row recorded n_train but not the sample's identity, so nobody
     # could see that two AUCs came from different universes (2026-08-11).
+    # Same contract as the evidence block: recorded on EVERY run so a registry row always states
+    # which feature set it was fitted on.
+    metrics["catalyst_features"] = (
+        list(CATALYST_FEATURE_COLUMNS) if catalyst_index is not None else []
+    )
+    # The honest coverage number. Measured before training: 5.9 % of cells carry a catalyst
+    # within 30 days. A block that is zero almost everywhere cannot beat the champion, and this
+    # key is what makes that visible in the row instead of leaving it to be rediscovered.
+    metrics["catalyst_coverage_30d"] = (
+        round(float((X[CATALYST_ACTIVE_COLUMN] > 0).mean()), 4)
+        if catalyst_index is not None
+        else None
+    )
     metrics["universe"] = {"n_tickers": len(tickers), "n_scored": int(meta["ticker"].nunique())}
     if family == "entry_tb":  # MUST be retrievable so a follow-up task can derive target/stop
         metrics["barrier_config"] = tb_config.as_dict()
@@ -342,6 +363,7 @@ def run_train_entry_all(
     horizon_days: int = HORIZON_DAYS,
     barrier_config: BarrierConfig | None = None,
     evidence_index: EvidenceIndex | None = None,
+    catalyst_index: CatalystIndex | None = None,
 ) -> list[dict]:
     """Train every preset in `models` for every family in `families`; the registry gate alone
     decides which (if any) ends up champion per family. The short family trains on its own shorter
@@ -385,6 +407,7 @@ def run_train_entry_all(
                             horizon_days=family_horizon.get(family, horizon_days),
                             family=family, barrier_config=tb_config,
                             n_candidates=n_candidates, evidence_index=variant,
+                            catalyst_index=catalyst_index,
                         )
                     )
                 except Exception as err:  # noqa: BLE001 — a broken preset is a report, not a crash
@@ -484,7 +507,25 @@ def main() -> int:
             " Requires a populated historical_events store in --db (raises otherwise)."
         ),
     )
+    parser.add_argument(
+        "--with-catalysts",
+        action="store_true",
+        help=(
+            "additionally carry the catalyst features (v17 trader #4): days since / strength of"
+            " the last catalyst per class, counts in 30/365 days, measured reaction move."
+            " Backfilled from the local news archive with the SAME classifier the live lane uses."
+            " Coverage is thin (5.9 %% of cells within 30 days), so use --start 2016-01-01 — on"
+            " earlier data every row is neutral and the block would encode WHICH DECADE a row is"
+            " from instead of any behaviour."
+        ),
+    )
     args = parser.parse_args()
+
+    if args.with_catalysts and args.start < "2016-01-01":
+        print(f"--with-catalysts mit --start {args.start}: vor 2016 gibt es kein News-Archiv, "
+              "jede Zeile wäre neutral und der Block kodierte nur das Jahrzehnt. "
+              "Bitte --start 2016-01-01 (oder später).", file=sys.stderr)
+        return 2
 
     stock_tickers = _resolve_tickers(args.db, args.tickers)
     # SPY is the relative-return benchmark; dedup so a SPY already in the universe isn't doubled.
@@ -493,12 +534,17 @@ def main() -> int:
     # instead of after the expensive panel download.
     evidence_index = load_evidence_index(args.db) if args.with_evidence else None
     panel = _load_panel(panel_tickers, args.start)
+    # After the panel: the index aligns its reaction-move measurement to the panel's own closes.
+    catalyst_index = (
+        load_catalyst_index(closes=panel.closes) if args.with_catalysts else None
+    )
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     models = ENTRY_PRESETS if args.model == "all" else (args.model,)
     families = ("entry", "entry_short", "entry_tb") if args.family == "all" else (args.family,)
     run_train_entry_all(
         args.db, panel=panel, tickers=stock_tickers, now=now, models=models,
         families=families, horizon_days=args.horizon, evidence_index=evidence_index,
+        catalyst_index=catalyst_index,
     )
     return 0
 

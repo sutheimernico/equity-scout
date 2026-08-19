@@ -65,6 +65,11 @@ def test_train_cli_first_run_with_insufficient_oos_data_does_not_promote(tmp_pat
         # v15 P3: always present, so "trained without evidence" is a recorded fact, not an
         # absent key that a later reader has to guess about.
         "evidence_features", "evidence_coverage_91d",
+        # v17 trader #4, same contract as the evidence pair: always present, so "trained without
+        # catalysts" is a recorded fact rather than an absent key. The coverage key matters
+        # because the block is thin (5.9 % of cells in the broad universe) — a row that cannot
+        # beat the champion should say so on its face.
+        "catalyst_features", "catalyst_coverage_30d",
         # 2026-08-11: WHICH universe this model was measured on. Its absence is why the champion
         # defect stayed invisible for five weeks — the row recorded n_train but not the sample's
         # identity, so two AUCs from different universes looked comparable.
