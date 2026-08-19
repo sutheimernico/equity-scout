@@ -40,7 +40,7 @@ Und aus der Matrix-Vision vom 2026-08-17, weiterhin gültig:
 | 1 | **Long-Term** | 11 regelbasierte ETF-Sleeves, gleichgewichtet | **LÄUFT.** 101.401 $ gegen SPY 102.510 $ — hinter dem Markt. Nie an einen Broker geroutet (`README.md:288`: „remains unrouted"), entgegen v15-P1. |
 | 2 | **Short-Term** | Arena-Lanes: swing (Earnings), crypto (Donchian), gapfade (MOO/MOC), ignition (Katalysator-Sprünge) | **LÄUFT.** session pausiert seit 17.08. (ORB widerlegt). ignition seit heute live, 2 Positionen. |
 | 3 | **Matrix** | die „Auswahl an Gewinnerzellen" über alle Parameter × Zeitscheiben, mit Risikoabschätzung | **NEU.** Messwerkzeug existiert, handelt nicht. Zwei Blocker, siehe unten. |
-| 4 | **ML** | fortlaufend gelernte Funktion über **alle** Datenquellen des Systems | **HALB DA.** 207 Modellversionen trainiert (letzte 2026-08-19 00:31), `champion_history` **leer** — keine hat die Hürde genommen. |
+| 4 | **ML** | fortlaufend gelernte Funktion über **alle** Datenquellen des Systems | **LERNT, HANDELT NICHT.** 208 Versionen; `champion_history` leer — keine hat die Hürde genommen. Seit 19.08. mit Katalysator-Merkmalen (9 Spalten), Abdeckung 5,9 % breit / 72,8 % bei Mega-Caps. |
 
 Ausdrücklich: #3 ist **nicht** auf Kurzfrist beschränkt. Zeitscheibe ist eine Achse der Matrix,
 kein Merkmal des Traders.
@@ -99,9 +99,10 @@ Chartform vorhersagen; der W0-Befund vom 11.08. sagt, dass das an unseren Daten 
 
 Nicos Vorgabe „alle Art Informationen, die die anderen haben" ist damit der eigentliche Hebel:
 
-- [ ] Katalysator-Features: verifizierter Sprung, Volumenverhältnis, Spanne, News-Klasse,
-      Katalysator-Alter, Termin-Vorlauf (alles ab heute in `catalysts.db`).
-- [ ] Event-Features: Insider-Cluster, 8-K-Typen, Kongress-Käufe (`evidence_events`).
+- [x] Katalysator-Features: 9 Spalten, aus dem News-Archiv 2016–2025 rückgerechnet, point-in-time
+      gesichert. **Ehrliche Grenze:** Abdeckung 5,9 % im breiten Universum.
+- [x] Event-Features: nicht neu gebaut — `evidence_features.py` deckt 27.681 Insider-Cluster
+      bereits point-in-time ab; Kongress ist ein gemessener Nullbefund, 8-K hat nur 57 Zeilen.
 - [ ] Matrix-Features: in welcher Plateau-Region liegt der Titel gerade.
 - [ ] Universum: 6241 handelbare Einzelaktien statt einer 30er-Watchlist (Tagesbars ab 2019
       werden gerade geholt, splitbereinigt).
@@ -126,14 +127,16 @@ Nicos Vorgabe „alle Art Informationen, die die anderen haben" ist damit der ei
 ## Reihenfolge
 
 1. ✅ Kalenderblock-Bootstrap (Blocker A) — 16 Tests, an echten Daten verifiziert (Faktor 1,9).
-2. ⏳ Katalysator-Signale als Matrix-Achse — Code geliefert (`matrix/catalyst_axis.py`,
-   neue Einträge in `signals.py`/`contexts.py`), Gate grün, **mein Review steht noch aus**.
+2. ✅ Katalysator-Signale als Matrix-Achse — reviewt und verdrahtet. 12.845 Ereignisse aus dem
+   Archiv (2016–2025, 936 Ticker); Ende-zu-Ende auf AAPL/MRK verifiziert: 25.726 `catalyst_age`-
+   und 15.608 `catalyst_volume_spike`-Zellen plus 70.521 unter den drei Katalysator-Bedingungen.
 3. ✅ Plateau → Register → Strategie → Sleeve (Blocker B) — die Leitung steht.
 4. ✅ Hold-out-Register + Robustheits-Nachmessung gebaut (Blocker C). Das Öffnen selbst ist
    bewusst ein separater, manueller Aufruf: `--open-holdout --hypothesis "…"`, einmalig.
-5. ⏳ ML-Featureblöcke aus Katalysator- und Ereignisdaten (#4) — Code geliefert
-   (`ml/catalyst_features.py`), Gate grün, **Review und die Verdrahtung in `entry_dataset.py`
-   stehen noch aus**. Ohne diese Verdrahtung trainiert das Modell weiter ohne die neuen Merkmale.
+5. ✅ ML-Featureblöcke (#4) — reviewt und verdrahtet (`entry_dataset.py`, `run_train_entry.py`,
+   Flag `--with-catalysts` mit Guard vor 2016). Verifiziert: Version 208 trainierte auf 20
+   Merkmalen, 9 davon `cat_*`, mit Abdeckung in der Registry-Zeile. **Kein Vorteil nachgewiesen**
+   (AUC 0,5042 auf 920 Zeilen — zu kleine Stichprobe für ein Urteil in beide Richtungen).
 6. ✅ `/api/traders`: vier Trader in einer Ansicht, jeder mit Zustand und Blocker.
 
 **Offen:** OHLCV-Panel für alle Strategien (heute nur die Matrix-Sleeve), eigenes Buch je
