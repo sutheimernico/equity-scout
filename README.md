@@ -331,6 +331,80 @@ fills charge slippage, per-trade realized P&L / win rate / fees are first-class
 block "⚡ Kurzfrist-Arena". Run a lane manually:
 `uv run python scripts/run_shortterm.py --lane crypto`.
 
+## Katalysator-Radar (vision v16, 2026-08-19)
+
+**Anlass.** Moderna sprang am 2026-08-19 um +127 % (Phase-3-Krebsvakzin mit Merck, dazu die
+FDA-Zulassung von mFLUSIVA). Das System sah es nicht: kein Trade, kein Alarm, kein Event.
+MRNA lag im Scout auf Rang 1852 von 2038 und war in keiner der drei Scope-Mengen — Watchlist
+(30 Titel), Event-Scope (62 Titel), Intraday-Universum (12 Titel).
+
+Vier unabhängige Blindheiten, alle vier adressiert:
+
+| Blindheit | vorher | jetzt |
+|---|---|---|
+| Kein marktweiter Blick | 12 fest verdrahtete Megacaps intraday | Screener-Endpunkte, **ganzer US-Markt in einem Call** |
+| News-Scope an der Watchlist | `tracked_tickers()`, 30–70 Titel | Wire **ohne Symbolfilter** — kein Scope, keine Lücke |
+| Kein Vorab-Kalender | nur Earnings (yfinance, 56 Titel) | ClinicalTrials.gov, Phase-2/3-Termine |
+| Kein Sprung-Signal | `volume_signals.py` ist EOD auf 7 ETFs | minütlicher, bar-verifizierter Ignition-Scan |
+
+### Die drei Erkennungsschichten
+
+- **`run_catalyst_scan.py`** — minütlich im Marktfenster. Vier Netzcalls, unabhängig von der
+  Universumsgröße: `movers` + `most-actives` (marktweit, **SIP-basiert**, obwohl unser
+  Bar-Feed nur IEX ist), dann Snapshots und Quotes für die Kandidaten. Filterkette:
+  Handelbarkeit → Instrumententyp → Mindestkurs → **Bar-Gegenprüfung** → Sprungschwelle →
+  Volumenbestätigung → Spanne. Erster Live-Lauf: 100 Kandidaten → 1 Signal (MRNA, Güte 0,93).
+- **`run_news_sweep.py`** — minütlich rund um die Uhr, Cursor-basiert. 14 Katalysator-Klassen
+  branchenübergreifend, mit dem auslösenden Wortlaut im Signal (auditierbar). Erster
+  Live-Lauf über 6 h: 13 Signale, darunter das echte Moderna/Merck-Studienergebnis und eine
+  FDA-Zulassung (FEMY).
+- **`run_catalyst_calendar.py`** — täglich 12:30. ClinicalTrials.gov: Phase-2/3-Studien mit
+  Primärabschluss in den nächsten 90 Tagen. Erster Lauf: 186 Termine (145 Studien + 41
+  Earnings). Sponsor→Ticker trifft **23,6 %** (80 von 339) — bewusst konservativ: drei
+  lockerere Matching-Regeln wurden gemessen und verworfen, weil jede zweite Zusatz-Zuordnung
+  falsch war.
+
+Alles landet in **einer** Tabelle (`catalysts.db`, `catalyst_signals`), inklusive der
+Ablehnungen mit Grund — das ist die Kalibrierungsdatenlage, die die Frage „waren die
+Schwellen richtig?" später beantwortbar macht.
+
+### Die Lane, die aufspringt (`ignition`)
+
+`run_ignition_lane.py`, Paper, 10 000 USD, Benchmark SPY. Vier Regeln halten sie davon ab,
+eine Jagd zu werden:
+
+1. **Chase-Schutz** — kein Einstieg über +35 % Tagesbewegung. Beim Moderna-Signal hat genau
+   das gegriffen (+140 % → abgelehnt und protokolliert). Die Lane wird die
+   spektakulärsten Fälle absichtlich verpassen.
+2. **Limit-Einstieg, nie Market** — Limit bei Bid + 25 % der Spanne. Bei MRNAs echter Spanne
+   von 400 bp kostet das 100 bp statt 400; ein Nicht-Fill ist ein gutes Ergebnis.
+3. **Harte Deckel** — 4 Positionen, 3 Einstiege pro Tag, einer pro Titel.
+4. **Volumen muss zur Orderzeit noch tragen** — das Signal ist eine Minute alt, die Bewegung
+   darf nicht schon versandet sein.
+
+Ausstiege: Trailing-Stop 10 % unter dem Höchstkurs, harter Stop −8 %, Zeitstop 5 Tage. Kein
+festes Kursziel — bei einem Fortsetzungs-Trade würde ein Deckel das einzige Ergebnis
+wegnehmen, das die Verlierer bezahlen kann.
+
+**Stop-Kriterium:** nach 60 geschlossenen Trades entscheidet `significance.assess_trades`.
+Urteil „negativ" beendet die Lane, so wie die ORB-Regel die Session-Lane am 2026-08-17
+beendet hat.
+
+### Was das Radar ehrlich NICHT kann
+
+1. **Den Sprung selbst fangen, wenn die News über Nacht kommt.** Moderna eröffnete gegappt;
+   wer nicht vorher drin war, kauft nach der Bewegung. Messbar adressiert wird die
+   **Fortsetzung**, nicht der Sprung.
+2. **Sekündlich beobachten.** Der Screener ist minütlich sinnvoll abfragbar (200 req/min
+   Limit); ein Sekundentakt bräuchte einen WebSocket-Stream und für alle Titel ein
+   SIP-Abo. Die Latenz ist ohnehin nicht der Engpass — die Spanne ist es (gemessen: MRNA
+   400 bp gegen AAPL 1 bp).
+3. **Gerüchte lesen.** Kein Social-Media-Scraping (bewusst verworfen, siehe Matrix-Plan).
+   „Vorab" heißt hier: bekannte Termine vorher kennen.
+4. **Hebel.** Das Paper-Konto erlaubt 4×; die Lane nutzt 1×. Einen unbekannten
+   Erwartungswert zu multiplizieren ist keine Strategie — der Parameter ist eine Zeile,
+   sobald ein Urteil vorliegt.
+
 ## Kann das funktionieren? (v12 Ergebnis-Rahmen)
 
 Die ehrliche Antwort steht im Dashboard-Tab **„Ergebnisse"** (`/api/proof`) und im monatlichen
