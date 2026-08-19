@@ -270,3 +270,49 @@ systemctl --user list-timers equity-scout.timer   # verify
   pure-quant run if you want zero LLM cost.
 - yfinance over ~500 tickers takes a few minutes; the read-through cache makes repeat runs fast.
 - This is a research snapshot, not a trade trigger. No orders are ever placed.
+
+## Host memory and the WSL VM (2026-08-19)
+
+Everything above assumes the VM is alive. On 2026-08-19 it was not, and the cause was
+memory, so the host configuration is part of the scheduling contract.
+
+**What happened.** `run_matrix_qualify.py` grouped every matching checkpoint cell into a dict
+before pooling. For the depth-1 checkpoint that is 13.8M cells at roughly 700 bytes of Python
+object each — 9.7 GB. The kernel OOM-killer fired at 22:48 (`Killed process 28334 (python3)
+anon-rss:10641348kB`, load average 13). Because there was no `.wslconfig`, the VM was capped at
+WSL's default 50% of host RAM — 15.8 of 31.6 GiB — so a single job could reach the ceiling. The
+distro was restarted three times in five minutes (22:50, 22:52, 22:55) and every interactive
+Claude Code session attached to it died with it. The matrix run left a 0-byte log.
+
+**Three layers now stand between a hungry job and a dead VM:**
+
+1. **`%USERPROFILE%\.wslconfig`** (Windows side, outside this repo — that is why it is
+   documented here). `memory=20GB` and `swap=24GB` replace the 15.8 GB / 4 GB defaults, so a
+   double-digit-GiB chain has room. `vmIdleTimeout=-1` stops WSL from shutting the VM down for
+   idleness, which is what the always-on cron fleet actually depends on.
+   `autoMemoryReclaim=gradual` hands unused RAM back instead of sitting on the high-water mark.
+   **Requires `wsl --shutdown` once to take effect.**
+
+2. **`scripts/mem_guard.sh`** wraps the heavy chains (`run_{nightly,daily,weekly}_guarded.sh`,
+   both `night_matrix_chain*.sh`). It runs them in a `systemd-run --user --scope` with
+   `MemoryHigh` at 60% and `MemoryMax` at 80% of the VM's *actual* RAM — derived, not
+   hardcoded, because the cap moved once and will move again, and a ceiling above MemTotal
+   guards nothing. Soft limit throttles into swap, hard limit is a cgroup-local OOM that kills
+   the chain alone. It also sets `oom_score_adj=+500` so a global OOM prefers a batch chain over
+   an interactive session. No root needed (cgroup v2 delegates `memory` to `user-1000.slice`),
+   and it degrades open: no systemd-run, no user bus, and the command still runs, merely
+   uncapped. A missing ceiling must never cost a night of training.
+
+3. **Streaming pooling.** `pool_checkpoint` (was `stream_cells` + `pooled_from_groups`) keeps one
+   `PooledCells` accumulator per group instead of the group's cells. Every pooled statistic is a
+   plain sum, so fed in the same order the numbers are bit-identical — asserted in
+   `tests/test_run_matrix_qualify.py`, not assumed. Measured on real checkpoints:
+
+   | checkpoint | cells | groups | RSS peak | before |
+   |---|---|---|---|---|
+   | `matrix_cells.jsonl` (4.2 GB) | 13.8M | 939k | **1.21 GiB** in 46s | 9.7 GB → OOM-killed |
+   | `matrix_cells_d2.jsonl` (30.7 GB) | ~100M | 7.08M | **5.95 GiB** in 394s | ~70 GB → never viable |
+
+**Still Nico's call:** the full `run_matrix_qualify.py` run was NOT started here. Gate 4 opens
+the 2023-2025 hold-out, and by its own design that happens once, with the hypothesis registered
+first. Pooling was verified in isolation instead.
