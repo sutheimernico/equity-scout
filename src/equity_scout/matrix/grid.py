@@ -148,6 +148,69 @@ def evaluate_cell(
     )
 
 
+class PooledCells:
+    """Streaming accumulator behind `pool_cells` — one group's sums instead of its cells.
+
+    Why this exists: `run_matrix_qualify` used to group every matching cell into a dict before
+    pooling. For the depth-1 checkpoint that is 13.8M cells at ~700 bytes of Python object each
+    — 9.7 GB, which is precisely the 10.1 GiB RSS the kernel OOM-killer shot on 2026-08-19,
+    taking the whole WSL VM down with it. The pooled statistics are all plain sums, so they
+    accumulate exactly: fed in the same order, this yields bit-identical numbers to the list
+    form. `pool_cells` is now a thin wrapper over it, so the arithmetic exists exactly once.
+
+    Deliberately NOT a running mean: the weighted sums are kept whole and divided once at the
+    end, matching the original expression term for term. An incremental mean would drift.
+    """
+
+    __slots__ = ("n", "tickers", "tickers_measurable", "_weight", "_gross", "_net", "_hit",
+                 "_t_numerator", "_t_weight")
+
+    def __init__(self) -> None:
+        self.n = 0
+        self.tickers = 0
+        self.tickers_measurable = 0
+        self._weight = 0
+        self._gross = 0.0
+        self._net = 0.0
+        self._hit = 0.0
+        self._t_numerator = 0.0
+        self._t_weight = 0
+
+    def add(self, cell: dict) -> None:
+        # n and tickers count every cell, measurable or not — an unmeasurable ticker still
+        # contributes trades and must not silently vanish from the pool's own bookkeeping.
+        self.tickers += 1
+        self.n += cell["n"]
+        if cell["net_bp"] is None:
+            return
+        weight = cell["n"]
+        self.tickers_measurable += 1
+        self._weight += weight
+        self._gross += cell["gross_bp"] * weight
+        self._net += cell["net_bp"] * weight
+        self._hit += cell["hit_rate"] * weight
+        if cell["t"] is not None:
+            self._t_numerator += cell["t"] * (weight ** 0.5)
+            self._t_weight += weight
+
+    def pooled(self, **axes) -> dict:
+        out = {
+            **axes,
+            "n": self.n,
+            "tickers": self.tickers,
+            "tickers_measurable": self.tickers_measurable,
+            "gross_bp": None, "net_bp": None, "t": None, "hit_rate": None,
+        }
+        if not self.tickers_measurable:
+            return out
+        out["gross_bp"] = self._gross / self._weight
+        out["net_bp"] = self._net / self._weight
+        out["hit_rate"] = self._hit / self._weight
+        if self._t_weight:
+            out["t"] = self._t_numerator / (self._t_weight ** 0.5)
+        return out
+
+
 def pool_cells(per_ticker: list[dict], **axes) -> dict:
     """Trade-weighted pool of per-ticker cells, carrying the axis values.
 
@@ -159,23 +222,7 @@ def pool_cells(per_ticker: list[dict], **axes) -> dict:
     conservative: it never assumes the tickers are independent draws of one effect, which they
     are not (they share market-wide moves).
     """
-    usable = [c for c in per_ticker if c["net_bp"] is not None]
-    out = {
-        **axes,
-        "n": sum(c["n"] for c in per_ticker),
-        "tickers": len(per_ticker),
-        "tickers_measurable": len(usable),
-        "gross_bp": None, "net_bp": None, "t": None, "hit_rate": None,
-    }
-    if not usable:
-        return out
-    weight = sum(c["n"] for c in usable)
-    out["gross_bp"] = sum(c["gross_bp"] * c["n"] for c in usable) / weight
-    out["net_bp"] = sum(c["net_bp"] * c["n"] for c in usable) / weight
-    out["hit_rate"] = sum(c["hit_rate"] * c["n"] for c in usable) / weight
-    with_t = [c for c in usable if c["t"] is not None]
-    if with_t:
-        out["t"] = sum(c["t"] * (c["n"] ** 0.5) for c in with_t) / (
-            sum(c["n"] for c in with_t) ** 0.5
-        )
-    return out
+    acc = PooledCells()
+    for cell in per_ticker:
+        acc.add(cell)
+    return acc.pooled(**axes)

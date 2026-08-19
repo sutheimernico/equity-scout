@@ -38,7 +38,7 @@ from equity_scout.data.minute_bars import load_minutes  # noqa: E402
 from equity_scout.matrix.bootstrap import block_bootstrap, pool_trades  # noqa: E402
 from equity_scout.matrix.grid import (  # noqa: E402
     HOLD_OUT_START,
-    pool_cells,
+    PooledCells,
     trade_returns_with_times,
 )
 from equity_scout.matrix.plateau import find_plateaus  # noqa: E402
@@ -66,13 +66,25 @@ BLOCK_FOR_SLICE = {"1min": "W", "5min": "W", "15min": "W", "60min": "M",
                    "1D": "M", "1W": "M", "1M": "M"}
 
 
-def stream_cells(path: Path, *, window: str) -> dict[tuple, list[dict]]:
-    """Group the checkpoint's cells by (asset_class, signal, threshold, slice, hold, cost, context).
+def pool_checkpoint(path: Path, *, window: str) -> tuple[list[dict], set[str]]:
+    """Pool the checkpoint by (asset_class, signal, threshold, slice, hold, cost, context).
 
-    Streamed line by line: the checkpoints are gigabytes (4.2 / 30.6 / 26.2 GB as of
-    2026-08-19), and reading one into memory is not an option.
+    One streaming pass, one accumulator per group. Streaming the LINES was never the problem —
+    the previous version did that too, then grouped every matching cell into a dict and pooled
+    afterwards. For the depth-1 checkpoint that is 13.8M cells at ~700 bytes of Python object
+    each: 9.7 GB, which is what the kernel OOM-killer shot on 2026-08-19 (measured 10.1 GiB RSS)
+    while taking the whole WSL VM and its cron fleet down with it. The grid's group space
+    saturates around 245k keys, so accumulators cost ~60 MB instead — and because every pooled
+    statistic is a plain sum fed in the same order, the numbers are bit-identical.
+
+    The window filter also skips the {"ticker": …, "complete": true} resume markers, which carry
+    none of the cell fields.
+
+    Returns the pooled cells and the tickers they were pooled from — the bootstrap stage needs
+    the ticker list, and a set of ~70 strings is the one thing worth carrying out of the pass.
     """
-    grouped: dict[tuple, list[dict]] = defaultdict(list)
+    groups: dict[tuple, PooledCells] = defaultdict(PooledCells)
+    tickers: set[str] = set()
     with path.open() as handle:
         for line in handle:
             if not line.strip():
@@ -84,19 +96,16 @@ def stream_cells(path: Path, *, window: str) -> dict[tuple, list[dict]]:
                 cell["asset_class"], cell["signal"], cell["threshold"], cell["slice"],
                 cell["hold_bars"], cell["cost_bps"], cell.get("context", "none"),
             )
-            grouped[key].append(cell)
-    return grouped
-
-
-def pooled_from_groups(grouped: dict[tuple, list[dict]]) -> list[dict]:
-    out = []
-    for key, cells in grouped.items():
-        asset_class, signal, threshold, slice_name, hold_bars, cost_bps, context = key
-        out.append(pool_cells(
-            cells, asset_class=asset_class, signal=signal, threshold=threshold,
-            slice=slice_name, hold_bars=hold_bars, cost_bps=cost_bps, context=context,
-        ))
-    return out
+            groups[key].add(cell)
+            tickers.add(cell["ticker"])
+    pooled = [
+        acc.pooled(
+            asset_class=key[0], signal=key[1], threshold=key[2], slice=key[3],
+            hold_bars=key[4], cost_bps=key[5], context=key[6],
+        )
+        for key, acc in groups.items()
+    ]
+    return pooled, tickers
 
 
 def _resample(frame, slice_name: str):
@@ -199,8 +208,7 @@ def main(argv: list[str] | None = None) -> int:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     print(f"Lese Zellen aus {args.checkpoint} ({args.checkpoint.stat().st_size / 1e9:.1f} GB) …")
-    grouped = stream_cells(args.checkpoint, window="search")
-    pooled = pooled_from_groups(grouped)
+    pooled, checkpoint_tickers = pool_checkpoint(args.checkpoint, window="search")
     print(f"  {len(pooled)} gepoolte Zellen")
 
     plateaus = find_plateaus(pooled, slice_order=SLICE_ORDER)
@@ -209,7 +217,7 @@ def main(argv: list[str] | None = None) -> int:
         print("Keine Plateaus — nichts zu qualifizieren. Das ist ein Ergebnis, kein Fehler.")
         return 0
 
-    tickers = args.tickers or sorted({c["ticker"] for cells in grouped.values() for c in cells})
+    tickers = args.tickers or sorted(checkpoint_tickers)
     candidates = plateaus[:args.max_candidates]
     survivors: list[tuple[dict, dict]] = []
 
