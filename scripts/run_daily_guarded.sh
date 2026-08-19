@@ -18,6 +18,11 @@ STATE_DIR="${EQUITY_SCOUT_DAILY_STATE:-$REPO_DIR/.state}"
 MARKER="$STATE_DIR/daily_last_run"
 LOCK="$STATE_DIR/daily.lock"
 CHAIN="${EQUITY_SCOUT_CHAIN:-$REPO_DIR/scripts/daily_copilot.sh}"
+# Heavy steps run under a memory ceiling (scripts/mem_guard.sh): on 2026-08-19 a single
+# matrix python3 hit 10.1 GiB in a 15.8 GiB VM and the kernel OOM-killer took the whole
+# box down with it. A missing guard must never block the run, so the prefix collapses away.
+MEM_GUARD="$REPO_DIR/scripts/mem_guard.sh"
+[ -x "$MEM_GUARD" ] || MEM_GUARD=""
 # The cockpit "Trotzdem starten" tap (2026-08-09): skips the marker and the weekend
 # guard, never the flock — those two are policy, the lock is data integrity.
 FORCE="${EQUITY_SCOUT_FORCE:-0}"
@@ -51,7 +56,7 @@ elif [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$TODAY" ]; then
 fi
 
 echo "[$(date -Is)] guarded: starting daily chain (trigger: ${1:-unspecified})" >> "$LOG"
-"$CHAIN"
+${MEM_GUARD:+"$MEM_GUARD"} "$CHAIN"
 rc=$?
 echo "[$(date -Is)] guarded: chain finished (rc=$rc)" >> "$LOG"
 

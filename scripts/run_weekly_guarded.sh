@@ -16,6 +16,11 @@ STATE_DIR="${EQUITY_SCOUT_WEEKLY_STATE:-$REPO_DIR/.state}"
 MARKER="$STATE_DIR/weekly_last_run"
 LOCK="$STATE_DIR/weekly.lock"
 CHAIN="${EQUITY_SCOUT_WEEKLY_CHAIN:-$REPO_DIR/scripts/scheduled_run.sh}"
+# Heavy steps run under a memory ceiling (scripts/mem_guard.sh): on 2026-08-19 a single
+# matrix python3 hit 10.1 GiB in a 15.8 GiB VM and the kernel OOM-killer took the whole
+# box down with it. A missing guard must never block the run, so the prefix collapses away.
+MEM_GUARD="$REPO_DIR/scripts/mem_guard.sh"
+[ -x "$MEM_GUARD" ] || MEM_GUARD=""
 # Cockpit "Trotzdem starten" (2026-08-09): marker bypass only, never the flock.
 FORCE="${EQUITY_SCOUT_FORCE:-0}"
 mkdir -p "$STATE_DIR"
@@ -41,7 +46,7 @@ elif [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$THIS_WEEK" ]; then
 fi
 
 echo "[$(date -Is)] weekly-guarded: starting full scout (trigger: ${1:-unspecified})" >> "$LOG"
-"$CHAIN" >> "$LOG" 2>&1
+${MEM_GUARD:+"$MEM_GUARD"} "$CHAIN" >> "$LOG" 2>&1
 rc=$?
 echo "[$(date -Is)] weekly-guarded: full scout finished (rc=$rc)" >> "$LOG"
 

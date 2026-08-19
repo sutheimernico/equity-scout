@@ -11,10 +11,15 @@ set -u
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 if [ -f .env ]; then set -a; . ./.env; set +a; fi
 LOG="night_matrix.log"
+# Every step runs under a memory ceiling (scripts/mem_guard.sh): the 2026-08-19 run was
+# shot by the kernel OOM-killer at 10.1 GiB in a 15.8 GiB VM and took the VM with it,
+# leaving a 0-byte log. Missing guard => run uncapped rather than not at all.
+MEM_GUARD="scripts/mem_guard.sh"
+[ -x "$MEM_GUARD" ] || MEM_GUARD=""
 step() {
   echo "[$(date -Is)] START $1" >> "$LOG"
   shift
-  if "$@" >> "$LOG" 2>&1; then echo "[$(date -Is)] OK" >> "$LOG"
+  if ${MEM_GUARD:+"$MEM_GUARD"} "$@" >> "$LOG" 2>&1; then echo "[$(date -Is)] OK" >> "$LOG"
   else echo "[$(date -Is)] FAILED (exit $?) — weiter mit dem nächsten Schritt" >> "$LOG"; fi
 }
 echo "[$(date -Is)] ===== Nachtkette Start (cells-only, Hold-out bleibt zu) =====" >> "$LOG"

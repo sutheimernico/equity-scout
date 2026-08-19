@@ -16,6 +16,11 @@ STATE_DIR="${EQUITY_SCOUT_NIGHTLY_STATE:-$REPO_DIR/.state}"
 MARKER="$STATE_DIR/nightly_last_run"
 LOCK="$STATE_DIR/nightly.lock"
 CHAIN="${EQUITY_SCOUT_NIGHTLY_CHAIN:-$REPO_DIR/scripts/nightly_train.sh}"
+# Heavy steps run under a memory ceiling (scripts/mem_guard.sh): on 2026-08-19 a single
+# matrix python3 hit 10.1 GiB in a 15.8 GiB VM and the kernel OOM-killer took the whole
+# box down with it. A missing guard must never block the run, so the prefix collapses away.
+MEM_GUARD="$REPO_DIR/scripts/mem_guard.sh"
+[ -x "$MEM_GUARD" ] || MEM_GUARD=""
 # Cockpit "Trotzdem starten" (2026-08-09): marker bypass only, never the flock.
 FORCE="${EQUITY_SCOUT_FORCE:-0}"
 mkdir -p "$STATE_DIR"
@@ -38,7 +43,7 @@ elif [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$TODAY" ]; then
 fi
 
 echo "[$(date -Is)] nightly-guarded: starting nightly chain (trigger: ${1:-unspecified})" >> "$LOG"
-"$CHAIN"
+${MEM_GUARD:+"$MEM_GUARD"} "$CHAIN"
 rc=$?
 echo "[$(date -Is)] nightly-guarded: chain finished (rc=$rc)" >> "$LOG"
 
