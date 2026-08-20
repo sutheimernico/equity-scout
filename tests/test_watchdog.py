@@ -110,3 +110,35 @@ def test_run_watchdog_cli_records_its_own_heartbeat(tmp_path, monkeypatch) -> No
     monkeypatch.setattr(sys, "argv", ["run_watchdog.py", "--db", db])
     assert wd.main() == 0
     assert get_state(db, key="heartbeat_watchdog") is not None
+
+
+def test_gapfade_missing_its_morning_slot_is_overdue(tmp_path) -> None:
+    """The lane runs Mon-Fri at 15:00 Berlin only, so it must be judged on missed slots,
+    not on heartbeat age — on a Monday noon its last legitimate beat is from Friday."""
+    db = _db(tmp_path)
+    record_heartbeat(db, "gapfade", now="2026-07-20T13:05:00+00:00")  # Mon 15:05 Berlin
+    monday_evening = datetime(2026, 7, 20, 20, 0, tzinfo=timezone.utc)
+    assert [o["chain"] for o in overdue_chains(db, now=monday_evening)] == []
+
+    tuesday_evening = datetime(2026, 7, 21, 20, 0, tzinfo=timezone.utc)
+    overdue = overdue_chains(db, now=tuesday_evening)
+    assert "gapfade" in [o["chain"] for o in overdue]
+
+
+def test_gapfade_on_the_weekend_is_not_overdue(tmp_path) -> None:
+    """Saturday and Sunday have no slot; the Friday beat must stay good until Monday —
+    the same false alarm the nightly chain taught us about on 2026-08-10."""
+    db = _db(tmp_path)
+    record_heartbeat(db, "gapfade", now="2026-07-17T13:05:00+00:00")  # Fri 15:05 Berlin
+    sunday = datetime(2026, 7, 19, 12, 0, tzinfo=timezone.utc)
+    assert [o["chain"] for o in overdue_chains(db, now=sunday)] == []
+
+
+def test_a_lane_that_never_beat_once_is_never_alarmed(tmp_path) -> None:
+    """The honest limit of this watchdog, pinned deliberately: `gapfade` failed on EVERY
+    slot from its first day (2026-08-17..20), so it never wrote a first heartbeat and no
+    schedule entry could have raised the alarm. Only a chain that once worked can be
+    detected as broken here — a never-started chain needs a different check."""
+    db = _db(tmp_path)
+    record_heartbeat(db, "daily", now="2026-07-20T18:05:00+00:00")
+    assert "gapfade" not in [o["chain"] for o in overdue_chains(db, now=NOW)]

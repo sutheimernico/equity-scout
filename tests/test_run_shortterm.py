@@ -418,6 +418,27 @@ def test_gapfade_asks_alpaca_only_about_us_listings(db, tmp_path, monkeypatch) -
     assert [o["ticker"] for o in orders] == ["DOWN"]
 
 
+def test_gapfade_beats_when_it_reached_a_decision(db, tmp_path, monkeypatch) -> None:
+    """The lane has no continuous heartbeat, so the watchdog can only judge it on missed
+    slots — which needs a beat from every run that REACHED a decision. Placing no order is
+    healthy (no gap deep enough); never getting here is the failure that stayed invisible."""
+    from equity_scout.market import PricePanel
+    from equity_scout.state_storage import get_state
+
+    main_db = str(tmp_path / "main.db")
+    monkeypatch.setattr(runner, "tracked_tickers", lambda db_path: {"FLAT"})
+    index = pd.bdate_range("2026-08-03", periods=10)
+    panel = PricePanel(pd.DataFrame({"FLAT": 100.0, "SPY": 500.0}, index=index))
+    monkeypatch.setattr(runner, "load_price_history", lambda *a, **k: panel)
+    fresh = GAPFADE_SIGNAL_NOW - timedelta(minutes=3)
+    # no gap at all: not a single order, and that is a healthy day
+    monkeypatch.setattr(runner, "fetch_latest_trades", lambda tickers: {"FLAT": (100.0, fresh)})
+
+    runner.run_gapfade(db, main_db, now=GAPFADE_SIGNAL_NOW)
+
+    assert get_state(main_db, key="heartbeat_gapfade") is not None
+
+
 def test_gapfade_without_a_single_us_listing_marks_the_day_instead_of_asking(
     db, tmp_path, monkeypatch
 ) -> None:

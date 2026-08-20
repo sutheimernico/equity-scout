@@ -261,6 +261,10 @@ def _gapfade_signals(db: str, main_db: str, book: LaneBook, *, now: datetime) ->
         return
     picks, rejections = pick_gap_entries(premarket, prev_closes, book, now=now, traded=set())
     set_lane_state(db, "gapfade", GAPFADE_DAY_KEY, et.date().isoformat())
+    # Same stance as the crypto lane: the beat marks a run that REACHED a decision, not one
+    # that merely started. Placing no order is a healthy outcome (no gap deep enough today);
+    # never getting here is not, and that is precisely what stayed invisible for four days.
+    record_heartbeat(main_db, "gapfade", now=now.isoformat())
     record_rejections(db, [{**r, "lane": "gapfade"} for r in rejections])
     entry_orders = _gapfade_load_orders(db, GAPFADE_ENTRY_ORDERS_KEY)
     for pick in picks:

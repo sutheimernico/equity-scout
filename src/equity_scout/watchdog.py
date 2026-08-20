@@ -57,6 +57,14 @@ CHAIN_SCHEDULES: dict[str, ChainSchedule] = {
     "catalyst_scan": ChainSchedule(hour=15, minute=30,
                                    weekdays=frozenset({0, 1, 2, 3, 4}),
                                    slack=timedelta(hours=3)),
+    # Gap-fade signal window: 09:00-09:28 ET = 15:00 Berlin (winter 16:00, absorbed by the
+    # slack). Added 2026-08-20 after the lane spent its first four trading days failing on
+    # every single cron slot without a single alarm — it has no continuous heartbeat, so
+    # only a missed-slot check can tell "no gap was deep enough" from "the lane is broken".
+    # Honest limit: a chain that never beat ONCE is never alarmed (see the test of that
+    # name), so this entry would not have caught that very outage. It catches the next one.
+    "gapfade": ChainSchedule(hour=15, minute=0, weekdays=frozenset({0, 1, 2, 3, 4}),
+                             slack=timedelta(hours=3)),
     # cron `0 18 * * 1-5` + user timer 18:05
     "daily": ChainSchedule(hour=18, minute=0, weekdays=frozenset({0, 1, 2, 3, 4})),
     # cron `30 2 * * 2-6` + user timer 02:35 — Tue–Sat, no Sunday/Monday slot
