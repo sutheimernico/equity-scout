@@ -90,7 +90,7 @@ def test_default_ceilings_stay_below_the_vms_own_ram(tmp_path) -> None:
     # A ceiling above MemTotal guards nothing: that is exactly how the 2026-08-19 OOM got
     # through. Derived defaults must always land strictly under the VM's cap.
     mem_total_kb = int(
-        next(l for l in Path("/proc/meminfo").read_text().splitlines() if l.startswith("MemTotal:")).split()[1]
+        next(line for line in Path("/proc/meminfo").read_text().splitlines() if line.startswith("MemTotal:")).split()[1]
     )
     reader = _script(
         tmp_path,
