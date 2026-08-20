@@ -43,7 +43,7 @@ from equity_scout.alpaca_data import (
     regular_session_bars,
 )
 from equity_scout.alpaca_data import fetch_bars as alpaca_fetch_bars
-from equity_scout.alpaca_data import AlpacaDataError, fetch_latest_trades
+from equity_scout.alpaca_data import AlpacaDataError, fetch_latest_trades, us_symbols
 from equity_scout.tracked_tickers import tracked_tickers
 from equity_scout.constants import DEFAULT_DB_PATH, DISCLAIMER
 from equity_scout.data.etf_panel import load_price_history
@@ -234,10 +234,13 @@ def _gapfade_signals(db: str, main_db: str, book: LaneBook, *, now: datetime) ->
     The day marker is set BEFORE the first submission (fail-closed): a crash between
     order and marker must cost the day, never place the same auction order twice."""
     et = now.astimezone(_NY_TZ)
-    tickers = sorted(tracked_tickers(main_db))
+    # US listings only, BEFORE the panel: Alpaca answers 400 for the whole batch on one
+    # foreign symbol (this cost the lane its first four trading days), and a quote we
+    # cannot get is a bar we need not download either.
+    tickers = us_symbols(sorted(tracked_tickers(main_db)))
     if not tickers:
         set_lane_state(db, "gapfade", GAPFADE_DAY_KEY, et.date().isoformat())
-        print("Gap-Fade: keine getrackten Ticker — heute nichts zu prüfen.")
+        print("Gap-Fade: keine US-notierten getrackten Ticker — heute nichts zu prüfen.")
         return
     start = (now - timedelta(days=10)).date().isoformat()
     panel = load_price_history(sorted({*tickers, "SPY"}), start=start,

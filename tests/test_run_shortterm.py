@@ -376,6 +376,67 @@ def test_gapfade_places_moo_orders_once_and_logs_calibration_rows(db, tmp_path, 
     assert len(placed) == 1  # day marker: no second submission
 
 
+def test_gapfade_asks_alpaca_only_about_us_listings(db, tmp_path, monkeypatch) -> None:
+    """The bug that cost the lane its first four trading days (2026-08-17..20): the
+    watchlist is global, Alpaca is not. One `0006.HK` in the batch answered 400 for ALL
+    symbols, so `fetch_latest_trades` raised, the day marker was never set, and every
+    5-minute rerun repeated it — a lane that looked idle while it was actually broken.
+    The foreign names must be gone before the request, and before the price panel."""
+    import json as jsonlib
+
+    from equity_scout.market import PricePanel
+    from equity_scout.shortterm_storage import get_lane_state
+
+    tracked = {"DOWN", "0006.HK", "ALV.DE", "9984.T", "PETR4.SA"}
+    monkeypatch.setattr(runner, "tracked_tickers", lambda db_path: tracked)
+    index = pd.bdate_range("2026-08-03", periods=10)
+    panel = PricePanel(pd.DataFrame({"DOWN": 100.0, "SPY": 500.0}, index=index))
+    panel_calls: list[list[str]] = []
+
+    def fake_panel(tickers, **kwargs):
+        panel_calls.append(list(tickers))
+        return panel
+
+    monkeypatch.setattr(runner, "load_price_history", fake_panel)
+    asked: list[list[str]] = []
+    fresh = GAPFADE_SIGNAL_NOW - timedelta(minutes=3)
+
+    def fake_trades(tickers):
+        asked.append(list(tickers))
+        return {"DOWN": (97.0, fresh)}
+
+    monkeypatch.setattr(runner, "fetch_latest_trades", fake_trades)
+    monkeypatch.setattr(runner, "place_auction_order",
+                        lambda ticker, *, qty, side, auction: _accepted_order("moo-1"))
+
+    runner.run_gapfade(db, str(tmp_path / "main.db"), now=GAPFADE_SIGNAL_NOW)
+
+    assert asked == [["DOWN"]]  # no foreign listing survives into the request
+    assert panel_calls == [["DOWN", "SPY"]]  # nor into the download
+    assert get_lane_state(db, "gapfade", runner.GAPFADE_DAY_KEY) == "2026-08-17"
+    orders = jsonlib.loads(get_lane_state(db, "gapfade", runner.GAPFADE_ENTRY_ORDERS_KEY))
+    assert [o["ticker"] for o in orders] == ["DOWN"]
+
+
+def test_gapfade_without_a_single_us_listing_marks_the_day_instead_of_asking(
+    db, tmp_path, monkeypatch
+) -> None:
+    """An all-foreign watchlist is a real state, not an error: mark the day, say so, and
+    do not spend a request. Without the marker the 5-minute cron would retry all morning."""
+    from equity_scout.shortterm_storage import get_lane_state
+
+    monkeypatch.setattr(runner, "tracked_tickers", lambda db_path: {"0006.HK", "ALV.DE"})
+
+    def explode(*a, **k):  # pragma: no cover - must never run
+        raise AssertionError("asked Alpaca about a foreign listing")
+
+    monkeypatch.setattr(runner, "fetch_latest_trades", explode)
+    monkeypatch.setattr(runner, "load_price_history", explode)
+
+    runner.run_gapfade(db, str(tmp_path / "main.db"), now=GAPFADE_SIGNAL_NOW)
+    assert get_lane_state(db, "gapfade", runner.GAPFADE_DAY_KEY) == "2026-08-17"
+
+
 def test_gapfade_books_the_auction_fill_and_places_the_close(db, tmp_path, monkeypatch) -> None:
     """Phase 2: the OPG fill is booked with the BROKER's quantity and price, the
     signal-vs-fill drift lands in st_executions (the lane's core measurement), and a

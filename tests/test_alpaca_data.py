@@ -152,3 +152,30 @@ def test_parse_latest_trades_rejects_a_contract_break() -> None:
 
     with pytest.raises(AlpacaDataError):
         parse_latest_trades({"error": "forbidden"})
+
+
+def test_us_symbols_drops_exchange_suffixed_listings() -> None:
+    """One foreign listing in the batch answers 400 for the WHOLE request, so the caller
+    must never send them. Deliberately NOT the SEC collectors' cheaper `"." in ticker`
+    rule (form4, edgar_8k): that one also drops US class shares, and a silently shrunken
+    universe is exactly the failure this lane already had."""
+    from equity_scout.alpaca_data import us_symbols
+
+    tickers = ["MSFT", "0006.HK", "ALV.DE", "AAPL", "9984.T", "BRK.B"]
+    assert us_symbols(tickers) == ["AAPL", "BRK.B", "MSFT"]
+
+
+def test_us_symbols_keeps_the_class_share_dot() -> None:
+    """BRK.B and BF.B are US listings whose dot is a share class, not an exchange —
+    dropping them would silently shrink the tradable universe."""
+    from equity_scout.alpaca_data import us_symbols
+
+    assert us_symbols(["BF.B", "RDS.A", "ADAM"]) == ["ADAM", "BF.B", "RDS.A"]
+
+
+def test_us_symbols_keeps_plain_tickers_that_spell_a_venue() -> None:
+    """T is AT&T and L is Loews — both are US symbols whose whole name equals a Yahoo
+    exchange suffix. The suffix only counts when there actually is a dot in front of it."""
+    from equity_scout.alpaca_data import us_symbols
+
+    assert us_symbols(["T", "L", "9984.T", "EZJ.L"]) == ["L", "T"]

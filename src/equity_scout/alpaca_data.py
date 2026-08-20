@@ -41,6 +41,33 @@ class AlpacaDataError(RuntimeError):
     """The Alpaca feed broke the contract the session lane relies on."""
 
 
+# Yahoo exchange suffixes for venues Alpaca does not carry. The EU half is imported from
+# universe.py rather than copied; the rest are the non-EU venues our watchlist actually
+# produces. Deliberately a suffix ALLOW-list and not `"." in ticker`: US class shares
+# (BRK.B, BF.B) carry a dot too, and dropping them would shrink the universe in silence.
+_NON_US_SUFFIXES = frozenset({"HK", "T", "NS", "AX", "SA", "TO", "KS", "SS", "SZ", "NZ"})
+
+
+def us_symbols(tickers: list[str]) -> list[str]:
+    """The subset Alpaca can be asked about at all, sorted.
+
+    A single unknown symbol makes the whole multi-symbol request answer 400, so a caller
+    that passes a foreign listing loses every US quote in the same batch — which is how
+    the gap-fade lane spent its first four trading days placing no orders at all.
+    """
+    from equity_scout.universe import _SUFFIX_COUNTRY
+
+    foreign = _NON_US_SUFFIXES | set(_SUFFIX_COUNTRY)
+
+    def is_us(ticker: str) -> bool:
+        _, dot, suffix = ticker.rpartition(".")
+        # No dot at all is decided before the suffix is ever consulted — otherwise plain
+        # US tickers that happen to spell a venue (T = AT&T, L = Loews) would be dropped.
+        return not dot or suffix not in foreign
+
+    return sorted(t for t in tickers if is_us(t))
+
+
 def parse_bars(payload: dict) -> dict[str, pd.DataFrame]:
     """Alpaca's multi-symbol bar response -> the intraday_bars DataFrame contract.
 
