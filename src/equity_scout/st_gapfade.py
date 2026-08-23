@@ -90,3 +90,51 @@ def pick_gap_entries(
             "reason": f"Gap {gap:+.1%} zur Eröffnung gekauft (Fade)",
         })
     return picks, rejections
+
+
+def coverage_summary(
+    tickers: list[str],
+    premarket: dict[str, tuple[float, datetime]],
+    prev_closes: dict[str, float],
+    *,
+    now: datetime,
+) -> dict:
+    """How much of the watchlist the lane could actually judge this run.
+
+    Why this is not cosmetic: "0 MOO platziert, 1 verworfen" reads the same whether 24
+    tickers were priced and none gapped, or 23 tickers had no pre-market print at all. The
+    first is the lane working; the second is the lane measuring nothing — and IEX carries
+    roughly 2 % of US volume, so for the small caps this watchlist produces the second is
+    the likely case. On 2026-08-21, the lane's only healthy day so far, its single logged
+    row carried a quote that was TWO DAYS old.
+
+    `judgeable` is the honest denominator: a ticker needs a fresh print AND a previous
+    close before a gap can be computed at all.
+    """
+    fresh = 0
+    judgeable = 0
+    for ticker in tickers:
+        quote = premarket.get(ticker)
+        if quote is None:
+            continue
+        _price, quoted_at = quote
+        if now - quoted_at > timedelta(minutes=MAX_QUOTE_AGE_MINUTES):
+            continue
+        fresh += 1
+        if prev_closes.get(ticker, 0) > 0:
+            judgeable += 1
+    return {
+        "asked": len(tickers),
+        "quoted": sum(1 for t in tickers if t in premarket),
+        "fresh": fresh,
+        "judgeable": judgeable,
+    }
+
+
+def format_coverage(summary: dict) -> str:
+    """One line, and it leads with the number that decides whether the run meant anything."""
+    return (
+        f"Gap-Fade-Abdeckung: {summary['judgeable']} von {summary['asked']} Tickern "
+        f"bewertbar ({summary['quoted']} mit Pre-Market-Print, davon "
+        f"{summary['fresh']} frisch ≤ {MAX_QUOTE_AGE_MINUTES} Min)."
+    )

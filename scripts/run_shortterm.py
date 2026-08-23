@@ -88,7 +88,7 @@ from equity_scout.st_session import (
 from equity_scout.exits import ExitRules
 from equity_scout.lane_params import load_params
 from equity_scout.st_gapfade import ENTRY_FRACTION as GAPFADE_FRACTION
-from equity_scout.st_gapfade import pick_gap_entries
+from equity_scout.st_gapfade import coverage_summary, format_coverage, pick_gap_entries
 from equity_scout.st_swing import ENTRY_FRACTION as SWING_FRACTION
 from equity_scout.st_swing import (
     MAX_HOLDING_CALENDAR_DAYS,
@@ -212,6 +212,10 @@ def run_swing(db: str, main_db: str, *, now: datetime) -> None:
 
 # --- Gap-fade lane (2026-08-17): pre-market signal -> MOO entry -> MOC exit -------------
 GAPFADE_DAY_KEY = "gapfade_signal_day"
+# Persisted per run so the thinness of the IEX pre-market becomes a series, not an
+# anecdote: the lane cannot reach its 60-trade stop criterion if it is judging two
+# tickers a day, and nothing in the old output would have shown that.
+GAPFADE_COVERAGE_KEY = "gapfade_coverage"
 GAPFADE_ENTRY_ORDERS_KEY = "gapfade_entry_orders"
 GAPFADE_EXIT_ORDERS_KEY = "gapfade_exit_orders"
 GAPFADE_SNAPSHOT = "data/prices/st_gapfade_panel.csv"
@@ -259,6 +263,10 @@ def _gapfade_signals(db: str, main_db: str, book: LaneBook, *, now: datetime) ->
         print(f"Gap-Fade: Pre-Market-Kurse nicht lesbar ({error}) — nächster Versuch in 5 Min.",
               file=sys.stderr)
         return
+    coverage = coverage_summary(tickers, premarket, prev_closes, now=now)
+    print(format_coverage(coverage))
+    set_lane_state(db, "gapfade", GAPFADE_COVERAGE_KEY,
+                   json.dumps({**coverage, "day": et.date().isoformat()}))
     picks, rejections = pick_gap_entries(premarket, prev_closes, book, now=now, traded=set())
     set_lane_state(db, "gapfade", GAPFADE_DAY_KEY, et.date().isoformat())
     # Same stance as the crypto lane: the beat marks a run that REACHED a decision, not one

@@ -86,3 +86,47 @@ def test_missing_previous_close_is_silent() -> None:
 
 def test_thresholds_keep_their_documented_relation() -> None:
     assert GAP_THRESHOLD < LOG_THRESHOLD < 0
+
+
+# --- can the lane judge anything at all? (2026-08-23) ----------------------------------
+# "0 MOO platziert, 1 verworfen" reads identically whether every ticker was priced and none
+# gapped, or 23 of 24 had no pre-market print. IEX carries ~2 % of US volume and this
+# watchlist is mostly small caps, so the two cases are not equally likely — and the lane's
+# stop criterion (60 closed trades) is unreachable if it judges two tickers a day.
+
+def test_coverage_separates_no_gaps_from_no_data() -> None:
+    from equity_scout.st_gapfade import coverage_summary
+
+    tickers = ["A", "B", "C", "D"]
+    premarket = {"A": (99.0, FRESH), "B": (50.0, STALE)}  # C, D never printed
+    prev = {"A": 100.0, "B": 50.0, "C": 10.0, "D": 10.0}
+
+    summary = coverage_summary(tickers, premarket, prev, now=NOW)
+
+    assert summary == {"asked": 4, "quoted": 2, "fresh": 1, "judgeable": 1}
+
+
+def test_a_fresh_print_without_a_previous_close_is_not_judgeable() -> None:
+    """The gap is a ratio: one side missing means the ticker was never actually assessed,
+    and counting it would overstate what the lane saw."""
+    from equity_scout.st_gapfade import coverage_summary
+
+    summary = coverage_summary(
+        ["A"], {"A": (99.0, FRESH)}, {}, now=NOW
+    )
+    assert summary["fresh"] == 1 and summary["judgeable"] == 0
+
+
+def test_the_real_2026_08_21_run_reads_as_one_judgeable_ticker() -> None:
+    """The lane's only healthy day so far: its single logged row carried a quote from two
+    days earlier. Whatever the other 23 tickers did, that run judged nothing."""
+    from equity_scout.st_gapfade import coverage_summary, format_coverage
+
+    tickers = [f"T{i}" for i in range(24)]
+    two_days_old = NOW - timedelta(days=2)
+    summary = coverage_summary(
+        tickers, {"T0": (81.61, two_days_old)}, {"T0": 82.7}, now=NOW
+    )
+
+    assert summary == {"asked": 24, "quoted": 1, "fresh": 0, "judgeable": 0}
+    assert "0 von 24" in format_coverage(summary)
