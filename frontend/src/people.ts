@@ -6,6 +6,19 @@
 
 import type { EvidenceEvent } from "./api";
 
+// The `source` strings the API actually emits — mirrored from evidence/base.py, where the
+// 13F constant is SOURCE_13F = "thirteen_f". Named here because a literal got it wrong:
+// three checks compared against "13f", which nothing ever sends, so all 80 fund filings
+// (Berkshire, Baupost, Appaloosa, Duquesne, Himalaya, Third Point) fell through to the
+// press-mention branch and were labelled "wird in der Presse erwähnt" — in the view that
+// asks who is BUYING. Found 2026-08-23 by counting the API against the code.
+export const SOURCE = {
+  congress: "congress",
+  insider: "insider",
+  fund: "thirteen_f",
+  voice: "voice",
+} as const;
+
 export interface PersonBucket {
   person: string;
   role: string; // "Kongress (Senat, R)" | "Investor / Stimme" | "Insider" | "Fonds"
@@ -15,13 +28,13 @@ export interface PersonBucket {
 
 export function roleOf(event: EvidenceEvent): string {
   const details = event.details;
-  if (event.source === "congress") {
+  if (event.source === SOURCE.congress) {
     const chamber = details.chamber === "senate" ? "Senat" : "Repräsentantenhaus";
     const party = details.party ? `, ${String(details.party)}` : "";
     return `Kongress (${chamber}${party})`;
   }
-  if (event.source === "insider") return "Insider (Führungskraft)";
-  if (event.source === "13f") return "Fonds";
+  if (event.source === SOURCE.insider) return "Insider (Führungskraft)";
+  if (event.source === SOURCE.fund) return "Fonds";
   return "Investor / Stimme";
 }
 
@@ -34,12 +47,12 @@ export function personOf(event: EvidenceEvent): string | null {
 /** What this person DID, in one plain clause — from the recorded facts only. */
 export function moveLabel(event: EvidenceEvent): string {
   const details = event.details;
-  if (event.source === "congress") {
+  if (event.source === SOURCE.congress) {
     const amount = details.amount_range ? ` (${String(details.amount_range)})` : "";
     return `hat gekauft${amount}`;
   }
-  if (event.source === "insider") return "hat als Insider gekauft";
-  if (event.source === "13f") {
+  if (event.source === SOURCE.insider) return "hat als Insider gekauft";
+  if (event.source === SOURCE.fund) {
     return details.change === "new" ? "neue Position gemeldet" : "Position aufgestockt";
   }
   const kind = String(details.kind ?? "context");
@@ -71,7 +84,11 @@ export function delayNote(event: EvidenceEvent): string | null {
  * reporting delay stays on every row, so nothing here pretends to be fresh.
  */
 export function isAction(event: EvidenceEvent): boolean {
-  if (event.source === "congress" || event.source === "insider" || event.source === "13f") {
+  if (
+    event.source === SOURCE.congress ||
+    event.source === SOURCE.insider ||
+    event.source === SOURCE.fund
+  ) {
     return true;
   }
   return String(event.details.kind ?? "context") !== "context";
@@ -130,7 +147,7 @@ export function congressByStock(
   const byStock = new Map<string, CongressStockAgg>();
   for (const [ticker, events] of Object.entries(eventsByTicker)) {
     for (const event of events) {
-      if (event.source !== "congress") continue;
+      if (event.source !== SOURCE.congress) continue;
       const agg = byStock.get(ticker) ?? { ticker, buys: 0, buyers: [], latest: "" };
       agg.buys += 1;
       const who = personOf(event);

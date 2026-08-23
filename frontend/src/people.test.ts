@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { EvidenceEvent } from "./api";
 import {
+  SOURCE,
   buildBuckets,
   congressByStock,
   delayNote,
   moveLabel,
   personView,
+  roleOf,
   type PersonBucket,
 } from "./people";
 
@@ -151,5 +153,67 @@ describe("personView", () => {
     const view = personView([card("A", "2026-08-01")], 10);
     expect(view.shown).toHaveLength(1);
     expect(view.hidden).toBe(0);
+  });
+});
+
+describe("source strings match what the API actually sends", () => {
+  // 2026-08-23: three checks in this file compared against "13f". The backend constant is
+  // SOURCE_13F = "thirteen_f" (evidence/base.py), so every one of them was dead — all 80
+  // fund filings from Berkshire, Baupost, Appaloosa, Duquesne, Himalaya and Third Point
+  // fell through to the press-mention branch. The existing tests did not catch it because
+  // they never used a fund event at all: a label test that only feeds the sources it
+  // already handles proves nothing about the one it silently drops.
+  const OBSERVED_SOURCES = [
+    "voice",
+    "news_theme",
+    "thirteen_f",
+    "congress",
+    "edgar_8k",
+    "insider",
+  ] as const;
+
+  const fund = (change: string): EvidenceEvent =>
+    ({
+      source: "thirteen_f",
+      ticker: "AMZN",
+      event_key: "duquesne-2026-08-14",
+      event_date: "2026-08-14",
+      details: {
+        fund: "Duquesne Family Office",
+        change,
+        shares: 541600,
+        period: "2026-06-30",
+      },
+    }) as unknown as EvidenceEvent;
+
+  it("every source this module branches on is one the API emits", () => {
+    for (const value of Object.values(SOURCE)) {
+      expect(OBSERVED_SOURCES).toContain(value);
+    }
+  });
+
+  it("a 13F filing is a fund, not a voice", () => {
+    expect(roleOf(fund("increased"))).toBe("Fonds");
+  });
+
+  it("a 13F filing reports a position, not a press mention", () => {
+    expect(moveLabel(fund("increased"))).toBe("Position aufgestockt");
+    expect(moveLabel(fund("new"))).toBe("neue Position gemeldet");
+  });
+
+  it("a 13F filing counts as an action and sorts above mentions", () => {
+    const [bucket] = buildBuckets({
+      AMZN: [
+        {
+          source: "voice",
+          ticker: "AMZN",
+          event_key: "d-mention",
+          event_date: "2026-08-21",
+          details: { speaker: "Duquesne Family Office", kind: "context", headline: "…" },
+        } as unknown as EvidenceEvent,
+        fund("increased"),
+      ],
+    });
+    expect(bucket.events[0].event_key).toBe("duquesne-2026-08-14");
   });
 });
