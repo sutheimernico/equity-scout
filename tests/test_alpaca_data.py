@@ -179,3 +179,183 @@ def test_us_symbols_keeps_plain_tickers_that_spell_a_venue() -> None:
     from equity_scout.alpaca_data import us_symbols
 
     assert us_symbols(["T", "L", "9984.T", "EZJ.L"]) == ["L", "T"]
+
+
+class _FakeResponse:
+    """Just enough of httpx.Response for the retry loop."""
+
+    def __init__(self, status_code: int, *, text: str = "", payload: dict | None = None):
+        self.status_code = status_code
+        self.text = text
+        self._payload = payload or {}
+
+    def json(self) -> dict:
+        return self._payload
+
+
+class _RecordingClient:
+    """Answers 400 'invalid symbol' for every symbol in `bad`, 200 otherwise, and records
+    which symbol lists it was asked about."""
+
+    def __init__(self, bad: set[str], payload: dict):
+        self.bad = bad
+        self.payload = payload
+        self.asked: list[list[str]] = []
+
+    def get(self, url: str, params: dict) -> _FakeResponse:
+        symbols = params["symbols"].split(",")
+        self.asked.append(symbols)
+        hit = next((s for s in symbols if s in self.bad), None)
+        if hit is not None:
+            return _FakeResponse(
+                400, text=f'{{"message":"code=400, message=invalid symbol: {hit}"}}'
+            )
+        return _FakeResponse(200, payload=self.payload)
+
+
+def test_a_delisted_symbol_is_dropped_instead_of_killing_the_batch(capsys) -> None:
+    """`us_symbols` removes foreign listings; it cannot remove a US ticker that was delisted
+    since the watchlist was built. Alpaca answers 400 for the WHOLE batch on one unknown
+    symbol, so without this retry a single dead ticker costs every quote in the request —
+    the failure that cost the gap-fade lane its first four trading days."""
+    from equity_scout.alpaca_data import get_dropping_invalid_symbols
+
+    client = _RecordingClient({"DEAD"}, {"trades": {}})
+    payload = get_dropping_invalid_symbols(
+        client, "http://x/trades/latest", {"feed": "iex"},
+        ["AAPL", "DEAD", "MSFT"], label="GET /trades",
+    )
+
+    assert payload == {"trades": {}}
+    assert client.asked == [["AAPL", "DEAD", "MSFT"], ["AAPL", "MSFT"]]
+    assert "DEAD" in capsys.readouterr().err  # never silently shrink the universe
+
+
+def test_several_dead_symbols_are_peeled_off_one_by_one(capsys) -> None:
+    """Alpaca names one culprit per answer, so a batch with two dead tickers needs two
+    retries. The cap exists so a systematically failing batch stays loud rather than
+    degenerating into single-symbol requests."""
+    from equity_scout.alpaca_data import get_dropping_invalid_symbols
+
+    client = _RecordingClient({"DEAD", "GONE"}, {"bars": {}})
+    get_dropping_invalid_symbols(
+        client, "http://x/bars", {}, ["DEAD", "MSFT", "GONE"], label="GET /bars"
+    )
+
+    assert client.asked[-1] == ["MSFT"]
+    warning = capsys.readouterr().err
+    assert "DEAD" in warning and "GONE" in warning
+
+
+def test_a_400_naming_a_symbol_we_never_sent_stays_loud() -> None:
+    """Dropping something we did not request would turn an unknown error into a silently
+    shrinking universe — the exact failure class this retry exists to prevent."""
+    from equity_scout.alpaca_data import AlpacaDataError, get_dropping_invalid_symbols
+
+    class _Stranger:
+        def get(self, url: str, params: dict) -> _FakeResponse:
+            return _FakeResponse(400, text='{"message":"invalid symbol: NOTOURS"}')
+
+    with pytest.raises(AlpacaDataError, match="NOTOURS"):
+        get_dropping_invalid_symbols(
+            _Stranger(), "http://x/bars", {}, ["AAPL"], label="GET /bars"
+        )
+
+
+def test_a_non_400_error_is_never_treated_as_a_bad_symbol() -> None:
+    """403 (wrong feed/plan) and 429 (rate limit) are conditions of the request, not of a
+    symbol. Peeling symbols off them would hide the real cause behind an empty result."""
+    from equity_scout.alpaca_data import AlpacaDataError, get_dropping_invalid_symbols
+
+    class _Forbidden:
+        def get(self, url: str, params: dict) -> _FakeResponse:
+            return _FakeResponse(403, text="subscription does not permit sip")
+
+    with pytest.raises(AlpacaDataError, match="403"):
+        get_dropping_invalid_symbols(
+            _Forbidden(), "http://x/bars", {}, ["AAPL"], label="GET /bars"
+        )
+
+
+def test_every_symbol_rejected_raises_instead_of_returning_nothing() -> None:
+    """An empty remainder must not answer 200-with-no-data: 'no signal today' and 'we could
+    not ask about anything' are different states and the lane treats them differently."""
+    from equity_scout.alpaca_data import AlpacaDataError, get_dropping_invalid_symbols
+
+    client = _RecordingClient({"DEAD", "GONE"}, {"bars": {}})
+    with pytest.raises(AlpacaDataError, match="jedes angefragte Symbol"):
+        get_dropping_invalid_symbols(
+            client, "http://x/bars", {}, ["DEAD", "GONE"], label="GET /bars"
+        )
+
+
+def test_more_dead_symbols_than_the_cap_stays_loud() -> None:
+    """Beyond the cap the batch is not worth decomposing further — a request that keeps
+    failing is a defect to report, not a loop to run."""
+    from equity_scout.alpaca_data import (
+        MAX_INVALID_SYMBOL_RETRIES,
+        AlpacaDataError,
+        get_dropping_invalid_symbols,
+    )
+
+    dead = [f"D{i}" for i in range(MAX_INVALID_SYMBOL_RETRIES + 1)]
+    client = _RecordingClient(set(dead), {"bars": {}})
+    with pytest.raises(AlpacaDataError, match="immer noch 400"):
+        get_dropping_invalid_symbols(
+            client, "http://x/bars", {}, [*dead, "MSFT"], label="GET /bars"
+        )
+
+
+def test_the_culprit_is_matched_case_insensitively_but_dropped_as_sent() -> None:
+    """We send what the watchlist holds; Alpaca echoes its own casing. Matching on the
+    echoed string alone would fail to find the symbol and turn a fixable 400 into a hard
+    error."""
+    from equity_scout.alpaca_data import invalid_symbol
+
+    assert invalid_symbol("invalid symbol: brk.b", ["BRK.B", "AAPL"]) == "BRK.B"
+    assert invalid_symbol("some other 400", ["AAPL"]) is None
+
+
+def test_fetch_latest_trades_actually_routes_through_the_retry(monkeypatch) -> None:
+    """The wiring, not the helper: this repo has twice built a block that nothing ever
+    passed through (the volume features sat unused for a week). A retry the fetchers do not
+    call is worth nothing to the lane."""
+    import equity_scout.alpaca_data as mod
+
+    client = _RecordingClient({"DEAD"}, {"trades": {"AAPL": {"p": 10.0, "t":
+                                                             "2026-08-21T12:00:00Z"}}})
+    monkeypatch.setattr(mod, "auth_headers", lambda: {})
+    monkeypatch.setattr(
+        "httpx.Client",
+        lambda **kwargs: type(
+            "_Ctx", (), {"__enter__": lambda s: client, "__exit__": lambda *a: False}
+        )(),
+    )
+
+    out = mod.fetch_latest_trades(["AAPL", "DEAD"])
+
+    assert set(out) == {"AAPL"}
+    assert client.asked == [["AAPL", "DEAD"], ["AAPL"]]
+
+
+def test_fetch_bars_actually_routes_through_the_retry(monkeypatch) -> None:
+    """Same wiring check for the bar feed, which the session and ignition lanes read."""
+    import equity_scout.alpaca_data as mod
+
+    client = _RecordingClient({"DEAD"}, _payload())
+    monkeypatch.setattr(mod, "auth_headers", lambda: {})
+    monkeypatch.setattr(
+        "httpx.Client",
+        lambda **kwargs: type(
+            "_Ctx", (), {"__enter__": lambda s: client, "__exit__": lambda *a: False}
+        )(),
+    )
+
+    out = mod.fetch_bars(
+        ["AAPL", "DEAD"],
+        now=datetime(2026, 8, 4, 14, 0, tzinfo=ZoneInfo("UTC")),
+        bar_minutes=RANGE_BAR_MINUTES,
+    )
+
+    assert set(out) == {"AAPL"}
+    assert client.asked == [["AAPL", "DEAD"], ["AAPL"]]

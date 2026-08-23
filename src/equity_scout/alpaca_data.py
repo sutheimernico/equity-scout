@@ -20,7 +20,10 @@ Network code lives in `fetch_bars` alone and is faked in tests — same structur
 """
 from __future__ import annotations
 
+import re
+import sys
 from datetime import date, datetime, time, timedelta, timezone
+from typing import Any
 
 import pandas as pd
 
@@ -66,6 +69,75 @@ def us_symbols(tickers: list[str]) -> list[str]:
         return not dot or suffix not in foreign
 
     return sorted(t for t in tickers if is_us(t))
+
+
+# Alpaca answers a multi-symbol request with 400 for the WHOLE batch as soon as ONE symbol is
+# unknown to it — and names the culprit in the message. `us_symbols` removes the foreign
+# listings, but it cannot remove a US ticker that was delisted since the watchlist was built,
+# and the watchlist is rebuilt daily out of ~7 500 titles (see prefetch.log). Without this
+# retry one dead ticker costs every quote in the batch, which is exactly how the gap-fade lane
+# spent its first four trading days placing no orders at all (2026-08-17..20).
+_INVALID_SYMBOL = re.compile(r"invalid symbol:\s*([^\s,\"'}]+)")
+MAX_INVALID_SYMBOL_RETRIES = 5
+
+
+def invalid_symbol(message: str, candidates: list[str]) -> str | None:
+    """The symbol Alpaca named as invalid, but only if WE actually sent it.
+
+    Matching against the request is the whole point: a 400 whose message we cannot tie to a
+    symbol we hold is a different failure, and dropping something we never sent would turn an
+    unknown error into a silently shrinking universe.
+    """
+    found = _INVALID_SYMBOL.search(message)
+    if not found:
+        return None
+    named = found.group(1)
+    by_upper = {c.upper(): c for c in candidates}
+    return by_upper.get(named.upper())
+
+
+def get_dropping_invalid_symbols(
+    client: Any, url: str, params: dict[str, Any], symbols: list[str], *, label: str
+) -> dict:
+    """GET `url` for `symbols`, retrying without every symbol Alpaca rejects by name.
+
+    Loud on everything else: a 400 that names nothing we sent, an empty remainder, or more
+    rejects than `MAX_INVALID_SYMBOL_RETRIES` all raise. Dropped symbols are reported on
+    stderr rather than swallowed — a batch that quietly loses members is the same failure
+    class as the one this exists to fix.
+    """
+    remaining = list(symbols)
+    dropped: list[str] = []
+    for _ in range(MAX_INVALID_SYMBOL_RETRIES + 1):
+        response = client.get(url, params={**params, "symbols": ",".join(remaining)})
+        if response.status_code == 200:
+            if dropped:
+                print(
+                    f"Warnung: {label} — Alpaca kennt {', '.join(dropped)} nicht; "
+                    f"{len(remaining)} von {len(symbols)} Symbolen abgefragt.",
+                    file=sys.stderr,
+                )
+            return response.json()
+        culprit = (
+            invalid_symbol(response.text, remaining)
+            if response.status_code == 400
+            else None
+        )
+        if culprit is None:
+            raise AlpacaDataError(
+                f"{label} -> {response.status_code}: {response.text[:300]}"
+            )
+        remaining.remove(culprit)
+        dropped.append(culprit)
+        if not remaining:
+            raise AlpacaDataError(
+                f"{label}: Alpaca hat jedes angefragte Symbol abgelehnt "
+                f"({', '.join(dropped)})."
+            )
+    raise AlpacaDataError(
+        f"{label}: nach {MAX_INVALID_SYMBOL_RETRIES} abgelehnten Symbolen "
+        f"({', '.join(dropped)}) immer noch 400 — Batch wird nicht weiter zerlegt."
+    )
 
 
 def parse_bars(payload: dict) -> dict[str, pd.DataFrame]:
@@ -153,21 +225,21 @@ def parse_latest_trades(payload: dict) -> dict[str, tuple[float, datetime]]:
 def fetch_latest_trades(tickers: list[str]) -> dict[str, tuple[float, datetime]]:
     """Latest IEX trade per ticker (network) — pre-market prints included.
 
-    Raises AlpacaDataError on any non-200, same stance as fetch_bars: a silent empty
-    result would look exactly like 'no gap today'.
+    Raises AlpacaDataError on any non-200 Alpaca cannot pin on a named symbol, same stance
+    as fetch_bars: a silent empty result would look exactly like 'no gap today'. A symbol
+    Alpaca rejects by name is dropped and reported, not allowed to kill the batch.
     """
     import httpx
 
     with httpx.Client(headers=auth_headers(), timeout=30.0) as client:
-        response = client.get(
+        payload = get_dropping_invalid_symbols(
+            client,
             f"{DATA_BASE}/stocks/trades/latest",
-            params={"symbols": ",".join(tickers), "feed": FEED},
+            {"feed": FEED},
+            tickers,
+            label="GET /v2/stocks/trades/latest",
         )
-    if response.status_code != 200:
-        raise AlpacaDataError(
-            f"GET /v2/stocks/trades/latest -> {response.status_code}: {response.text[:300]}"
-        )
-    return parse_latest_trades(response.json())
+    return parse_latest_trades(payload)
 
 
 def fetch_bars(
@@ -175,8 +247,9 @@ def fetch_bars(
 ) -> dict[str, pd.DataFrame]:
     """Recent IEX bars per ticker at the given resolution (network).
 
-    Raises AlpacaDataError on any non-200 — a silent empty result would look exactly like
-    'no signal today'.
+    Raises AlpacaDataError on any non-200 Alpaca cannot pin on a named symbol — a silent
+    empty result would look exactly like 'no signal today'. A symbol Alpaca rejects by name
+    is dropped and reported, not allowed to kill the batch.
     """
     import httpx
 
@@ -187,19 +260,16 @@ def fetch_bars(
         "%Y-%m-%dT%H:%M:%SZ"
     )
     with httpx.Client(headers=auth_headers(), timeout=30.0) as client:
-        response = client.get(
+        payload = get_dropping_invalid_symbols(
+            client,
             f"{DATA_BASE}/stocks/bars",
-            params={
-                "symbols": ",".join(tickers),
+            {
                 "timeframe": f"{bar_minutes}Min",
                 "start": start,
                 "feed": FEED,
                 "limit": 10_000,
             },
+            tickers,
+            label=f"GET /v2/stocks/bars ({bar_minutes}Min)",
         )
-    if response.status_code != 200:
-        raise AlpacaDataError(
-            f"GET /v2/stocks/bars ({bar_minutes}Min) -> "
-            f"{response.status_code}: {response.text[:300]}"
-        )
-    return parse_bars(response.json())
+    return parse_bars(payload)
