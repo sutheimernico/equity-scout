@@ -1922,8 +1922,11 @@ code {
   }
 
   .content {
-    /* the fixed bottom bar must never cover the last bit of content */
-    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0));
+    /* The fixed bottom bar must never cover the last bit of content — and neither must
+       the chat FAB, which sits 76px up and is 52px tall, so it reaches 128px above the
+       edge. 64px only cleared the bar: measured 2026-08-23, the FAB sat on top of the
+       last list row on every long view. */
+    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0));
   }
 
   .bottom-nav {
@@ -3674,6 +3677,22 @@ li.pd-alloc-row {
   }
   .tab {
     white-space: nowrap;
+  }
+  /* Labor carries eight tabs. Wrapping them cost three lines — ~350 px of a 844 px
+     phone screen spent before any content (measured 2026-08-23). A bar with this many
+     entries scrolls sideways instead; the ones with two or three tabs keep wrapping,
+     where a hidden tab would be worse than a second line. */
+  .tabbar.scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tabbar.scroll::-webkit-scrollbar {
+    display: none;
+  }
+  .tabbar.scroll .tab {
+    flex: 0 0 auto;
   }
   .filter {
     margin-left: 0;

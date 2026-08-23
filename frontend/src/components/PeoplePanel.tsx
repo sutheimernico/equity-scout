@@ -3,10 +3,12 @@ import { useEffect, useState } from "react";
 import { fetchEvidence, type EvidenceResponse, type PersonScore } from "../api";
 import { shortCompanyName } from "../company";
 import {
+  PERSON_PAGE,
   buildBuckets,
   congressByStock,
   delayNote,
   moveLabel,
+  personView,
   type PersonBucket,
 } from "../people";
 import { Chip } from "./ui/Chip";
@@ -119,6 +121,7 @@ export function PeoplePanel() {
   const [data, setData] = useState<EvidenceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"personen" | "kongress">("personen");
+  const [personLimit, setPersonLimit] = useState(PERSON_PAGE);
 
   useEffect(() => {
     let ignore = false;
@@ -138,6 +141,7 @@ export function PeoplePanel() {
   if (!data) return <p className="state">Lädt…</p>;
 
   const buckets = buildBuckets(data.events_by_ticker);
+  const people = personView(buckets, personLimit);
   const scoreByPerson = new Map(data.person_scores.map((s) => [s.person, s]));
   const names = data.names ?? {};
 
@@ -180,16 +184,26 @@ export function PeoplePanel() {
       ) : buckets.length === 0 ? (
         <p className="state">Keine personenbezogenen Ereignisse in den letzten 30 Tagen.</p>
       ) : (
-        <div className="voice-grid">
-          {buckets.map((bucket) => (
-            <PersonCard
-              key={bucket.person}
-              bucket={bucket}
-              names={names}
-              score={scoreByPerson.get(bucket.person)}
-            />
-          ))}
-        </div>
+        <>
+          <div className="voice-grid">
+            {people.shown.map((bucket) => (
+              <PersonCard
+                key={bucket.person}
+                bucket={bucket}
+                names={names}
+                score={scoreByPerson.get(bucket.person)}
+              />
+            ))}
+          </div>
+          {people.hidden > 0 && (
+            <button
+              className="stock-more"
+              onClick={() => setPersonLimit(personLimit + PERSON_PAGE)}
+            >
+              + {people.hidden} weitere Personen anzeigen
+            </button>
+          )}
+        </>
       )}
 
       <DisclaimerBar text={data.disclaimer} />

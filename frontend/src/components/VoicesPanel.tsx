@@ -1,20 +1,10 @@
 import { useEffect, useState } from "react";
 
 import { fetchEvidence, type EvidenceEvent, type EvidenceResponse } from "../api";
+import { VOICE_PAGE, isDirected, voiceRows, voiceView, type VoiceFilter } from "../voices";
 import { Chip } from "./ui/Chip";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
 import { Explain } from "./ui/Explain";
-
-// One flat, dated list of voice events across all tickers (calls first), newest first.
-function voiceRows(eventsByTicker: Record<string, EvidenceEvent[]>): EvidenceEvent[] {
-  const rows = Object.values(eventsByTicker)
-    .flat()
-    .filter((e) => e.source === "voice");
-  const rank = (e: EvidenceEvent) => (e.details.kind === "context" ? 1 : 0);
-  return rows.sort(
-    (a, b) => rank(a) - rank(b) || String(b.event_date).localeCompare(String(a.event_date)),
-  );
-}
 
 // What the headline MEANS, said out loud (Nico 2026-08-07: "ich will selber nicht
 // unnötig nachdenken müssen — heißt die Schlagzeile: kauft die Aktie oder verkauft?").
@@ -56,7 +46,10 @@ function VoiceRow({ event, names }: { event: EvidenceEvent; names: Record<string
         <span className="muted tnum">{String(details.published ?? event.event_date)}</span>
       </div>
       <p className="voice-headline">»{String(details.headline ?? "?")}«</p>
-      <p className="muted">{tone.explain}</p>
+      {/* The context explanation was identical on ~200 cards and said only that nothing
+          was recognisable. It lives in the Explain block above now; here it would be
+          noise repeated per row. Directed calls keep theirs — those differ and matter. */}
+      {isDirected(event) && <p className="muted">{tone.explain}</p>}
     </article>
   );
 }
@@ -64,6 +57,8 @@ function VoiceRow({ event, names }: { event: EvidenceEvent; names: Record<string
 export function VoicesPanel() {
   const [data, setData] = useState<EvidenceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<VoiceFilter>("gerichtet");
+  const [limit, setLimit] = useState(VOICE_PAGE);
 
   useEffect(() => {
     let ignore = false;
@@ -83,7 +78,13 @@ export function VoicesPanel() {
   if (!data) return <p className="state">Lädt…</p>;
 
   const rows = voiceRows(data.events_by_ticker);
+  const view = voiceView(rows, filter, limit);
   const voiceScores = data.person_scores.filter((s) => s.source === "voice" && s.scoreable);
+
+  const pick = (next: VoiceFilter) => {
+    setFilter(next);
+    setLimit(VOICE_PAGE); // a new filter starts at the top, not deep inside the old page
+  };
 
   return (
     <>
@@ -93,6 +94,8 @@ export function VoicesPanel() {
         <p className="section-sub">
           Presse-Erwähnungen der beobachteten Fonds-Manager (Buffett, Burry, Ackman, …) aus freien
           News-Feeds — Kontext, kein Frühsignal: was hier steht, ist bereits öffentlich.
+          Zuerst die Schlagzeilen mit erkennbarer Richtung; die reinen Erwähnungen sind die
+          große Mehrheit und stehen unter „Alle".
         </p>
       </header>
 
@@ -108,15 +111,44 @@ export function VoicesPanel() {
           sie (halbstündlich per Intraday-Kette, sobald der Cron installiert ist).
         </p>
       ) : (
-        <div className="voice-grid">
-          {rows.map((event) => (
-            <VoiceRow
-              key={`${event.ticker}-${event.event_key}`}
-              event={event}
-              names={data.names ?? {}}
-            />
-          ))}
-        </div>
+        <>
+          <div className="tabbar">
+            <button
+              className={filter === "gerichtet" ? "tab active" : "tab"}
+              onClick={() => pick("gerichtet")}
+            >
+              Mit Richtung ({view.directed})
+            </button>
+            <button
+              className={filter === "alle" ? "tab active" : "tab"}
+              onClick={() => pick("alle")}
+            >
+              Alle ({view.total})
+            </button>
+          </div>
+          {view.shown.length === 0 ? (
+            <p className="state">
+              Keine Schlagzeile der letzten 30 Tage nennt eine klare Kauf- oder
+              Verkaufsrichtung. Das ist ein Ergebnis, kein Fehler — unter „Alle" stehen die
+              reinen Erwähnungen.
+            </p>
+          ) : (
+            <div className="voice-grid">
+              {view.shown.map((event) => (
+                <VoiceRow
+                  key={`${event.ticker}-${event.event_key}`}
+                  event={event}
+                  names={data.names ?? {}}
+                />
+              ))}
+            </div>
+          )}
+          {view.hidden > 0 && (
+            <button className="stock-more" onClick={() => setLimit(limit + VOICE_PAGE)}>
+              + {view.hidden} weitere anzeigen
+            </button>
+          )}
+        </>
       )}
 
       {voiceScores.length > 0 && (

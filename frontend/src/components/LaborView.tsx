@@ -87,7 +87,9 @@ export function LaborView() {
         </p>
       </header>
 
-      <div className="tabbar wrap">
+      {/* Eight tabs: sideways on the phone (see .tabbar.scroll), wrapping on desktop
+          where the row has the width for it. */}
+      <div className="tabbar wrap scroll">
         {TABS.map((t) => (
           <button
             key={t.key}

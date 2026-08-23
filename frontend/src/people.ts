@@ -59,6 +59,24 @@ export function delayNote(event: EvidenceEvent): string | null {
     : `${days} Tage nach dem Handel gemeldet`;
 }
 
+
+/** Did this person DO something, or were they merely mentioned?
+ *
+ * A card shows the first `MAX_MOVES_SHOWN` of a person's events, and the list used to be
+ * sorted by date alone. Measured on 2026-08-23: Michael Burry carried 95 events and
+ * 475 of the 589 evidence events are press mentions — so the six visible rows on the
+ * biggest cards were mentions, while the actual disclosed purchases sat behind
+ * "+89 weitere anzeigen". The view is called "Wer kauft gerade was"; a filing answers
+ * that question and a mention does not, so filings sort first even when older. The
+ * reporting delay stays on every row, so nothing here pretends to be fresh.
+ */
+export function isAction(event: EvidenceEvent): boolean {
+  if (event.source === "congress" || event.source === "insider" || event.source === "13f") {
+    return true;
+  }
+  return String(event.details.kind ?? "context") !== "context";
+}
+
 export function buildBuckets(
   eventsByTicker: Record<string, EvidenceEvent[]>,
 ): PersonBucket[] {
@@ -78,8 +96,18 @@ export function buildBuckets(
     }
   }
   for (const bucket of byPerson.values()) {
-    bucket.events.sort((a, b) => String(b.event_date).localeCompare(String(a.event_date)));
-    bucket.newest = String(bucket.events[0]?.event_date ?? "");
+    // Actions before mentions, newest first inside each group (see `isAction`).
+    bucket.events.sort(
+      (a, b) =>
+        Number(isAction(b)) - Number(isAction(a)) ||
+        String(b.event_date).localeCompare(String(a.event_date)),
+    );
+    // `newest` orders the CARDS and must stay a pure date, independent of the sort above —
+    // otherwise a person whose only filing is old would sink below one merely mentioned.
+    bucket.newest = bucket.events.reduce(
+      (max, e) => (String(e.event_date) > max ? String(e.event_date) : max),
+      "",
+    );
   }
   return [...byPerson.values()].sort((a, b) => b.newest.localeCompare(a.newest));
 }
@@ -115,4 +143,26 @@ export function congressByStock(
   return [...byStock.values()].sort(
     (a, b) => b.buys - a.buys || b.latest.localeCompare(a.latest),
   );
+}
+
+
+/** How many person cards the phone shows before asking. Same reasoning as VOICE_PAGE and
+ *  DECIDED_PAGE: on 2026-08-23 this page stood 68 005 px tall, and the person list was
+ *  the half that survived capping the voices. Cards are sorted newest-move-first, so the
+ *  cap keeps who moved most recently. */
+export const PERSON_PAGE = 10;
+
+export interface PersonView {
+  shown: PersonBucket[];
+  hidden: number;
+}
+
+export function personView(
+  buckets: PersonBucket[],
+  limit: number = PERSON_PAGE,
+): PersonView {
+  return {
+    shown: buckets.slice(0, limit),
+    hidden: Math.max(0, buckets.length - limit),
+  };
 }

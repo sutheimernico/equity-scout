@@ -3,7 +3,7 @@ import { Fragment, useEffect, useState } from "react";
 import { riskMeta } from "../aktien";
 import { decidePitch, fetchInbox, type InboxResponse, type Pitch } from "../api";
 import { companyNameFromPitch, shortCompanyName } from "../company";
-import { GROUP_HEADINGS, groupKey, sortByVerdict } from "../inbox";
+import { DECIDED_PAGE, GROUP_HEADINGS, groupKey, inboxView } from "../inbox";
 import { MethodNote } from "./MethodNote";
 import { PotentialBlock } from "./PotentialBlock";
 import { StockLogo } from "./StockLogo";
@@ -73,6 +73,7 @@ export function InboxPanel({
   const [pending, setPending] = useState<Set<number>>(() => new Set());
   // Per-pitch inline error (the 422 invalid-action path + network failures).
   const [inlineErrors, setInlineErrors] = useState<Record<number, string>>({});
+  const [decidedLimit, setDecidedLimit] = useState(DECIDED_PAGE);
 
   useEffect(() => {
     // `ignore` guards against a setState after the effect is torn down (unmount / refire).
@@ -137,7 +138,9 @@ export function InboxPanel({
 
   // Open before decided, best band first, score descending inside a band (Nico
   // 2026-08-06). The bands come from the server (pitch.compute_verdict); see ../inbox.ts.
-  const pitches = sortByVerdict(data.pitches);
+  // The decided tail is capped: 28 of 30 pitches were expired on 2026-08-23 and made the
+  // screen 10 158 px tall. Open pitches are never capped.
+  const { shown: pitches, hidden: hiddenDecided } = inboxView(data.pitches, decidedLimit);
 
   // A ticker can carry several open pitches (cooldown re-pitches) with DIFFERENT verdicts
   // — the same stock rated "neutral" and "schwach" two cards apart reads as a
@@ -333,6 +336,15 @@ export function InboxPanel({
             );
           })}
         </div>
+      )}
+
+      {hiddenDecided > 0 && (
+        <button
+          className="stock-more"
+          onClick={() => setDecidedLimit(decidedLimit + DECIDED_PAGE)}
+        >
+          + {hiddenDecided} ältere Entscheidungen anzeigen
+        </button>
       )}
 
       <MethodNote />

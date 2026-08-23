@@ -76,7 +76,11 @@ export function StrategyDashboard() {
         <TimeContextBadge kind="backtest" />
       </header>
 
-      <div className="tabbar wrap">
+      {/* One tab per strategy (12 on 2026-08-23) plus "Vergleich". Wrapped, that bar took
+          four rows and ~800 px of a 844 px phone screen before a single number appeared —
+          and its last row sat under the chat FAB. Sideways on the phone, wrapping on
+          desktop; see .tabbar.scroll. */}
+      <div className="tabbar wrap scroll">
         {strategies.map((s, i) => (
           <button key={s.name} className={i === active ? "tab active" : "tab"} onClick={() => setActive(i)}>
             {s.name}

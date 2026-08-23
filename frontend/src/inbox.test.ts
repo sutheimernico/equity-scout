@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { GROUP_HEADINGS, groupKey, sortByVerdict } from "./inbox";
+import {
+  DECIDED_PAGE,
+  GROUP_HEADINGS,
+  groupKey,
+  inboxView,
+  sortByVerdict,
+} from "./inbox";
 
 const pitch = (
   id: number,
@@ -64,5 +70,43 @@ describe("groupKey", () => {
       expect(GROUP_HEADINGS[key].title).toBeTruthy();
       expect(GROUP_HEADINGS[key].sub).toBeTruthy();
     }
+  });
+});
+
+describe("inboxView", () => {
+  // Measured 2026-08-23 against the live API: 30 pitches, 28 expired, 1 open, 1 bought.
+  // The panel rendered all of them and stood 10 158 px tall on a 390 px phone.
+  // status "pass" stands in for every non-open state; groupKey only asks "open or not".
+  const decided = (id: number) => pitch(id, null, 0.5, "pass");
+  const open = (id: number) => pitch(id, "green", 0.5, "open");
+
+  it("never caps the open pitches — they are the reason the screen exists", () => {
+    const many = Array.from({ length: 12 }, (_, i) => open(i + 1));
+    const view = inboxView(many);
+    expect(view.shown).toHaveLength(12);
+    expect(view.hidden).toBe(0);
+  });
+
+  it("caps the decided tail and says how many it withheld", () => {
+    const pitches = [
+      open(100),
+      ...Array.from({ length: 28 }, (_, i) => decided(i + 1)),
+    ];
+    const view = inboxView(pitches);
+    expect(view.shown).toHaveLength(1 + DECIDED_PAGE);
+    expect(view.hidden).toBe(28 - DECIDED_PAGE);
+    expect(view.shown[0].id).toBe(100); // the open one still leads
+  });
+
+  it("keeps the newest decisions when it caps", () => {
+    const view = inboxView([decided(1), decided(9), decided(5)], 2);
+    expect(view.shown.map((p) => p.id)).toEqual([9, 5]);
+    expect(view.hidden).toBe(1);
+  });
+
+  it("a raised limit reveals the rest", () => {
+    const pitches = Array.from({ length: 8 }, (_, i) => decided(i + 1));
+    expect(inboxView(pitches, 100).shown).toHaveLength(8);
+    expect(inboxView(pitches, 100).hidden).toBe(0);
   });
 });

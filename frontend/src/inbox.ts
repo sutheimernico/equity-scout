@@ -62,3 +62,31 @@ export function sortByVerdict<T extends Sortable>(pitches: T[]): T[] {
     return byScore !== 0 ? byScore : b.id - a.id;
   });
 }
+
+/** How many decided/expired pitches the phone shows before asking. The open ones are
+ *  never capped — they are the whole point of the screen. */
+export const DECIDED_PAGE = 5;
+
+export interface InboxView<T> {
+  /** Sorted, with the decided tail capped. */
+  shown: T[];
+  /** How many decided pitches are withheld. */
+  hidden: number;
+}
+
+/** The list the panel renders. Measured 2026-08-23: 30 pitches, 28 of them expired —
+ *  the view was 10 158 px tall on a 390 px phone, and twelve of those thirteen screens
+ *  were history nobody scrolls to. Capping the tail is not hiding data: the count is
+ *  named on the button that reveals it. */
+export function inboxView<T extends Sortable>(
+  pitches: T[],
+  decidedLimit: number = DECIDED_PAGE,
+): InboxView<T> {
+  const sorted = sortByVerdict(pitches);
+  const open = sorted.filter((p) => groupKey(p) !== "decided");
+  const decided = sorted.filter((p) => groupKey(p) === "decided");
+  return {
+    shown: [...open, ...decided.slice(0, decidedLimit)],
+    hidden: Math.max(0, decided.length - decidedLimit),
+  };
+}
