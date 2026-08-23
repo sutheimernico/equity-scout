@@ -459,10 +459,10 @@ Der Befund war nicht diffuse „Unübersichtlichkeit", sondern zwei messbare Def
 |---|---:|---:|
 | Wer kauft? | **68 005 px** (80,6 Bildschirme) | 8 252 px (−88 %) |
 | Entscheiden | **10 158 px** (12,0 Bildschirme) | 2 855 px (−72 %) |
-| Labor: Tab-Leiste | ~350 px (drei Zeilen) | 49 px |
+| Labor: Tab-Leiste | 193 px (drei Zeilen) | 49 px |
 
 Ursache jeweils eine ungedeckelte Liste: 262 Stimmen-Karten, 23 Personenkarten, 28
-verfallene Pitches. Dazu ein inhaltlicher Fehlgriff — 475 der 589 Evidenz-Ereignisse sind
+verfallene Pitches. Dazu ein inhaltlicher Fehlgriff — 205 der 262 Stimmen-Ereignisse sind
 reine Presse-Erwähnungen, und die Ansicht „Wer kauft gerade was" führte genau damit.
 
 **Zwei Ansichten wurden absichtlich NICHT angefasst:** `ergebnisse` erfüllt das im Plan

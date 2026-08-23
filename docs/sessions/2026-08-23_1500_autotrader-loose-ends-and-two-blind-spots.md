@@ -55,7 +55,7 @@ Er reitet im selben Cron-Kommando wie die Crypto-Lane und läuft **nach** ihr. B
 Lauf nach dem Aufwachen ist also jeder Herzschlag, den er liest, Sekunden alt — ein
 Rechner, der einen ganzen Nachmittag verschlafen hat, sieht aus wie ein gesunder.
 
-Real passiert: **22.08. 19:01 → 23.08. 03:30 und erneut 03:56 → 13:48 kein einziger
+Real passiert: **22.08. 19:01 → 23.08. 03:54 und erneut 03:56 → 13:48 kein einziger
 Cron-Lauf** (aus `/var/log/syslog` belegt), und nichts hat gemeldet.
 
 `scheduler_gap` vergleicht jetzt gegen den Vorgängerlauf, **bevor** der Herzschlag
@@ -129,7 +129,7 @@ Abbruchkriterium falsifizierbar: eine Lane, die zwei Titel am Tag beurteilt, err
    ohne Go passiert nichts.
 4. **Handy-Cockpit: was heißt „zu Ende"?** Der Refresh-Plan ist jetzt geschlossen, damit ist
    der Scope wieder offen und braucht deinen Durchklick.
-5. Rechner muss an Handelstagen 15:30–22:00 laufen (unverändert).
+5. ~~Rechner muss an Handelstagen 15:30–22:00 laufen~~ — **diese Angabe war falsch**, siehe Review-Teil unten: das Gap-Fade-Signalfenster ist **15:00–15:28** Berlin.
 
 ### Nächste Session (Agent)
 
@@ -164,7 +164,7 @@ Damit war „unübersichtlich" keine Geschmacksfrage mehr.
 |---|---:|---:|---:|
 | **Wer kauft?** | **68 005 px** | **80,6** | 8 252 px (**−88 %**) |
 | **Entscheiden** | **10 158 px** | **12,0** | 2 855 px (**−72 %**) |
-| Labor: Tab-Leiste | ~350 px | 3 Zeilen | **49 px** |
+| Labor: Tab-Leiste | 193 px | 3 Zeilen | **49 px** |
 
 ## Die Ursache war immer dieselbe
 
@@ -172,8 +172,8 @@ Damit war „unübersichtlich" keine Geschmacksfrage mehr.
 `PeoplePanel` alle 23 Personenkarten, der Entscheiden-Schirm alle 28 verfallenen von 30
 Pitches.
 
-Dazu ein inhaltlicher Fehlgriff, den erst die Datenzählung sichtbar machte: **475 der 589
-Evidenz-Ereignisse sind reine Presse-Erwähnungen.** Die Ansicht, die verspricht zu zeigen,
+Dazu ein inhaltlicher Fehlgriff, den erst die Datenzählung sichtbar machte: **205 der 262
+Stimmen-Ereignisse sind reine Presse-Erwähnungen.** Die Ansicht, die verspricht zu zeigen,
 wer *kauft*, bestand zu vier Fünfteln aus Karten mit dem wörtlich identischen Satz „keine
 erkennbare Kauf- oder Verkaufsrichtung". Und in den Personenkarten waren die sechs
 sichtbaren Zeilen Erwähnungen, während Michael Burrys gemeldete Käufe hinter „+89 weitere
@@ -220,3 +220,71 @@ anzeigen" lagen — bei einer Ansicht mit der Überschrift „Wer kauft gerade w
 
 - Screenshot-Messung ist reproduzierbar: Playwright gegen `127.0.0.1:8420` bei 390 px,
   `scrollHeight` als Maß. Für jede künftige UI-Runde der billigste Realitätstest.
+
+
+---
+
+# Teil 3 (~20:20–21:0x) — Review aller Zahlen und Empfehlungen
+
+Nicos Auftrag: „Review bitte alles, stimmen alle Zahlen? Sind die Empfehlungen up to date?"
+
+## Zahlen: vier Korrekturen, der Rest hält
+
+**Bestätigt, unverändert:** Gate 2507 (= 2483 + exakt 24 neue Tests, aus dem Diff gezählt) ·
+vitest 142 = 127 + 15 · Volume-Lauf v245 / 67 932 Zeilen / AUC 0,5079 / 54 612 OOS /
+Coverage 1,00 / kein Champion · Watchdog-Lücke 18,9995 h und 0 Handelsminuten · **alle fünf
+Depot-Zahlen auf zwei Nachkommastellen** · 43 getrackte → 24 US-Ticker · CHMG mit Quote vom
+19.08. · 30 Pitches / 28 verfallen · 68 005 → 8 252 px und 10 158 → 2 855 px.
+
+Der Vorher/Nachher-Vergleich ist sauber: zwischen beiden Messungen war die Datenbasis
+identisch (589 Evidenz-Ereignisse, 30 Pitches), obwohl der News-Sweep minütlich läuft.
+
+**Korrigiert:**
+
+| behauptet | richtig | Ursache |
+|---|---|---|
+| „475 der 589 Evidenz-Ereignisse sind Erwähnungen" | **205 der 262 Stimmen-Ereignisse** | Zählskript nutzte `details.get('kind','context')` — Quellen ohne `kind` zählten still als „context" |
+| Labor-Tab-Leiste „~350 px" | **193 px** | aus einem Screenshot mit `deviceScaleFactor: 2` abgelesen, Bildpixel nicht halbiert |
+| Strategien-Leiste „~800 px" | **553 px** | dieselbe Ursache |
+| Host-Schlaf bis „03:30" | **03:54** | 03:30 war die syslog-Rotation, nicht der erste Cron-Lauf |
+
+Die Schlussfolgerung „vier Fünftel der Karten sagen, dass keine Richtung erkennbar ist"
+bleibt richtig (205/262 = 78 %) — sie gilt für die Stimmen-Ereignisse, nicht für die
+Evidenz insgesamt. Keine Maßnahme ändert sich dadurch.
+
+## Der Bug, den das Nachzählen fand
+
+Beim Aufschlüsseln der Quellen fiel auf: die API sendet `source: "thirteen_f"`
+(`SOURCE_13F` in `evidence/base.py`), `people.ts` verglich an **drei** Stellen gegen
+`"13f"`. Alle drei Zweige waren tot.
+
+> **80 Fonds-Meldungen von sechs Fonds** — Berkshire Hathaway, Baupost, Appaloosa,
+> Duquesne, Himalaya Capital, Third Point — fielen in den Presse-Zweig und standen als
+> „Investor / Stimme" mit „**wird in der Presse erwähnt**" da. In der Ansicht „Wer kauft
+> gerade was". Ein 13F über 541 600 Amazon-Aktien, etikettiert als Geschwätz.
+
+Der Fehler stammt aus `f52d59f`; **ich habe ihn gestern in `isAction()` repliziert**, indem
+ich das Literal aus den Zeilen darüber übernahm, statt es gegen die Daten zu prüfen. Die
+Quellen sind jetzt eine benannte Konstante `SOURCE`, aus `evidence/base.py` gespiegelt.
+Die alten Tests konnten ihn nicht fangen — **sie haben nie ein Fonds-Ereignis gefüttert**.
+Gegenprobe gemacht (Konstante zurück auf `"13f"` → 4 Tests rot). Live verifiziert:
+„Duquesne Family Office · **Fonds** · Amazon — **Position aufgestockt**".
+
+## Empfehlungen: eine war schädlich, vier waren erledigt
+
+**Schädlich:** „Rechner an Handelstagen 15:30–22:00". Die Angabe stammt aus dem Fenster der
+**Session-Lane**, die seit dem 17.08. **pausiert** ist, und wurde seither in jeder
+Session-Doku weitergereicht — auch von mir heute, mit dem Zusatz „(unverändert)", ohne sie
+zu prüfen. Das Gap-Fade-Signalfenster ist `GAPFADE_SIGNAL_START/END` = **09:00–09:28 ET =
+15:00–15:28 Berlin**. Wer sich an „ab 15:30" hält, verpasst es vollständig; die Lane
+platziert dann nie eine Order — und genau diese Lane soll gerade gemessen werden. Die
+korrekte Fenstertabelle steht jetzt in PLAN.md unter „Needs Nico".
+
+**Erledigt, standen aber noch offen** (alle vier live gegengeprüft): `DASH_TOKEN` gesetzt ·
+`DASH_URL` gesetzt · `equity-scout-dash.service` `enabled` + `active` · `EDGAR_USER_AGENT`
+gesetzt.
+
+**Weiterhin gültig:** `powercfg /waketimers` (der Rechner schlief heute zweimal; seit 13:48
+läuft er durch) · Telegram-Token-Rotation, **jetzt dringlicher**, weil heute zusätzlich der
+`DASH_TOKEN` per Telegram-Link verschickt wurde · Matrix-Hold-out-Go · Chat-FAB-Entscheidung
+· Durchklick am Handy.

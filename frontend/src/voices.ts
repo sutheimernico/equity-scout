@@ -3,9 +3,12 @@
 //
 // Why this exists: the panel rendered EVERY voice event as a full card — 262 of them on
 // 2026-08-23, which made the page 68 005 px tall on a 390 px phone (80 screen lengths).
-// 475 of 589 evidence events are "context" ("wird in der Presse erwähnt"), so the view
+// 205 of the 262 voice events are "context" ("wird in der Presse erwähnt"), so the view
 // promising "was bekannte Investoren öffentlich sagen" was four fifths made of cards
 // saying that no direction was recognisable. That is Nico's "man checkt nix" in numbers.
+// (Corrected 2026-08-23 in review: an earlier note said "475 of 589 evidence events" —
+// that count defaulted sources without a `kind` field to "context" and is wrong. The
+// four-fifths share holds for the voice events this panel actually shows.)
 
 import type { EvidenceEvent } from "./api";
 

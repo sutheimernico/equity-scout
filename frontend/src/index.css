@@ -3678,8 +3678,9 @@ li.pd-alloc-row {
   .tab {
     white-space: nowrap;
   }
-  /* Labor carries eight tabs. Wrapping them cost three lines — ~350 px of a 844 px
-     phone screen spent before any content (measured 2026-08-23). A bar with this many
+  /* Labor carries eight tabs. Wrapping them cost three rows — 193 px of a 844 px phone
+     screen before any content, and the strategy bar's thirteen tabs another 553 px
+     (both measured 2026-08-23 by restoring the wrap rule). A bar with this many
      entries scrolls sideways instead; the ones with two or three tabs keep wrapping,
      where a hidden tab would be worse than a second line. */
   .tabbar.scroll {

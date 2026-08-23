@@ -81,7 +81,7 @@ describe("person grouping", () => {
 });
 
 describe("buildBuckets: actions before mentions", () => {
-  // Measured 2026-08-23: 475 of 589 evidence events are press mentions, and the biggest
+  // Measured 2026-08-23: 205 of the 262 voice events are press mentions, and the biggest
   // card (Michael Burry, 95 events) showed six of them while his disclosed buys sat
   // behind "+89 weitere anzeigen". A card that answers "wer kauft" with six mentions
   // answers nothing.

@@ -29,7 +29,7 @@ räumt jetzt 140 px statt 64 px), damit der Chat-Knopf nicht mehr auf der letzte
 **werkauft — „Wer kauft gerade was"** · war die schlimmste Ansicht des Cockpits und der
 Grund, warum diese Runde überhaupt lohnt.
 - `VoicesPanel` rendert**e** *jedes* Stimmen-Ereignis als volle Karte: **262** an diesem Tag.
-- 475 der 589 Evidenz-Ereignisse sind `context`, also „wird in der Presse erwähnt". Die
+- **205 der 262 Stimmen-Ereignisse** sind `context`, also „wird in der Presse erwähnt". Die
   Ansicht, die verspricht zu zeigen, wer kauft, bestand zu **vier Fünfteln** aus Karten mit
   dem Satz „keine erkennbare Kauf- oder Verkaufsrichtung" — jedes Mal wörtlich derselbe.
 - `PeoplePanel` sortierte innerhalb einer Personenkarte nur nach Datum. Michael Burry hatte
@@ -45,11 +45,12 @@ einem Tap). Darunter hingen **28 verfallene** von 30 Pitches in voller Kartenhö
 - **Behoben:** offene Pitches bleiben ungedeckelt — dafür ist der Schirm da —, die
   entschiedene/verfallene Historie zeigt fünf und benennt den Rest auf dem Knopf.
 
-**labor** · acht Tabs, die auf 390 px auf **drei Zeilen** umbrachen: ~350 px verbraucht,
+**labor** · acht Tabs, die auf 390 px auf **drei Zeilen** umbrachen: **193 px** verbraucht,
 bevor irgendein Inhalt beginnt. Im Strategien-Tab noch einmal dasselbe mit **dreizehn**
-Tabs (~800 px), deren letzte Zeile unter dem Chat-Knopf lag.
+Tabs (**553 px**), deren letzte Zeile unter dem Chat-Knopf lag. Beide Zahlen nachgemessen,
+indem die Wrap-Regel im laufenden Browser wiederhergestellt wurde.
 - **Behoben:** Leisten mit vielen Einträgen scrollen auf dem Handy seitwärts
-  (`.tabbar.scroll`) statt umzubrechen — 350 px → **49 px**. Leisten mit zwei oder drei
+  (`.tabbar.scroll`) statt umzubrechen — 193 px → **49 px** (Strategien 553 → 49). Leisten mit zwei oder drei
   Tabs brechen weiter um, dort wäre ein verstecktes Tab schlimmer als eine zweite Zeile.
 
 **ergebnisse** · **unverändert gelassen, und zwar bewusst.** Diese Ansicht ist bereits das
@@ -87,3 +88,56 @@ von Nico bzw. hier als gut befunden. Das ist die Vorlage für alles Weitere.
 - **`labor` bleibt bei 5,2 Bildschirmen**, weil der Strategien-Tab zwölf Systematiken mit
   vollen Kennzahlenblöcken zeigt. Das ist Inhalt, kein Rauschen — ein Deckel wäre hier
   Verlust, kein Gewinn.
+
+---
+
+## Nachtrag: Review der eigenen Zahlen (2026-08-23, Nicos „stimmen alle Zahlen?")
+
+Alles oben gegen die Quelle nachgemessen. **Vier Korrekturen** — und beim Nachrechnen fiel
+ein echter Bug auf, der ohne diese Runde live geblieben wäre.
+
+### Korrigiert
+
+| Behauptung | richtig | woher der Fehler kam |
+|---|---|---|
+| „475 der 589 Evidenz-Ereignisse sind Erwähnungen" | **205 der 262 Stimmen-Ereignisse** | Das Zählskript nutzte `details.get('kind', 'context')`; Quellen ohne `kind`-Feld (news_theme, edgar_8k, thirteen_f) zählten dadurch stillschweigend als „context" |
+| Labor-Tab-Leiste „~350 px" | **193 px** | aus einem Screenshot mit `deviceScaleFactor: 2` abgelesen, Bildpixel nicht halbiert |
+| Strategien-Leiste „~800 px" | **553 px** | dieselbe Ursache |
+| Host-Schlaf bis „03:30" | **03:54** | 03:30 war der Zeitstempel der syslog-Rotation, nicht des ersten Cron-Laufs |
+
+Die Schlussfolgerung „vier Fünftel der Karten sagen, dass keine Richtung erkennbar ist"
+**bleibt richtig** — 205/262 = 78 % —, aber sie gilt für die Stimmen-Ereignisse, die das
+Panel zeigt, nicht für die Evidenz insgesamt. Die abgeleiteten Maßnahmen ändern sich nicht.
+
+### Bestätigt (unverändert)
+
+68 005 → 8 252 px · 10 158 → 2 855 px · 262 Stimmen-Ereignisse · 57 gerichtete · 23 Personen
+· 30 Pitches / 28 verfallen · Michael Burry 95 Ereignisse · vitest 127 → 142.
+
+**Der Vorher/Nachher-Vergleich ist sauber:** zwischen beiden Messungen war die Datenbasis
+identisch (589 Evidenz-Ereignisse, 30 Pitches), obwohl der News-Sweep minütlich läuft.
+
+### Der Bug, den das Nachzählen fand
+
+Beim Aufschlüsseln der Quellen fiel auf, dass die API `source: "thirteen_f"` sendet
+(Backend-Konstante `SOURCE_13F` in `evidence/base.py`), `people.ts` aber an **drei** Stellen
+gegen `"13f"` verglich. Alle drei Zweige waren tot:
+
+> **80 Fonds-Meldungen von sechs Fonds** — Berkshire Hathaway, Baupost, Appaloosa, Duquesne,
+> Himalaya Capital, Third Point — fielen in den Presse-Zweig und standen als
+> „Investor / Stimme" mit dem Label „**wird in der Presse erwähnt**" da. In der Ansicht
+> „Wer kauft gerade was". Ein 13F über 541 600 Amazon-Aktien, etikettiert als Geschwätz.
+
+Der Fehler stammt aus `f52d59f`. **Ich habe ihn beim Umbau in `isAction()` repliziert**,
+indem ich das Literal aus den Zeilen darüber übernommen habe, statt es gegen die Daten zu
+prüfen — deshalb sind die Quellen-Strings jetzt eine benannte Konstante `SOURCE`, aus
+`evidence/base.py` gespiegelt.
+
+**Warum die bestehenden Tests ihn nicht fingen:** sie haben nie ein Fonds-Ereignis
+gefüttert. Ein Label-Test, der nur die Quellen prüft, die der Code ohnehin behandelt,
+beweist nichts über die, die er stillschweigend fallen lässt. Die neuen Tests vergleichen
+jeden verzweigten Quellen-String gegen die Liste, die die API real sendet; Gegenprobe
+gemacht (Konstante auf `"13f"` zurückgedreht → 4 Tests rot).
+
+**Live verifiziert:** „Duquesne Family Office · **Fonds** · Amazon — **Position
+aufgestockt**" statt „Investor / Stimme · wird in der Presse erwähnt".

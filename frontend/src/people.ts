@@ -77,7 +77,7 @@ export function delayNote(event: EvidenceEvent): string | null {
  *
  * A card shows the first `MAX_MOVES_SHOWN` of a person's events, and the list used to be
  * sorted by date alone. Measured on 2026-08-23: Michael Burry carried 95 events and
- * 475 of the 589 evidence events are press mentions — so the six visible rows on the
+ * 205 of the 262 voice events are press mentions — so the six visible rows on the
  * biggest cards were mentions, while the actual disclosed purchases sat behind
  * "+89 weitere anzeigen". The view is called "Wer kauft gerade was"; a filing answers
  * that question and a mention does not, so filings sort first even when older. The

@@ -62,7 +62,7 @@ Liegengebliebene Arbeit abgeschlossen und zwei Blindstellen geschlossen. Details
   nichts bei. Als Merkmalsquelle abgehakt, nicht weiter verfolgen.
 - **BLINDSTELLE geschlossen: der Wächter sieht jetzt seinen eigenen Ausfall.** Er läuft im
   selben Cron-Kommando nach der Crypto-Lane, also ist beim ersten Lauf nach dem Aufwachen
-  jeder Herzschlag frisch. Rechner schlief 22.08. 19:01 → 23.08. 03:30 und 03:56 → 13:48,
+  jeder Herzschlag frisch. Rechner schlief 22.08. 19:01 → 23.08. 03:54 und 03:56 → 13:48,
   ohne dass irgendetwas meldete. Neu: `scheduler_gap` misst gegen den Vorgängerlauf und
   bepreist die Lücke in **Handelsminuten** — live gefunden am 14:00-Lauf (19,0 h, 0
   Handelsminuten), während der alte Check darunter „alle Ketten am Leben" druckte.
@@ -1077,14 +1077,34 @@ der Entthronung, die heute Nacht erstmals wirkt.
       FEATURES misst und nicht ein geändertes Sample, ausgewertet auf dem 126-Tage-Ziel.
 
 ## Needs Nico (loop cannot do these itself)
-- **v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN` in `.env` setzen (`openssl rand -hex 16`),
-  `./scripts/install_dash_service.sh` erneut ausführen (Unit ist gestaged, aktiviert sich nur mit
-  Token), optional `DASH_URL` für den wöchentlichen Digest-Hinweis. Von unterwegs: Tailscale
-  (free tier, dein Account) — bewusst nicht automatisiert.
+
+> **Liste am 2026-08-23 gegen den Live-Zustand geprüft** — vier Punkte waren längst erledigt
+> und standen trotzdem noch hier. Wer sie erneut abarbeitet, arbeitet umsonst.
+
+- **WANN DER RECHNER LAUFEN MUSS — die alte Angabe „15:30–22:00" ist FALSCH und war es seit
+  dem 16.08.** Sie stammt aus dem Fenster der **Session-Lane**, die seit dem 17.08. pausiert
+  ist, und wurde seither in jeder Session-Doku weitergereicht. Das **Gap-Fade-Signalfenster
+  ist 09:00–09:28 ET = 15:00–15:28 Berlin** (`GAPFADE_SIGNAL_START/END` in
+  `run_shortterm.py`): wer den Rechner erst 15:30 startet, verpasst es **vollständig** — die
+  Lane platziert dann nie eine Order. Die tatsächlichen Pflichtfenster an einem Handelstag:
+  | Zeit (Berlin) | was | Folge, wenn der Rechner aus ist |
+  |---|---|---|
+  | **15:00–15:28** | Gap-Fade-Signal + MOO | **keine Order, der Tag fehlt in der Messreihe** |
+  | 15:30–22:00 | Katalysator-Radar + Ignition-Lane | Signale werden nie gesehen |
+  | 18:00 / 18:45 | Tageskette / Insider-Schattenlane | Digest + Schattenlane fallen aus |
+  | 23:00 | Forward-Paper-Refresh | Tagesbewertung fehlt |
+  | 00:45 / 02:30 | Prefetch / Nachtlauf (Di–Sa) | kein Lernlauf, kein Resolve |
+  Kurz: **an Handelstagen ab ~14:45 durchlaufen lassen, über Nacht mit.** Nur die Ausführung
+  der MOC-Exits macht Alpaca selbst (22:00), dafür muss nichts laufen.
+- ~~**v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN`, `install_dash_service.sh`,
+  `DASH_URL`~~ — **ERLEDIGT, verifiziert 2026-08-23**: `DASH_TOKEN` gesetzt (32 Zeichen),
+  `DASH_URL=http://100.99.224.50:8420`, Unit `equity-scout-dash.service` ist `enabled` und
+  `active`, Tailscale läuft (`wsl-claude` 100.99.224.50). Gegenprobe: über die Tailscale-IP
+  antwortet der Dienst **mit** Token 200 und **ohne** Token 401.
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
 - Any data source that would require a paid key (do NOT sign up — log here instead).
-- `EDGAR_USER_AGENT="name (email)"` in `.env` so the 13F collector can run (stays politely
-  `unconfigured` until then; never faked).
+- ~~`EDGAR_USER_AGENT="name (email)"` in `.env`~~ — **ERLEDIGT** (gesetzt; am 2026-08-23
+  erneut verifiziert).
 - ~~Run `./scripts/install_crontab.sh` once~~ — DONE 2026-07-20 (v10.1 session ran the
   idempotent installer under the project's local-autonomy grant; nightly line now points at
   `run_nightly_guarded.sh`, forward-paper line preserved).
