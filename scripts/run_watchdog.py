@@ -14,7 +14,30 @@ from datetime import datetime, timezone
 from equity_scout.constants import DEFAULT_DB_PATH
 from equity_scout.state_storage import record_heartbeat
 from equity_scout.telegram_client import TelegramError, load_telegram_config, send_message
-from equity_scout.watchdog import alerts_due, build_alert_text, mark_alerted, overdue_chains
+from equity_scout.watchdog import (
+    alerts_due,
+    build_alert_text,
+    build_gap_text,
+    mark_alerted,
+    overdue_chains,
+    record_gap,
+    scheduler_gap,
+)
+
+
+def _report(text: str) -> None:
+    """Print, and send to Telegram when it is configured. No cooldown: a gap is detected on
+    the first run back and never again, because the next run's predecessor is fresh."""
+    print(text)
+    tg_config = load_telegram_config(dict(os.environ))
+    if tg_config is None:
+        return
+    try:
+        send_message(
+            tg_config["token"], tg_config.get("daily_chat_id", tg_config["chat_id"]), text
+        )
+    except TelegramError as err:
+        print(f"Warnung: Watchdog-Meldung nicht zustellbar: {err}", file=sys.stderr)
 
 
 def main() -> int:
@@ -23,7 +46,13 @@ def main() -> int:
     args = parser.parse_args()
 
     now = datetime.now(timezone.utc)
+    # BEFORE the heartbeat: the gap is measured against the previous run, and writing first
+    # would measure zero. This is the only check that can see the scheduler itself missing.
+    gap = scheduler_gap(args.db, now=now)
     record_heartbeat(args.db, "watchdog", now=now.isoformat())
+    if gap is not None:
+        record_gap(args.db, gap, now=now)
+        _report(build_gap_text(gap))
 
     overdue = overdue_chains(args.db, now=now)
     if not overdue:

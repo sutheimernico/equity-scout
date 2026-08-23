@@ -142,3 +142,102 @@ def test_a_lane_that_never_beat_once_is_never_alarmed(tmp_path) -> None:
     db = _db(tmp_path)
     record_heartbeat(db, "daily", now="2026-07-20T18:05:00+00:00")
     assert "gapfade" not in [o["chain"] for o in overdue_chains(db, now=NOW)]
+
+
+# --- the scheduler's own outage (2026-08-23) -------------------------------------------
+# The heartbeat SLAs cannot see this one: the watchdog rides in the same cron command as the
+# crypto lane and runs AFTER it, so on the first run back every heartbeat it reads is
+# seconds old. Measured on the real box: away 2026-08-22 19:01 -> 08-23 03:30 and again
+# 03:56 -> 13:48, and not one chain reported anything.
+
+def test_a_slept_through_afternoon_is_detected_and_priced_in_trading_minutes(tmp_path) -> None:
+    from zoneinfo import ZoneInfo
+
+    from equity_scout.watchdog import scheduler_gap
+
+    berlin = ZoneInfo("Europe/Berlin")
+    db = _db(tmp_path)
+    # Tuesday 16:00 Berlin = 10:00 ET, back at 21:00 Berlin = 15:00 ET -> 300 session minutes
+    record_heartbeat(db, "watchdog", now=datetime(2026, 8, 18, 16, 0, tzinfo=berlin).isoformat())
+    gap = scheduler_gap(db, now=datetime(2026, 8, 18, 21, 0, tzinfo=berlin))
+
+    assert gap is not None
+    assert gap["session_minutes"] == 300
+    assert gap["hours"] == 5.0
+
+
+def test_the_same_length_of_outage_over_a_weekend_costs_nothing(tmp_path) -> None:
+    """Duration is the wrong headline. The real gap on 2026-08-22/23 was 8.5 hours and cost
+    zero trading minutes; an alert that only reported hours would read like an emergency."""
+    from zoneinfo import ZoneInfo
+
+    from equity_scout.watchdog import build_gap_text, scheduler_gap
+
+    berlin = ZoneInfo("Europe/Berlin")
+    db = _db(tmp_path)
+    record_heartbeat(db, "watchdog", now=datetime(2026, 8, 22, 19, 1, tzinfo=berlin).isoformat())
+    gap = scheduler_gap(db, now=datetime(2026, 8, 23, 3, 30, tzinfo=berlin))
+
+    assert gap["session_minutes"] == 0
+    assert "kein Handelsschaden" in build_gap_text(gap)
+
+
+def test_a_box_that_kept_running_reports_no_gap(tmp_path) -> None:
+    from datetime import timedelta
+
+    from equity_scout.watchdog import scheduler_gap
+
+    db = _db(tmp_path)
+    record_heartbeat(db, "watchdog", now=(NOW - timedelta(minutes=15)).isoformat())
+    assert scheduler_gap(db, now=NOW) is None
+
+
+def test_one_late_cycle_is_not_a_scheduler_outage(tmp_path) -> None:
+    """A slow crypto fetch pushes the next run past its slot. Alarming on that would train
+    the reader to ignore the alert — the threshold is three missed cycles."""
+    from datetime import timedelta
+
+    from equity_scout.watchdog import scheduler_gap
+
+    db = _db(tmp_path)
+    record_heartbeat(db, "watchdog", now=(NOW - timedelta(minutes=32)).isoformat())
+    assert scheduler_gap(db, now=NOW) is None
+
+
+def test_the_first_run_ever_reports_no_gap(tmp_path) -> None:
+    """Same honesty rule as the chains: monitoring starts with the first heartbeat, not with
+    an invented one."""
+    from equity_scout.watchdog import scheduler_gap
+
+    assert scheduler_gap(_db(tmp_path), now=NOW) is None
+
+
+def test_the_cli_reports_the_gap_before_overwriting_the_heartbeat(tmp_path, monkeypatch) -> None:
+    """The ordering IS the feature: writing the heartbeat first would measure a zero-length
+    gap on every run, which is exactly why this outage class stayed invisible."""
+    import json
+    import sys
+    from datetime import timedelta
+
+    import scripts.run_watchdog as wd
+    from equity_scout.state_storage import get_state
+    from equity_scout.watchdog import LAST_GAP_KEY
+
+    db = _db(tmp_path)
+    record_heartbeat(db, "watchdog", now=(datetime.now(timezone.utc) -
+                                          timedelta(hours=9)).isoformat())
+    for var in ("COPILOT_TG_CHAT_ID_INTRADAY", "COPILOT_TG_CHAT_ID_DAILY"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("COPILOT_TG_BOT_TOKEN", "t")
+    monkeypatch.setenv("COPILOT_TG_CHAT_ID", "1")
+    sent: list[str] = []
+    monkeypatch.setattr(wd, "send_message", lambda token, chat_id, text: sent.append(text) or 1)
+    monkeypatch.setattr(sys, "argv", ["run_watchdog.py", "--db", db])
+
+    assert wd.main() == 0
+    assert any("Scheduler" in text for text in sent)
+    assert json.loads(get_state(db, key=LAST_GAP_KEY))["hours"] > 8
+
+    sent.clear()
+    assert wd.main() == 0  # the predecessor is fresh now — never reported twice
+    assert not any("Scheduler" in text for text in sent)

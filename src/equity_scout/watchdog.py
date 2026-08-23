@@ -7,13 +7,18 @@ sends ONE Telegram warning per chain per cooldown window. Honesty rules: a chain
 never beaten is not alarmed (monitoring starts with its first heartbeat), and when the
 whole laptop was asleep the alarm text says exactly that — offline time IS downtime.
 If the machine itself is off, nothing here can fire; an external monitor would be a paid
-service and is Nico's call (documented, never signed up autonomously)."""
+service and is Nico's call (documented, never signed up autonomously). What CAN be done from
+inside is to notice the outage afterwards — `scheduler_gap` compares each run against the
+previous one and prices the gap in trading minutes, which is the only failure mode the
+heartbeat SLAs are structurally blind to."""
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+from equity_scout.market_hours import session_minutes_between
 from equity_scout.state_storage import get_state, set_state
 
 # The crontab's own clock — slot weekdays and wall-clock hours are defined in it, not in UTC
@@ -72,6 +77,12 @@ CHAIN_SCHEDULES: dict[str, ChainSchedule] = {
 }
 ALERT_COOLDOWN = timedelta(hours=24)
 _SLOT_LOOKBACK_DAYS = 14  # a gap longer than this is not a missed slot but a dead project
+
+# The watchdog's own cadence: it rides the */15 crypto slot. Three missed cycles is the
+# threshold — one late run is a slow crypto fetch, three in a row is the scheduler.
+WATCHDOG_CADENCE = timedelta(minutes=15)
+SCHEDULER_GAP_THRESHOLD = 3 * WATCHDOG_CADENCE
+LAST_GAP_KEY = "watchdog_last_gap"
 
 
 def last_due_slot(schedule: ChainSchedule, now_local: datetime) -> datetime | None:
@@ -153,3 +164,55 @@ def build_alert_text(due: list[dict]) -> str:
         )
     lines.append("Nächste Warnung frühestens in 24 h.")
     return "\n".join(lines)
+
+
+def scheduler_gap(db_path: str, *, now: datetime) -> dict | None:
+    """The stretch since the previous watchdog run, if the scheduler itself was away.
+
+    The heartbeat SLAs cannot see this failure by construction. The watchdog rides in the
+    same cron command as the crypto lane and runs AFTER it, so on the first run back the
+    heartbeat it reads is one second old — a box that slept through a whole afternoon looks
+    exactly like a healthy one. Measured on 2026-08-22/23: the host was away 19:01-03:30 and
+    again 03:56-13:48, and not one chain reported anything.
+
+    What the caller must do: read this BEFORE writing the new heartbeat, or the gap it would
+    measure is zero. Returns None on the first run ever (nothing to compare against) and
+    whenever the box simply kept running.
+    """
+    previous = get_state(db_path, key="heartbeat_watchdog")
+    if not previous:
+        return None
+    since = datetime.fromisoformat(previous)
+    gap = now - since
+    if gap <= SCHEDULER_GAP_THRESHOLD:
+        return None
+    return {
+        "since": previous,
+        "until": now.isoformat(timespec="seconds"),
+        "hours": gap.total_seconds() / 3600.0,
+        # The only number that decides whether this outage cost anything.
+        "session_minutes": session_minutes_between(since, now),
+    }
+
+
+def record_gap(db_path: str, gap: dict, *, now: datetime) -> None:
+    """Persist the most recent gap so a later reader can ask what the box missed."""
+    set_state(db_path, key=LAST_GAP_KEY, value=json.dumps(gap))
+
+
+def build_gap_text(gap: dict) -> str:
+    """The alert. Leads with the trading minutes, because a long weekend outage and a short
+    Tuesday one look identical on duration and could not differ more in what they cost."""
+    minutes = gap["session_minutes"]
+    verdict = (
+        f"{minutes} Handelsminuten verpasst — in dieser Zeit hat keine Lane gehandelt."
+        if minutes
+        else "0 Handelsminuten betroffen (Markt war ohnehin zu) — kein Handelsschaden."
+    )
+    return (
+        "⏸️ Watchdog: der Scheduler selbst war weg\n"
+        f"• {gap['since'][:16]} → {gap['until'][:16]} ({gap['hours']:.1f} h ohne Lauf)\n"
+        f"• {verdict}\n"
+        "Ursache ist fast immer Windows-Standby; die Heartbeat-SLAs können das nicht sehen, "
+        "weil die Ketten beim Aufwachen zuerst laufen und der Wächter danach."
+    )
