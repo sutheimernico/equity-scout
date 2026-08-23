@@ -70,6 +70,9 @@ def test_train_cli_first_run_with_insufficient_oos_data_does_not_promote(tmp_pat
         # because the block is thin (5.9 % of cells in the broad universe) — a row that cannot
         # beat the champion should say so on its face.
         "catalyst_features", "catalyst_coverage_30d",
+        # The volume block existed since v17c but the CLI never passed it — no trained model had
+        # ever seen it. Recorded on every run for the same reason as the pairs above.
+        "volume_features", "volume_coverage",
         # 2026-08-11: WHICH universe this model was measured on. Its absence is why the champion
         # defect stayed invisible for five weeks — the row recorded n_train but not the sample's
         # identity, so two AUCs from different universes looked comparable.
@@ -324,3 +327,106 @@ def test_cli_without_the_flag_loads_no_evidence_index(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["run_train_entry.py", "--db", str(tmp_path / "x.db")])
     assert main() == 0
     assert seen["evidence_index"] is None
+
+
+def test_cli_without_the_flag_loads_no_volume_index(tmp_path, monkeypatch):
+    """Same stance as the evidence flag: the nightly chain calls the script bare and must
+    keep training on the feature set its champions were measured on."""
+    seen: dict = {}
+
+    monkeypatch.setattr(train_mod, "_load_panel", lambda tickers, start: _panel())
+    monkeypatch.setattr(
+        train_mod, "run_train_entry_all",
+        lambda db, **kwargs: seen.update(kwargs) or [],
+    )
+    monkeypatch.setattr(sys, "argv", ["run_train_entry.py", "--db", str(tmp_path / "x.db")])
+    assert main() == 0
+    assert seen["volume_index"] is None
+
+
+def test_with_volume_reaches_the_trainer(tmp_path, monkeypatch):
+    """The wiring is the whole point of the flag: the volume block shipped with v17c and no
+    trained model ever saw it, because `build_backfill_dataset` accepted a volume_index and
+    nothing on the CLI ever supplied one."""
+    seen: dict = {}
+    sentinel = object()
+
+    monkeypatch.setattr(train_mod, "_load_panel", lambda tickers, start: _panel())
+    monkeypatch.setattr(train_mod, "load_volume_index", lambda vol, price: sentinel)
+    monkeypatch.setattr(
+        train_mod, "run_train_entry_all",
+        lambda db, **kwargs: seen.update(kwargs) or [],
+    )
+    monkeypatch.setattr(
+        sys, "argv",
+        ["run_train_entry.py", "--db", str(tmp_path / "x.db"), "--with-volume"],
+    )
+    assert main() == 0
+    assert seen["volume_index"] is sentinel
+
+
+def test_with_all_features_turns_on_every_block(tmp_path, monkeypatch):
+    """'The model should see everything the others see' must mean all three blocks, not
+    whichever two the caller remembered to type."""
+    seen: dict = {}
+    monkeypatch.setattr(train_mod, "_load_panel", lambda tickers, start: _panel())
+    monkeypatch.setattr(train_mod, "load_volume_index", lambda vol, price: "vol")
+    monkeypatch.setattr(train_mod, "load_evidence_index", lambda *a, **k: "evi")
+    monkeypatch.setattr(train_mod, "load_catalyst_index", lambda **k: "cat")
+    monkeypatch.setattr(
+        train_mod, "run_train_entry_all",
+        lambda db, **kwargs: seen.update(kwargs) or [],
+    )
+    monkeypatch.setattr(
+        sys, "argv",
+        ["run_train_entry.py", "--db", str(tmp_path / "x.db"), "--with-all-features",
+         "--start", "2016-01-01"],
+    )
+    assert main() == 0
+    assert (seen["volume_index"], seen["evidence_index"], seen["catalyst_index"]) == (
+        "vol", "evi", "cat"
+    )
+
+
+def test_with_all_features_refuses_the_default_start_and_names_itself(tmp_path, monkeypatch,
+                                                                      capsys):
+    """The catalyst archive begins in 2016 and the default --start is 2007. Shortening the
+    window on the caller's behalf would change the sample's identity behind their back; the
+    error must therefore name the flag they actually typed, not the one it implied."""
+    monkeypatch.setattr(train_mod, "_load_panel", lambda tickers, start: _panel())
+    monkeypatch.setattr(
+        sys, "argv",
+        ["run_train_entry.py", "--db", str(tmp_path / "x.db"), "--with-all-features"],
+    )
+    assert main() == 2
+    assert "--with-all-features" in capsys.readouterr().err
+
+
+def test_a_missing_volume_snapshot_is_reported_not_silently_neutral(tmp_path, monkeypatch,
+                                                                    capsys):
+    """A block whose loader returns None must say so. Feeding neutral values instead would
+    train a model on a column that is constant by accident — indistinguishable, afterwards,
+    from a block that genuinely carries no signal."""
+    seen: dict = {}
+    monkeypatch.setattr(train_mod, "_load_panel", lambda tickers, start: _panel())
+    monkeypatch.setattr(train_mod, "load_volume_index", lambda vol, price: None)
+    monkeypatch.setattr(
+        train_mod, "run_train_entry_all",
+        lambda db, **kwargs: seen.update(kwargs) or [],
+    )
+    monkeypatch.setattr(
+        sys, "argv",
+        ["run_train_entry.py", "--db", str(tmp_path / "x.db"), "--with-volume"],
+    )
+    assert main() == 0
+    assert seen["volume_index"] is None
+    assert "--with-volume" in capsys.readouterr().err
+
+
+def test_plain_run_records_that_no_volume_features_were_used(tmp_path):
+    """Symmetric to the evidence pair: the registry row must state which blocks the model
+    was measured with, or two incomparable AUCs look comparable again."""
+    db = str(tmp_path / "train.db")
+    result = run_train_entry(db, panel=_panel(), tickers=["AAA", "BBB"], now=NOW)
+    assert result["metrics"]["volume_features"] == []
+    assert result["metrics"]["volume_coverage"] is None

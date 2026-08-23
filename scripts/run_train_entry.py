@@ -33,6 +33,12 @@ from equity_scout.ml.catalyst_features import (
     CatalystIndex,
     load_catalyst_index,
 )
+from equity_scout.ml.volume_features import (
+    VOLUME_ACTIVE_COLUMN,
+    VOLUME_FEATURE_COLUMNS,
+    VolumeIndex,
+    load_volume_index,
+)
 from equity_scout.ml.entry_dataset import build_backfill_dataset
 from equity_scout.ml.entry_eval import HORIZON_DAYS, SHORT_HORIZON_DAYS
 from equity_scout.ml.entry_model import (
@@ -66,6 +72,11 @@ from equity_scout.ml.model_registry import (
     register_challenger,
 )
 from equity_scout.radar_storage import load_latest_watchlist
+
+# The volume snapshots the block reads. Same files the market-behaviour view uses; named here
+# because the loader takes paths, not a config.
+VOLUME_CSV = "data/prices/entry_volume.csv"
+PRICE_CSV = "data/prices/entry_panel.csv"
 
 BENCHMARK = "SPY"
 # Distinct from the ETF/backtest snapshot: the stock backfill panel is its own basket.
@@ -186,6 +197,7 @@ def run_train_entry(
     n_candidates: int = 1,
     evidence_index: EvidenceIndex | None = None,
     catalyst_index: CatalystIndex | None = None,
+    volume_index: VolumeIndex | None = None,
 ) -> dict:
     """Build the backfill, evaluate OUT-OF-SAMPLE, fit on the full set (with OOS isotonic
     calibration when the sample supports it), register the challenger and promote it iff it clears
@@ -225,6 +237,7 @@ def run_train_entry(
         panel, tickers, benchmark=benchmark, horizon_days=horizon_days,
         label_direction=label_direction, barrier_config=tb_config,
         evidence_index=evidence_index, catalyst_index=catalyst_index,
+        volume_index=volume_index,
     )
     n_train = len(X)
     if n_train == 0:
@@ -269,6 +282,14 @@ def run_train_entry(
     metrics["catalyst_coverage_30d"] = (
         round(float((X[CATALYST_ACTIVE_COLUMN] > 0).mean()), 4)
         if catalyst_index is not None
+        else None
+    )
+    metrics["volume_features"] = (
+        list(VOLUME_FEATURE_COLUMNS) if volume_index is not None else []
+    )
+    metrics["volume_coverage"] = (
+        round(float((X[VOLUME_ACTIVE_COLUMN] != 0).mean()), 4)
+        if volume_index is not None
         else None
     )
     metrics["universe"] = {"n_tickers": len(tickers), "n_scored": int(meta["ticker"].nunique())}
@@ -364,6 +385,7 @@ def run_train_entry_all(
     barrier_config: BarrierConfig | None = None,
     evidence_index: EvidenceIndex | None = None,
     catalyst_index: CatalystIndex | None = None,
+    volume_index: VolumeIndex | None = None,
 ) -> list[dict]:
     """Train every preset in `models` for every family in `families`; the registry gate alone
     decides which (if any) ends up champion per family. The short family trains on its own shorter
@@ -408,6 +430,7 @@ def run_train_entry_all(
                             family=family, barrier_config=tb_config,
                             n_candidates=n_candidates, evidence_index=variant,
                             catalyst_index=catalyst_index,
+                            volume_index=volume_index,
                         )
                     )
                 except Exception as err:  # noqa: BLE001 — a broken preset is a report, not a crash
@@ -519,10 +542,34 @@ def main() -> int:
             " from instead of any behaviour."
         ),
     )
+    parser.add_argument(
+        "--with-volume",
+        action="store_true",
+        help=(
+            "additionally carry the volume features (vol_ratio_20d/5d, OBV). The block has existed"
+            " since v17c but the CLI never passed it — build_backfill_dataset accepts a"
+            " volume_index and nothing ever supplied one, so no trained model has seen it."
+        ),
+    )
+    parser.add_argument(
+        "--with-all-features",
+        action="store_true",
+        help=(
+            "every available feature block at once: price/momentum + insider evidence + volume +"
+            " catalysts. This is what 'the model should see everything the others see' means in"
+            " practice. REQUIRES an explicit --start 2016-01-01 or later (catalyst archive"
+            " limit) — the flag will not silently shorten the training window for you, because"
+            " the window IS the sample's identity."
+        ),
+    )
     args = parser.parse_args()
 
+    if args.with_all_features:
+        args.with_evidence = args.with_volume = args.with_catalysts = True
+
     if args.with_catalysts and args.start < "2016-01-01":
-        print(f"--with-catalysts mit --start {args.start}: vor 2016 gibt es kein News-Archiv, "
+        flag = "--with-all-features" if args.with_all_features else "--with-catalysts"
+        print(f"{flag} mit --start {args.start}: vor 2016 gibt es kein News-Archiv, "
               "jede Zeile wäre neutral und der Block kodierte nur das Jahrzehnt. "
               "Bitte --start 2016-01-01 (oder später).", file=sys.stderr)
         return 2
@@ -538,13 +585,19 @@ def main() -> int:
     catalyst_index = (
         load_catalyst_index(closes=panel.closes) if args.with_catalysts else None
     )
+    volume_index = (
+        load_volume_index(VOLUME_CSV, PRICE_CSV) if args.with_volume else None
+    )
+    if args.with_volume and volume_index is None:
+        print(f"--with-volume: {VOLUME_CSV} oder {PRICE_CSV} fehlt — Block wird "
+              "übersprungen, statt neutrale Werte als Merkmal auszugeben.", file=sys.stderr)
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     models = ENTRY_PRESETS if args.model == "all" else (args.model,)
     families = ("entry", "entry_short", "entry_tb") if args.family == "all" else (args.family,)
     run_train_entry_all(
         args.db, panel=panel, tickers=stock_tickers, now=now, models=models,
         families=families, horizon_days=args.horizon, evidence_index=evidence_index,
-        catalyst_index=catalyst_index,
+        catalyst_index=catalyst_index, volume_index=volume_index,
     )
     return 0
 
