@@ -113,3 +113,22 @@ Gate 4, nicht direkt `run_matrix_qualify.py` starten. Steht dort „FEHLGESCHLAG
 `%USERPROFILE%\wsl-restart-verify.log` und `%USERPROFILE%\.wslconfig` gegenprüfen.
 
 ---
+## Verify nach `wsl --shutdown` — 2026-08-20T08:44:32+02:00
+
+| Prüfung | Wert | Erwartet |
+|---|---|---|
+| VM-RAM | **19.5 GiB** | > 17 (vorher 15,4) |
+| VM-Swap | **24.0 GiB** | ~24 (vorher 4,0) |
+| Boot | 2026-08-20 08:44:29 | gerade jetzt |
+
+**Ergebnis: BESTANDEN**
+
+Abgeleitete mem_guard-Deckel (60 % / 80 % des VM-RAMs):
+
+```
+  MemoryHigh = 12000 MiB
+  MemoryMax  = 16000 MiB
+```
+
+Cron-Flotte: 1 cron-Prozess(e), 15 aktive Jobs.
+Letzter nightly-Marker: 2026-08-20
