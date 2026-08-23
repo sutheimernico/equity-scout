@@ -90,8 +90,9 @@ def test_thresholds_keep_their_documented_relation() -> None:
 
 # --- can the lane judge anything at all? (2026-08-23) ----------------------------------
 # "0 MOO platziert, 1 verworfen" reads identically whether every ticker was priced and none
-# gapped, or 23 of 24 had no pre-market print. IEX carries ~2 % of US volume and this
-# watchlist is mostly small caps, so the two cases are not equally likely — and the lane's
+# gapped, or 23 of 24 had no pre-market print. IEX is a small slice of US volume (a few
+# percent — general knowledge, not measured here) and this watchlist is mostly small
+# caps, so the two cases are not equally likely — and the lane's
 # stop criterion (60 closed trades) is unreachable if it judges two tickers a day.
 
 def test_coverage_separates_no_gaps_from_no_data() -> None:

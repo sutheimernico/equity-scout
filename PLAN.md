@@ -1084,8 +1084,9 @@ der Entthronung, die heute Nacht erstmals wirkt.
 - **WANN DER RECHNER LAUFEN MUSS — die alte Angabe „15:30–22:00" ist FALSCH und war es seit
   dem 16.08.** Sie stammt aus dem Fenster der **Session-Lane**, die seit dem 17.08. pausiert
   ist, und wurde seither in jeder Session-Doku weitergereicht. Das **Gap-Fade-Signalfenster
-  ist 09:00–09:28 ET = 15:00–15:28 Berlin** (`GAPFADE_SIGNAL_START/END` in
-  `run_shortterm.py`): wer den Rechner erst 15:30 startet, verpasst es **vollständig** — die
+  ist 09:00–09:28 ET = 15:00–15:28 Berlin in der Sommerzeit** (`GAPFADE_SIGNAL_START/END`
+  in `run_shortterm.py`; in den DST-Übergangswochen verschiebt es sich um eine Stunde,
+  weshalb der Cron mit 14:00–16:59 breiter läuft als das Gate): wer den Rechner erst 15:30 startet, verpasst es **vollständig** — die
   Lane platziert dann nie eine Order. Die tatsächlichen Pflichtfenster an einem Handelstag:
   | Zeit (Berlin) | was | Folge, wenn der Rechner aus ist |
   |---|---|---|

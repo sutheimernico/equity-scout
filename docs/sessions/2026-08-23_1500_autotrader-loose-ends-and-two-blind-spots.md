@@ -72,7 +72,7 @@ gemacht: Reihenfolge umgedreht → Test rot.
 Ihre **einzige** protokollierte Zeile trug einen Kurs vom **19.08.** — zwei Tage alt
 (`stale_premarket`, CHMG). Und „0 MOO platziert, 1 verworfen" liest sich identisch,
 egal ob 24 Ticker bepreist waren und keiner gappte, oder ob 23 gar keinen Pre-Market-Print
-hatten. IEX trägt ~2 % des US-Volumens, die Watchlist ist überwiegend Small Caps.
+hatten. IEX trägt nur einen kleinen Teil des US-Volumens (Größenordnung wenige Prozent — Allgemeinwissen, hier **nicht** nachgemessen), die Watchlist ist überwiegend Small Caps. Entscheiden wird es die neue Abdeckungszahl, nicht diese Schätzung.
 
 Die Lane druckt und persistiert jetzt `asked/quoted/fresh/judgeable`. Damit wird auch ihr
 Abbruchkriterium falsifizierbar: eine Lane, die zwei Titel am Tag beurteilt, erreicht ihre

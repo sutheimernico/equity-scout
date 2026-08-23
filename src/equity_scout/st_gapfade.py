@@ -103,9 +103,11 @@ def coverage_summary(
 
     Why this is not cosmetic: "0 MOO platziert, 1 verworfen" reads the same whether 24
     tickers were priced and none gapped, or 23 tickers had no pre-market print at all. The
-    first is the lane working; the second is the lane measuring nothing — and IEX carries
-    roughly 2 % of US volume, so for the small caps this watchlist produces the second is
-    the likely case. On 2026-08-21, the lane's only healthy day so far, its single logged
+    first is the lane working; the second is the lane measuring nothing. IEX is a small
+    slice of US volume (order of a few percent — general knowledge, NOT measured here),
+    so for the small caps this watchlist produces the second is the likely case. The
+    numbers this function returns are what settles it either way; the share is only the
+    reason to look. On 2026-08-21, the lane's only healthy day so far, its single logged
     row carried a quote that was TWO DAYS old.
 
     `judgeable` is the honest denominator: a ticker needs a fresh print AND a previous
