@@ -1,0 +1,147 @@
+# Session 2026-08-23 ~13:50 – 15:0x — Autotrader: liegengebliebene Arbeit + zwei Blindstellen
+
+## Kontext & Ziel
+
+Einstieg von Nico, ein Satz: „sind bei dem autotrader to dos offen, dann mach jetzt alles
+fertig." Also erst Bestandsaufnahme (Repo, PLAN.md, Session-Docs, laufende Ketten), dann
+alles abarbeiten, was ohne ihn geht — und beim Rest sagen, warum nicht.
+
+**Eine Fehlspur gleich zu Beginn, damit sie nicht nochmal jemand läuft:** die Aktien-Ketten
+(intraday, daily, gapfade) hatten seit Freitag nichts geschrieben, was zunächst wie ein
+Ausfall aussah. Heute ist **Sonntag**; letzter Handelstag war Freitag der 21.08. Die Stille
+war korrekt. Erst der Wochentags-Check hat die Diagnose gerettet — Logs allein hätten hier
+einen Tag Arbeit in die falsche Richtung gekostet.
+
+## Ergebnis
+
+Sieben Commits auf `autopilot/work`, **Gate 2507 grün** (vorher 2483, +24 Tests), ruff clean.
+
+| Commit | Inhalt |
+|---|---|
+| `d103d09` | `fix(alpaca)`: abgelehnte Batch ohne das genannte Symbol wiederholen |
+| `3a114a4` | `feat(ml)`: Volume-Block, den die CLI seit v17c ignoriert hat, verdrahten |
+| (docs) | Session-Nachtrag WSL-Verify · News-Latenz-Ergebnis committet |
+| `0a6d7d7` | `feat(watchdog)`: Ausfall des Schedulers selbst erkennen, in Handelsminuten bepreist |
+| `d6a4f2a` | `feat(gapfade)`: melden, wie viele Ticker die Lane überhaupt beurteilen konnte |
+| (docs) | AUTOPILOT_LOG, PLAN.md, README, Cockpit-Plan geschlossen |
+
+### 1. Alpaca-Batch überlebt ein totes Symbol (offene Frage der Vorsession)
+
+`us_symbols` nimmt Auslandsnotierungen raus, aber ein **US**-Ticker, der seit dem täglichen
+Watchlist-Neubau delistet wurde, tötete die Batch weiterhin mit 400. Alpaca **nennt** den
+Schuldigen — also raus damit und wiederholen. Laut bleibt alles andere: ein 400 auf ein
+Symbol, das wir nie gesendet haben (sonst würde ein unbekannter Fehler zum still
+schrumpfenden Universum), jedes Nicht-400 (403/429 sind Bedingungen der Anfrage, nicht des
+Symbols), ein leerer Rest, ein Überschreiten des Deckels.
+
+Eigene **Verdrahtungstests**, weil dieses Repo denselben Fehler zweimal gemacht hat: einen
+Block bauen, den nichts durchreicht.
+
+### 2. Volume-Block: verdrahtet, gelaufen, NULLBEFUND
+
+Exakt jener Fehler, Fall zwei: `build_backfill_dataset` akzeptiert seit v17c einen
+`volume_index`, und **kein trainiertes Modell hatte ihn je gesehen**, weil die CLI ihn nie
+übergab. Jetzt `--with-volume` / `--with-all-features`, beides in die Registry gestempelt.
+
+**Konsument gelaufen, nicht nur getestet** (gegen eine DB-**Kopie**, damit nichts live
+promotet wird): v245 entry/random_forest, 67.932 Zeilen, `vol_ratio_20d`/`vol_ratio_5d`/
+`vol_obv_20d` im Feature-Set bei **Abdeckung 1,00** → **AUC 0,5079** auf 54.612 OOS-Zeilen,
+kein Champion. Anders als bei den Katalysatoren (5,9 % Abdeckung) liegt es hier **nicht**
+an dünnen Daten: der Block trägt nichts bei. Als Merkmalsquelle abgehakt.
+
+### 3. BLINDSTELLE: der Wächter konnte seinen eigenen Ausfall nicht sehen
+
+Er reitet im selben Cron-Kommando wie die Crypto-Lane und läuft **nach** ihr. Beim ersten
+Lauf nach dem Aufwachen ist also jeder Herzschlag, den er liest, Sekunden alt — ein
+Rechner, der einen ganzen Nachmittag verschlafen hat, sieht aus wie ein gesunder.
+
+Real passiert: **22.08. 19:01 → 23.08. 03:30 und erneut 03:56 → 13:48 kein einziger
+Cron-Lauf** (aus `/var/log/syslog` belegt), und nichts hat gemeldet.
+
+`scheduler_gap` vergleicht jetzt gegen den Vorgängerlauf, **bevor** der Herzschlag
+überschrieben wird, und `market_hours.session_minutes_between` bepreist die Lücke in der
+einzigen Einheit, die entscheidet: 8,5 Wochenendstunden kosten nichts, 90 Dienstagsminuten
+kosten jeden Ausstieg, den die Lanes genommen hätten.
+
+**Live verifiziert am echten 14:00-Cron:** 19,0 h gefunden, 0 Handelsminuten — und der
+alte Check druckte in der Zeile **darunter** unverändert „alle Ketten am Leben". Gegenprobe
+gemacht: Reihenfolge umgedreht → Test rot.
+
+### 4. BEFUND: die Gap-Fade-Lane hat am 21.08. faktisch nichts beurteilt
+
+Ihre **einzige** protokollierte Zeile trug einen Kurs vom **19.08.** — zwei Tage alt
+(`stale_premarket`, CHMG). Und „0 MOO platziert, 1 verworfen" liest sich identisch,
+egal ob 24 Ticker bepreist waren und keiner gappte, oder ob 23 gar keinen Pre-Market-Print
+hatten. IEX trägt ~2 % des US-Volumens, die Watchlist ist überwiegend Small Caps.
+
+Die Lane druckt und persistiert jetzt `asked/quoted/fresh/judgeable`. Damit wird auch ihr
+Abbruchkriterium falsifizierbar: eine Lane, die zwei Titel am Tag beurteilt, erreicht ihre
+60 Trades nie.
+
+## Depot-Stand (Referenz für den nächsten Vergleich)
+
+| Buch | Stand | Benchmark |
+|---|---|---|
+| Auto-Depot | +2,15 % (21.08.) | SPY +2,28 % |
+| swing | +0,99 % (21.08.) | SPY +3,17 % |
+| crypto | +7,24 % (23.08.) | BTC +18,42 % |
+| ignition | +3,46 % (21.08.) | — |
+| session | −2,61 %, **pausiert** seit 13.08. | SPY +4,69 % |
+
+**Kein Trader schlägt seine Benchmark** — unverändert gegenüber dem 21.08.
+
+## Entscheidungen
+
+- **Wochentag vor Logdiagnose.** Siehe Fehlspur oben. Gehört in jede künftige „Kette tot?"-
+  Prüfung als erster Schritt.
+- **`--with-all-features` verweigert den Default-`--start` 2007, statt ihn zu kürzen.** Der
+  Hilfetext versprach ein implizites 2016; der Code setzte es nie. Ein Flag, das das
+  Trainingsfenster hinter dem Rücken des Aufrufers ändert, ändert die **Identität der
+  Stichprobe** — genau die Fehlerklasse vom 11.08. Also laut statt still.
+- **Kein Trainingslauf gegen die Produktions-DB.** Der Konsumenten-Beweis lief gegen eine
+  Kopie; ein promoteter Champion aus einem Ad-hoc-Lauf wäre eine Live-Änderung, die niemand
+  beauftragt hat.
+- **Lückenmeldung ohne Cooldown.** Sie wird per Konstruktion nur einmal ausgelöst: beim
+  nächsten Lauf ist der Vorgänger frisch.
+- **Feiertage weiterhin nicht modelliert** (Linie des ganzen `market_hours`-Moduls) — die
+  Handelsminuten sind damit eine **Obergrenze**, was in der Docstring steht.
+- **Matrix-Hold-out nicht angefasst.** Einmalschuss, gehört Nico. Unverändert seit dem 21.08.
+
+## Offene Fragen
+
+- **Warum schläft der Rechner überhaupt?** Standby am Netzstrom steht laut PLAN.md auf
+  „nie", Wake-Timer sind aktiv, `WakeToRun` ist seit dem 10.08. gesetzt — und trotzdem
+  waren es gestern/heute zweimal mehrere Stunden. Der dokumentierte nächste Schritt
+  (`powercfg /waketimers` als Admin, Ereignisprotokoll nach Kernel-Power) braucht erhöhte
+  Rechte und ist deshalb Nicos. Immerhin **sieht** man es ab jetzt.
+- **Reicht IEX-Pre-Market für die Gap-Fade-Lane?** Ab Montag liefert die Abdeckungszeile die
+  Serie. Entscheidungsregel steht vorab in PLAN.md registriert, damit sie nicht nachträglich
+  gebogen wird.
+
+## To-dos
+
+### Nico
+
+1. **Windows-Energie**: `powercfg /waketimers` als Admin + Ereignisprotokoll (Kernel-Power).
+   Zweimal mehrere Stunden Schlaf innerhalb von 24 h, trotz aller bisherigen Fixes.
+2. **Telegram-Bot-Token rotieren** — steht seit Wochen, liegt im Klartext in einem alten Log.
+3. **Matrix-Hold-out 2023–2025 freigeben oder nicht.** Unverändert der nächste große Schritt;
+   ohne Go passiert nichts.
+4. **Handy-Cockpit: was heißt „zu Ende"?** Der Refresh-Plan ist jetzt geschlossen, damit ist
+   der Scope wieder offen und braucht deinen Durchklick.
+5. Rechner muss an Handelstagen 15:30–22:00 laufen (unverändert).
+
+### Nächste Session (Agent)
+
+- **Ab Mo 24.08. die Gap-Fade-Abdeckung mitschreiben.** `gapfade_coverage` in `st_state`
+  der `shortterm.db`; Entscheidungsregel steht in PLAN.md.
+- Erste echte Meldung des Lückendetektors an einem **Handelstag** abwarten — dann steht dort
+  eine Zahl > 0 Handelsminuten, und die Meldung wird zum ersten Mal teuer.
+- Der Watchdog fängt weiterhin **nicht** die Kette, die noch nie geschlagen hat (Design seit
+  v12 W1, eigener Test). Das bleibt die bekannte Restlücke.
+
+## Einstieg für die nächste Session
+
+Branch `autopilot/work`, Gate 2507 grün, keine angefangene Arbeit. Alles, was ohne Nico ging, ist
+zu; was offen bleibt, steht oben unter „Nico" und ist ausnahmslos eine Entscheidung oder ein
+Zugriff, den der Loop nicht hat.

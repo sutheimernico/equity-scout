@@ -1,6 +1,6 @@
 # Cockpit Refresh Buttons Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Two buttons in the phone cockpit that start the data refresh on demand — "Tages-Update" (the daily chain) and "Alles aktualisieren" (full scout → daily → nightly) — with an honest "already ran / weekend" message plus an explicit force path, live step status and a log tail.
 
@@ -63,7 +63,7 @@
 - Modify: `scripts/run_daily_guarded.sh`
 - Test: `tests/test_run_daily_guarded.py` (create)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_run_daily_guarded.py`:
 
@@ -157,12 +157,12 @@ def test_failed_chain_leaves_the_day_unmarked_for_retry(tmp_path) -> None:
     assert not (tmp_path / "state" / "daily_last_run").exists()
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `cd ~/private/equity-scout && .venv/bin/python -m pytest tests/test_run_daily_guarded.py -q`
 Expected: FAIL — the wrapper ignores `EQUITY_SCOUT_DAILY_STATE`/`_LOG` (it writes to the real `.state/` and `copilot.log`), so `_runs()` and the marker assertions do not line up; `test_forced_run_ignores_the_day_marker` fails because there is no force path at all.
 
-- [ ] **Step 3: Add the seams and the force bypass**
+- [x] **Step 3: Add the seams and the force bypass**
 
 In `scripts/run_daily_guarded.sh`, replace the block from `REPO_DIR=` down to the end of the marker check with:
 
@@ -208,12 +208,12 @@ fi
 
 Leave the rest of the file (the `echo starting`, `"$CHAIN"`, `rc` handling and marker write) exactly as it is.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `.venv/bin/python -m pytest tests/test_run_daily_guarded.py -q`
 Expected: PASS, 5 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/run_daily_guarded.sh tests/test_run_daily_guarded.py
@@ -228,7 +228,7 @@ git commit -m "feat: add force bypass and test seams to the daily guard wrapper"
 - Modify: `scripts/run_nightly_guarded.sh`, `scripts/run_weekly_guarded.sh`
 - Test: `tests/test_run_nightly_guarded.py`, `tests/test_run_weekly_guarded.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_run_weekly_guarded.py`:
 
@@ -278,12 +278,12 @@ def test_forced_run_ignores_the_day_marker(tmp_path) -> None:
     assert "FORCED" in (tmp_path / "train.log").read_text()
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_run_nightly_guarded.py tests/test_run_weekly_guarded.py -q`
 Expected: the two new tests FAIL with `assert 1 == 2` — the marker still arbitrates the forced run away.
 
-- [ ] **Step 3: Add the bypass to both wrappers**
+- [x] **Step 3: Add the bypass to both wrappers**
 
 In `scripts/run_nightly_guarded.sh`, after the `CHAIN=` line add:
 
@@ -314,12 +314,12 @@ elif [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$THIS_WEEK" ]; then
 fi
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/test_run_nightly_guarded.py tests/test_run_weekly_guarded.py -q`
 Expected: PASS, all tests in both files green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/run_nightly_guarded.sh scripts/run_weekly_guarded.sh tests/test_run_nightly_guarded.py tests/test_run_weekly_guarded.py
@@ -334,7 +334,7 @@ git commit -m "feat: add force bypass to the nightly and weekly guard wrappers"
 - Create: `scripts/run_full_refresh.sh`
 - Test: `tests/test_run_full_refresh.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_run_full_refresh.py`:
 
@@ -416,12 +416,12 @@ def test_a_failing_phase_does_not_stop_the_rest(tmp_path) -> None:
     assert "FAILED scout" in (tmp_path / "full_refresh.log").read_text()
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_run_full_refresh.py -q`
 Expected: FAIL — `scripts/run_full_refresh.sh` does not exist (bash exits 127).
 
-- [ ] **Step 3: Write the wrapper**
+- [x] **Step 3: Write the wrapper**
 
 Create `scripts/run_full_refresh.sh`:
 
@@ -483,12 +483,12 @@ Then make it executable:
 chmod +x scripts/run_full_refresh.sh
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `.venv/bin/python -m pytest tests/test_run_full_refresh.py -q`
 Expected: PASS, 3 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/run_full_refresh.sh tests/test_run_full_refresh.py
@@ -503,7 +503,7 @@ git commit -m "feat: add full-refresh wrapper chaining scout, daily and nightly"
 - Create: `src/equity_scout/jobs.py`
 - Test: `tests/test_jobs.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_jobs.py`:
 
@@ -686,12 +686,12 @@ def test_job_status_for_the_full_job_lists_the_three_phase_markers(tmp_path) -> 
     assert status["blocked"] is None
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_jobs.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'equity_scout.jobs'`.
 
-- [ ] **Step 3: Write the module**
+- [x] **Step 3: Write the module**
 
 Create `src/equity_scout/jobs.py`:
 
@@ -969,12 +969,12 @@ def start_job(spec: JobSpec, root: Path = REPO_ROOT, *, force: bool) -> None:
     subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=20)
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `.venv/bin/python -m pytest tests/test_jobs.py -q`
 Expected: PASS, 18 passed.
 
-- [ ] **Step 5: Lint and commit**
+- [x] **Step 5: Lint and commit**
 
 ```bash
 .venv/bin/python -m ruff check src/equity_scout/jobs.py tests/test_jobs.py
@@ -990,7 +990,7 @@ git commit -m "feat: add job specs and status readers for manual chain triggers"
 - Modify: `src/equity_scout/api.py` (insert after the `/api/inbox/{pitch_id}/decision` route, currently ending ~line 1519)
 - Test: `tests/test_api_jobs.py` (create)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_api_jobs.py`:
 
@@ -1088,12 +1088,12 @@ def test_a_refused_launch_surfaces_as_a_500_with_the_reason(client, started, mon
     assert "Unit already exists." in response.json()["error"]
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_api_jobs.py -q`
 Expected: FAIL — `GET /api/jobs` returns 404 (the route does not exist).
 
-- [ ] **Step 3: Add the routes**
+- [x] **Step 3: Add the routes**
 
 In `src/equity_scout/api.py`, directly after the closing of the `/api/inbox/{pitch_id}/decision` route (the `return JSONResponse({"ok": True, "pitch": ..., "disclaimer": DISCLAIMER})` block) and before `@app.get("/api/arena")`, insert:
 
@@ -1180,12 +1180,12 @@ grep -n "^from datetime import" src/equity_scout/api.py
 from datetime import date, datetime, timezone
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `.venv/bin/python -m pytest tests/test_api_jobs.py -q`
 Expected: PASS, 6 passed.
 
-- [ ] **Step 5: Verify the token gate covers the new routes**
+- [x] **Step 5: Verify the token gate covers the new routes**
 
 Run:
 ```bash
@@ -1200,7 +1200,7 @@ PY
 ```
 Expected: `test_api_auth.py` green, and both printed statuses are **401** — the TestClient's host is not loopback, so the middleware rejects both routes without a token.
 
-- [ ] **Step 6: Lint and commit**
+- [x] **Step 6: Lint and commit**
 
 ```bash
 .venv/bin/python -m ruff check src/equity_scout/api.py tests/test_api_jobs.py
@@ -1216,7 +1216,7 @@ git commit -m "feat: add job status and start endpoints for the cockpit refresh"
 - Modify: `frontend/src/api.ts` (append at the end, after `fetchCompany`)
 - Create: `frontend/src/jobs.ts`, `frontend/src/jobs.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `frontend/src/jobs.test.ts`:
 
@@ -1300,12 +1300,12 @@ describe("blockedText", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `cd ~/private/equity-scout/frontend && npm test -- jobs`
 Expected: FAIL — `Failed to resolve import "./jobs"`.
 
-- [ ] **Step 3: Add the API types and the helpers**
+- [x] **Step 3: Add the API types and the helpers**
 
 Append to `frontend/src/api.ts`:
 
@@ -1423,12 +1423,12 @@ export function blockedText(blocked: JobState["blocked"]): string {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npm test -- jobs && npm run typecheck`
 Expected: `jobs.test.ts` 10 passed, typecheck clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd ~/private/equity-scout
@@ -1444,7 +1444,7 @@ git commit -m "feat: add job API client and progress helpers to the dashboard"
 - Create: `frontend/src/components/RefreshPanel.tsx`
 - Modify: `frontend/src/index.css`
 
-- [ ] **Step 1: Write the component**
+- [x] **Step 1: Write the component**
 
 Create `frontend/src/components/RefreshPanel.tsx`:
 
@@ -1622,7 +1622,7 @@ export function RefreshPanel() {
 }
 ```
 
-- [ ] **Step 2: Add the styles**
+- [x] **Step 2: Add the styles**
 
 Append to `frontend/src/index.css`:
 
@@ -1732,12 +1732,12 @@ grep -cE "var\(--(border|border-strong|text-muted|accent|warning|bg-surface|bg-i
 ```
 Expected: a count well above the 12 new usages — these tokens are used throughout the file already.
 
-- [ ] **Step 3: Typecheck**
+- [x] **Step 3: Typecheck**
 
 Run: `cd frontend && npm run typecheck`
 Expected: no output (clean).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 cd ~/private/equity-scout
@@ -1752,7 +1752,7 @@ git commit -m "feat: add refresh panel with chain buttons, progress and log tail
 **Files:**
 - Modify: `frontend/src/components/LaborView.tsx`, `frontend/src/views.ts`
 
-- [ ] **Step 1: Add the tab**
+- [x] **Step 1: Add the tab**
 
 In `frontend/src/components/LaborView.tsx`:
 
@@ -1796,7 +1796,7 @@ const TABS: { key: LaborTab; label: string }[] = [
 
 Leave `useState<LaborTab>("strategien")` untouched — which tab opens first is a separate UX decision, and Labor's current default is a reading surface.
 
-- [ ] **Step 2: Mention it in the Mehr sheet**
+- [x] **Step 2: Mention it in the Mehr sheet**
 
 In `frontend/src/views.ts`, change the Labor note so the entry point is findable from the sheet:
 
@@ -1804,7 +1804,7 @@ In `frontend/src/views.ts`, change the Labor note so the entry point is findable
   labor: "Strategien, Modelle, Lernkurven — und Daten aktualisieren.",
 ```
 
-- [ ] **Step 3: Verify the build**
+- [x] **Step 3: Verify the build**
 
 Run:
 ```bash
@@ -1812,7 +1812,7 @@ cd frontend && npm run typecheck && npm test && npm run build
 ```
 Expected: typecheck clean, all vitest files pass, `vite build` writes the bundle without warnings about missing exports.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 cd ~/private/equity-scout
@@ -1826,22 +1826,22 @@ git commit -m "feat: surface the refresh panel as the first Labor tab"
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Run the Python suite**
+- [x] **Step 1: Run the Python suite**
 
 Run: `cd ~/private/equity-scout && .venv/bin/python -m pytest -q`
 Expected: everything passes. The suite is ~1750 tests; if anything unrelated fails, check whether it also fails on `git stash` before treating it as your regression.
 
-- [ ] **Step 2: Run ruff over the whole diff**
+- [x] **Step 2: Run ruff over the whole diff**
 
 Run: `.venv/bin/python -m ruff check src/ tests/ scripts/`
 Expected: `All checks passed!`
 
-- [ ] **Step 3: Run the frontend suite**
+- [x] **Step 3: Run the frontend suite**
 
 Run: `cd frontend && npm run typecheck && npm test && npm run build`
 Expected: clean typecheck, all tests pass, build succeeds.
 
-- [ ] **Step 4: Verify bash syntax of all four wrappers**
+- [x] **Step 4: Verify bash syntax of all four wrappers**
 
 Run:
 ```bash
@@ -1861,7 +1861,7 @@ Expected: four `OK` lines.
 
 **This task changes live state — announce each step to Nico before running it and stop where it says stop.**
 
-- [ ] **Step 1: Rebuild the served frontend and restart the dashboard**
+- [x] **Step 1: Rebuild the served frontend and restart the dashboard**
 
 The service serves the built bundle, so a source-only change is invisible until both happen:
 
@@ -1872,7 +1872,7 @@ systemctl --user is-active equity-scout-dash.service
 ```
 Expected: `active`.
 
-- [ ] **Step 2: Read the status through the real API**
+- [x] **Step 2: Read the status through the real API**
 
 ```bash
 cd ~/private/equity-scout
@@ -1881,7 +1881,7 @@ curl -s -H "X-Dash-Token: $TOKEN" http://127.0.0.1:8420/api/jobs | .venv/bin/pyt
 ```
 Expected: two jobs. `daily` shows `"running": false`, `"last_run": "2026-08-07"`, and `"blocked": "weekend"` when run on a Saturday or Sunday. `full` shows `"sub_runs"` with `scout: null` (the weekly marker has never been written).
 
-- [ ] **Step 3: Verify the honest no-op answer**
+- [x] **Step 3: Verify the honest no-op answer**
 
 ```bash
 curl -s -X POST -H "X-Dash-Token: $TOKEN" -H "Content-Type: application/json" \
@@ -1893,11 +1893,11 @@ systemctl --user list-units 'es-job-*' --all
 ```
 Expected: no units listed.
 
-- [ ] **Step 4: STOP — get Nico's go before the forced start**
+- [x] **Step 4: STOP — get Nico's go before the forced start**
 
 A forced daily run is not a dry run: it executes `run_notify.py --min-pitches 5` and `run_digest.py`, so **Nico receives Telegram messages**, and it writes to `equity_scout.db` for ~26 minutes. Tell him exactly that and wait for his go.
 
-- [ ] **Step 5: Forced start and progress check**
+- [x] **Step 5: Forced start and progress check**
 
 ```bash
 curl -s -X POST -H "X-Dash-Token: $TOKEN" -H "Content-Type: application/json" \
@@ -1914,7 +1914,7 @@ curl -s -H "X-Dash-Token: $TOKEN" http://127.0.0.1:8420/api/jobs \
 ```
 Expected: `True` plus a `current` step name and a rising `done_count`.
 
-- [ ] **Step 6: Prove the run survives a service restart**
+- [x] **Step 6: Prove the run survives a service restart**
 
 This is the whole reason for `systemd-run`:
 
@@ -1927,7 +1927,7 @@ curl -s -H "X-Dash-Token: $TOKEN" http://127.0.0.1:8420/api/jobs \
 ```
 Expected: the `es-job-daily-*` unit is still active and `running` is still `True`.
 
-- [ ] **Step 7: Verify the lock refusal against the live run**
+- [x] **Step 7: Verify the lock refusal against the live run**
 
 While the chain is still running:
 ```bash
@@ -1940,11 +1940,11 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "X-Dash-Token: $TOKEN" \
 ```
 Expected: **409** both times — force never bypasses the lock, and the running daily chain blocks the full refresh too.
 
-- [ ] **Step 8: Phone check**
+- [x] **Step 8: Phone check**
 
 Ask Nico to open the cockpit on his phone (Tailscale), go Mehr → Labor → Aktualisieren, and confirm: both cards render, the running chain shows a step name that advances, "Log ansehen" opens the tail, and the button is disabled while it runs.
 
-- [ ] **Step 9: Confirm the chain finished cleanly**
+- [x] **Step 9: Confirm the chain finished cleanly**
 
 ```bash
 grep "guarded: chain finished" copilot.log | tail -1
@@ -1960,7 +1960,7 @@ Expected: `rc=0` and today's date in the marker.
 - Modify: `README.md`
 - Modify: `docs/superpowers/plans/2026-08-09-cockpit-refresh-buttons.md` (this file)
 
-- [ ] **Step 1: Document the buttons in the README**
+- [x] **Step 1: Document the buttons in the README**
 
 Find the "Handy-Cockpit" section (`grep -n "Handy-Cockpit" README.md`) and add, in that section's style and language:
 
@@ -1979,11 +1979,11 @@ expliziter Tap setzt `EQUITY_SCOUT_FORCE=1` und umgeht Marker und Wochenend-Guar
 flock umgeht nichts — zwei Ketten auf einer SQLite-Datei bleiben ausgeschlossen.
 ```
 
-- [ ] **Step 2: Append the outcome section to this plan**
+- [x] **Step 2: Append the outcome section to this plan**
 
 Add at the end of this file: what was implemented, any deviation from the plan, measured runtimes from Task 10, and whatever stayed open (e.g. whether Nico wants the entry point somewhere more prominent than Labor).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.md docs/superpowers/plans/2026-08-09-cockpit-refresh-buttons.md
@@ -2033,9 +2033,12 @@ real `copilot.log` at 21:48 — they come from the TDD red run in Task 1, execut
 unconditionally. Harmless (they are not session markers, so `parse_progress` ignores them)
 and self-healing: the next real run's session line moves the tail past them.
 
-**Not done:** the README section. `README.md` belongs to the parallel P2 session in this
-working tree right now; the documentation lives in this plan until that session lands, then
-the "Aktualisieren von Hand" block from Task 11 can be added.
+**Not done at the time:** the README section — `README.md` belonged to a parallel session
+in this working tree. Caught up on 2026-08-23: the "Aktualisieren von Hand" block from
+Task 11 now sits in the Handy-Cockpit section, verified against the current IA (the panel
+still hangs in `LaborView` under the `aktualisieren` tab, unchanged by the 08-08 rebuild
+from 13 views to 5 tabs). With that the plan is closed and its boxes are ticked; the three
+"Open points for Nico" below are decisions, not work.
 
 ## Open points for Nico
 

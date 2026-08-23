@@ -457,6 +457,20 @@ like an app on the phone (v12 M1–M4):
 5. `DASH_URL=http://<host>:8420` in `.env`: jede Abschnitts-Überschrift im 18:00-Digest
    wird damit zum Deeplink in die passende Cockpit-Ansicht.
 
+### Aktualisieren von Hand (Mehr → Labor → Aktualisieren)
+
+Zwei Buttons starten die Datenketten außerhalb des Zeitplans:
+
+- **Tages-Update** — `scripts/run_daily_guarded.sh` (~26 min, endet mit dem Telegram-Digest).
+- **Alles aktualisieren** — `scripts/run_full_refresh.sh`: Voll-Scout → Tages-Update →
+  Nachtlauf, mehrere Stunden.
+
+Beide laufen als eigene transiente systemd-Unit (`es-job-<key>-<epoch>.service`), damit ein
+Neustart des Dashboards eine laufende Kette nicht mitreißt. Der erste Tap meldet nur, wenn
+die Kette heute schon gelaufen ist oder der Wochenend-Guard greift; erst ein zweiter,
+expliziter Tap setzt `EQUITY_SCOUT_FORCE=1` und umgeht Marker und Wochenend-Guard. Den
+flock umgeht nichts — zwei Ketten auf einer SQLite-Datei bleiben ausgeschlossen.
+
 ### Vier Fokusse am Handy (2026-08-04)
 
 Unter 720 px Breite ersetzt eine Tab-Leiste am unteren Rand die 12-teilige Sidebar:

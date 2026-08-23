@@ -31,11 +31,44 @@ checks the box, and appends one line to `AUTOPILOT_LOG.md`.
         Mockup-v2-Umbau vom 08.08. (13 Views → 5 Tabs) teilweise überholt — vor dem Anfangen
         gegen die heutige IA neu bewerten, nicht blind abarbeiten. Task 8 desselben Plans gilt
         durch den Assistent-Uplift vom 07.08. als erledigt, die Haken fehlen nur.
-      - `docs/superpowers/plans/2026-08-09-cockpit-refresh-buttons.md`: sieht im Code umgesetzt
-        aus (die Guard-Wrapper tragen die Plan-Kommentare wörtlich), aber alle Checkboxen sind
-        offen und ein Outcome-Abschnitt fehlt — verifizieren und den Plan schließen.
+      - ~~`docs/superpowers/plans/2026-08-09-cockpit-refresh-buttons.md` verifizieren und
+        schließen~~ — ERLEDIGT 2026-08-23. Er war vollständig umgesetzt, inklusive eines
+        Outcome-Abschnitts mit Live-Verify-Tabelle; offen waren nur die Haken und die
+        README-Sektion aus Task 11 (sie gehörte damals einer parallelen Session). Beides
+        nachgetragen, das Panel gegen die heutige IA gegengeprüft: es hängt unverändert in
+        `LaborView` unter dem Tab `aktualisieren`, vom 08-08-Umbau nicht berührt.
       - Nicos eigener Durchklick auf dem Handy steht seit dem 08.08. als Needs-Nico aus; ohne
         seine Funde ist "zu Ende" nicht bestimmbar.
+
+## Runde 2026-08-23 (Nico: „mach jetzt alles fertig") — DONE
+Liegengebliebene Arbeit abgeschlossen und zwei Blindstellen geschlossen. Details im
+`AUTOPILOT_LOG.md`-Eintrag vom 2026-08-23; hier nur, was für spätere Entscheidungen zählt.
+
+- **Alpaca-Batch überlebt ein totes Symbol.** Die offene Frage der Vorsession ist zu:
+  Alpaca nennt das ungültige Symbol, es wird entfernt und die Anfrage wiederholt. Laut
+  bleiben ein 400 auf ein Symbol, das wir nie gesendet haben, jedes Nicht-400, ein leerer
+  Rest und ein Überschreiten des Deckels.
+- **NULLBEFUND Volume-Block, mit gelaufenem Konsumenten.** Der Block war seit v17c gebaut
+  und wurde von der CLI nie durchgereicht — kein Modell hatte ihn je gesehen. Jetzt
+  verdrahtet und einmal gefahren (DB-Kopie, entry/random_forest, 67.932 Zeilen): Abdeckung
+  **1,00**, AUC **0,5079** auf 54.612 OOS-Zeilen, kein Champion. Anders als bei den
+  Katalysatoren (5,9 % Abdeckung) liegt es hier nicht an dünnen Daten — der Block trägt
+  nichts bei. Als Merkmalsquelle abgehakt, nicht weiter verfolgen.
+- **BLINDSTELLE geschlossen: der Wächter sieht jetzt seinen eigenen Ausfall.** Er läuft im
+  selben Cron-Kommando nach der Crypto-Lane, also ist beim ersten Lauf nach dem Aufwachen
+  jeder Herzschlag frisch. Rechner schlief 22.08. 19:01 → 23.08. 03:30 und 03:56 → 13:48,
+  ohne dass irgendetwas meldete. Neu: `scheduler_gap` misst gegen den Vorgängerlauf und
+  bepreist die Lücke in **Handelsminuten** — live gefunden am 14:00-Lauf (19,0 h, 0
+  Handelsminuten), während der alte Check darunter „alle Ketten am Leben" druckte.
+- **BEFUND Gap-Fade: die Lane hat am 21.08. faktisch nichts beurteilt.** Ihre einzige Zeile
+  trug einen zwei Tage alten Kurs. Sie protokolliert jetzt `asked/quoted/fresh/judgeable`,
+  womit die entscheidende Frage messbar wird, statt geschätzt zu werden.
+- [ ] **Beobachten (frühestens ab Mo 2026-08-24): reicht der IEX-Pre-Market für diese Lane
+      überhaupt?** Die neue Abdeckungszeile liefert ab dem nächsten Handelstag die Serie.
+      Entscheidungsregel vorab registriert, damit sie nicht nachträglich gebogen wird:
+      **bleibt `judgeable` über zehn Handelstage im Median unter 5 von ~24, ist das
+      60-Trade-Stoppkriterium unerreichbar** und die Lane braucht entweder ein liquideres
+      Universum oder wird beendet — nicht „läuft halt weiter".
 
 ## Phase: Allocator-Tilt auf Inverse-Vol statt Sharpe-Softmax (2026-08-17) — DONE
 Task 4 aus `docs/superpowers/plans/2026-08-16-autotrader-review-upgrades.md`.
