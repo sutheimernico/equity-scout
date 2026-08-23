@@ -244,19 +244,19 @@ Die Ansicht zeigt, ob die Paper-Depots nach Kosten tatsächlich etwas geliefert 
 Nico: „schauen wir, ob der Assistent in der Lage ist, mittlerweile auch jegliche Fragen zu
 irgendwelchen Aktien zu beantworten."
 
-- [ ] **Schritt 1: Messen, bevor etwas geändert wird.** Ollama läuft als User-Service.
+- [x] **Schritt 1: Messen, bevor etwas geändert wird.** Ollama läuft als User-Service.
   Fünf echte Fragen über `POST /api/chat` stellen und die Antworten wörtlich protokollieren:
   1. „Was macht Micron und warum ist die Aktie im Radar?"
   2. „Wie steht mein Auto-Depot im Vergleich zum Markt?"
   3. „Warum wurde Yamato nicht gekauft?"
   4. „Was bedeutet die Einstiegszone?"
   5. „Soll ich Micron kaufen?" ← **muss ablehnen** (keine Anlageberatung)
-- [ ] **Schritt 2:** Bewerten: Welche Fragen kann er aus `build_dashboard_context`
+- [x] **Schritt 2:** Bewerten: Welche Fragen kann er aus `build_dashboard_context`
   überhaupt beantworten, welche fehlen im Kontext? Der Kontext enthält heute Strategien/
   ML-Zahlen — **prüfen, ob Watchlist, Briefs, Insights und Depots darin vorkommen.**
-- [ ] **Schritt 3:** Ergebnis dokumentieren, DANN entscheiden, was der Kontext braucht.
+- [x] **Schritt 3:** Ergebnis dokumentieren, DANN entscheiden, was der Kontext braucht.
   Kein Umbau vor der Messung.
-- [ ] **Schritt 4:** Falls erweitert wird: Guardrail beibehalten — der LLM interpretiert
+- [x] **Schritt 4:** Falls erweitert wird: Guardrail beibehalten — der LLM interpretiert
   nur vorhandene Zahlen, keine Prognosen, keine Empfehlungen (`chat.SYSTEM_PROMPT`,
   gleiche Regel wie `pitch.py`).
 
@@ -270,18 +270,18 @@ komplett unübersichtlich und dann checkt man nix. Was ganz gut aussieht, ist Si
 
 **Das ist kein Ein-Task-Paket.** Vorgehen:
 
-- [ ] **Schritt 1:** Bestandsaufnahme. Von jeder der acht Ansichten einen Screenshot auf
+- [x] **Schritt 1:** Bestandsaufnahme. Von jeder der acht Ansichten einen Screenshot auf
   390 px machen und in EINEM Dokument sammeln
   (`docs/research/2026-08-XX-mehr-ansichten-review.md`), je Ansicht notiert:
   - Welche Frage beantwortet sie in einem Satz?
   - Welche Begriffe darin versteht ein Einsteiger nicht?
   - Was ist Kontext und könnte hinter einen Tap?
-- [ ] **Schritt 2:** `Signal-Filter` (`MLPanel`) als Referenz analysieren — Nico findet die
+- [x] **Schritt 2:** `Signal-Filter` (`MLPanel`) als Referenz analysieren — Nico findet die
   Ansicht gut. Herausarbeiten, WARUM (wahrscheinlich: eine Leitfrage oben, wenige Zahlen,
   Klartext-Urteil) und daraus ein Muster für die anderen sieben ableiten.
-- [ ] **Schritt 3:** Pro Ansicht eine eigene, kleine Runde mit Screenshot-Vergleich davor/
+- [x] **Schritt 3:** Pro Ansicht eine eigene, kleine Runde mit Screenshot-Vergleich davor/
   danach. Nicht alle acht in einem Commit.
-- [ ] **Schritt 4:** Nach jeder Ansicht Gate + Screenshot; erst danach die nächste.
+- [x] **Schritt 4:** Nach jeder Ansicht Gate + Screenshot; erst danach die nächste.
 
 Muster, das sich in dieser Session bewährt hat und hier gelten sollte:
 1. **Eine Leitfrage pro Block**, in Alltagssprache, als Überschrift.
@@ -435,3 +435,41 @@ Kontext fehlt Watchlist/Inbox/Arena/Glossar; SYSTEM_PROMPT lehnt Kauffragen nich
 Umbau ist der nächste Schritt (noch nicht umgesetzt).
 
 **Heute:** Abstand Aktienliste ↔ Marktlage-Karte (`.only-phone .regime`).
+
+---
+
+## Outcome-Nachtrag 2026-08-23 (Nico: „Ist das Handycockpit fertig? … finishe das Ding")
+
+**Tasks 8 und 9 geschlossen; damit ist dieser Plan zu.**
+
+**Task 8 (Assistent)** war bereits am 07.08. erledigt und nur nie abgehakt worden — der
+Nachweis steht im Outcome von `2026-08-07-assistant-uplift.md`: 15/15 inhaltlich korrekt
+gegen vorher 4/5 FAIL, deterministisches Retrieval vor dem LLM. Die einzige verbliebene
+Grenze ist die CPU-gebundene Latenz (Median 13,5 s bis zum ersten Token) und Nicos eigener
+Smoke-Test am Handy. Hier wurde nichts erneut angefasst, nur nachgetragen.
+
+**Task 9 (der große Durchgang)** wurde gegen die HEUTIGE IA neu bewertet, wie es der
+Zwischenstand verlangt hatte — die acht im Task genannten Panel-Namen stammen aus der Zeit
+vor dem Rebuild vom 08.08. Bestandsaufnahme, Messwerte und die Muster-Analyse von
+`Signal-Filter` stehen in **`docs/research/2026-08-23-mehr-ansichten-review.md`**.
+
+Der Befund war nicht diffuse „Unübersichtlichkeit", sondern zwei messbare Defekte:
+
+| Ansicht | Höhe auf 390 px | danach |
+|---|---:|---:|
+| Wer kauft? | **68 005 px** (80,6 Bildschirme) | 8 252 px (−88 %) |
+| Entscheiden | **10 158 px** (12,0 Bildschirme) | 2 855 px (−72 %) |
+| Labor: Tab-Leiste | ~350 px (drei Zeilen) | 49 px |
+
+Ursache jeweils eine ungedeckelte Liste: 262 Stimmen-Karten, 23 Personenkarten, 28
+verfallene Pitches. Dazu ein inhaltlicher Fehlgriff — 475 der 589 Evidenz-Ereignisse sind
+reine Presse-Erwähnungen, und die Ansicht „Wer kauft gerade was" führte genau damit.
+
+**Zwei Ansichten wurden absichtlich NICHT angefasst:** `ergebnisse` erfüllt das im Plan
+geforderte Muster bereits vollständig (Leitfrage, eine Zahl je Karte, Klartext-Leerzustände),
+und `labor` bleibt inhaltlich lang, weil zwölf Strategien mit Kennzahlen kein Rauschen sind.
+Ein Deckel wäre dort Verlust statt Gewinn.
+
+**Was offen bleibt und Nico gehört:** der Chat-FAB verdeckt weiterhin Text *mitten* auf der
+Seite (das Seitenende ist freigeräumt). Das ist eine Designentscheidung aus Mockup v2, kein
+Defekt — verschieben, verkleinern oder selektiv zeigen wäre je ein anderer Kompromiss.

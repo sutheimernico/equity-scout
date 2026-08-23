@@ -22,23 +22,29 @@ highest-value open `- [ ]` task, does it on `autopilot/work`, runs the gate, com
 checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 
 ## Von Nico angesetzt — nächste Session (notiert 2026-08-16, 03:00)
-- [ ] **Das Handy-Cockpit fertig bauen.** Nicos Ansage in der Nacht auf den 16.08.: "morgen die
-      App zu Ende bauen fürs Handy, das Dashboard". **Der Scope ist NICHT festgelegt — erster
-      Schritt ist die Klärung mit Nico, was "zu Ende" für ihn heißt, nicht das Bauen.**
-      Bekannte Kandidaten für diese Klärung:
-      - **Task 9** aus `docs/superpowers/plans/2026-08-06-phone-cockpit-beginner-friendly.md`
-        ("Mehr"-Ansichten einsteigerfreundlich, der große Durchgang über acht Panels). Durch den
-        Mockup-v2-Umbau vom 08.08. (13 Views → 5 Tabs) teilweise überholt — vor dem Anfangen
-        gegen die heutige IA neu bewerten, nicht blind abarbeiten. Task 8 desselben Plans gilt
-        durch den Assistent-Uplift vom 07.08. als erledigt, die Haken fehlen nur.
+- [x] **Das Handy-Cockpit fertig bauen.** — ERLEDIGT 2026-08-23 auf Nicos "finishe das Ding".
+      Der Scope war nie festgelegt; statt zu raten wurde **gemessen**: Playwright gegen den
+      laufenden Dienst, Viewport 390 px, `scrollHeight` pro Ansicht. Damit war "unübersichtlich"
+      keine Geschmacksfrage mehr, sondern zwei Zahlen: **Wer kauft? 68 005 px (80,6
+      Bildschirme), Entscheiden 10 158 px (12,0)** — beides ungedeckelte Listen. Nach dem Umbau
+      8 252 px (−88 %) und 2 855 px (−72 %); Labors dreizeilige Tab-Leiste 350 → 49 px.
+      Bestandsaufnahme + Muster-Analyse: `docs/research/2026-08-23-mehr-ansichten-review.md`,
+      Outcome im Beginner-Plan. `ergebnisse` blieb bewusst unangetastet — sie ERFÜLLT das
+      Muster, das der Plan für die anderen fordert. Was noch offen war:
+      - ~~Task 9 (der große Durchgang über acht Panels)~~ — ERLEDIGT. Gegen die heutige IA neu
+        bewertet statt blind abgearbeitet, wie hier gefordert: die acht Panel-Namen stammten
+        aus der Zeit vor dem Rebuild. Task 8 war seit dem 07.08. erledigt (15/15 korrekt) und
+        ist jetzt auch abgehakt. Der Beginner-Plan hat damit keine offene Box mehr.
       - ~~`docs/superpowers/plans/2026-08-09-cockpit-refresh-buttons.md` verifizieren und
         schließen~~ — ERLEDIGT 2026-08-23. Er war vollständig umgesetzt, inklusive eines
         Outcome-Abschnitts mit Live-Verify-Tabelle; offen waren nur die Haken und die
         README-Sektion aus Task 11 (sie gehörte damals einer parallelen Session). Beides
         nachgetragen, das Panel gegen die heutige IA gegengeprüft: es hängt unverändert in
         `LaborView` unter dem Tab `aktualisieren`, vom 08-08-Umbau nicht berührt.
-      - Nicos eigener Durchklick auf dem Handy steht seit dem 08.08. als Needs-Nico aus; ohne
-        seine Funde ist "zu Ende" nicht bestimmbar.
+      - **Bleibt Needs Nico:** dein eigener Durchklick auf dem echten Handy (seit 08.08.)
+        und eine Entscheidung zum Chat-FAB — er verdeckt weiterhin Text *mitten* auf der Seite
+        (das Seitenende ist freigeräumt). Verschieben, verkleinern oder nur auf manchen
+        Ansichten zeigen ist je ein anderer Kompromiss und deine Wahl, kein Defekt.
 
 ## Runde 2026-08-23 (Nico: „mach jetzt alles fertig") — DONE
 Liegengebliebene Arbeit abgeschlossen und zwei Blindstellen geschlossen. Details im

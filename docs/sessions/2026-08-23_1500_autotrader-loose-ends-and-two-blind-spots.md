@@ -145,3 +145,78 @@ Abbruchkriterium falsifizierbar: eine Lane, die zwei Titel am Tag beurteilt, err
 Branch `autopilot/work`, Gate 2507 grün, keine angefangene Arbeit. Alles, was ohne Nico ging, ist
 zu; was offen bleibt, steht oben unter „Nico" und ist ausnahmslos eine Entscheidung oder ein
 Zugriff, den der Loop nicht hat.
+
+---
+
+# Teil 2 (~19:30–20:0x) — Handy-Cockpit fertig
+
+Nicos Nachfrage: „Ist das Handycockpit fertig? Sonst mach damit bitte jetzt weiter und
+finishe das Ding."
+
+## Wie der offene Scope aufgelöst wurde
+
+Der PLAN.md-Eintrag stand seit dem 16.08. mit dem Vermerk „Der Scope ist NICHT festgelegt —
+erster Schritt ist die Klärung mit Nico". Statt zu raten oder zu blockieren: **messen.**
+Playwright gegen den laufenden Dienst, Viewport 390 × 844 px, `scrollHeight` je Ansicht.
+Damit war „unübersichtlich" keine Geschmacksfrage mehr.
+
+| Ansicht | vorher | Bildschirme | nachher |
+|---|---:|---:|---:|
+| **Wer kauft?** | **68 005 px** | **80,6** | 8 252 px (**−88 %**) |
+| **Entscheiden** | **10 158 px** | **12,0** | 2 855 px (**−72 %**) |
+| Labor: Tab-Leiste | ~350 px | 3 Zeilen | **49 px** |
+
+## Die Ursache war immer dieselbe
+
+**Ungedeckelte Listen.** `VoicesPanel` rendert alle 262 Stimmen-Ereignisse als volle Karten,
+`PeoplePanel` alle 23 Personenkarten, der Entscheiden-Schirm alle 28 verfallenen von 30
+Pitches.
+
+Dazu ein inhaltlicher Fehlgriff, den erst die Datenzählung sichtbar machte: **475 der 589
+Evidenz-Ereignisse sind reine Presse-Erwähnungen.** Die Ansicht, die verspricht zu zeigen,
+wer *kauft*, bestand zu vier Fünfteln aus Karten mit dem wörtlich identischen Satz „keine
+erkennbare Kauf- oder Verkaufsrichtung". Und in den Personenkarten waren die sechs
+sichtbaren Zeilen Erwähnungen, während Michael Burrys gemeldete Käufe hinter „+89 weitere
+anzeigen" lagen — bei einer Ansicht mit der Überschrift „Wer kauft gerade was".
+
+## Was geändert wurde
+
+- **Stimmen:** gerichtete Aussagen sind die Standardansicht (57 von 262), reine Erwähnungen
+  hinter einem Tab, Liste bei 15 gedeckelt. Der immer gleiche Erklärsatz steht einmal oben
+  statt ~200-mal in den Karten.
+- **Personen:** Meldungen und gerichtete Calls sortieren *innerhalb* einer Karte über bloße
+  Erwähnungen; Karten bei 10 gedeckelt.
+- **Entscheiden:** nur der entschiedene Schwanz wird gedeckelt — **offene Pitches nie**,
+  dafür ist der Schirm da.
+- **Tab-Leisten** mit vielen Einträgen scrollen auf dem Handy seitwärts statt umzubrechen.
+- **`.content`** räumt 140 statt 64 px Fußfreiraum: der Chat-FAB reicht 128 px hoch und saß
+  auf der letzten Listenzeile jeder langen Ansicht.
+
+## Entscheidungen
+
+- **`ergebnisse` bewusst NICHT angefasst.** Sie erfüllt das Muster, das der Plan für alle
+  anderen fordert, bereits vollständig — Leitfrage als Überschrift („Kann das
+  funktionieren?"), eine Zahl je Karte mit ihrer Vergleichsgröße, ehrliche Leerzustände
+  („Noch nicht messbar (braucht abgeschlossene Trades mit Gewinn)"). Sie ist die Vorlage,
+  nicht das Problem.
+- **`labor` bleibt bei 5,2 Bildschirmen.** Zwölf Strategien mit Kennzahlenblöcken sind
+  Inhalt, kein Rauschen; ein Deckel wäre dort Verlust.
+- **Kartenreihenfolge bleibt echte Aktualität**, obwohl innerhalb der Karte anders sortiert
+  wird — sonst überholte ein Monate alter Beleg jemanden, der heute aktiv war. Eigener Test.
+- **Task 9 gegen die heutige IA neu bewertet**, nicht blind abgearbeitet: die acht im Task
+  genannten Panel-Namen stammen aus der Zeit vor dem Rebuild vom 08.08.
+
+## To-dos
+
+### Nico
+
+6. **Durchklick auf dem echten Handy** — steht seit dem 08.08. aus und ist der einzige Test,
+   den ich nicht ersetzen kann.
+7. **Chat-FAB entscheiden:** er verdeckt weiterhin Text *mitten* auf der Seite (das
+   Seitenende ist freigeräumt). Verschieben, verkleinern oder nur auf manchen Ansichten
+   zeigen — je ein anderer Kompromiss, kein Defekt.
+
+### Nächste Session (Agent)
+
+- Screenshot-Messung ist reproduzierbar: Playwright gegen `127.0.0.1:8420` bei 390 px,
+  `scrollHeight` als Maß. Für jede künftige UI-Runde der billigste Realitätstest.
