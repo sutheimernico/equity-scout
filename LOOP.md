@@ -54,6 +54,38 @@ Every one of these cost real time or real damage. They are cheap to follow and e
 - **Rehearse destructive steps against a COPY of the DB, never production** — and when a repair
   script deletes, dry-run by default, `--apply` requires `--backup`.
 
+## More measurement rules (learned 2026-08-23, the day a review caught four of my own numbers)
+Same currency as the ones above: each cost real time or shipped a wrong claim.
+- **A number you read off a picture is not a measurement.** Two tab-bar heights were quoted
+  ~80 % too high because they were eyeballed from a Playwright screenshot taken at
+  `deviceScaleFactor: 2` — image pixels, never halved. Measure the DOM
+  (`getBoundingClientRect`, `scrollHeight`), or halve deliberately and say so.
+- **A default in a counter invents data.** `details.get("kind", "context")` silently counted
+  every source that has no `kind` field as a press mention and turned "205 of 262" into
+  "475 of 589". When you aggregate, count the field's ABSENCE as its own bucket; a default
+  is a fact you made up.
+- **Constants shared with another system must be mirrored and tested, never retyped.**
+  `people.ts` compared against `"13f"` while the backend emits `"thirteen_f"`
+  (`SOURCE_13F`): three dead branches, 80 fund filings labelled "wird in der Presse
+  erwähnt" in the view that asks who is BUYING. I then reproduced the bug in new code by
+  copying the literal from the lines above it. Name the constant, mirror it from the
+  source of truth, and assert the set against what the API really sends.
+- **A test that only feeds the cases the code already handles proves nothing.** The label
+  tests above passed for months without ever constructing a fund event. Feed the case you
+  believe is handled — that is where the silence lives.
+- **A binary rendering of a multi-valued field needs its invariant pinned by a test.**
+  `verdictLine` renders "verdient Geld" vs "verliert Geld" and is only honest because
+  `is_significant` implies a directional verdict. Nothing enforced that until it was
+  written down as a test; an equivalence test added later would have made the cockpit
+  claim a loss where the finding was "no effect".
+- **Recommendations rot, and they rot silently.** "Run the machine 15:30–22:00 on trading
+  days" was carried forward in every session doc after the SESSION lane was paused — while
+  the gap-fade signal window is 15:00–15:28. Following it would have guaranteed the lane
+  never places an order. Before repeating an instruction, check the thing it was about
+  still exists. "(unverändert)" is a claim, not a disclaimer.
+- **Check the weekday before diagnosing a dead chain.** Weekday-only crons are legitimately
+  silent on a Sunday; that cost the first twenty minutes of 2026-08-23.
+
 ## Gate (objective done-check)
 `uv run pytest -q` green + `uv run ruff check .` clean. Commit only a green gate.
 

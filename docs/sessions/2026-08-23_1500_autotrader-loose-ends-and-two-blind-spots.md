@@ -288,3 +288,61 @@ gesetzt.
 läuft er durch) · Telegram-Token-Rotation, **jetzt dringlicher**, weil heute zusätzlich der
 `DASH_TOKEN` per Telegram-Link verschickt wurde · Matrix-Hold-out-Go · Chat-FAB-Entscheidung
 · Durchklick am Handy.
+
+---
+
+# Teil 4 (~21:0x–21:3x) — die Fehlerklasse zu Ende geprüft
+
+Nach dem 13F-Fund wäre es fahrlässig gewesen, es beim Einzelfix zu belassen: derselbe
+Fehler kann überall stecken, wo das Frontend gegen einen String vergleicht, den das Backend
+setzt.
+
+## Vorgehen
+
+Alle Stringvergleiche des Frontends gesammelt
+(`source|status|kind|change|reason|verdict|lane|mode|family === "…"`) und gegen die Werte
+gehalten, die **15 API-Endpunkte tatsächlich senden**.
+
+| Vergleich | API sendet | Urteil |
+|---|---|---|
+| `source === "voice"` | voice | ok |
+| `status === "open"/"expired"` | open, expired, buy | ok |
+| `kind === "context"` | context, call, call_bearish | ok |
+| `change === "new"` | new, increased | ok |
+| `mode === "anchor"` | anchor | ok |
+| `lane === "nico"` | nico (+5 weitere) | ok |
+| `target_stop.source === "model"` | heuristic_v1 heute, „model" sobald ein Champion steht | ok |
+| `source === "13f"` | **thirteen_f** | **war tot — gefixt** |
+| `kind === "backtest"/"forward"/"anchor"`, `reason === "all"` | — | Frontend-eigene Props, keine API-Felder |
+
+## Was dabei zusätzlich auffiel
+
+`lanes.ts::verdictLine` rendert das Lane-Urteil **binär** — „verdient Geld" / „verliert
+Geld" —, während `significance.assess_trades` **fünf** Verdicts kennt: positiv, negativ,
+kein messbarer Effekt, noch nicht aussagekräftig, zu wenige Trades.
+
+**Heute ist das korrekt**, weil der Binärzweig hinter `is_significant` liegt und `p < alpha`
+nur bei den beiden gerichteten Verdicts wahr werden kann (die anderen drei setzen
+`p_value=None` oder liegen über alpha). **Nichts hat diese Invariante erzwungen.** Ein
+später ergänzter Äquivalenztest („signifikant KEIN Effekt") hätte das Cockpit still
+behaupten lassen, eine Lane *verliere Geld*, wo der Befund „kein Unterschied" lautet — in
+einem Projekt, dessen erste Regel ist, dass ein Nullergebnis ein valides Ergebnis ist.
+
+Jetzt festgenagelt durch `test_a_significant_result_is_always_positive_or_negative`: fünf
+Datenlagen, die Implikation geprüft — **und** geprüft, dass die Fälle beide Richtungen
+überhaupt erzeugen, sonst bewiese die Zusicherung nichts. Der Frontend-Kommentar nennt den
+Test beim Namen.
+
+## Die Lehren stehen jetzt in LOOP.md
+
+Nicht in einer Session-Doku, wo sie versanden, sondern dort, wo der nächste Agent sie liest
+— als eigener Abschnitt neben den Messregeln vom 11./12.08.:
+
+1. Ein aus einem Bild abgelesener Wert ist keine Messung (`deviceScaleFactor: 2`).
+2. Ein Default in einem Zähler erfindet Daten (`get("kind", "context")`).
+3. Geteilte Konstanten spiegeln und testen, nie abtippen.
+4. Ein Test, der nur die behandelten Fälle füttert, beweist nichts.
+5. Eine binäre Darstellung eines mehrwertigen Feldes braucht ihre Invariante als Test.
+6. **Empfehlungen verrotten still** — „(unverändert)" ist eine Behauptung, kein
+   Haftungsausschluss.
+7. Wochentag prüfen, bevor man eine tote Kette diagnostiziert.

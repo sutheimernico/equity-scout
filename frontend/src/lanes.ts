@@ -107,6 +107,12 @@ export function verdictLine(significance: {
   n: number;
 }): { text: string; settled: boolean } {
   if (significance.significant) {
+    // Binary on purpose, and it holds only because `significant` implies a DIRECTIONAL
+    // verdict — the backend can also answer "kein messbarer Effekt", "zu wenige Trades" or
+    // "noch nicht aussagekräftig", and every one of those would read as "verliert Geld"
+    // here. That invariant is pinned by test_a_significant_result_is_always_positive_or_
+    // negative in tests/test_significance.py; if an equivalence test ever makes a null
+    // finding significant, that test fails first and this line has to learn a third case.
     const direction = significance.verdict === "positiv" ? "verdient Geld" : "verliert Geld";
     return { text: `Urteil steht: ${direction}`, settled: true };
   }

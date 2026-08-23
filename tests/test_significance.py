@@ -100,3 +100,36 @@ def test_a_stricter_alpha_makes_a_borderline_result_not_significant():
     strict = assess_trades(pnls, alpha=bonferroni_alpha(16))
     assert strict.alpha < 0.05
     assert strict.trades_needed is not None and strict.trades_needed > 0
+
+
+def test_a_significant_result_is_always_positive_or_negative():
+    """The invariant the phone cockpit depends on (found while reviewing 2026-08-23).
+
+    `frontend/src/lanes.ts::verdictLine` renders a settled verdict as a binary — "verdient
+    Geld" for "positiv", "verliert Geld" for everything else — and gates that on
+    `is_significant`. That is only honest while `is_significant` implies a DIRECTIONAL
+    verdict. Add an equivalence test later ("significantly no effect") and the cockpit would
+    silently tell Nico a lane loses money when the finding is that it does neither.
+
+    This test is the tripwire: if a future verdict can be significant without being
+    directional, it fails here, and the frontend has to be taught the third case.
+    """
+    directional = {"positiv", "negativ"}
+    cases = [
+        [0.5] * (MIN_TRADES_FOR_A_TEST - 1),            # too few trades
+        [1.0] * (MIN_TRADES_FOR_A_TEST + 5),            # no spread at all
+        [2.0, -1.9, 2.1, -2.0, 1.8, -1.7, 2.2, -2.1, 1.9, -1.8, 2.0, -1.9],  # noise
+        [1.0, 1.2, 0.9, 1.1, 1.05, 0.95, 1.15, 0.85, 1.0, 1.1, 0.9, 1.2],    # clear positive
+        [-1.0, -1.2, -0.9, -1.1, -1.05, -0.95, -1.15, -0.85, -1.0, -1.1, -0.9, -1.2],
+    ]
+    seen = set()
+    for pnls in cases:
+        result = assess_trades(pnls)
+        seen.add(result.verdict)
+        if result.is_significant:
+            assert result.verdict in directional, (
+                f"significant but not directional: {result.verdict!r} — "
+                "frontend/src/lanes.ts renders this as 'verliert Geld'"
+            )
+    # The cases must actually exercise both sides, or the assertion above proves nothing.
+    assert directional <= seen, f"cases never produced a directional verdict: {seen}"
