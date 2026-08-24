@@ -15,6 +15,7 @@ from equity_scout.alpaca_broker import (
     open_order_ids,
     parse_fills,
     parse_order,
+    limit_bracket_payload,
     parse_positions,
     settle_or_cancel,
 )
@@ -296,3 +297,28 @@ def test_auction_payload_rejects_bad_inputs() -> None:
         auction_payload("NVDA", qty=0.9, side="buy", auction="opg")
     with pytest.raises(AlpacaBrokerError, match="auction"):
         auction_payload("NVDA", qty=2.0, side="buy", auction="day")
+
+
+def test_the_limit_bracket_protection_survives_the_close() -> None:
+    """Measured on the 2026-08-19 entries: with `time_in_force: day` both protective legs of
+    every ignition bracket died at the US close — MRVI's stop was cancelled at 20:00:16 and
+    20:01:40 local (16:00 ET), two hours after the fill. The lane holds up to
+    `MAX_HOLD_DAYS = 5` days, so from the first evening on the position had no resting stop at
+    the venue at all and was protected only while the minute cron happened to be running.
+    `gtc` keeps the legs alive across sessions. The entry leg cannot be left resting by this
+    change: `settle_or_cancel` cancels an unfilled entry within seconds of placing it.
+    """
+    payload = limit_bracket_payload("MRVI", qty=141, limit_price=7.05,
+                                    stop_price=6.49, target_price=9.87)
+    assert payload["time_in_force"] == "gtc"
+    assert payload["order_class"] == "bracket"
+    assert payload["stop_loss"]["stop_price"] == "6.49"
+    assert payload["take_profit"]["limit_price"] == "9.87"
+
+
+def test_the_market_bracket_stays_day_only() -> None:
+    """The other lanes' market bracket is untouched: their positions are flat by the close
+    (session lane) or managed on daily bars (crypto), so an overnight resting leg would be a
+    behaviour change nobody asked for."""
+    assert bracket_payload("AAPL", qty=3, stop_price=1.0,
+                           target_price=2.0)["time_in_force"] == "day"

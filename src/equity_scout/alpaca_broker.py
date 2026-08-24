@@ -134,6 +134,19 @@ def limit_bracket_payload(
     Same whole-share rounding stance as bracket_payload — Alpaca rejects fractional
     quantities for bracket orders, and rounding up would take more risk than the book sized
     for.
+
+    `time_in_force` is `gtc`, not `day` (fixed 2026-08-24). With `day` both protective legs
+    expired at the US close: MRVI's stop and target, read back from the venue, were killed at
+    16:00 ET on the day of entry — while the lane holds a position for up to `MAX_HOLD_DAYS`
+    = 5 days. From the first evening onward the position had no resting stop at all and was
+    protected only while the minute cron happened to be running, which is exactly the case
+    the resting stop exists to cover (Windows asleep, WSL down, laptop on battery). `gtc`
+    keeps the legs alive across sessions.
+
+    This does NOT leave unfilled entries resting overnight: the caller cancels an entry that
+    has not filled within seconds (`settle_or_cancel`), so the entry leg's lifetime is
+    unaffected by the change. `bracket_payload`'s market entry deliberately stays `day` —
+    those lanes are flat by the close.
     """
     whole = int(qty)
     if whole < 1:
@@ -149,7 +162,7 @@ def limit_bracket_payload(
         "side": "buy",
         "type": "limit",
         "limit_price": f"{limit_price:.2f}",
-        "time_in_force": "day",
+        "time_in_force": "gtc",
         "order_class": "bracket",
         "stop_loss": {"stop_price": f"{stop_price:.2f}"},
         "take_profit": {"limit_price": f"{target_price:.2f}"},
