@@ -822,3 +822,64 @@ historical entries (verified in the order history for MRVI, PURR, ELMT). Protect
 exists only while the minute cron runs. That is a separate defect with its own blast radius
 (it decides what happens when the machine is off), and it needs its own plan rather than a
 patch tacked onto this one.
+
+---
+
+## Nachtrag: Nicos vier Entscheidungen (2026-08-24, gleiche Session)
+
+**Gap-Fade abgeschaltet.** `GAPFADE_LINE` aus `install_crontab.sh` entfernt, `gapfade_lane.sh`
+bleibt in `MANAGED_SCRIPTS`, damit der Installer die Zeile aktiv entfernt — dasselbe Muster wie
+bei der pausierten Session-Lane. Crontab-Diff: genau eine Zeile weg. Der nächtliche
+`st_gapfade_settle` bleibt (No-Op ohne offene Orders, löst die eine offene Rejection noch auf).
+
+**Entry-Training auf wöchentlich.** `nightly_train.sh` gated `train_entry` auf `date +%u` = 6
+(Samstagnacht sieht Freitags Close), Override `EQUITY_SCOUT_FORCE_TRAIN=1`. `learning_snapshot`
+bleibt bewusst nächtlich — es misst die aufgelösten Live-Vorhersagen, nicht das Modell.
+Fünf Tests in `tests/test_nightly_chain_cadence.py` pinnen das Gate.
+
+**Broker-Stops: Ursache war nicht die Storno-Logik, sondern `time_in_force`.** Die Legs aus dem
+Venue zurückgelesen: bei den Käufen um 17:59 und 18:04 wurden Stop und Target am 2026-08-19 um
+**20:00:16 / 20:01:40 Ortszeit = 16:00 ET** gekillt — US-Börsenschluss, `day`-Order. Nicht sofort
+nach dem Kauf, wie die Order-Liste auf den ersten Blick nahelegte. Bei der 18:01-Order kamen die
+Legs zusätzlich durch `settle_or_cancel` um (das war Defekt 1 und ist heute gefixt).
+`limit_bracket_payload` steht jetzt auf `gtc`; `bracket_payload` (Market-Einstieg der anderen
+Lanes) bleibt `day`, weil die bis zum Close flat sind. Ein unausgeführter Einstieg liegt dadurch
+nicht über Nacht: der Aufrufer storniert ihn sekundenschnell.
+
+Die zwei laufenden Positionen mussten nicht nachträglich abgesichert werden — die Lane hat sie
+während dieser Session per Zeitstop geschlossen (MRVI +158,38 / +17,6 %, PURR +181,05 / +18,3 %).
+Konto und Buch sind flat und deckungsgleich; die Ignition-Lane steht bei **+258,61 USD über drei
+geschlossene Trades**. Der `gtc`-Schutz greift ab dem nächsten Einstieg.
+
+**Sleeve-Promotion: NICHT umgesetzt — die Entscheidungsgrundlage war falsch.** Siehe eigener
+Abschnitt unten.
+
+### Warum die Sleeve-Promotion nicht gebaut wurde
+
+Der Vorschlag lautete "Cross-Sectional Momentum liegt im Forward-Test vorn (+5,1 % vs SPY
+−1,0 %), gedeckelt promoten". Nachgemessen auf `forward_paper.db`, bevor eine Zeile Code
+entstand:
+
+| Prüfung | Ergebnis |
+|---|---|
+| Beobachtungen des Sleeves | **11** Bewertungen = 10 Tagesdifferenzen (nicht 5 Wochen) |
+| t der Überrendite | 2,73 — bei 13 gleichzeitig getesteten Sleeves liegt die Bonferroni-Schwelle bei t ≈ 3,9 |
+| War der Sleeve je der beste im Depot? | **Nie.** Führung: Sektor-Rotation 11 Tage, Volatility Targeting 9, ML Long Bot 6, Dual Momentum 1 |
+| Führungswechsel in 27 Tagen | 6 |
+| Aktuelle Führung | Sektor-Rotation (Top 3) |
+
+Dazu die Vorgeschichte: der Sharpe-Softmax-Tilt wurde am **2026-08-17** aus
+`autotrader_allocator.py` entfernt, mit genau dieser Begründung — eine auf 63 Beobachtungen
+geschätzte Sharpe hat einen Standardfehler von ~2 annualisierten Einheiten, der Tilt war
+Rauschen. Eine Renditepromotion auf **10** Beobachtungen würde diese eine Woche alte Entscheidung
+rückabwickeln und dabei zehnmal dünner belegt sein.
+
+Der Mechanismus, den die Entscheidung wollte, existiert außerdem schon: der Allocator schaltet
+bei `MIN_OVERLAP_OBS = 60` überlappenden Beobachtungen automatisch von `anchor` auf
+`tilt_invvol`. Er steht auf `anchor`, weil die Daten fehlen, nicht weil etwas fehlt. Bei
+täglichem Weiterlaufen ist die Schwelle etwa Mitte Oktober erreicht. Dann tiltet er auf
+Volatilität, nicht auf Rendite — bewusst, W0-Befund.
+
+Offen für Nico: (a) so lassen und den Allocator selbst umschalten lassen, oder (b) bewusst auf
+Rendite tilten wollen — dann braucht es die Revision der 17.08.-Entscheidung als eigenen Plan,
+nicht einen Patch.
