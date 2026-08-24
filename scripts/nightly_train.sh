@@ -61,7 +61,25 @@ echo "[$(date -Is)] ===== nightly_train start =====" >> "$LOG"
 # (was: the current watchlist, ~30 names): ~94 s panel download + ~65 s per preset x 12 presets
 # = ~15 min, against this chain's 25-min step cap. It ran in ~60 s on the old universe, so the
 # budget is no longer negligible — check this line before adding presets or families.
-step train_entry       "$PY" scripts/run_train_entry.py
+#
+# WEEKLY since 2026-08-24 (Nico's decision), not nightly. The evidence for the change, measured
+# over the registry's whole history: 244 models trained since 2026-07-05, ZERO promotions, and
+# the best OOS AUC has been 0.5069-0.5074 for six consecutive runs against a 0.55 gate. Fifteen
+# minutes a night bought a re-derivation of the same null result — the training universe is
+# fixed and the features are fixed, so the answer cannot move until one of them does. Saturday
+# (`date +%u` = 6) is the slot that sees Friday's close, i.e. a full fresh week of panel data.
+# Set EQUITY_SCOUT_FORCE_TRAIN=1 to run it on any night (that is how you test a training
+# change without waiting for the weekend).
+#
+# What this deliberately does NOT gate: `learning_snapshot` below. It measures the RESOLVED
+# LIVE PREDICTIONS, not the model, so it has something new to say on the six nights the
+# trainer is silent — gating it would throw away six of every seven points on the curve.
+TRAIN_ENTRY_DAY="${EQUITY_SCOUT_TRAIN_ENTRY_DAY:-6}"
+if [ "$(date +%u)" = "$TRAIN_ENTRY_DAY" ] || [ -n "${EQUITY_SCOUT_FORCE_TRAIN:-}" ]; then
+  step train_entry     "$PY" scripts/run_train_entry.py
+else
+  echo "[$(date -Is)] SKIP train_entry (wöchentlich, Tag ${TRAIN_ENTRY_DAY})" >> "$LOG"
+fi
 step learning_snapshot "$PY" scripts/run_learning_snapshot.py
 step research_batch    "$PY" scripts/run_research.py --trials 25
 # v14: strategy-parameter search — own ledger pool, cheap backtests, wraps when exhausted
