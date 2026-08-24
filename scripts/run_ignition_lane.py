@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 
 from equity_scout.alpaca_broker import (
     AlpacaBrokerError,
-    await_fill,
+    BrokerOrder,
     close_position,
     place_limit_bracket,
     settle_or_cancel,
@@ -77,6 +77,21 @@ def _load_high_water(db_path: str) -> dict[str, float]:
         return {k: float(v) for k, v in json.loads(raw).items()}
     except (ValueError, AttributeError):
         return {}
+
+
+def bookable(settled: BrokerOrder) -> tuple[float, float] | None:
+    """(qty, price) to book from a SETTLED order, or None when there is nothing to book.
+
+    `settle_or_cancel` has already awaited, cancelled whatever still rested and re-read the
+    order, so its quantity is final even for a partial fill — booking it is what keeps the
+    book and the venue holding the same number of shares. The live run of 2026-08-19 booked
+    `await_fill`'s intermediate state instead (128 of 141 shares) and discarded the settled
+    state entirely when the fill arrived after the poll window (two whole entries, 283
+    shares, 3x the intended position).
+    """
+    if not settled.filled_qty or settled.filled_avg_price is None:
+        return None
+    return settled.filled_qty, settled.filled_avg_price
 
 
 def _entries_today(db_path: str, ny_day: str) -> int:
@@ -191,33 +206,33 @@ def main(argv: list[str] | None = None) -> int:
                 ticker, qty=qty, limit_price=pick["limit_price"],
                 stop_price=pick["stop_price"], target_price=pick["target_price"],
             )
-            filled = await_fill(order)
-            if filled is None or not filled.filled_qty or not filled.filled_avg_price:
-                settle_or_cancel(order)
+            booked = bookable(settle_or_cancel(order))
+            if booked is None:
                 print(f"  {ticker}: Limit nicht erreicht — kein Einstieg (das ist ok)")
                 continue
+            filled_qty, filled_price = booked
         except AlpacaBrokerError as exc:
             print(f"Broker lehnte Einstieg {ticker} ab: {exc}", file=sys.stderr)
             continue
         # Book the BROKER's quantity and price, never our intended ones (live lesson
         # 2026-08-06: Alpaca rounds bracket quantities, and re-deriving them desynced the book).
-        book, fill = buy(book, ticker, filled.filled_avg_price,
+        book, fill = buy(book, ticker, filled_price,
                          now.isoformat(timespec="seconds"), fraction=ENTRY_FRACTION,
-                         reason=pick["reason"], qty=filled.filled_qty)
+                         reason=pick["reason"], qty=filled_qty)
         if fill:
             trades.append(fill)
             entries_today += 1
-            high_water[ticker] = filled.filled_avg_price
+            high_water[ticker] = filled_price
             if pick.get("signal_id"):
                 traded_signal_ids.append(pick["signal_id"])
             record_execution(
                 args.shortterm_db, lane=LANE, ticker=ticker, side="buy",
                 signalled_at=now.isoformat(timespec="seconds"),
-                expected_price=pick["limit_price"], actual_price=filled.filled_avg_price,
-                qty=filled.filled_qty, order_id=order.order_id,
+                expected_price=pick["limit_price"], actual_price=filled_price,
+                qty=filled_qty, order_id=order.order_id,
             )
-            print(f"  GEKAUFT {ticker} {filled.filled_qty} Stk @ "
-                  f"{filled.filled_avg_price:.2f} $ (Limit war {pick['limit_price']:.2f})")
+            print(f"  GEKAUFT {ticker} {filled_qty} Stk @ "
+                  f"{filled_price:.2f} $ (Limit war {pick['limit_price']:.2f})")
 
     if args.dry_run:
         for rej in rejections:
