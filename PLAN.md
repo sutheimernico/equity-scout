@@ -1078,23 +1078,31 @@ der Entthronung, die heute Nacht erstmals wirkt.
 
 ## Needs Nico (loop cannot do these itself)
 
-- **Vier Strategie-Entscheidungen liegen bei Nico** (Befunde vom 2026-08-24, Details im Plan
-  `docs/superpowers/plans/2026-08-24-ignition-fill-booking-and-reconciliation.md`):
-  1. **Universum des Entry-Modells.** Panel-AUC seit vier Wochen flach bei 0,507 gegen ein Gate
-     von 0,55; 244 Modelle trainiert, 0 Promotions, `champion_history` leer. Der Hebel ist das
-     Universum (Achse 2, 2026-08-11), nicht mehr Rechenzeit.
-  2. **Sleeve-Promotion.** `sleeve_mode: anchor`, 11 Sleeves à 9,09 %, `promoted_lanes` leer —
-     während Cross-Sectional Momentum (12-1) im Forward-Test mit +5,09 % vs SPY −0,98 % vorn
-     liegt. Die Forschung findet etwas, das Depot gewichtet es wie alles andere.
-  3. **Zukunft der Gap-Fade-Lane.** 0 Orders in 6 Handelstagen; am 2026-08-24 waren 0 von 24
-     Tickern bewertbar, weil kein IEX-Pre-Market-Print frischer als 20 Minuten war. Entweder
-     liquidere Watchlist oder Lane beenden.
-  4. **Schatten-Scoring ohne Champion.** `entry_predictions` endet am 2026-08-11, weil
-     `score_watchlist` ohne Champion ein No-Op ist; die 239 offenen laufen Anfang Oktober aus,
-     danach ist der Messstrang leer. Eigener Plan nötig.
-- **Offener Defekt (kein Strategiethema): Ignition-Positionen liegen ohne Stop beim Broker.**
-  Die Bracket-Legs kommen bei allen drei historischen Einstiegen als `canceled`/`expired`
-  zurück; Absicherung existiert nur, solange der Minuten-Cron läuft. Braucht einen eigenen Plan.
+- **Drei Entscheidungen vom 2026-08-24 sind GETROFFEN und umgesetzt — nicht erneut aufrollen**
+  (Belege im Plan `docs/superpowers/plans/2026-08-24-ignition-fill-booking-and-reconciliation.md`):
+  1. ~~Gap-Fade-Lane~~ — **abgeschaltet.** Cron-Zeile aus `install_crontab.sh` entfernt, Code
+     bleibt liegen. Grund: 0 Messwerte in 6 Handelstagen, Ursache ist der IEX-Free-Tier gegen
+     eine Micro-Cap-Watchlist, nicht die Strategie.
+  2. ~~Entry-ML-Kadenz~~ — **wöchentlich** (Samstagnacht, `EQUITY_SCOUT_FORCE_TRAIN=1` als
+     Override). 244 Modelle, 0 Promotions, AUC vier Wochen flach bei 0,507 gegen Gate 0,55 —
+     täglich neu rechnen reproduzierte einen erledigten Nullbefund.
+  3. ~~Broker-Stops~~ — **gefixt** (`time_in_force: gtc`). Die Legs starben am US-Close, bei
+     einer Lane mit bis zu 5 Handelstagen Haltedauer. Live-Beweis steht noch aus: braucht den
+     nächsten Ignition-Einstieg.
+  4. ~~Sleeve-Promotion~~ — **bewusst NICHT gebaut** (Nicos Entscheidung 2026-08-24: warten).
+     Der Allocator schaltet bei `MIN_OVERLAP_OBS = 60` überlappenden Beobachtungen von
+     `anchor` auf `tilt_invvol`, geschätzt Mitte Oktober. Er wartet, weil die Daten fehlen,
+     nicht weil Code fehlt. Wer das erneut vorschlägt, prüfe erst die Zahlen: Cross-Momentum
+     hatte am 2026-08-24 **11** Bewertungen, t = 2,73 gegen eine Bonferroni-Schwelle von
+     t ≈ 3,9 bei 13 Sleeves, und war **nie** der führende Sleeve (6 Führungswechsel in 27
+     Tagen). Ein Rendite-Tilt wäre außerdem die Rückabwicklung der Entscheidung vom
+     2026-08-17, den Sharpe-Softmax als Rauschen zu entfernen.
+- **Weiterhin OFFEN — die zwei, die niemand entschieden hat:**
+  - **Universum des Entry-Modells** (Achse 2, 2026-08-11). Die Kadenz ist gedrosselt, die
+    Frage ist damit vertagt, nicht beantwortet: an der Watchlist ist kein Alpha zu finden.
+  - **Schatten-Scoring ohne Champion.** `entry_predictions` endet am 2026-08-11, weil
+    `score_watchlist` ohne Champion ein No-Op ist; die 239 offenen laufen Anfang Oktober aus,
+    danach ist der Messstrang leer. Braucht einen eigenen Plan.
 
 > **Liste am 2026-08-23 gegen den Live-Zustand geprüft** — vier Punkte waren längst erledigt
 > und standen trotzdem noch hier. Wer sie erneut abarbeitet, arbeitet umsonst.
