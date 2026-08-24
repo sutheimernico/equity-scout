@@ -47,8 +47,12 @@ GAPFADE_LINE="*/5 14-16 * * 1-5 flock -n /tmp/equity-scout-gapfade.lock ${REPO_D
 RADAR_LINE="* 15-23 * * 1-5 flock -n /tmp/equity-scout-catalyst-radar.lock ${REPO_DIR}/scripts/catalyst_radar.sh >> ${REPO_DIR}/catalyst.log 2>&1"
 NEWS_LINE="* * * * * flock -n /tmp/equity-scout-news-sweep.lock ${REPO_DIR}/scripts/news_sweep.sh >> ${REPO_DIR}/catalyst.log 2>&1"
 CALENDAR_LINE="30 12 * * * flock -n /tmp/equity-scout-catalyst-calendar.lock ${REPO_DIR}/scripts/catalyst_calendar.sh >> ${REPO_DIR}/catalyst.log 2>&1"
+# PBO (2026-08-24): the overfitting check on the research search. Sunday 04:00 — after the
+# week's last nightly has added its trials, before the Monday scout. Weekly because one
+# walk-forward per config is slow; a missed week costs nothing.
+PBO_LINE="0 4 * * 0 flock -n /tmp/equity-scout-pbo.lock ${REPO_DIR}/scripts/weekly_pbo.sh >> ${REPO_DIR}/pbo.log 2>&1"
 
-MANAGED_SCRIPTS="daily_copilot.sh run_daily_guarded.sh receiver_keepalive.sh intraday_copilot.sh nightly_train.sh run_nightly_guarded.sh nightly_prefetch.sh run_shortterm.py run_watchdog.py session_lane.sh gapfade_lane.sh catalyst_radar.sh news_sweep.sh catalyst_calendar.sh"
+MANAGED_SCRIPTS="daily_copilot.sh run_daily_guarded.sh receiver_keepalive.sh intraday_copilot.sh nightly_train.sh run_nightly_guarded.sh nightly_prefetch.sh run_shortterm.py run_watchdog.py session_lane.sh gapfade_lane.sh catalyst_radar.sh news_sweep.sh catalyst_calendar.sh weekly_pbo.sh"
 
 current="$(crontab -l 2>/dev/null || true)"
 before="$current"
@@ -60,7 +64,7 @@ before="$current"
 for script in $MANAGED_SCRIPTS; do
   current="$(printf '%s\n' "$current" | grep -vF "scripts/${script}" || true)"
 done
-for line in "$CHAIN_LINE" "$RECEIVER_LINE" "$INTRADAY_LINE" "$NIGHTLY_LINE" "$PREFETCH_LINE" "$CRYPTO_LINE" "$GAPFADE_LINE" "$RADAR_LINE" "$NEWS_LINE" "$CALENDAR_LINE"; do
+for line in "$CHAIN_LINE" "$RECEIVER_LINE" "$INTRADAY_LINE" "$NIGHTLY_LINE" "$PREFETCH_LINE" "$CRYPTO_LINE" "$GAPFADE_LINE" "$RADAR_LINE" "$NEWS_LINE" "$CALENDAR_LINE" "$PBO_LINE"; do
   current="${current}"$'\n'"${line}"
 done
 
