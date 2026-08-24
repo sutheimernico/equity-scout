@@ -1078,6 +1078,24 @@ der Entthronung, die heute Nacht erstmals wirkt.
 
 ## Needs Nico (loop cannot do these itself)
 
+- **Vier Strategie-Entscheidungen liegen bei Nico** (Befunde vom 2026-08-24, Details im Plan
+  `docs/superpowers/plans/2026-08-24-ignition-fill-booking-and-reconciliation.md`):
+  1. **Universum des Entry-Modells.** Panel-AUC seit vier Wochen flach bei 0,507 gegen ein Gate
+     von 0,55; 244 Modelle trainiert, 0 Promotions, `champion_history` leer. Der Hebel ist das
+     Universum (Achse 2, 2026-08-11), nicht mehr Rechenzeit.
+  2. **Sleeve-Promotion.** `sleeve_mode: anchor`, 11 Sleeves à 9,09 %, `promoted_lanes` leer —
+     während Cross-Sectional Momentum (12-1) im Forward-Test mit +5,09 % vs SPY −0,98 % vorn
+     liegt. Die Forschung findet etwas, das Depot gewichtet es wie alles andere.
+  3. **Zukunft der Gap-Fade-Lane.** 0 Orders in 6 Handelstagen; am 2026-08-24 waren 0 von 24
+     Tickern bewertbar, weil kein IEX-Pre-Market-Print frischer als 20 Minuten war. Entweder
+     liquidere Watchlist oder Lane beenden.
+  4. **Schatten-Scoring ohne Champion.** `entry_predictions` endet am 2026-08-11, weil
+     `score_watchlist` ohne Champion ein No-Op ist; die 239 offenen laufen Anfang Oktober aus,
+     danach ist der Messstrang leer. Eigener Plan nötig.
+- **Offener Defekt (kein Strategiethema): Ignition-Positionen liegen ohne Stop beim Broker.**
+  Die Bracket-Legs kommen bei allen drei historischen Einstiegen als `canceled`/`expired`
+  zurück; Absicherung existiert nur, solange der Minuten-Cron läuft. Braucht einen eigenen Plan.
+
 > **Liste am 2026-08-23 gegen den Live-Zustand geprüft** — vier Punkte waren längst erledigt
 > und standen trotzdem noch hier. Wer sie erneut abarbeitet, arbeitet umsonst.
 

@@ -86,6 +86,32 @@ Same currency as the ones above: each cost real time or shipped a wrong claim.
 - **Check the weekday before diagnosing a dead chain.** Weekday-only crons are legitimately
   silent on a Sunday; that cost the first twenty minutes of 2026-08-23.
 
+- **A function whose return value you discard is a function you did not call.** The ignition
+  entry path called `settle_or_cancel(order)` — whose entire job is to produce the FINAL
+  post-cancel fill state, and whose docstring describes the exact bug ("left four positions the
+  book knew nothing about") — and then threw the answer away and `continue`d. MRVI was bought
+  three times on 2026-08-19 (424 shares at the venue, 128 in the book) and nothing noticed for
+  five days. When a helper exists because of a past incident, using it means using what it
+  returns.
+- **"Something filled" is not "filled".** The same path tested `if filled.filled_qty` for
+  truthiness and booked a `partially_filled` order as complete: 128 of 141 shares. `await_fill`
+  warns about this one line above the call site. A truthiness check on a quantity cannot tell
+  partial from complete — compare against what was ordered, or use the settled state.
+- **Nothing was comparing the book to the account.** Every chain was green, the watchdog said
+  "alle Ketten am Leben", and the two ledgers had been 296 shares apart since the 19th. Heartbeat
+  monitoring cannot see a state divergence; that needs its own check, and the check belongs where
+  both numbers are already in hand.
+- **A stale metric reads exactly like a current one.** The research ledger showed PBO 0.7714
+  with no hint that it was computed on 2026-06-26 over 13 of what are now 4,600 trials, because
+  `run_pbo.py` was never wired into a chain. A number that cannot refresh itself will be believed
+  long after it stopped being true — schedule it or delete it.
+- **Check which comparison the system actually makes before calling it broken.** I reported the
+  DSR hurdle as "letting 98.6 % through" after comparing `sharpe_periodic > dsr_hurdle`. That is
+  not a gate: the hurdle is the deflation benchmark passed INTO the PSR call (`ledger.py:144`).
+  The real distribution (DSR median 0.946) shows a genuine problem for a different reason —
+  4,600 correlated configs are not the independent trials the Gumbel term assumes. Reading the
+  call site first would have cost a minute and saved a wrong recommendation.
+
 ## Gate (objective done-check)
 `uv run pytest -q` green + `uv run ruff check .` clean. Commit only a green gate.
 
