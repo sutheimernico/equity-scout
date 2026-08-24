@@ -5,7 +5,8 @@ handle — a fill that lands after the poll window, and a partial fill."""
 from __future__ import annotations
 
 import scripts.run_ignition_lane as runner
-from equity_scout.alpaca_broker import BrokerOrder
+from equity_scout.alpaca_broker import BrokerOrder, BrokerPosition
+from equity_scout.shortterm_storage import get_lane_state, init_shortterm_db
 
 
 def test_a_fill_that_lands_after_the_poll_window_is_booked() -> None:
@@ -37,3 +38,34 @@ def test_a_quantity_without_a_price_is_no_entry() -> None:
     settled = BrokerOrder(order_id="o4", status="filled", filled_qty=10.0,
                           filled_avg_price=None)
     assert runner.bookable(settled) is None
+
+
+def test_a_divergence_is_recorded_for_the_watchdog(tmp_path) -> None:
+    """The runner talks to the broker anyway; the watchdog is DB-only by design. So the
+    runner writes the finding and the watchdog alarms on it — no network in the dead-man."""
+    db = str(tmp_path / "st.db")
+    init_shortterm_db(db)
+    runner.record_divergence(
+        db, book_positions={"MRVI": 128.0},
+        broker_positions={"MRVI": BrokerPosition("MRVI", 424.0, 7.0)},
+        now="2026-08-24T17:00:00+00:00",
+    )
+    state = get_lane_state(db, runner.LANE, runner.DIVERGENCE_KEY)
+    assert state is not None and "424" in state
+
+
+def test_no_divergence_clears_the_state(tmp_path) -> None:
+    """A stale warning is worse than none: it trains you to ignore the channel."""
+    db = str(tmp_path / "st.db")
+    init_shortterm_db(db)
+    runner.record_divergence(
+        db, book_positions={"MRVI": 128.0},
+        broker_positions={"MRVI": BrokerPosition("MRVI", 424.0, 7.0)},
+        now="2026-08-24T17:00:00+00:00",
+    )
+    runner.record_divergence(
+        db, book_positions={"MRVI": 424.0},
+        broker_positions={"MRVI": BrokerPosition("MRVI", 424.0, 7.0)},
+        now="2026-08-24T17:01:00+00:00",
+    )
+    assert not get_lane_state(db, runner.LANE, runner.DIVERGENCE_KEY)

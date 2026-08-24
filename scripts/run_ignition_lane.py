@@ -19,17 +19,21 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from datetime import datetime, timezone
 
 from equity_scout.alpaca_broker import (
     AlpacaBrokerError,
     BrokerOrder,
+    BrokerPosition,
     close_position,
+    fetch_positions,
     place_limit_bracket,
     settle_or_cancel,
 )
 from equity_scout.alpaca_screener import AlpacaScreenerError, fetch_quotes, fetch_snapshots
+from equity_scout.broker_reconcile import divergence_text, divergences
 from equity_scout.catalyst_storage import (
     DEFAULT_CATALYST_DB_PATH,
     SOURCE_SCAN,
@@ -48,6 +52,7 @@ from equity_scout.shortterm_storage import (
     persist_lane_step,
     record_execution,
     record_rejections,
+    set_lane_state,
 )
 from equity_scout.significance import assess_trades
 from equity_scout.st_ignition import (
@@ -66,13 +71,32 @@ INITIAL_CAPITAL = 10_000.0
 BENCHMARK_TICKER = "SPY"
 HIGH_WATER_KEY = "high_water"
 ENTRIES_TODAY_KEY = "entries_on"
+DIVERGENCE_KEY = "broker_divergence"
+
+
+def record_divergence(
+    db_path: str,
+    *,
+    book_positions: dict[str, float],
+    broker_positions: dict[str, BrokerPosition],
+    now: str,
+) -> list[dict]:
+    """Persist (or clear) the book-vs-broker finding for the watchdog to alarm on.
+
+    Written as lane state rather than sent from here: this runner fires every minute, and a
+    Telegram message per minute is a muted channel by lunchtime. The watchdog owns the
+    cooldown.
+    """
+    found = divergences(book_positions, broker_positions)
+    set_lane_state(db_path, LANE, DIVERGENCE_KEY,
+                   json.dumps({"at": now, "items": found}) if found else "")
+    return found
 
 
 def _load_high_water(db_path: str) -> dict[str, float]:
     raw = get_lane_state(db_path, LANE, HIGH_WATER_KEY)
     if not raw:
         return {}
-    import json
     try:
         return {k: float(v) for k, v in json.loads(raw).items()}
     except (ValueError, AttributeError):
@@ -241,7 +265,6 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     # --- persist --------------------------------------------------------------------------
-    import json
     snap = valuation(book, prices, created_at=now.isoformat(timespec="seconds"),
                      benchmark_price=prices.get(BENCHMARK_TICKER))
     persist_lane_step(
@@ -255,6 +278,21 @@ def main(argv: list[str] | None = None) -> int:
     ])
     mark_traded(args.catalyst_db, traded_signal_ids, now=now.isoformat(timespec="seconds"))
     record_heartbeat(args.db, "ignition_lane", now=now.isoformat(timespec="seconds"))
+
+    # AFTER the book is written: the comparison has to judge the state that was just persisted,
+    # not the one the run started from.
+    try:
+        found = record_divergence(
+            args.shortterm_db,
+            book_positions={t: p.qty for t, p in book.positions.items()},
+            broker_positions=fetch_positions(),
+            now=now.isoformat(timespec="seconds"),
+        )
+    except AlpacaBrokerError as exc:
+        print(f"Abgleich Buch/Konto nicht möglich: {exc}", file=sys.stderr)
+    else:
+        if found:
+            print(divergence_text(found), file=sys.stderr)
 
     print(f"Buch: {len(book.positions)} Positionen, {book.cash:.0f} $ Kasse, "
           f"{len(closed)} geschlossene Trades (Stop-Kriterium bei 60), "
