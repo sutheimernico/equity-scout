@@ -1,6 +1,8 @@
 """Dead-man watchdog (v12 W1): a silently dead chain must make noise — once per cooldown."""
 from __future__ import annotations
 
+import json
+
 from datetime import datetime, timezone
 
 from equity_scout.state_storage import record_heartbeat
@@ -241,3 +243,39 @@ def test_the_cli_reports_the_gap_before_overwriting_the_heartbeat(tmp_path, monk
     sent.clear()
     assert wd.main() == 0  # the predecessor is fresh now — never reported twice
     assert not any("Scheduler" in text for text in sent)
+
+
+def test_a_recorded_divergence_is_reported(tmp_path) -> None:
+    """The failure the heartbeat SLAs are blind to: every chain green, book and account apart."""
+    from equity_scout.shortterm_storage import init_shortterm_db, set_lane_state
+    from equity_scout.watchdog import position_divergence
+
+    st_db = str(tmp_path / "st.db")
+    init_shortterm_db(st_db)
+    set_lane_state(st_db, "ignition", "broker_divergence", json.dumps(
+        {"at": "2026-08-24T17:00:00+00:00",
+         "items": [{"ticker": "MRVI", "book_qty": 128.0, "broker_qty": 424.0,
+                    "kind": "broker_excess"}]}))
+    found = position_divergence(st_db)
+    assert found and found[0]["ticker"] == "MRVI"
+
+
+def test_no_recorded_divergence_reports_nothing(tmp_path) -> None:
+    from equity_scout.shortterm_storage import init_shortterm_db
+    from equity_scout.watchdog import position_divergence
+
+    st_db = str(tmp_path / "st.db")
+    init_shortterm_db(st_db)
+    assert position_divergence(st_db) == []
+
+
+def test_an_unreadable_divergence_state_is_not_an_alarm(tmp_path) -> None:
+    """A corrupt marker must not crash the dead-man — it is the one job that has to survive
+    everything else being broken."""
+    from equity_scout.shortterm_storage import init_shortterm_db, set_lane_state
+    from equity_scout.watchdog import position_divergence
+
+    st_db = str(tmp_path / "st.db")
+    init_shortterm_db(st_db)
+    set_lane_state(st_db, "ignition", "broker_divergence", "{nicht json")
+    assert position_divergence(st_db) == []

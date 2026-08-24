@@ -216,3 +216,22 @@ def build_gap_text(gap: dict) -> str:
         "Ursache ist fast immer Windows-Standby; die Heartbeat-SLAs können das nicht sehen, "
         "weil die Ketten beim Aufwachen zuerst laufen und der Wächter danach."
     )
+
+
+def position_divergence(shortterm_db: str, *, lane: str = "ignition") -> list[dict]:
+    """The book-vs-broker finding the lane runner recorded, or [] when the books agree.
+
+    Read from the short-term DB rather than measured here: the watchdog rides in the 24/7
+    crypto slot and must never depend on the broker being reachable — a dead-man that dies
+    when the network does alarms about nothing. The runner owns the measurement (it talks to
+    the venue anyway), this owns the alarm.
+    """
+    from equity_scout.shortterm_storage import get_lane_state
+
+    raw = get_lane_state(shortterm_db, lane, "broker_divergence")
+    if not raw:
+        return []
+    try:
+        return list(json.loads(raw).get("items", []))
+    except (ValueError, AttributeError):
+        return []

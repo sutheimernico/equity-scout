@@ -11,7 +11,9 @@ import os
 import sys
 from datetime import datetime, timezone
 
+from equity_scout.broker_reconcile import divergence_text
 from equity_scout.constants import DEFAULT_DB_PATH
+from equity_scout.shortterm_storage import DEFAULT_SHORTTERM_DB_PATH
 from equity_scout.state_storage import record_heartbeat
 from equity_scout.telegram_client import TelegramError, load_telegram_config, send_message
 from equity_scout.watchdog import (
@@ -20,6 +22,7 @@ from equity_scout.watchdog import (
     build_gap_text,
     mark_alerted,
     overdue_chains,
+    position_divergence,
     record_gap,
     scheduler_gap,
 )
@@ -43,6 +46,8 @@ def _report(text: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default=DEFAULT_DB_PATH)
+    parser.add_argument("--shortterm-db", default=DEFAULT_SHORTTERM_DB_PATH,
+                        help="lane DB — read for the book/broker divergence marker")
     args = parser.parse_args()
 
     now = datetime.now(timezone.utc)
@@ -53,6 +58,12 @@ def main() -> int:
     if gap is not None:
         record_gap(args.db, gap, now=now)
         _report(build_gap_text(gap))
+
+    # A standing divergence between a lane book and the paper account. The runner clears the
+    # marker as soon as they agree, so this repeats only while it is genuinely unresolved.
+    divergent = position_divergence(args.shortterm_db)
+    if divergent:
+        _report(divergence_text(divergent))
 
     overdue = overdue_chains(args.db, now=now)
     if not overdue:
