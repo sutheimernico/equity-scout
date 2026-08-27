@@ -48,6 +48,10 @@ class SleeveAllocation:
     mode: str
     sharpes: dict[str, float] = field(default_factory=dict)
     window_obs: int = 0
+    # Sleeves, die als DIESELBE Wette erkannt wurden und sich ein Gewicht teilen. Gehört in
+    # die Rückgabe, nicht in ein Log: wer im Cockpit sieht, dass ein Sleeve die Hälfte
+    # bekommt, muss den Grund daneben lesen können.
+    duplicate_groups: list[list[str]] = field(default_factory=list)
 
 
 def sleeve_return_frame(db_path: str | Path, sleeve_names: list[str]) -> pd.DataFrame:
@@ -120,6 +124,89 @@ def _clip_renormalise(weights: dict[str, float], floor: float, cap: float) -> di
     return {**pinned, **free}
 
 
+# Ab dieser Korrelation gelten zwei Sleeves als DIESELBE Wette und teilen sich ein Gewicht.
+# 0,95 ist keine gerundete Vorsicht, sondern liegt weit unter dem gemessenen Fall: DCA und
+# 60/40 korrelieren mit 1,000, weil DCA sich über zwölf Monate in ein 60/40-Portfolio
+# einkauft und danach per Konstruktion identisch ist (Studie 2026-08-27). Alles darunter —
+# GEM ↔ Multi-Strategie-Mix 0,93, Permanent ↔ Risk Parity 0,91 — sind verwandte, aber
+# unterscheidbare Strategien und bleiben getrennt.
+DUPLICATE_CORRELATION = 0.95
+# Unter so vielen gemeinsamen Beobachtungen ist eine Korrelation von 0,95 kein Beleg für
+# Gleichheit, sondern eine kleine Stichprobe. Dann bleibt jeder Sleeve für sich.
+MIN_DUPLICATE_OBS = 40
+
+
+def duplicate_groups(
+    returns: pd.DataFrame,
+    sleeves: list[str],
+    *,
+    threshold: float = DUPLICATE_CORRELATION,
+    min_obs: int = MIN_DUPLICATE_OBS,
+) -> list[list[str]]:
+    """Gruppen von Sleeves, die dieselbe Wette sind — jede Gruppe alphabetisch, Reihenfolge
+    stabil, Einzelgänger als Einergruppe.
+
+    Warum das überhaupt nötig ist: der Allocator vergleicht Volatilitäten und sieht dabei
+    nicht, dass zwei Sleeves dasselbe halten. Im Live-Depot bekam die 60/40-Wette dadurch
+    18,2 % statt 9,1 % — doppelt, weil sie zweimal antritt (Studie 2026-08-27).
+
+    Gruppiert wird transitiv (Union-Find): wenn A≈B und B≈C, gehören alle drei zusammen,
+    auch wenn A und C knapp unter der Schwelle liegen. Alles andere führt zu einer
+    Zuordnung, die von der Reihenfolge der Sleeves abhängt.
+    """
+    present = [name for name in sleeves if name in returns.columns]
+    parent = {name: name for name in sleeves}
+
+    def find(name: str) -> str:
+        while parent[name] != name:
+            parent[name] = parent[parent[name]]
+            name = parent[name]
+        return name
+
+    def union(a: str, b: str) -> None:
+        root_a, root_b = find(a), find(b)
+        if root_a != root_b:
+            parent[max(root_a, root_b)] = min(root_a, root_b)
+
+    for i, a in enumerate(present):
+        for b in present[i + 1 :]:
+            pair = returns[[a, b]].dropna(how="any")
+            if len(pair) < min_obs:
+                continue
+            if float(pair[a].std(ddof=1)) <= 0 or float(pair[b].std(ddof=1)) <= 0:
+                continue
+            correlation = float(pair[a].corr(pair[b]))
+            if math.isfinite(correlation) and correlation >= threshold:
+                union(a, b)
+
+    grouped: dict[str, list[str]] = {}
+    for name in sleeves:
+        grouped.setdefault(find(name), []).append(name)
+    return [sorted(members) for members in grouped.values()]
+
+
+def split_within_groups(weights: dict[str, float], groups: list[list[str]]) -> dict[str, float]:
+    """Ein Gewicht pro Gruppe, innerhalb der Gruppe gleichmäßig geteilt.
+
+    Das Gruppengewicht ist das eines EINZELNEN Mitglieds, nicht die Summe — sonst hätte die
+    Zusammenfassung nichts geändert. Genau das ist der Punkt: die doppelt vertretene Wette
+    fällt auf den Anteil zurück, den sie hätte, wenn sie einmal anträte. Was frei wird,
+    verteilt sich anschließend über die Renormierung auf alle anderen.
+    """
+    collapsed: dict[str, float] = {}
+    for members in groups:
+        present = [name for name in members if name in weights]
+        if not present:
+            continue
+        group_weight = max(weights[name] for name in present)
+        for name in present:
+            collapsed[name] = group_weight / len(present)
+    total = sum(collapsed.values())
+    if total <= 0:
+        return weights
+    return {name: value / total for name, value in collapsed.items()}
+
+
 def blend_weights(
     returns: pd.DataFrame,
     sleeves: list[str],
@@ -147,17 +234,30 @@ def blend_weights(
     seasoned sleeves only, never each sleeve's own private stretch of history."""
     if not sleeves:
         return SleeveAllocation(weights={}, mode="anchor")
-    equal = {name: 1.0 / len(sleeves) for name in sleeves}
+
+    # Duplikate ZUERST: zwei Sleeves, die dieselbe Wette sind, dürfen weder den
+    # Gleichgewichts-Anker noch den Tilt doppelt belegen. Die Gruppen fließen als
+    # Nachbearbeitung in beide Modi ein, damit auch ein Depot ohne Track Record (Anker)
+    # nicht die doppelte Position hält — dort ist der Effekt am größten, weil dann jeder
+    # Sleeve exakt 1/n bekommt.
+    groups = duplicate_groups(returns, sleeves)
+    duplicates = [group for group in groups if len(group) > 1]
+
+    equal = split_within_groups({name: 1.0 / len(sleeves) for name in sleeves}, groups)
 
     present = returns.reindex(columns=sleeves)
     seasoned = [name for name in sleeves if int(present[name].notna().sum()) >= min_obs]
     # One measurable sleeve is not a ranking, and zero is not a measurement.
     if len(seasoned) < 2:
-        return SleeveAllocation(weights=equal, mode="anchor", window_obs=0)
+        return SleeveAllocation(
+            weights=equal, mode="anchor", window_obs=0, duplicate_groups=duplicates,
+        )
 
     overlap = present.reindex(columns=seasoned).dropna(how="any")
     if len(overlap) < min_obs:
-        return SleeveAllocation(weights=equal, mode="anchor", window_obs=len(overlap))
+        return SleeveAllocation(
+            weights=equal, mode="anchor", window_obs=len(overlap), duplicate_groups=duplicates,
+        )
 
     tail = overlap.iloc[-window:]
     # Sharpes stay REPORTED (dashboard/CLI transparency) but no longer drive weights: over 63
@@ -175,7 +275,9 @@ def blend_weights(
     total_inverse = sum(inverse.values())
     if total_inverse <= 0:
         # every seasoned sleeve is flat: no risk to differentiate, so no claim to make
-        return SleeveAllocation(weights=equal, mode="anchor", window_obs=len(tail))
+        return SleeveAllocation(
+            weights=equal, mode="anchor", window_obs=len(tail), duplicate_groups=duplicates,
+        )
     tilt = {name: value / total_inverse for name, value in inverse.items()}
 
     # The young sleeves keep their anchor shares; the seasoned ones divide what is left,
@@ -193,9 +295,11 @@ def blend_weights(
     bounded = _clip_renormalise(tilted, floor / seasoned_share, cap / seasoned_share)
     weights = {name: equal[name] for name in sleeves if name not in seasoned}
     weights.update({name: share * seasoned_share for name, share in bounded.items()})
+    weights = split_within_groups(weights, groups)
     return SleeveAllocation(
         weights=weights,
         mode="tilt_invvol",
         sharpes=sharpes,
         window_obs=len(tail),
+        duplicate_groups=duplicates,
     )
