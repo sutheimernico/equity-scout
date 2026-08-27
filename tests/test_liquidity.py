@@ -99,3 +99,48 @@ def test_filter_investable_reports_every_rejection() -> None:
     passed, rejected = filter_investable(quotes, rate=rate)
     assert [q.instrument.ticker for q in passed] == ["BIG"]
     assert "TINY" in rejected and str(MIN_MARKET_CAP_EUR / 1e6).startswith("300")
+
+
+# --- Cache-Übergang: die Falle, die den nächsten Wochenlauf leer gemacht hätte ---------
+
+def test_a_pre_filter_cache_row_is_refetched_not_replayed(tmp_path) -> None:
+    """Der Wochenlauf serviert Quotes bis zu 7 Tage aus dem Cache. Zeilen aus der Zeit vor
+    dem Investierbarkeitsfilter kennen `market_cap` gar nicht — würden sie ausgeliefert,
+    fiele eine ganze Woche lang JEDER Titel durch den Filter und die Watchlist wäre leer.
+    """
+    from equity_scout.data.cache import CachedProvider, QuoteCache, is_stale_schema
+
+    cache = QuoteCache(str(tmp_path / "cache.db"))
+    # So sah eine Zeile vor dem 2026-08-27 aus: alle alten Felder, keine neuen.
+    old_row = {
+        "trailing_pe": 15.0, "price_to_book": 2.0, "return_on_equity": 0.2,
+        "profit_margins": 0.1, "revenue_growth": 0.05, "earnings_growth": 0.05,
+        "momentum_6m": 0.1, "volatility_6m": 0.01, "price": 100.0,
+        "high_52w_proximity": 0.9,
+    }
+    assert is_stale_schema(old_row) is True
+    cache.put("MSFT", old_row, "2026-08-27")
+
+    fetched: list[str] = []
+
+    class _Inner:
+        def fetch_quote(self, instrument: Instrument) -> Quote:
+            fetched.append(instrument.ticker)
+            return _quote("MSFT", currency="USD", cap=3e12, volume=39e6, price=500.0)
+
+    provider = CachedProvider(_Inner(), cache, run_date="2026-08-27", max_age_days=7)
+    quote = provider.fetch_quote(Instrument("MSFT", "Microsoft", "X", "US", "USD", "Tech"))
+    assert fetched == ["MSFT"] and quote.market_cap == 3e12
+
+    # Und die frisch geschriebene Zeile wird beim nächsten Mal wieder aus dem Cache bedient.
+    fetched.clear()
+    provider.fetch_quote(Instrument("MSFT", "Microsoft", "X", "US", "USD", "Tech"))
+    assert fetched == []
+
+
+def test_a_name_yfinance_has_no_cap_for_is_not_refetched_forever(tmp_path) -> None:
+    """Schlüssel vorhanden, Wert None = „gemessen, gibt es nicht". Das ist keine veraltete
+    Zeile — sonst würde genau der Titel jeden Lauf neu abgefragt, für den es nichts gibt."""
+    from equity_scout.data.cache import is_stale_schema
+
+    assert is_stale_schema({"market_cap": None, "avg_volume": None}) is False

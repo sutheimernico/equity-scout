@@ -156,3 +156,54 @@ def test_a_dead_model_costs_no_notification() -> None:
 def test_a_malformed_reply_falls_back() -> None:
     assert parse_llm_reply("Ich denke, das ist eine gute Aktie.") == ([], None)
     assert parse_llm_reply("GRUND: zu kurz\nGRUND: auch\nABER: nein") == ([], None)
+
+
+# --- „Bald": melden, BEVOR der Kurs in der Zone steht ---------------------------------
+
+def _waiting(ticker="SAP.DE", gap=3.0, score=60) -> dict:
+    plan = _plan(ticker, score=score, stance="warten")
+    plan["entry"]["gap_pct"] = gap
+    plan["entry"]["stance_note"] = "Knapp über dem Stützbereich. Mit Limit auf die Zone warten."
+    return plan
+
+
+def test_a_name_just_above_its_zone_is_an_early_notification() -> None:
+    """Ohne diese Klasse hätte das System am 2026-08-27 null Meldungen gehabt."""
+    chosen = select_opportunities([_waiting()], today="2026-08-27")
+    assert [p["notification_kind"] for p in chosen] == ["bald"]
+
+
+def test_a_name_far_above_its_zone_is_not() -> None:
+    assert select_opportunities([_waiting(gap=12.0)], today="2026-08-27") == []
+
+
+def test_ready_names_always_outrank_approaching_ones() -> None:
+    """Eine Meldung, auf die man heute reagieren kann, schlägt eine mit höherem Score, auf
+    die man nur warten kann."""
+    chosen = select_opportunities(
+        [_waiting("SOON", gap=1.0, score=90), _plan("READY", score=50)],
+        today="2026-08-27", max_count=2,
+    )
+    assert [p["ticker"] for p in chosen] == ["READY", "SOON"]
+
+
+def test_approaching_names_are_ordered_by_distance_not_score() -> None:
+    """Wer morgen greifen kann, ist die frühere Meldung wert."""
+    chosen = select_opportunities(
+        [_waiting("FAR", gap=4.5, score=90), _waiting("NEAR", gap=0.5, score=50)],
+        today="2026-08-27", max_count=2,
+    )
+    assert [p["ticker"] for p in chosen] == ["NEAR", "FAR"]
+
+
+def test_an_early_notification_says_limit_not_buy() -> None:
+    chosen = select_opportunities([_waiting()], today="2026-08-27")
+    opportunity = build_opportunity(chosen[0])
+    assert opportunity.kind == "bald"
+    assert "Noch nichts tun" in opportunity.plan_line and "Kauflimit" in opportunity.plan_line
+    assert "keine Kaufmeldung" in opportunity.verdict
+    assert "3 %" in opportunity.headline
+
+
+def test_approaching_can_be_switched_off() -> None:
+    assert select_opportunities([_waiting()], today="2026-08-27", include_approaching=False) == []

@@ -18,7 +18,18 @@ _METRIC_FIELDS = (
     # v8 D1: absent from pre-v8 cache rows -> Quote's dataclass default (None) applies,
     # an honest gap until the row refreshes.
     "high_52w_proximity",
+    # 2026-08-27: Größe und Handelsumsatz, die der Investierbarkeitsfilter braucht.
+    "market_cap",
+    "avg_volume",
 )
+
+# Felder, ohne die eine Cache-Zeile nicht mehr brauchbar ist. Eine Zeile, die VOR ihrer
+# Einführung geschrieben wurde, kennt den Schlüssel gar nicht — sie muss neu geholt werden,
+# sonst hält der wöchentliche Lauf (--cache-max-age 7) tagelang an Zeilen fest, die den
+# Filter zwangsläufig nicht bestehen, und die Watchlist wäre leer. Ein Titel, für den
+# yfinance den Wert NICHT liefert, speichert ihn als None: Schlüssel da, Wert leer — der
+# wird nicht endlos neu geholt.
+_REQUIRED_KEYS = ("market_cap", "avg_volume")
 
 
 def metrics_of(q: Quote) -> dict:
@@ -57,6 +68,11 @@ def is_fresh(fetched_on: str, run_date: str, max_age_days: int) -> bool:
     return 0 <= delta <= max_age_days
 
 
+def is_stale_schema(metrics: dict) -> bool:
+    """True, wenn die Zeile aus der Zeit vor einem Pflichtfeld stammt (Schlüssel fehlt)."""
+    return any(key not in metrics for key in _REQUIRED_KEYS)
+
+
 def is_empty_metrics(metrics: dict) -> bool:
     """All-None metrics are a failed fetch's fallback quote, not data (2026-07-14 world-scan
     lesson: caching those as fresh poisoned a whole week of runs)."""
@@ -82,6 +98,7 @@ class CachedProvider:
             cached is not None
             and is_fresh(cached[0], self._run_date, self._max_age_days)
             and not is_empty_metrics(cached[1])
+            and not is_stale_schema(cached[1])
         ):
             return Quote(instrument=instrument, **cached[1])
         quote = self._inner.fetch_quote(instrument)

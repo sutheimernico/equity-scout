@@ -59,8 +59,9 @@ def _llm_asker():  # noqa: ANN202
 
 def build_telegram_html(opportunity: dict) -> str:
     """Die lange Fassung. Telegram bleibt der Kanal, auf dem der ganze Gedanke Platz hat."""
+    marker = "💡" if opportunity["kind"] == "chance" else "👀"
     lines = [
-        f"💡 <b>{escape_html(opportunity['headline'])}</b>",
+        f"{marker} <b>{escape_html(opportunity['headline'])}</b>",
         "",
         escape_html(opportunity["verdict"] or ""),
         "",
@@ -86,6 +87,8 @@ def main() -> int:
     parser.add_argument("--min-score", type=int, default=MIN_SCORE)
     parser.add_argument("--cooldown-days", type=int, default=COOLDOWN_DAYS)
     parser.add_argument("--no-llm", action="store_true", help="nur Regeltext, kein Ollama")
+    parser.add_argument("--ready-only", action="store_true",
+                        help="nur kaufbereite Titel melden, keine Bald-Hinweise")
     parser.add_argument("--plan-limit", type=int, default=12,
                         help="wie viele Watchlist-Titel überhaupt geprüft werden")
     parser.add_argument("--dry-run", action="store_true",
@@ -106,13 +109,14 @@ def main() -> int:
         min_score=args.min_score,
         cooldown_days=args.cooldown_days,
         max_count=args.max,
+        include_approaching=not args.ready_only,
     )
     if not chosen:
         ready = sum(1 for p in plans if (p.get("entry") or {}).get("stance") == "kaufbereit")
         print(
             f"Chancen: nichts zu melden ({len(plans)} Pläne geprüft, {ready} kaufbereit, "
-            f"keiner über Score {args.min_score} und außerhalb des {args.cooldown_days}-Tage-"
-            "Fensters). Keine Meldung ist ehrlicher als eine schwache."
+            f"keiner über Score {args.min_score}, handelbar und außerhalb des "
+            f"{args.cooldown_days}-Tage-Fensters). Keine Meldung ist ehrlicher als eine schwache."
         )
         return 0
 
@@ -125,12 +129,16 @@ def main() -> int:
             continue
         report = deliver(
             Alert(
-                title=opportunity["headline"],
+                title=(
+                    f"💡 {opportunity['headline']}"
+                    if opportunity["kind"] == "chance"
+                    else f"👀 {opportunity['headline']}"
+                ),
                 body=opportunity["one_liner"],
                 url=f"/?view=alarme&ticker={opportunity['ticker']}",
                 # Ein Ticker = eine Zeile auf dem Sperrbildschirm, auch wenn er zweimal käme.
                 tag=f"chance-{opportunity['ticker']}",
-                emoji_tags=["bulb"],
+                emoji_tags=["bulb"] if opportunity["kind"] == "chance" else ["eyes"],
                 telegram_html=build_telegram_html(opportunity),
             ),
             db_path=args.db,
@@ -138,7 +146,7 @@ def main() -> int:
         record_opportunity(args.db, opportunity, notified_at=now, channels=report)
         sent += 1
         print(
-            f"Chance gemeldet: {opportunity['ticker']} "
+            f"{opportunity['kind'].capitalize()} gemeldet: {opportunity['ticker']} "
             f"(Score {opportunity['score']}, Text {opportunity['explained_by']})"
         )
     if args.dry_run:

@@ -37,9 +37,21 @@ COOLDOWN_DAYS = 7
 # „die besten drei" ist eine ehrlichere Aussage als eine Liste, die Rang 9 mitnimmt.
 MAX_PER_RUN = 3
 
-# Nur diese Haltung ist eine Chance. „warten" heißt: der Kurs steht nicht dort, wo der Plan
-# ihn haben will — das ist keine Gelegenheit, das ist ein Merkzettel.
+# Nur diese Haltung ist eine Chance, auf die man heute reagieren kann.
 ACTIONABLE_STANCES = ("kaufbereit",)
+
+# „Frühzeitig" (Nicos Wort) heißt: melden, BEVOR der Kurs in der Zone steht. Ein Titel
+# knapp darüber ist keine Kaufgelegenheit — aber eine Limit-Gelegenheit: die Order liegt
+# im Depot und greift von selbst, wenn der Kurs kommt. Ohne diese zweite Klasse hätte das
+# System am 2026-08-27 exakt null Meldungen gehabt (1 kaufbereiter Titel in 30, und der
+# war über ein deutsches Depot nicht handelbar).
+APPROACHING_STANCES = ("warten",)
+# Wie weit über der Zone „bald" noch bald ist. Deckungsgleich mit buy_plan.NEAR_ZONE_LIMIT_PCT
+# und aktien.ts' NEAR_LIMIT — dieselbe Grenze darf nicht dreimal getippt werden.
+APPROACHING_MAX_GAP_PCT = 5.0
+
+KIND_READY = "chance"
+KIND_APPROACHING = "bald"
 
 # Handelbarkeit ist ein Auswahlkriterium, keine Fußnote. Ein Titel an der indischen Börse
 # kann noch so gut bewertet sein — wenn Nicos Depot ihn nicht kauft, ist die Meldung keine
@@ -88,6 +100,7 @@ def factor_sentence(factor: dict) -> str | None:
 class Opportunity:
     """Eine Chance in der Sprache, in der man sie jemandem am Telefon erklären würde."""
 
+    kind: str              # "chance" (heute handelbar) | "bald" (Limit legen)
     ticker: str
     name: str
     headline: str          # eine Zeile: was ist der Anlass
@@ -227,13 +240,23 @@ def risk_line(plan: dict) -> str:
 
 
 def plan_line(plan: dict) -> str:
-    """Was man konkret täte — als Satz, nicht als Tabelle."""
+    """Was man konkret täte — als Satz, nicht als Tabelle.
+
+    Bei „bald" ist die Handlung ausdrücklich eine LIMIT-ORDER, kein Kauf: der Kurs steht
+    noch über der Zone, und „kauf jetzt" wäre genau die Ungeduld, gegen die die Zone da ist.
+    """
     entry = plan.get("entry") or {}
     currency = plan.get("currency")
     limit = entry.get("limit")
     tranches = entry.get("tranches") or []
+    approaching = plan.get("notification_kind") == KIND_APPROACHING
     parts: list[str] = []
-    if limit:
+    if limit and approaching:
+        parts.append(
+            f"Noch nichts tun — Kauflimit {_money(limit, currency)} ins Depot legen, "
+            "dann greift die Order von selbst"
+        )
+    elif limit:
         parts.append(f"Kauflimit {_money(limit, currency)}")
     else:
         parts.append(f"Kurs aktuell {_money(plan.get('price'), currency)}")
@@ -252,10 +275,14 @@ def plan_line(plan: dict) -> str:
 
 def headline(plan: dict) -> str:
     name = plan.get("name") or plan.get("ticker")
-    stance = ((plan.get("entry") or {}).get("stance")) or ""
+    entry = plan.get("entry") or {}
+    stance = entry.get("stance") or ""
     if stance == "kaufbereit":
         return f"{name} steht in seiner Kaufzone"
     if stance == "warten":
+        gap = entry.get("gap_pct")
+        if gap is not None:
+            return f"{name} ist noch {gap:.0f} % von der Kaufzone entfernt"
         return f"{name} nähert sich seiner Kaufzone"
     return f"{name}: {stance}" if stance else str(name)
 
@@ -278,6 +305,13 @@ def one_liner(plan: dict) -> str:
 
 def verdict_line(plan: dict) -> str:
     """Das Fazit, das ein Laie als Erstes liest — bewusst ohne Empfehlungswortlaut."""
+    if plan.get("notification_kind") == KIND_APPROACHING:
+        gap = (plan.get("entry") or {}).get("gap_pct")
+        distance = f"{gap:.0f} %" if gap is not None else "wenige Prozent"
+        return (
+            f"Noch {distance} zu teuer für den eigenen Plan. Das ist keine Kaufmeldung, "
+            "sondern der Hinweis, jetzt das Limit zu legen."
+        )
     score = plan.get("score")
     buyers = plan.get("buyers") or []
     if score is not None and int(score) >= 70 and buyers:
@@ -299,6 +333,7 @@ def select_opportunities(
     cooldown_days: int = COOLDOWN_DAYS,
     max_count: int = MAX_PER_RUN,
     require_tradable: bool = True,
+    include_approaching: bool = True,
 ) -> list[dict]:
     """Welche Kaufpläne heute eine Meldung wert sind. Reine Auswahl über gemessene Felder.
 
@@ -325,17 +360,41 @@ def select_opportunities(
             return True
         return ((plan.get("tradability") or {}).get("level")) in TRADABLE_LEVELS
 
-    qualified = [
-        plan
-        for plan in plans
-        if ((plan.get("entry") or {}).get("stance") in ACTIONABLE_STANCES)
-        and plan.get("score") is not None
-        and int(plan["score"]) >= min_score
-        and _tradable(plan)
-        and _fresh_enough(str(plan.get("ticker")))
+    def _eligible(plan: dict) -> bool:
+        return (
+            plan.get("score") is not None
+            and int(plan["score"]) >= min_score
+            and _tradable(plan)
+            and _fresh_enough(str(plan.get("ticker")))
+        )
+
+    def _approaching(plan: dict) -> bool:
+        entry = plan.get("entry") or {}
+        if entry.get("stance") not in APPROACHING_STANCES:
+            return False
+        gap = entry.get("gap_pct")
+        return gap is not None and 0 <= gap <= APPROACHING_MAX_GAP_PCT
+
+    ready = [
+        plan for plan in plans
+        if (plan.get("entry") or {}).get("stance") in ACTIONABLE_STANCES and _eligible(plan)
     ]
-    qualified.sort(key=lambda p: int(p["score"]), reverse=True)
-    return qualified[:max_count]
+    ready.sort(key=lambda p: int(p["score"]), reverse=True)
+    if not include_approaching:
+        return [dict(plan, notification_kind=KIND_READY) for plan in ready[:max_count]]
+
+    soon = [plan for plan in plans if _approaching(plan) and _eligible(plan)]
+    # Innerhalb der zweiten Klasse zählt die NÄHE zur Zone, nicht der Score: ein Titel, der
+    # morgen greifen kann, ist eine frühere Meldung wert als einer, der 4,9 % entfernt ist.
+    soon.sort(key=lambda p: ((p.get("entry") or {}).get("gap_pct") or 0.0))
+
+    # Kaufbereite Titel kommen immer zuerst — sie sind die Meldung, auf die man heute
+    # reagieren kann. „Bald" füllt nur den Rest des Kontingents auf.
+    chosen = [dict(plan, notification_kind=KIND_READY) for plan in ready[:max_count]]
+    remaining = max_count - len(chosen)
+    if remaining > 0:
+        chosen += [dict(plan, notification_kind=KIND_APPROACHING) for plan in soon[:remaining]]
+    return chosen
 
 
 def build_opportunity(plan: dict) -> Opportunity:
@@ -343,6 +402,7 @@ def build_opportunity(plan: dict) -> Opportunity:
     entry = plan.get("entry") or {}
     track = plan.get("track_record") or {}
     return Opportunity(
+        kind=str(plan.get("notification_kind") or KIND_READY),
         ticker=str(plan.get("ticker")),
         name=str(plan.get("name") or plan.get("ticker")),
         headline=headline(plan),
