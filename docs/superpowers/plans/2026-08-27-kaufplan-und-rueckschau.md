@@ -128,3 +128,24 @@ Cron-Zeile wurde am 24.08. bewusst entfernt (`5cc67b3`), der Eintrag in
 `watchdog.CHAIN_SCHEDULES` blieb stehen. Fehlalarm, ein Zeilenlöschen — und ein Test, der
 `CHAIN_SCHEDULES` gegen `scripts/install_crontab.sh` prüft, würde die nächste Entkopplung
 fangen. Nicht ungefragt gefixt.
+
+### Nachtrag 02:40 — der Scout-Lauf ist doch noch durchgegangen
+Mit `--max-workers 2`: **7,5 Minuten Fetch-Zeit, 537 Ticker frisch geholt, 0 Info-Fehler,
+0 Preis-Fehler, Fehlerrate 0,0 %** (Run 17, volles Universum 7 499, 1 361 ausgefiltert). Der
+Rest kam aus dem 7-Tage-Cache — deshalb war der Lauf trotz weniger Parallelität deutlich
+SCHNELLER als der gedrosselte mit 6 Workern, der nach 16 Minuten nur Backoff produzierte.
+
+Watchlist danach von Hand nachgezogen (`scripts/run_radar.py`) — der 15-Minuten-Copilot läuft
+nur im US-Marktfenster und hätte sie erst am Nachmittag erneuert. Ergebnis:
+- **7 Titel neu:** 9104.T, CHCI, EDRY, FRST, GAIN, GLBS, ORMP. Sieben andere raus
+  (CHMG, CMBT, GGN, PTGX, SBLK, STNG, TNK).
+- **ITC.NS steht jetzt IM Stützbereich** (Zone 263,10–311,61 statt 277,08–312,20, Kurs 270,25).
+  Damit hat die Kaufliste erstmals einen Eintrag — der aber „schwer zugänglich" trägt, weil er
+  in Indien notiert.
+- Die übrigen 29 stehen über ihren Zonen, teils weit (EDRY +140 %). Nach einem gelaufenen
+  Markt findet dieser Screen kaum günstige Einstiege; das ist die ehrliche Lesart, kein Defekt.
+
+`scripts/run_insights.py` läuft im Hintergrund für die Texte der neuen Titel (~90 s je Titel,
+upsert — ein abgebrochener Lauf verliert nichts).
+
+Zweite Telegram-Nachricht (id 284) korrigiert die erste, die noch „0 von 30" sagte.
