@@ -24,6 +24,15 @@ from equity_scout.briefs import (
     rank_entries,
 )
 from equity_scout.buckets import BUCKET_WEIGHTS
+from equity_scout.buy_plan import (
+    build_plan,
+    buy_limit_for,
+    buyers_from_events,
+    relabel_tranches,
+    sort_plans,
+    stance_for,
+    tranche_basis,
+)
 from equity_scout.constants import (
     DEFAULT_CACHE_DB_PATH,
     DEFAULT_DB_PATH,
@@ -77,6 +86,7 @@ from equity_scout.lanes import LANE_AUTOPILOT, LANE_NICO
 from equity_scout.logos import ensure_logo
 from equity_scout.portfolio_storage import load_portfolio, load_valuations
 from equity_scout.radar_storage import load_latest_watchlist
+from equity_scout.suggestion_storage import load_latest_review
 from equity_scout.sectors import sector_momentum
 from equity_scout.storage import (
     init_db,
@@ -845,6 +855,116 @@ def create_app(
                 )
                 for e, f in zip(top, fetched)
             ],
+            "disclaimer": DISCLAIMER,
+        })
+
+    def _review_for(source: str) -> dict | None:
+        """Die gemessene Bilanz EINER Vorschlagsquelle — oder None, solange nie gemessen wurde.
+
+        Bewusst der 20-Tage-Horizont: er passt zu der Haltedauer, über die jemand nach einem
+        Screen-Vorschlag entscheidet. Die 5-Tage-Zahl sähe besser aus und beantwortet eine
+        andere Frage.
+        """
+        review = load_latest_review(db_path)
+        if review is None:
+            return None
+        for summary in review.get("summaries", []):
+            if summary.get("source") == source and summary.get("horizon_days") == 20:
+                return {
+                    "computed_at": review.get("computed_at"),
+                    "n_independent": summary.get("n_independent"),
+                    "hit_rate": summary.get("hit_rate"),
+                    "mean_excess_pct": summary.get("mean_excess_pct"),
+                    "line": summary.get("line"),
+                }
+        return None
+
+    @app.get("/api/kaufplan")
+    def kaufplan(limit: int = 12) -> JSONResponse:
+        """Ein Titel, ein Kaufplan — die Ansicht, nach der Nico wirklich kaufen will.
+
+        Zieht zusammen, was bisher über fünf Endpunkte verteilt lag: Score und Kurslage aus
+        derselben Brief-Quelle wie die Aktienliste, die Tranchenleiter aus `entry`, gemeldete
+        Käufe aus dem Evidenzspeicher und die gemessene Bilanz der Vorschlagsquelle aus
+        `suggestion_review`. Kein zusätzlicher Netzabruf gegenüber /api/briefs.
+        """
+        limit = max(1, min(limit, 20))
+        watchlist = load_latest_watchlist(db_path)
+        entries = rank_entries((watchlist or {}).get("entries", []))[:limit]
+        if not entries:
+            return JSONResponse({
+                "plans": [], "generated_at": None,
+                "note": "Noch keine Watchlist berechnet.", "disclaimer": DISCLAIMER,
+            })
+
+        def _fetch(ticker: str):
+            try:
+                return fetch_fundamentals_cached(ticker)
+            except Exception:  # noqa: BLE001 - ein Titel darf die Liste nie kippen
+                return None
+
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            fetched = list(pool.map(_fetch, [e["ticker"] for e in entries]))
+
+        insights = load_insights(db_path)
+        series = load_price_series(db_path)
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        events = events_in_window(
+            db_path, window_days=90, now=now,
+            tickers=[e["ticker"] for e in entries],
+        )
+        review = _review_for("rank")
+
+        import equity_scout.entry as entry_mod
+
+        champ = entry_champion(db_path, family="entry_tb")
+        barrier_config = champ[2].get("barrier_config") if champ is not None else None
+
+        plans = []
+        for entry, fundamentals in zip(entries, fetched):
+            ticker = entry["ticker"]
+            cached = series.get(ticker)
+            target_stop = (
+                entry_mod.resolve_target_stop(cached["closes"], barrier_config)
+                if cached else None
+            )
+            brief = build_brief(
+                entry, fundamentals,
+                insight=insights.get(ticker), chart=None, target_stop=target_stop,
+            )
+            # Die Leiter hängt an der Zahl, die auch in die Order geht — nie am
+            # aktuellen Kurs, wenn das Limit woanders liegt.
+            stance = stance_for(
+                in_zone=brief["in_zone"], price=brief["price"],
+                zone_low=brief["zone_low"], zone_high=brief["zone_high"],
+            )
+            basis = tranche_basis(
+                stance, price=brief["price"],
+                limit=buy_limit_for(stance, price=brief["price"], zone_high=brief["zone_high"]),
+            )
+            plans.append(build_plan(
+                brief,
+                horizon="lang",
+                evidence_state=(
+                    review["line"] if review
+                    else "Noch nie gemessen — die Bilanz dieser Quelle ist unbekannt."
+                ),
+                breakdown=entry.get("breakdown"),
+                tranches=relabel_tranches(
+                    [
+                        {"label": t.label, "share": t.fraction, "trigger_price": t.trigger_price}
+                        for t in entry_mod.dip_tranche_plan(basis)
+                    ],
+                    at_limit=basis != brief["price"],
+                ) if basis is not None else [],
+                buyers=buyers_from_events(events.get(ticker, [])),
+                track_record=review,
+            ))
+
+        return JSONResponse({
+            "generated_at": (watchlist or {}).get("created_at"),
+            "plans": [p.to_dict() for p in sort_plans(plans)],
+            "ready_count": sum(1 for p in plans if p.entry.stance == "kaufbereit"),
             "disclaimer": DISCLAIMER,
         })
 

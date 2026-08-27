@@ -8,16 +8,23 @@ from __future__ import annotations
 
 from equity_scout.buy_plan import (
     MAX_POSITION_SHARE_PCT,
-    buyers_from_events,
     STANCE_AVOID,
     STANCE_FAR,
     STANCE_READY,
     STANCE_WAIT,
+    TRADABILITY_EUROPE,
+    TRADABILITY_HARD,
+    TRADABILITY_HOME,
+    TRADABILITY_US,
     build_plan,
     buy_limit_for,
+    buyers_from_events,
     hold_note,
+    relabel_tranches,
     sort_plans,
     stance_for,
+    tradability,
+    tranche_basis,
     why_lines,
 )
 from equity_scout.evidence.base import SOURCE_13F, SOURCE_CONGRESS, SOURCE_INSIDER
@@ -174,14 +181,37 @@ def test_a_missing_breakdown_yields_no_reasons_rather_than_a_generic_one():
     assert build_plan(_brief(), evidence_state="x").why == []
 
 
-def test_german_headlines_win_over_the_english_originals():
+def test_the_original_headline_is_always_carried_next_to_the_translation():
+    """Die lokale Übersetzung erfindet gelegentlich Inhalt — das Original ist die Prüfmarke."""
     brief = _brief(insight={"headlines": ["English one"], "headlines_de": ["Deutsche eins"]})
-    assert build_plan(brief, evidence_state="x").news == ["Deutsche eins"]
+    news = build_plan(brief, evidence_state="x").news
+    assert news == [{
+        "headline": "English one", "de": "Deutsche eins",
+        "translation_note": "maschinell übersetzt — Original daneben prüfen",
+    }]
 
 
-def test_english_headlines_are_used_when_no_translation_exists():
+def test_a_headline_without_a_translation_still_shows_the_original():
     brief = _brief(insight={"headlines": ["English one"]})
-    assert build_plan(brief, evidence_state="x").news == ["English one"]
+    news = build_plan(brief, evidence_state="x").news
+    assert news[0]["headline"] == "English one" and news[0]["de"] is None
+
+
+def test_a_translation_without_an_original_is_never_shown_alone():
+    """Ohne Quelle keine Anzeige: eine unbelegbare Zeile ist genau der Halluzinationsfall."""
+    brief = _brief(insight={"headlines": [], "headlines_de": ["Erfundene Zeile"]})
+    assert build_plan(brief, evidence_state="x").news == []
+
+
+def test_the_ehld_case_keeps_its_own_source_visible():
+    """Realfall 2026-08-26: aus „Stock Price, News & Analysis" wurde eine Tatsachenbehauptung."""
+    brief = _brief(insight={
+        "headlines": ["Euroholdings Ltd. (NASDAQ: EHLD) Stock Price, News & Analysis - Kalkine"],
+        "headlines_de": ["EHLD profitiert von starker Nachfrage nach Elektrifizierung"],
+    })
+    item = build_plan(brief, evidence_state="x").news[0]
+    assert "Stock Price, News & Analysis" in item["headline"]
+    assert item["de"].startswith("EHLD profitiert")  # sichtbar, aber nie ohne die Quelle
 
 
 def test_a_stock_without_insights_shows_empty_business_and_news():
@@ -190,7 +220,7 @@ def test_a_stock_without_insights_shows_empty_business_and_news():
 
 
 def test_the_news_list_is_capped_so_one_card_cannot_become_a_feed():
-    brief = _brief(insight={"headlines_de": [f"H{i}" for i in range(20)]})
+    brief = _brief(insight={"headlines": [f"H{i}" for i in range(20)]})
     assert len(build_plan(brief, evidence_state="x").news) == 5
 
 
@@ -286,3 +316,79 @@ def test_the_reporting_delay_is_carried_so_the_card_cannot_fake_freshness():
 def test_a_purchase_without_a_named_person_says_unknown_rather_than_dropping_it():
     events = [{"source": SOURCE_CONGRESS, "event_date": "2026-08-01", "details": {}}]
     assert buyers_from_events(events)[0]["person"] == "unbekannt"
+
+
+# --- Handelbarkeit: ein Plan für einen unkaufbaren Titel ist kein Plan ------------------------
+
+def test_an_indian_listing_is_flagged_as_hard_to_reach():
+    """Drei der Top-10 vom 2026-08-26 waren indische Werte."""
+    result = tradability("ITC.NS")
+    assert result["level"] == TRADABILITY_HARD
+    assert "eigenen Depot prüfen" in result["note"]
+
+
+def test_a_plain_symbol_is_treated_as_a_us_listing():
+    assert tradability("MU")["level"] == TRADABILITY_US
+
+
+def test_european_venues_are_their_own_level():
+    for ticker in ("AGS.BR", "EZJ.L", "TEL2-B.ST"):
+        assert tradability(ticker)["level"] == TRADABILITY_EUROPE
+
+
+def test_a_german_listing_is_the_easiest_case():
+    assert tradability("SAP.DE")["level"] == TRADABILITY_HOME
+
+
+def test_an_unknown_venue_is_hard_not_assumed_fine():
+    """Eine Unbekannte ist keine Freigabe."""
+    assert tradability("FOO.XYZ")["level"] == TRADABILITY_HARD
+
+
+def test_the_estimate_never_claims_to_have_checked_a_broker():
+    """Welche Börsen Nicos Depot bedient, weiß nur er — die Karte darf es nicht behaupten."""
+    assert tradability("ITC.NS")["checked_broker"] is False
+    assert build_plan(_brief(), evidence_state="x").tradability["checked_broker"] is False
+
+
+def test_tradability_travels_on_the_plan():
+    plan = build_plan(_brief(ticker="ITC.NS"), evidence_state="x")
+    assert plan.tradability["level"] == TRADABILITY_HARD
+    assert plan.to_dict()["tradability"]["level"] == TRADABILITY_HARD
+
+
+# --- Die Tranchenleiter darf dem Limit nicht widersprechen -------------------------------------
+
+def test_the_ladder_starts_at_the_current_price_when_ready_to_buy():
+    assert tranche_basis(STANCE_READY, price=100.0, limit=100.0) == 100.0
+
+
+def test_the_ladder_starts_at_the_limit_when_waiting_not_at_the_price():
+    """Realfall EHLD: Limit 7,56 und gleichzeitig „Tranche 1 jetzt bei 9,89" — ein Widerspruch."""
+    assert tranche_basis(STANCE_WAIT, price=9.89, limit=7.56) == 7.56
+    assert tranche_basis(STANCE_FAR, price=9.89, limit=7.56) == 7.56
+
+
+def test_there_is_no_ladder_below_a_broken_zone():
+    assert tranche_basis(STANCE_AVOID, price=80.0, limit=None) is None
+
+
+def test_now_still_means_now_when_the_ladder_sits_on_the_current_price():
+    ladder = [{"label": "Jetzt", "share": 1 / 3, "trigger_price": 100.0}]
+    assert relabel_tranches(ladder, at_limit=False)[0]["label"] == "Jetzt"
+
+
+def test_the_first_step_is_renamed_when_the_ladder_sits_on_the_limit():
+    """„Jetzt bei 7,56" neben „warten" ist derselbe Widerspruch, nur in Worten."""
+    ladder = [{"label": "Jetzt", "share": 1 / 3, "trigger_price": 7.56}]
+    assert relabel_tranches(ladder, at_limit=True)[0]["label"] == "bei Limit"
+
+
+def test_the_other_step_labels_and_all_prices_survive_the_rename():
+    ladder = [
+        {"label": "Jetzt", "share": 1 / 3, "trigger_price": 7.56},
+        {"label": "bei −7 %", "share": 1 / 3, "trigger_price": 7.03},
+    ]
+    renamed = relabel_tranches(ladder, at_limit=True)
+    assert renamed[1]["label"] == "bei −7 %"
+    assert [t["trigger_price"] for t in renamed] == [7.56, 7.03]

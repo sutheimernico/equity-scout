@@ -107,8 +107,9 @@ class BuyPlan:
     sizing: Sizing
     business: str | None
     why: list[str]
-    news: list[str]
+    news: list[dict]
     buyers: list[dict]
+    tradability: dict
     track_record: dict | None
 
     def to_dict(self) -> dict:
@@ -154,6 +155,99 @@ def buyers_from_events(events: list[dict]) -> list[dict]:
     return sorted(buyers, key=lambda b: b["event_date"] or "", reverse=True)
 
 
+# Handelbarkeit für einen deutschen Privatanleger. Ein Kaufplan für einen Titel, den Nico
+# gar nicht kaufen kann, ist kein Plan — und die Liste ist voll davon: unter den Top 10 vom
+# 2026-08-26 standen drei indische Werte.
+#
+# Das ist eine EINSCHÄTZUNG nach Handelsplatz, keine Broker-Abfrage. Welche Börsen sein
+# Depot bedient, weiß nur er; die Einordnung sagt, womit zu rechnen ist, und benennt sich
+# selbst als das.
+TRADABILITY_HOME = "heimisch"
+TRADABILITY_EUROPE = "europäische Börse"
+TRADABILITY_US = "US-Börse"
+TRADABILITY_HARD = "schwer zugänglich"
+
+_TRADABILITY_BY_SUFFIX = {
+    ".DE": TRADABILITY_HOME, ".F": TRADABILITY_HOME,
+    ".PA": TRADABILITY_EUROPE, ".AS": TRADABILITY_EUROPE, ".MI": TRADABILITY_EUROPE,
+    ".MC": TRADABILITY_EUROPE, ".BR": TRADABILITY_EUROPE, ".VI": TRADABILITY_EUROPE,
+    ".LS": TRADABILITY_EUROPE, ".L": TRADABILITY_EUROPE, ".SW": TRADABILITY_EUROPE,
+    ".ST": TRADABILITY_EUROPE, ".CO": TRADABILITY_EUROPE, ".OL": TRADABILITY_EUROPE,
+    ".HE": TRADABILITY_EUROPE,
+    ".NS": TRADABILITY_HARD, ".BO": TRADABILITY_HARD, ".HK": TRADABILITY_HARD,
+    ".SA": TRADABILITY_HARD, ".AX": TRADABILITY_HARD, ".TO": TRADABILITY_HARD,
+    ".V": TRADABILITY_HARD, ".T": TRADABILITY_HARD,
+}
+
+_TRADABILITY_NOTES = {
+    TRADABILITY_HOME: "Deutsche Notierung — über jedes Depot handelbar.",
+    TRADABILITY_EUROPE: "Europäische Heimatbörse. Die meisten deutschen Broker bedienen sie; "
+                        "je nach Depot mit Fremdbörsengebühr.",
+    TRADABILITY_US: "US-Notierung. Über die üblichen Depots handelbar; bei sehr kleinen "
+                    "Werten kann eine deutsche Zweitnotierung fehlen oder kaum Umsatz haben.",
+    TRADABILITY_HARD: "Heimatbörse außerhalb Europas und der USA. Über deutsche "
+                      "Standard-Depots meist gar nicht oder nur mit deutlichem Aufschlag "
+                      "handelbar — vor dem Kauf im eigenen Depot prüfen.",
+}
+
+
+def tradability(ticker: str) -> dict:
+    """Wo der Titel notiert und was das für ein deutsches Depot praktisch heißt."""
+    for suffix, level in _TRADABILITY_BY_SUFFIX.items():
+        if ticker.upper().endswith(suffix.upper()):
+            return {"level": level, "note": _TRADABILITY_NOTES[level], "checked_broker": False}
+    if "." in ticker:
+        # Unbekannter Handelsplatz: das ist keine Freigabe, sondern eine Unbekannte.
+        return {
+            "level": TRADABILITY_HARD,
+            "note": "Unbekannter Handelsplatz — vor dem Kauf im eigenen Depot prüfen.",
+            "checked_broker": False,
+        }
+    return {
+        "level": TRADABILITY_US,
+        "note": _TRADABILITY_NOTES[TRADABILITY_US],
+        "checked_broker": False,
+    }
+
+
+# Wie viele Schlagzeilen eine Karte trägt. Mehr macht aus der Kaufkarte einen Nachrichtenstrom.
+MAX_NEWS = 5
+
+
+def news_items(
+    headlines: list[str] | None, headlines_de: list[str] | None
+) -> list[dict]:
+    """Schlagzeilen als (Original, Übersetzung) — das Original IMMER dabei.
+
+    Warum nicht einfach die deutsche Fassung: die lokale Übersetzung (qwen2.5:7b) erfindet
+    gelegentlich Inhalt. Zwei belegte Fälle vom 2026-08-26:
+
+        „Euroholdings Ltd. (NASDAQ: EHLD) Stock Price, News & Analysis"
+        -> „EHLD profitiert von starker Nachfrage nach Elektrifizierung — laut
+           Analysten-Konsens"   (Reederei; Nachfrage, Elektrifizierung und Quelle erfunden)
+
+        „Flat on the Stockholm stock market at midday"
+        -> „S&P 500 ist stabil während der mittleren Börsensitzung am Mittag."
+           (im Original kommt kein S&P 500 vor)
+
+    Das ist maschinell nicht zuverlässig zu erkennen — die meisten Übersetzungen sind in
+    Ordnung, und eine Heuristik auf Wortüberlappung markiert vor allem die korrekten. Also
+    wird nicht gefiltert, sondern beigelegt: neben jeder deutschen Zeile steht die Quelle,
+    an der man sie prüfen kann. Eine unbequeme englische Schlagzeile ist wahr, eine bequeme
+    deutsche womöglich nicht — und hiernach wird gekauft.
+    """
+    originals = list(headlines or [])
+    translations = list(headlines_de or [])
+    items: list[dict] = []
+    for i, original in enumerate(originals[:MAX_NEWS]):
+        items.append({
+            "headline": original,
+            "de": translations[i] if i < len(translations) else None,
+            "translation_note": "maschinell übersetzt — Original daneben prüfen",
+        })
+    return items
+
+
 def stance_for(*, in_zone: bool, price: float, zone_low: float, zone_high: float) -> str:
     """Die Haltung folgt der Kurslage zur Stützzone — nie dem Score."""
     if in_zone:
@@ -163,6 +257,36 @@ def stance_for(*, in_zone: bool, price: float, zone_low: float, zone_high: float
     if zone_high > 0 and price <= zone_high * (1 + NEAR_ZONE_LIMIT_PCT / 100):
         return STANCE_WAIT
     return STANCE_FAR
+
+
+def tranche_basis(stance: str, *, price: float, limit: float | None) -> float | None:
+    """Der Kurs, ab dem die Tranchenleiter rechnet — oder None, wenn es keine geben darf.
+
+    Am 2026-08-27 zeigte die erste Fassung dieser Karte für EHLD gleichzeitig „Limit 7,56"
+    und „Tranche 1: jetzt bei 9,89". Zwei Zahlen, die einander widersprechen, auf einer
+    Karte, nach der jemand kauft. Die Leiter hängt deshalb IMMER an der Zahl, die auch in
+    die Order geht: im Stützbereich der aktuelle Kurs, darüber das Limit — und unter einer
+    gebrochenen Zone gar keine, weil es dort keinen Einstieg zu staffeln gibt.
+    """
+    if stance == STANCE_AVOID:
+        return None
+    return price if stance == STANCE_READY else limit
+
+
+def relabel_tranches(tranches: list[dict], *, at_limit: bool) -> list[dict]:
+    """„Jetzt" heißt nur dann jetzt, wenn die Leiter am aktuellen Kurs hängt.
+
+    Steht der Kurs über der Zone, rechnet die Leiter ab dem Limit — dann ist die erste
+    Stufe kein „jetzt kaufen", sondern „kaufen, sobald das Limit erreicht ist". Ein Label,
+    das zum Sofortkauf auffordert, während die Karte daneben „warten" sagt, ist derselbe
+    Widerspruch wie die falsche Zahl, nur in Worten.
+    """
+    if not at_limit:
+        return tranches
+    return [
+        {**t, "label": "bei Limit" if t["label"] == "Jetzt" else t["label"]}
+        for t in tranches
+    ]
 
 
 def buy_limit_for(stance: str, *, price: float, zone_high: float) -> float | None:
@@ -237,7 +361,7 @@ def build_plan(
     )
     tranche_list = list(tranches or [])
     insight = brief.get("insight") or {}
-    headlines = insight.get("headlines_de") or insight.get("headlines") or []
+    news = news_items(insight.get("headlines"), insight.get("headlines_de"))
 
     return BuyPlan(
         ticker=brief["ticker"],
@@ -283,8 +407,9 @@ def build_plan(
         ),
         business=insight.get("business"),
         why=why_lines(breakdown),
-        news=list(headlines)[:5],
+        news=news,
         buyers=list(buyers or []),
+        tradability=tradability(brief["ticker"]),
         track_record=track_record,
     )
 
