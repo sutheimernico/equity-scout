@@ -38,10 +38,10 @@ eine dargestellt.
 
 ## Outcome (2026-08-27, 03:20)
 
-Alle sieben Tasks umgesetzt. Gate: **1 084 Backend-Tests** (die 13 neuen in
-`test_suggestion_review.py` / `test_suggestion_storage.py` / `test_buy_plan.py` mitgezählt) und
-**166 Frontend-Tests** grün, `ruff` sauber, `tsc --noEmit` sauber. Eine Ausnahme, siehe
-„Vorgefundener roter Test" unten.
+Alle sieben Tasks umgesetzt. Gate: **2 638 Backend-Tests grün, 1 vorgefundener Fehler**
+(davon **105 neu** in `test_suggestion_review.py` / `test_suggestion_storage.py` /
+`test_buy_plan.py`) und **166 Frontend-Tests** grün, `ruff` sauber, `tsc --noEmit` sauber.
+Zum einen Fehler siehe „Vorgefundener roter Test" unten.
 
 ### T1–T3 — Die Antwort auf „wäre das erfolgreich gewesen?"
 `suggestion_review.py` + `suggestion_storage.py` + `scripts/run_suggestion_review.py`.
