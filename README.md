@@ -440,6 +440,54 @@ Urteil tragen kann. Seit 2026-08-04 darf die Session-Lane an ein **Paper**-Konto
 das ist eine Messmaßnahme gegen den Executability-Bias, keine Annäherung an Echtgeld.
 Echtgeld bleibt per `LOOP.md` ausgeschlossen und ist allein Nicos Entscheidung.
 
+## Kaufplan pro Aktie (2026-08-27)
+
+Der Tab **Aktien** öffnet auf dem **Kaufplan**: eine Karte pro Titel, zugeklappt eine Zeile,
+aufgeklappt der ganze Plan — Haltung, Kauflimit, Tranchenleiter, Kursziel und Stop, das Band,
+in dem man NICHT verkauft, Positionsgröße, Geschäftsmodell, die Faktoren, die den Titel nach
+oben gebracht haben, Handelbarkeit, gemeldete Käufe und die Schlagzeilen. Endpunkt
+`/api/kaufplan`, Logik in `buy_plan.py`. Die Kurzliste liegt daneben und wurde nicht ersetzt.
+
+Vier Regeln, nach denen die Karte gebaut ist:
+
+- **Die Haltung kommt aus der Kurslage, nie aus dem Score.** ITC.NS stand am 2026-08-26 mit
+  Score 69 an der Spitze und 13 % UNTER seiner Stützzone — die Karte sagt „meiden", zeigt kein
+  Limit und keine Tranchen. Eine Leiter unter einem gebrochenen Support hätte einen Halt
+  vorgetäuscht, den es nicht mehr gibt.
+- **Das Kauflimit ist die Zahl, die in die Order gehört** — im Stützbereich der aktuelle Kurs,
+  darüber die Zonenkante. Die Tranchenleiter hängt IMMER an derselben Zahl (`tranche_basis`).
+- **Handelbarkeit steht dabei.** Ein Kaufplan für einen Titel, den ein deutsches Depot nicht
+  bedient, ist kein Plan. `tradability` ordnet nach Handelsplatz ein (heimisch / europäisch /
+  US / schwer zugänglich) und sagt selbst, dass es eine Einschätzung ist und keine
+  Depot-Abfrage. Der Filter „Erreichbar" blendet den Rest aus.
+- **Neben jeder deutschen Schlagzeile steht das Original.** Die lokale Übersetzung
+  (qwen2.5:7b) erfindet gelegentlich Inhalt — belegt am 2026-08-26: aus „Euroholdings Ltd.
+  (NASDAQ: EHLD) Stock Price, News & Analysis" wurde „EHLD profitiert von starker Nachfrage
+  nach Elektrifizierung — laut Analysten-Konsens", bei einer Reederei. Maschinell ist das
+  nicht zuverlässig zu trennen, also wird nicht gefiltert, sondern beigelegt.
+
+### Was die Vorschläge bisher wert waren (`/api/rueckschau`-Datenbasis)
+
+Über der Kartenliste steht die gemessene Bilanz der Quelle — nicht in einer Unterseite, sondern
+neben dem Vorschlag. Gemessen von `suggestion_review.py`, ausgeführt mit
+`scripts/run_suggestion_review.py`:
+
+    .venv/bin/python scripts/run_suggestion_review.py --dry-run   # messen und drucken
+    .venv/bin/python scripts/run_suggestion_review.py             # + in die DB schreiben
+
+Was dabei bewusst NICHT abgekürzt wird, weil jede Abkürzung eine bessere Zahl liefern würde:
+Einstieg immer zum ersten Kurs NACH dem Vorschlag (nie zum angezeigten); Vergleich gegen den
+Heimatindex desselben Marktes (nie einen fremdwährigen — das misst Wechselkurse); überlappende
+Fenster desselben Titels zählen als EINE Beobachtung; und weil zwei Quellen mal drei Horizonte
+sechs Tests sind, gilt das korrigierte Niveau `bonferroni_alpha(6)` = 0,0083 statt der üblichen
+5 %. Kosten sind nicht abgezogen — bei kurzen Haltedauern ist das kein Rundungsfehler.
+
+Stand 2026-08-27 (196 Vorschläge seit dem 14.07., 37 Titel): über 20 Handelstage +2,2 pp
+(Pitches, n=15) und +0,1 pp (Rangliste, n=15) gegen den jeweiligen Heimatindex — beides
+statistisch nicht von Zufall zu unterscheiden. Über 5 Tage sehen die Zahlen besser aus
+(+2,7 / +0,9 pp), reißen aber ebenfalls nicht das korrigierte Niveau. **Die ehrliche Antwort
+auf „hätte das getragen?" ist damit: noch nicht messbar.**
+
 ## Handy-Cockpit (LAN + PWA)
 
 The dashboard can run as an always-on, token-gated server on the home LAN and installs
