@@ -488,6 +488,56 @@ statistisch nicht von Zufall zu unterscheiden. Über 5 Tage sehen die Zahlen bes
 (+2,7 / +0,9 pp), reißen aber ebenfalls nicht das korrigierte Niveau. **Die ehrliche Antwort
 auf „hätte das getragen?" ist damit: noch nicht messbar.**
 
+## Benachrichtigungen aufs Handy (2026-08-27)
+
+Meldungen kommen über **drei unabhängige Kanäle**, alle hinter einem Fan-out
+(`channels.deliver`) — ein toter Kanal darf die anderen nie kosten:
+
+| Kanal | Wofür | Voraussetzung |
+| --- | --- | --- |
+| **Web Push** (`push.py`) | Der Hauptweg: die Meldung erscheint als *diese App* auf dem Sperrbildschirm | HTTPS-Adresse + installierte App |
+| **ntfy** (`ntfy.py`) | Reserve, funktioniert ohne installierte App | `NTFY_TOPIC` in `.env` + ntfy-App |
+| **Telegram** | Die lange Fassung mit Chart und Entscheidungsknöpfen | wie bisher |
+
+**Einrichtung in vier Schritten:** `docs/handy-app.md`. Der einzige Schritt, der Root
+braucht, ist `sudo bash scripts/setup_https.sh` — Web Push, „App installieren" und die APK
+verlangen alle eine HTTPS-Origin, und Tailscale liefert sie kostenlos und tailnet-intern.
+
+**Als echte APK:** GitHub → Actions → *Android-APK* → Run workflow. Gebaut wird eine
+Trusted Web Activity (Bubblewrap) — außen Android-App, innen echtes Chrome, und genau
+deshalb funktioniert Web Push darin; eine WebView-App könnte es nicht.
+`/.well-known/assetlinks.json` liegt bewusst vor dem Token-Gate, weil Chrome die Datei ohne
+Anmeldung abruft.
+
+### Chancen-Meldungen
+
+`scripts/run_opportunities.py` (täglich in `daily_copilot.sh` nach `notify`) macht aus den
+Kaufplänen des Tages Meldungen in Alltagssprache — Anlass, Gründe, **Gegenrede**, Plan.
+Zwei Klassen:
+
+- **Chance** — kaufbereit, handelbar, über der Qualitätsschwelle, außerhalb des 7-Tage-Cooldowns.
+- **Bald** — Kurs steht bis zu 5 % über der Kaufzone: kein Kauf, sondern der Hinweis, jetzt
+  das Limit zu legen. Ohne diese Klasse hätte das System am 2026-08-27 null Meldungen gehabt.
+
+Das lokale LLM formuliert **nur die Gründe** um, nie die Gegenrede (sie trägt den Stop-Kurs,
+und ein Modell hat ihn im Live-Test wegformuliert), nie die Auswahl und nie die Reihenfolge.
+Antworten mit Empfehlungswortlaut werden ganz verworfen. Ohne Ollama läuft alles auf dem
+Regeltext — das ist der Normalfall, nicht der Notfall. Verlauf: `/api/opportunities` und
+die Ansicht *Mehr → Benachrichtigungen*.
+
+### Investierbarkeit als Ausschlusskriterium (`liquidity.py`)
+
+Ein Faktor-Screen ohne Größenfilter rankt verlässlich das, was niemand kaufen kann: am
+2026-08-27 stand **EHLD** auf Platz 2 der Watchlist — 27 Mio $ Börsenwert, 4 071 gehandelte
+Stücke am Tag. Seitdem gilt: ≥ 300 Mio € Börsenwert **und** ≥ 1 Mio € Tagesumsatz, beides
+frei aus demselben `info`-Abruf. Größe rankt nicht mit, sie schließt aus.
+
+Drei Fallen, die dabei aufgefallen sind und die jeder Nachbau kennen sollte: yfinance
+liefert britische Kurse in Pence, aber Börsenwerte in Pfund; für einige große Titel fehlt
+`marketCap` ganz (dann trägt der Umsatz allein, mit Aufschlag); und ein fehlgeschlagener
+Wechselkurs-Abruf darf **nie** als „unbekannt → aussortieren" gelesen werden — Yahoo
+drosselt genau dann, wenn ein großer Lauf läuft.
+
 ## Handy-Cockpit (LAN + PWA)
 
 The dashboard can run as an always-on, token-gated server on the home LAN and installs
@@ -719,6 +769,27 @@ inbox-only / stdout; set them in your local `.env`, never commit values):
 | `DIGEST_TO` | digest recipient address |
 | `OLLAMA_HOST` / `OLLAMA_MODEL` | local LLM for pitch texts (existing assistant settings) |
 | `EDGAR_USER_AGENT` | `"name (email)"` contact the SEC requires; enables the 13F + Form 4 insider collectors |
+
+## Was der Autotrader wirklich liefert (Studie 2026-08-27)
+
+`scripts/run_diversification_study.py`, acht Jahre ETF-Panel, alle zwölf Sleeves. Voller
+Bericht: `docs/research/2026-08-27-diversification.md`; im Cockpit ganz oben unter
+*Ergebnisse*.
+
+- **3,19 unabhängige Wetten von 12** (Meucci-Entropie der Korrelations-Eigenwerte), mittlere
+  Paar-Korrelation 0,65. Ein dreizehnter Sleeve aus demselben ETF-Universum ändert daran
+  praktisch nichts.
+- **DCA ≡ 60/40, Korrelation 1,000** — DCA kauft sich über zwölf Monate in ein
+  60/40-Portfolio ein. Diese eine Wette zog 18,2 % des Depots statt 9,1 %. Der Allocator
+  fasst solche Paare seit heute zusammen (`duplicate_groups`, greift ab ~Mitte September,
+  wenn die Forward-Reihen 40 gemeinsame Beobachtungen haben).
+- **Kein Gewichtungsverfahren schlägt Gleichgewichtung** — auch ERC nicht, das die
+  Korrelationen kennt (DeMiguel/Garlappi/Uppal 2009, hier reproduziert).
+- **Schlägt es den Markt? Nein, und nicht knapp.** Auf Marktvolatilität skaliert (Faktor
+  1,94, 5 % Finanzierung): 12,63 % gegen SPY 16,07 % bei identischem maximalem Rückgang.
+  Was es liefert: **zwei Drittel der Marktrendite bei halbem Risiko** (Vola 10,2 % statt
+  19,7 %, Rückgang −18,3 % statt −33,7 %). Ein anderes Produkt als „schlägt den Markt",
+  aber ein echtes — und das ist die Behauptung, die die Oberflächen aufstellen sollten.
 
 ## Honesty guardrails
 Factor screens are well-studied but do not reliably beat the market. Free data (yfinance) is
