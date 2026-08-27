@@ -19,6 +19,7 @@ import { shortCompanyName } from "../company";
 import { pct } from "../format";
 import { DisclaimerBar } from "./ui/DisclaimerBar";
 import { RegimeCard } from "./RegimeCard";
+import { TodayAction } from "./TodayAction";
 import { StockCard } from "./AktienView";
 
 // The 3-minute briefing (mockup v2), answering Alex's daily questions in order:
@@ -81,14 +82,9 @@ export function TodayView({
 
   return (
     <>
-      <header className="section-head reveal">
-        <p className="eyebrow">Heute</p>
-        <h1>Dein Überblick in drei Minuten</h1>
-        <p className="section-sub">
-          Lage, interessante Titel, offene Entscheidungen, Autopilot — alles Papiergeld, alles
-          Recherche, keine Anlageberatung.
-        </p>
-      </header>
+      {/* Die Antwort zuerst, der Überblick danach. Wer die App öffnet, will wissen, ob
+          heute etwas zu tun ist — nicht als Schluss aus fünf Blöcken, sondern als Satz. */}
+      <TodayAction onNavigate={onNavigate} />
 
       <RegimeCard />
 

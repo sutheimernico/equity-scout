@@ -4227,3 +4227,57 @@ li.pd-alloc-row {
   color: var(--text-muted);
   font-style: italic;
 }
+
+/* --- Die Antwort zuerst (Startseite, 2026-08-27) -------------------------------------
+   Eine Karte, ein Satz. Der Zustand steckt in der Randfarbe UND im Text — Farbe allein
+   trägt die Aussage nicht, sonst liest sie jemand mit Rotschwäche oder bei Sonnenlicht
+   nicht. */
+.today-action {
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-lg, 14px);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-left: 4px solid var(--border-strong);
+}
+.today-action.live {
+  border-left-color: var(--accent);
+  background: linear-gradient(180deg, var(--accent-subtle), var(--bg-surface) 70%);
+}
+.today-action.calm {
+  border-left-color: var(--border-strong);
+}
+.today-action.loading {
+  min-height: 96px;
+}
+.today-action-eyebrow {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.today-action-head {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+  line-height: 1.25;
+  color: var(--text-strong);
+}
+.today-action-sub {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.today-action-list {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text);
+}
+@media (min-width: 900px) {
+  .today-action-head {
+    font-size: var(--text-xl);
+  }
+}
