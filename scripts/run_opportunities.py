@@ -57,6 +57,48 @@ def _llm_asker():  # noqa: ANN202
     return ask
 
 
+def _drop_illiquid(plans: list[dict]) -> tuple[list[dict], dict[str, str]]:
+    """Titel aussortieren, die den Investierbarkeitsfilter nicht bestehen.
+
+    Frisch abgefragt statt aus dem Cache: der Cache wird gerade erst mit den beiden neuen
+    Feldern befüllt, und für ein bis drei Titel ist ein Abruf billiger als eine Meldung
+    über eine Aktie, die sich nicht kaufen lässt.
+    """
+    from equity_scout.fx import eur_rate
+    from equity_scout.liquidity import assess
+    from equity_scout.models import Instrument, Quote
+
+    keep: list[dict] = []
+    dropped: dict[str, str] = {}
+    for plan in plans:
+        ticker = str(plan.get("ticker"))
+        try:
+            import yfinance as yf
+
+            info = yf.Ticker(ticker).info or {}
+        except Exception as err:  # noqa: BLE001
+            # Ein gescheiterter Abruf ist kein Freibrief: ohne Beleg keine Meldung.
+            dropped[ticker] = f"Handelbarkeit nicht prüfbar ({type(err).__name__})"
+            continue
+        quote = Quote(
+            instrument=Instrument(
+                ticker, ticker, "", "", info.get("currency") or plan.get("currency") or "USD", ""
+            ),
+            trailing_pe=None, price_to_book=None, return_on_equity=None,
+            profit_margins=None, revenue_growth=None, earnings_growth=None,
+            momentum_6m=None,
+            price=info.get("regularMarketPrice") or plan.get("price"),
+            market_cap=info.get("marketCap"),
+            avg_volume=info.get("averageVolume"),
+        )
+        reason = assess(quote, rate=eur_rate)
+        if reason is None:
+            keep.append(plan)
+        else:
+            dropped[ticker] = reason
+    return keep, dropped
+
+
 def build_telegram_html(opportunity: dict) -> str:
     """Die lange Fassung. Telegram bleibt der Kanal, auf dem der ganze Gedanke Platz hat."""
     marker = "💡" if opportunity["kind"] == "chance" else "👀"
@@ -87,6 +129,8 @@ def main() -> int:
     parser.add_argument("--min-score", type=int, default=MIN_SCORE)
     parser.add_argument("--cooldown-days", type=int, default=COOLDOWN_DAYS)
     parser.add_argument("--no-llm", action="store_true", help="nur Regeltext, kein Ollama")
+    parser.add_argument("--skip-liquidity-check", action="store_true",
+                        help="die Handelbarkeitsprüfung vor dem Senden überspringen")
     parser.add_argument("--ready-only", action="store_true",
                         help="nur kaufbereite Titel melden, keine Bald-Hinweise")
     parser.add_argument("--plan-limit", type=int, default=12,
@@ -119,6 +163,21 @@ def main() -> int:
             f"{args.cooldown_days}-Tage-Fensters). Keine Meldung ist ehrlicher als eine schwache."
         )
         return 0
+
+    # Letzte Prüfung VOR der Meldung: ist der Titel überhaupt handelbar? Die Watchlist
+    # stammt vom letzten Screener-Lauf und kann noch Titel enthalten, die der
+    # Investierbarkeitsfilter (liquidity.py) seit heute aussortiert — er greift erst beim
+    # nächsten Voll-Lauf. Gemessen am 2026-08-27: der einzige Kandidat des Trockenlaufs war
+    # GLU mit 131 Tsd € Tagesumsatz. Für die ein bis drei ausgewählten Titel kostet die
+    # Prüfung genauso viele Abrufe — das ist der Preis dafür, keine Meldung über etwas zu
+    # schicken, das Nico nicht kaufen kann.
+    if not args.skip_liquidity_check:
+        chosen, dropped = _drop_illiquid(chosen)
+        for ticker, reason in dropped.items():
+            print(f"Chancen: {ticker} verworfen — {reason}")
+        if not chosen:
+            print("Chancen: nach der Handelbarkeitsprüfung blieb nichts übrig.")
+            return 0
 
     ask = None if args.no_llm else _llm_asker()
     sent = 0

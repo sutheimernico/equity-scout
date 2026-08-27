@@ -117,6 +117,9 @@ def test_buyers_change_the_verdict_not_the_facts() -> None:
 def test_the_llm_only_reformulates_what_is_already_measured() -> None:
     prompt = build_llm_prompt(build_opportunity(_plan()))
     assert "Gegenrede" in prompt and "GRUND:" in prompt
+    # Die Gegenrede steht als KONTEXT im Prompt, aber das Modell wird nicht gebeten, sie
+    # umzuschreiben — sonst landet sie über parse_llm_reply doch wieder in der Meldung.
+    assert "ABER:" not in prompt
     # Keine Rohzahlen, aus denen ein Modell etwas Neues ableiten könnte.
     assert "72" not in prompt.split("Gemessene Punkte:")[0]
 
@@ -128,9 +131,12 @@ def test_a_well_formed_reply_replaces_the_rule_text() -> None:
         "GRUND: Mehrere Insider haben zuletzt selbst gekauft.\n"
         "ABER: Solche Auswahlverfahren schlagen den Markt nicht zuverlässig."
     )
-    polished = polish(build_opportunity(_plan()), ask=lambda p, s: reply)
+    original = build_opportunity(_plan())
+    polished = polish(original, ask=lambda p, s: reply)
     assert polished.explained_by == "llm" and len(polished.why_now) == 3
-    assert polished.risk.startswith("Solche Auswahlverfahren")
+    # Die Gegenrede bleibt die regelbasierte: sie trägt den Stop-Kurs, und genau den hat
+    # das Modell im Live-Test vom 2026-08-27 verloren.
+    assert polished.risk == original.risk and "92,00" in polished.risk
 
 
 def test_a_recommendation_in_the_reply_is_discarded_whole() -> None:

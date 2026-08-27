@@ -435,9 +435,9 @@ LLM_SYSTEM = (
 
 LLM_TASK = (
     "Schreibe aus den folgenden Stichpunkten drei kurze Sätze, die einem Anfänger "
-    "erklären, was hier gemessen wurde und warum es interessant ist. Danach EINEN Satz, "
-    "der sagt, was dagegen spricht. Format:\n"
-    "GRUND: <Satz>\nGRUND: <Satz>\nGRUND: <Satz>\nABER: <Satz>"
+    "erklären, was hier gemessen wurde. Jeder Satz nur EIN Gedanke, keine Verknüpfung "
+    "von zwei Punkten. Format:\n"
+    "GRUND: <Satz>\nGRUND: <Satz>\nGRUND: <Satz>"
 )
 
 
@@ -469,6 +469,8 @@ def parse_llm_reply(raw: str) -> tuple[list[str], str | None]:
     if not raw or _FORBIDDEN.search(raw):
         return [], None
     reasons = [m.strip() for m in _GRUND_RE.findall(raw) if len(m.strip()) > 15][:3]
+    # Die ABER-Zeile wird noch gelesen (ältere Modellantworten und Tests kennen sie), aber
+    # `polish` verwendet sie nicht mehr — siehe dort.
     aber = _ABER_RE.search(raw)
     counter = aber.group(1).strip() if aber and len(aber.group(1).strip()) > 15 else None
     if len(reasons) < 2:
@@ -489,14 +491,15 @@ def polish(
         raw = ask(build_llm_prompt(opportunity), LLM_SYSTEM)
     except Exception:  # noqa: BLE001 - ein totes Modell darf keine Meldung kosten
         return opportunity
-    reasons, counter = parse_llm_reply(raw or "")
+    reasons, _ = parse_llm_reply(raw or "")
     if not reasons:
         return opportunity
     from dataclasses import replace
 
-    return replace(
-        opportunity,
-        why_now=reasons,
-        risk=counter or opportunity.risk,
-        explained_by="llm",
-    )
+    # Nur die GRÜNDE gehen durchs Modell, die Gegenrede nie. Live gemessen am 2026-08-27:
+    # aus „Fällt der Kurs unter 18,91 $, ist die Idee widerlegt" machte qwen2.5:7b
+    # „Der Screening-Verfahren-Kriteriumsnachweis unter der Qualitätsschwelle kann gegen
+    # eine positive Bewertung arbeiten" — der Satz verlor die einzige konkrete Zahl der
+    # Meldung und sagte nichts mehr. Die Gegenrede ist der Teil, an dem eine Meldung
+    # ehrlich ist; sie ist der letzte Ort für eine Umformulierung auf gut Glück.
+    return replace(opportunity, why_now=reasons, explained_by="llm")
