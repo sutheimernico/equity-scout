@@ -1212,6 +1212,98 @@ export interface BriefsResponse {
   disclaimer: string;
 }
 
+// --- Kaufplan (Nachtschicht 2026-08-27) ------------------------------------------------
+// Ein Titel, ein Kaufplan. Spiegelt src/equity_scout/buy_plan.py; die Haltungen sind dort
+// Konstanten und hier ein Union-Typ, damit ein umbenannter Wert beim Bauen auffällt statt
+// still einen toten Zweig zu erzeugen.
+
+export type Stance = "kaufbereit" | "warten" | "zu weit gelaufen" | "meiden";
+
+export interface Tranche {
+  label: string;
+  share: number;
+  trigger_price: number | null;
+}
+
+export interface PlanNews {
+  headline: string;
+  /** Maschinelle Übersetzung — steht NIE ohne das Original daneben (siehe buy_plan.py). */
+  de: string | null;
+  translation_note: string;
+}
+
+export interface Buyer {
+  kind: string;
+  source: string;
+  person: string;
+  event_date: string | null;
+  /** Meldedatum: Kongress- und Fondsmeldungen laufen bis zu 45 Tage nach. */
+  reported_at: string | null;
+  detail: string | null;
+}
+
+export interface TrackRecord {
+  computed_at: string;
+  n_independent: number;
+  hit_rate: number | null;
+  mean_excess_pct: number | null;
+  line: string;
+}
+
+export interface BuyPlan {
+  ticker: string;
+  name: string;
+  horizon: "lang" | "kurz";
+  evidence_state: string;
+  score: number | null;
+  score_band: string | null;
+  price: number;
+  currency: string | null;
+  entry: {
+    stance: Stance;
+    stance_note: string;
+    /** Die Zahl, die in die Order gehört — null unter einer gebrochenen Zone. */
+    limit: number | null;
+    zone_low: number;
+    zone_high: number;
+    gap_pct: number | null;
+    tranches: Tranche[];
+  };
+  exit: {
+    target: number | null;
+    target_source: string | null;
+    stop: number | null;
+    analyst_target: number | null;
+    analyst_count: number | null;
+    hold_note: string;
+    profit_target_pct: number;
+    stop_loss_pct: number;
+    max_holding_days: number;
+  };
+  sizing: { max_share_pct: number; tranche_count: number; note: string };
+  business: string | null;
+  why: string[];
+  news: PlanNews[];
+  buyers: Buyer[];
+  tradability: { level: string; note: string; checked_broker: boolean };
+  track_record: TrackRecord | null;
+}
+
+export interface KaufplanResponse {
+  generated_at: string | null;
+  plans: BuyPlan[];
+  ready_count: number;
+  note?: string;
+  disclaimer: string;
+}
+
+export async function fetchKaufplan(limit = 12): Promise<KaufplanResponse> {
+  const response = await fetch(`/api/kaufplan?limit=${limit}`);
+  if (!response.ok) throw new Error(`/api/kaufplan returned ${response.status}`);
+  return response.json();
+}
+
+
 export async function fetchBriefs(limit = 12): Promise<BriefsResponse> {
   const response = await fetch(`/api/briefs?limit=${limit}`);
   if (!response.ok) throw new Error(`/api/briefs returned ${response.status}`);

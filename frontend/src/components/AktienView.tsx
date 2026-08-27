@@ -5,6 +5,7 @@ import { fetchBriefs, fetchRunHistory, type StockBrief } from "../api";
 import { shortCompanyName } from "../company";
 import { PotentialBlock } from "./PotentialBlock";
 import { ZoneChip } from "./StockList";
+import { KaufplanView } from "./KaufplanView";
 import { StockLogo } from "./StockLogo";
 import { Chevron } from "./ui/Chevron";
 
@@ -17,6 +18,15 @@ const SEGMENTS: { key: ZoneSegment; label: string }[] = [
   { key: "in", label: "Kaufbereit" },
   { key: "near", label: "Fast" },
   { key: "all", label: "Alle" },
+];
+
+// Kaufplan zuerst (2026-08-27, Nicos Auftrag „ich hätte gerne so ein Aktiending in der
+// View"): wer die Aktien-Ansicht öffnet, will wissen, was er kaufen soll und zu welchem
+// Preis. Die Kurzliste bleibt daneben — sie ist der schnellere Überblick, wenn man nur
+// scrollen will, und wurde nicht ersetzt.
+const MODES: { key: "plan" | "liste"; label: string }[] = [
+  { key: "plan", label: "Kaufplan" },
+  { key: "liste", label: "Kurzliste" },
 ];
 
 const STYLES: { key: string; label: string }[] = [
@@ -63,6 +73,7 @@ export function AktienView({
   const [failed, setFailed] = useState(false);
   const [segment, setSegment] = useState<ZoneSegment>("in");
   const [style, setStyle] = useState("alle");
+  const [mode, setMode] = useState<"plan" | "liste">("plan");
 
   useEffect(() => {
     let ignore = false;
@@ -86,10 +97,56 @@ export function AktienView({
     };
   }, []);
 
-  if (failed) return <p className="brief-muted">Aktien-Daten nicht erreichbar.</p>;
-  if (briefs === null) return <p className="brief-muted">lädt …</p>;
+  // Der Umschalter steht VOR jeder Ladeschranke: sonst wäre der Kaufplan unerreichbar,
+  // sobald die Kurzliste hakt — und er ist die Ansicht, um die es hier geht.
+  const modeSwitch = (
+    <div className="seg-switch" role="tablist" aria-label="Ansicht">
+      {MODES.map((m) => (
+        <button
+          key={m.key}
+          role="tab"
+          aria-selected={mode === m.key}
+          className={mode === m.key ? "seg-btn active" : "seg-btn"}
+          onClick={() => setMode(m.key)}
+        >
+          {m.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (mode === "plan") {
+    return (
+      <>
+        {modeSwitch}
+        <KaufplanView onNavigate={onNavigate} />
+      </>
+    );
+  }
+
+  if (failed) {
+    return (
+      <>
+        {modeSwitch}
+        <p className="brief-muted">Aktien-Daten nicht erreichbar.</p>
+      </>
+    );
+  }
+  if (briefs === null) {
+    return (
+      <>
+        {modeSwitch}
+        <p className="brief-muted">lädt …</p>
+      </>
+    );
+  }
   if (briefs.length === 0) {
-    return <p className="brief-muted">Noch keine Watchlist — der Screener lief noch nicht.</p>;
+    return (
+      <>
+        {modeSwitch}
+        <p className="brief-muted">Noch keine Watchlist — der Screener lief noch nicht.</p>
+      </>
+    );
   }
 
   // Counts respect the style filter, so the numbers always match what a tap shows.
@@ -102,6 +159,7 @@ export function AktienView({
 
   return (
     <section>
+      {modeSwitch}
       <header className="section-head reveal">
         <p className="eyebrow">Aktien</p>
         <h1>Die Vorschläge des Scouts</h1>

@@ -3872,3 +3872,214 @@ li.pd-alloc-row {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* ── Kaufplan (Nachtschicht 2026-08-27) ─────────────────────────────────────────
+   Eine Karte pro Titel, zugeklappt eine Zeile. Die Farbregel des Cockpits gilt
+   unverändert: Farbe steht nie allein, neben jedem Chip steht sein Wort — auf einer
+   Karte, nach der jemand kauft, wäre ein grüner Punkt eine unbelegbare Behauptung. */
+.plan-list {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.plan-card {
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md, 10px);
+  background: var(--bg-surface);
+  padding: var(--space-2) var(--space-3);
+}
+.plan-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.plan-head-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+.plan-name {
+  font-weight: 600;
+  font-size: 0.98rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-chiprow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.plan-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+.plan-chip-ready {
+  color: var(--positive);
+  background: color-mix(in srgb, var(--positive) 12%, transparent);
+}
+.plan-chip-wait {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+/* "Zu weit gelaufen" ist KEIN Fehler, nur ein Timing-Urteil — darum neutral und nicht rot. */
+.plan-chip-far {
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  border: 1px solid var(--border-faint);
+}
+.plan-chip-avoid {
+  color: var(--negative);
+  background: color-mix(in srgb, var(--negative) 12%, transparent);
+}
+.plan-chip-mute {
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  border: 1px solid var(--border-faint);
+}
+.plan-chip-warn {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+/* Die Zahl, die in die Order gehört — rechts, monospaced, damit sie zwischen den
+   Karten untereinander steht und vergleichbar bleibt. */
+.plan-head-limit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  flex-shrink: 0;
+}
+.plan-limit-value {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.plan-limit-label {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+.plan-stance-note {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.plan-body {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.plan-block h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.plan-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border-faint);
+  font-size: var(--text-sm);
+  flex-wrap: wrap;
+}
+.plan-row-label {
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 7rem;
+}
+.plan-row-value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.plan-row-hint {
+  width: 100%;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.plan-sub {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.plan-tranches {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+}
+.plan-tranches li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 3px 0;
+  font-size: var(--text-sm);
+  border-bottom: 1px solid var(--border-faint);
+}
+.plan-tranches li span:nth-child(2) {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.plan-tranches li span:last-child {
+  color: var(--text-muted);
+  min-width: 2.5rem;
+  text-align: right;
+}
+.plan-why,
+.plan-buyers,
+.plan-news {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+.plan-news li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.plan-news-de {
+  line-height: 1.4;
+}
+/* Das Original steht kleiner, aber IMMER da: die maschinelle Übersetzung erfindet
+   gelegentlich Inhalt (siehe buy_plan.news_items), und dies ist die Prüfmarke. */
+.plan-news-orig {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+/* Die Bilanz der Liste steht ÜBER den Karten, nicht in einer Unterseite: was die
+   Vorschläge bisher wert waren, gehört neben den Vorschlag. */
+.plan-record {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--accent);
+  background: var(--bg-inset);
+  border-radius: 0 var(--radius-md, 10px) var(--radius-md, 10px) 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.plan-record-note {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
