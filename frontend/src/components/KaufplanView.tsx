@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { fetchKaufplan, type BuyPlan } from "../api";
+import { fetchKaufplan, fetchShortterm, type BuyPlan, type ShortTermLane } from "../api";
 import { shortCompanyName } from "../company";
 import {
   PLAN_FILTERS,
@@ -11,6 +11,7 @@ import {
   filterPlans,
   type PlanFilter,
 } from "../kaufplan";
+import { laneRows, shortTermHeadline } from "../kurzfrist";
 import { StockLogo } from "./StockLogo";
 import { Chevron } from "./ui/Chevron";
 
@@ -210,11 +211,83 @@ function PlanCard({ plan }: { plan: BuyPlan }) {
   );
 }
 
+
+/** Die kurze Seite. Sie liefert bewusst KEINE Kaufliste — siehe `kurzfrist.ts` für die
+ *  Messung, aus der das folgt. Was sie liefert, ist die Auskunft, warum. */
+function KurzfristBlock() {
+  const [lanes, setLanes] = useState<ShortTermLane[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let ignore = false;
+    fetchShortterm()
+      .then((r) => !ignore && setLanes(r.lanes))
+      .catch(() => !ignore && setFailed(true));
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  if (failed) return <p className="brief-muted">Kurzfrist-Daten nicht erreichbar.</p>;
+  if (lanes === null) return <p className="brief-muted">lädt …</p>;
+
+  const rows = laneRows(lanes);
+  return (
+    <section>
+      <header className="section-head reveal">
+        <p className="eyebrow">Kurzfristig</p>
+        <h1>Was auf Tagessicht gemessen wurde</h1>
+        <p className="section-sub">{shortTermHeadline(rows)}</p>
+      </header>
+
+      <ul className="plan-list">
+        {rows.map((row) => (
+          <li key={row.lane} className="plan-card">
+            <div className="plan-head-static">
+              <span className="plan-name">{row.label}</span>
+              <span className={row.verdict === "negativ" ? "plan-chip plan-chip-avoid" : "plan-chip plan-chip-mute"}>
+                {row.verdict}
+              </span>
+            </div>
+            <div className="plan-row">
+              <span className="plan-row-label">Rendite</span>
+              <span className="plan-row-value">
+                {row.returnPct >= 0 ? "+" : "−"}
+                {Math.abs(row.returnPct).toFixed(1).replace(".", ",")} %
+              </span>
+              <span className="plan-row-hint">
+                {row.benchmarkPct === null
+                  ? `Vergleich ${row.benchmarkTicker} noch nicht gemessen`
+                  : `${row.benchmarkTicker} im selben Zeitraum ${row.benchmarkPct >= 0 ? "+" : "−"}${Math.abs(row.benchmarkPct).toFixed(1).replace(".", ",")} % · Abstand ${(row.excessPct ?? 0) >= 0 ? "+" : "−"}${Math.abs(row.excessPct ?? 0).toFixed(1).replace(".", ",")} pp`}
+              </span>
+            </div>
+            <p className="plan-sub">{row.plain}</p>
+            <p className="plan-sub">{row.realizedNote}</p>
+          </li>
+        ))}
+      </ul>
+
+      <p className="brief-muted">
+        Diese Strategien laufen auf Papier weiter und melden sich, sobald eine das
+        Ergebnis-Gate besteht (≥ 30 realisierte Trades, ≥ 60 Tage, Netto positiv,
+        Profit-Faktor ≥ 1,1). Bis dahin wäre eine kurzfristige Kaufliste hier eine
+        Behauptung ohne Deckung.
+      </p>
+    </section>
+  );
+}
+
+const HORIZONS: { key: "lang" | "kurz"; label: string }[] = [
+  { key: "lang", label: "Langfristig" },
+  { key: "kurz", label: "Kurzfristig" },
+];
+
 export function KaufplanView({ onNavigate }: { onNavigate: (view: string) => void }) {
   const [plans, setPlans] = useState<BuyPlan[] | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [filter, setFilter] = useState<PlanFilter>("alle");
+  const [horizon, setHorizon] = useState<"lang" | "kurz">("lang");
 
   useEffect(() => {
     let ignore = false;
@@ -232,8 +305,47 @@ export function KaufplanView({ onNavigate }: { onNavigate: (view: string) => voi
     };
   }, []);
 
-  if (failed) return <p className="brief-muted">Kaufpläne nicht erreichbar.</p>;
-  if (plans === null) return <p className="brief-muted">lädt …</p>;
+  const horizonSwitch = (
+    <div className="seg-switch" role="tablist" aria-label="Zeithorizont">
+      {HORIZONS.map((h) => (
+        <button
+          key={h.key}
+          role="tab"
+          aria-selected={horizon === h.key}
+          className={horizon === h.key ? "seg-btn active" : "seg-btn"}
+          onClick={() => setHorizon(h.key)}
+        >
+          {h.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (horizon === "kurz") {
+    return (
+      <>
+        {horizonSwitch}
+        <KurzfristBlock />
+      </>
+    );
+  }
+
+  if (failed) {
+    return (
+      <>
+        {horizonSwitch}
+        <p className="brief-muted">Kaufpläne nicht erreichbar.</p>
+      </>
+    );
+  }
+  if (plans === null) {
+    return (
+      <>
+        {horizonSwitch}
+        <p className="brief-muted">lädt …</p>
+      </>
+    );
+  }
 
   const visible = filterPlans(plans, filter);
   const record = plans[0]?.track_record ?? null;
@@ -241,6 +353,7 @@ export function KaufplanView({ onNavigate }: { onNavigate: (view: string) => voi
 
   return (
     <section>
+      {horizonSwitch}
       <header className="section-head reveal">
         <p className="eyebrow">Kaufplan</p>
         <h1>Was du kaufen könntest — und zu welchem Preis</h1>
