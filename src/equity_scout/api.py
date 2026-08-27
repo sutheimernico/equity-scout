@@ -1354,6 +1354,41 @@ def create_app(
     _TICKER_RE = re.compile(r"^[A-Za-z0-9.\-]{1,15}$")
     entry_cache: dict[str, dict] = {}  # key "TICKER:YYYY-MM-DD" -> payload; daily-fresh, no TTL timer
 
+    @app.get("/api/rueckschau")
+    def rueckschau() -> JSONResponse:
+        """Was die VORSCHLÄGE wert waren — die Gegenfrage zu /api/proof.
+
+        `/api/proof` misst die Bücher, also was die Maschine selbst handelt. Hier steht, was
+        die Liste getaugt hat, die Nico zu sehen bekommt. Beides gehört in den Ergebnis-Tab,
+        aber es sind zwei verschiedene Fragen und werden nie zusammengerechnet.
+
+        Reines Lesen: gerechnet wird in `scripts/run_suggestion_review.py` (der Kursabruf
+        braucht Netz und gehört nicht in eine Anfrage, auf die ein Handy wartet).
+        """
+        review = load_latest_review(db_path)
+        if review is None:
+            return JSONResponse({
+                "available": False,
+                "note": (
+                    "Noch nie gemessen. `scripts/run_suggestion_review.py` einmal laufen "
+                    "lassen — der Lauf braucht Kurse für jeden je vorgeschlagenen Titel."
+                ),
+                "disclaimer": DISCLAIMER,
+            })
+        # Die Einzelmessungen bleiben in der DB: 189 Zeilen sind für die Ansicht kein
+        # Gewinn und für ein Handy eine halbe Megabyte-Nutzlast.
+        return JSONResponse({
+            "available": True,
+            "computed_at": review.get("computed_at"),
+            "n_suggestions": review.get("n_suggestions"),
+            "n_measured": review.get("n_measured"),
+            "ticker_coverage": review.get("ticker_coverage"),
+            "missing_prices": review.get("missing_prices", []),
+            "rank_cutoff": review.get("rank_cutoff"),
+            "summaries": review.get("summaries", []),
+            "disclaimer": DISCLAIMER,
+        })
+
     @app.get("/api/entry/{ticker}")
     def entry(ticker: str) -> JSONResponse:
         from datetime import date

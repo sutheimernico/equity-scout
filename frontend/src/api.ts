@@ -1297,6 +1297,44 @@ export interface KaufplanResponse {
   disclaimer: string;
 }
 
+export interface ReviewSummaryRow {
+  source: "pitch" | "rank";
+  label: string;
+  horizon_days: number;
+  n: number;
+  n_independent: number;
+  hit_rate: number | null;
+  mean_excess_pct: number | null;
+  median_excess_pct: number | null;
+  mean_return_pct: number | null;
+  best: [string, number] | null;
+  worst: [string, number] | null;
+  sector_concentration: number | null;
+  tickers: string[];
+  verdict: { verdict: string; p_value: number | null; note: string } | null;
+  /** Der fertige deutsche Satz — inklusive der Einordnung zum korrigierten Niveau. */
+  line: string;
+}
+
+export interface RueckschauResponse {
+  available: boolean;
+  note?: string;
+  computed_at?: string;
+  n_suggestions?: number;
+  n_measured?: number;
+  ticker_coverage?: number;
+  missing_prices?: string[];
+  rank_cutoff?: number;
+  summaries?: ReviewSummaryRow[];
+  disclaimer: string;
+}
+
+export async function fetchRueckschau(): Promise<RueckschauResponse> {
+  const response = await fetch("/api/rueckschau");
+  if (!response.ok) throw new Error(`/api/rueckschau returned ${response.status}`);
+  return response.json();
+}
+
 export async function fetchKaufplan(limit = 12): Promise<KaufplanResponse> {
   const response = await fetch(`/api/kaufplan?limit=${limit}`);
   if (!response.ok) throw new Error(`/api/kaufplan returned ${response.status}`);

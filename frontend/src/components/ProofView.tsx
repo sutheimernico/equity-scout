@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { fetchProof, type ProofBook, type ProofResponse } from "../api";
 import { LANE_NOTES } from "../lanes";
+import { RueckschauPanel } from "./RueckschauPanel";
 import { Explain } from "./ui/Explain";
 import { InfoIcon } from "./ui/InfoIcon";
 
@@ -217,6 +218,10 @@ export function ProofView() {
       {data.books?.map((book) => (
         <BookCard key={book.label} book={book} minJudgeDays={data.min_judge_days ?? 60} />
       ))}
+
+      {/* Die Gegenfrage zu den Büchern: was die VORSCHLAGSLISTE taugte. Sie steht darunter
+          und nicht dazwischen — es sind zwei Fragen, keine gemeinsame Kennzahl. */}
+      <RueckschauPanel />
 
       <Explain tone="hint">{data.disclaimer}</Explain>
     </>
