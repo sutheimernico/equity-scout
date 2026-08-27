@@ -75,6 +75,12 @@ step fscore              "$PY" scripts/run_fscore.py
 # --min-pitches 5: the daily delivery pitches several names (topped up by composite),
 # not only strict in-zone hits (Nico 2026-07-15).
 step notify              "$PY" scripts/run_notify.py --min-pitches 5
+# Chancen-Meldung aufs Handy (2026-08-27). Direkt nach notify, weil sie dieselbe frische
+# Watchlist liest — und VOR den Auflösungsschritten, damit eine lange Nachlese die Meldung
+# des Tages nicht hinter die Mittagszeit schiebt. Ohne LLM-Schliff hier: der Schritt darf
+# nicht 90 s pro Titel auf Ollama warten (siehe insights weiter unten); der Regeltext ist
+# der Normalfall, nicht der Notfall.
+step opportunities       "$PY" scripts/run_opportunities.py --no-llm
 step score_watchlist     "$PY" scripts/run_score_watchlist.py
 step resolve_predictions "$PY" scripts/run_resolve_predictions.py
 step resolve_evidence    "$PY" scripts/run_resolve_evidence.py

@@ -34,7 +34,7 @@ def test_parse_progress_reports_the_running_step_and_the_finished_count() -> Non
     assert progress["current"] == "earnings"
     assert progress["done_count"] == 2  # radar OK + insights FAILED are both finished
     assert progress["failed"] == ["insights"]
-    assert progress["expected_total"] == 12
+    assert progress["expected_total"] == 13  # 12 + opportunities (2026-08-27)
     assert progress["started_at"] == "2026-08-07T18:00:00+02:00"
     assert progress["current_since"] == "2026-08-07T18:04:11+02:00"
 

@@ -83,3 +83,29 @@ def test_test_endpoint_reports_per_channel_outcome(tmp_path, monkeypatch) -> Non
     assert body["report"]["webpush"]["sent"] == 1
     assert "skipped" in body["report"]["ntfy"]
     assert len(sent) == 1
+
+
+def test_opportunities_endpoint_returns_the_history(tmp_path, monkeypatch) -> None:
+    """Der Verlauf ist der Grund, warum eine Meldung nicht mit dem Wegwischen verschwindet."""
+    monkeypatch.chdir(tmp_path)
+    from equity_scout.opportunity_storage import record_opportunity
+
+    client, db = _client(tmp_path)
+    record_opportunity(
+        db,
+        {
+            "ticker": "MSFT", "name": "Microsoft",
+            "headline": "Microsoft steht in seiner Kaufzone",
+            "one_liner": "Kurs 100 $", "verdict": "Stark.",
+            "why_now": ["Grund eins."], "risk": "Unter 92 $ widerlegt.",
+            "plan_line": "Limit 98 $.", "score": 72, "stance": "kaufbereit",
+            "price": 100.0, "currency": "USD", "limit": 98.0, "horizon": "lang",
+            "explained_by": "regeln", "track_record": None,
+        },
+        notified_at="2026-08-27T06:00:00+00:00",
+        channels={"webpush": {"sent": 1}},
+    )
+    body = client.get("/api/opportunities").json()
+    assert body["counts"] == {"chance": 1, "total": 1}
+    row = body["opportunities"][0]
+    assert row["why_now"] == ["Grund eins."] and row["buy_limit"] == 98.0

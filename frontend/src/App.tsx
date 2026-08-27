@@ -212,7 +212,7 @@ export default function App() {
             {view === "ergebnisse" && <ProofView />}
             {view === "werkauft" && <WerKauftView />}
             {view === "labor" && <LaborView />}
-            {view === "alarme" && <AlarmeView />}
+            {view === "alarme" && <AlarmeView onOpenStock={openStock} />}
             {view === "wie" && <WieView />}
           </div>
         </main>

@@ -1,9 +1,10 @@
+import { OpportunityList } from "./OpportunityList";
 import { PushSetup } from "./PushSetup";
 
 // "Benachrichtigungen": what the app tells you, when, and how to switch it on.
 // Written for someone who does not follow markets — every rule is a sentence, not a
 // threshold.
-export function AlarmeView() {
+export function AlarmeView({ onOpenStock }: { onOpenStock?: (ticker: string) => void }) {
   return (
     <>
       <header className="section-head reveal">
@@ -14,6 +15,11 @@ export function AlarmeView() {
           selbst — und zwar nur, wenn es etwas zu sagen gibt.
         </p>
       </header>
+
+      <section className="strat-block reveal">
+        <h3 className="block-title">Zuletzt gemeldet</h3>
+        <OpportunityList onOpenStock={onOpenStock} />
+      </section>
 
       <PushSetup />
 

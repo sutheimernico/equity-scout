@@ -1485,3 +1485,38 @@ export async function sendTestPush(): Promise<{ ok: boolean; report: Record<stri
   if (!response.ok) throw new Error(`/api/push/test returned ${response.status}`);
   return response.json();
 }
+
+// --- Gemeldete Chancen (2026-08-27) ---------------------------------------------------
+export interface OpportunityRow {
+  id: number;
+  ticker: string;
+  name: string | null;
+  notified_at: string;
+  headline: string;
+  one_liner: string;
+  verdict: string | null;
+  why_now: string[];
+  risk: string;
+  plan_line: string | null;
+  score: number | null;
+  stance: string | null;
+  price: number | null;
+  currency: string | null;
+  buy_limit: number | null;
+  horizon: string | null;
+  explained_by: string | null;
+  track_record: string | null;
+  channels: Record<string, { sent?: number; error?: string; skipped?: string }>;
+}
+
+export interface OpportunitiesResponse {
+  opportunities: OpportunityRow[];
+  counts: { chance: number; total: number };
+  disclaimer: string;
+}
+
+export async function fetchOpportunities(limit = 20): Promise<OpportunitiesResponse> {
+  const response = await fetch(`/api/opportunities?limit=${limit}`);
+  if (!response.ok) throw new Error(`/api/opportunities returned ${response.status}`);
+  return response.json();
+}

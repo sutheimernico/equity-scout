@@ -2038,6 +2038,27 @@ def create_app(
             "disclaimer": DISCLAIMER,
         })
 
+    @app.get("/api/opportunities")
+    def opportunities(limit: int = 20) -> JSONResponse:
+        """Was dir gemeldet wurde — der Verlauf hinter den Benachrichtigungen.
+
+        Eine Meldung, die nur auf dem Sperrbildschirm existiert, ist weg, sobald man sie
+        wegwischt. Hier steht sie mit vollem Text und ihrem Datum, und weil jede Zeile
+        Kurs und Limit von damals trägt, lässt sich später nachrechnen, was die Meldungen
+        wert waren.
+        """
+        from equity_scout.opportunity_storage import recent_opportunities
+
+        rows = recent_opportunities(db_path, limit=max(1, min(limit, 100)))
+        return JSONResponse({
+            "opportunities": rows,
+            "counts": {
+                "chance": sum(1 for r in rows if r.get("stance") == "kaufbereit"),
+                "total": len(rows),
+            },
+            "disclaimer": DISCLAIMER,
+        })
+
     # --- Phone push notifications (2026-08-27) ---
     # Web Push subscriptions are per-device: the phone hands us an endpoint URL plus two
     # keys, we store them, and every later alert is encrypted to that device. Nothing here

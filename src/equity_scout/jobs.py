@@ -69,7 +69,7 @@ class JobSpec:
 
 
 # The daily chain's steps in daily_copilot.sh order. On Mondays it prepends "scout" and
-# "person_scores", so the count is a floor, not a contract — the cockpit says "von ~12".
+# "person_scores", so the count is a floor, not a contract — the cockpit says "von ~13".
 DAILY_STEPS = (
     "radar",
     "insights",
@@ -77,6 +77,7 @@ DAILY_STEPS = (
     "evidence",
     "fscore",
     "notify",
+    "opportunities",
     "score_watchlist",
     "resolve_predictions",
     "resolve_evidence",
