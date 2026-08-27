@@ -222,3 +222,85 @@ def test_a_throttled_run_falls_below_the_threshold():
     from run_suggestion_review import MIN_COVERAGE, ticker_coverage
 
     assert ticker_coverage([f"T{i}" for i in range(37)], {}) < MIN_COVERAGE
+
+
+# --- Die Nachtschicht-Nachricht ----------------------------------------------------------------
+
+def _notify():
+    import importlib
+    return importlib.import_module("notify_nightshift")
+
+
+def _watchlist(entries: list[dict]) -> dict:
+    return {"created_at": "2026-08-26T20:45:01+00:00", "entries": entries}
+
+
+def _entry(ticker: str, price: float, low: float, high: float, in_zone: bool) -> dict:
+    return {
+        "ticker": ticker, "price": price, "entry_zone_low": low,
+        "entry_zone_high": high, "in_zone": in_zone,
+    }
+
+
+def test_the_message_states_the_finding_before_the_link():
+    """Ein Link allein beantwortet nichts — die Zahl muss davor stehen."""
+    text = _notify().build_message(
+        watchlist=_watchlist([_entry("A", 100, 90, 110, False)]),
+        review=None, dash_url="http://host:8420", dash_token=None,
+    )
+    assert text.index("Stützbereich") < text.index("Kaufplan öffnen")
+
+
+def test_an_empty_buy_list_is_called_a_finding_not_a_failure():
+    text = _notify().build_message(
+        watchlist=_watchlist([_entry("A", 9.89, 7.39, 7.56, False)]),
+        review=None, dash_url=None, dash_token=None,
+    )
+    assert "0 von 1" in text
+    assert "kein Fehler" in text
+
+
+def test_a_ready_stock_does_not_get_the_nothing_to_buy_sentence():
+    text = _notify().build_message(
+        watchlist=_watchlist([_entry("A", 100, 90, 110, True)]),
+        review=None, dash_url=None, dash_token=None,
+    )
+    assert "1 von 1" in text
+    assert "nichts kaufen" not in text
+
+
+def test_the_token_is_url_escaped_so_telegram_can_parse_the_link():
+    """Ein rohes & zerlegt Telegrams HTML-Parser (dieselbe Falle wie in digest.py)."""
+    text = _notify().build_message(
+        watchlist=None, review=None, dash_url="http://host:8420", dash_token="abc123",
+    )
+    assert "&amp;token=abc123" in text
+    assert "&token=" not in text
+
+
+def test_without_a_dash_url_the_message_carries_no_broken_link():
+    text = _notify().build_message(
+        watchlist=None, review=None, dash_url=None, dash_token="abc123",
+    )
+    assert "<a href" not in text
+    assert "abc123" not in text  # und schon gar nicht den nackten Token
+
+
+def test_the_track_record_line_uses_the_twenty_day_horizon_not_the_flattering_one():
+    """Die 5-Tage-Zahl sieht besser aus und beantwortet eine andere Frage."""
+    review = {"summaries": [
+        {"source": "rank", "horizon_days": 5, "mean_excess_pct": 0.9, "n_independent": 45},
+        {"source": "rank", "horizon_days": 20, "mean_excess_pct": 0.1, "n_independent": 15},
+    ]}
+    text = _notify().build_message(
+        watchlist=None, review=review, dash_url=None, dash_token=None,
+    )
+    assert "+0.1 Prozentpunkte" in text and "15 unabhängige" in text
+    assert "+0.9" not in text
+
+
+def test_a_missing_review_simply_omits_the_balance_line():
+    text = _notify().build_message(
+        watchlist=None, review=None, dash_url=None, dash_token=None,
+    )
+    assert "Bilanz" not in text

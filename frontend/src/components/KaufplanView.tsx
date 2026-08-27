@@ -9,7 +9,6 @@ import {
   distanceToLimitPct,
   emptyNote,
   filterPlans,
-  trackRecordLine,
   type PlanFilter,
 } from "../kaufplan";
 import { StockLogo } from "./StockLogo";
@@ -238,7 +237,6 @@ export function KaufplanView({ onNavigate }: { onNavigate: (view: string) => voi
 
   const visible = filterPlans(plans, filter);
   const record = plans[0]?.track_record ?? null;
-  const recordLine = trackRecordLine(record);
   const readyCount = plans.filter((p) => p.entry.stance === "kaufbereit").length;
 
   return (
@@ -254,11 +252,13 @@ export function KaufplanView({ onNavigate }: { onNavigate: (view: string) => voi
         </p>
       </header>
 
-      {recordLine && (
+      {/* Nur die volle Zeile des Backends: sie trägt Zahl UND Einordnung. Die kompakte
+          Fassung (trackRecordLine) sagt dasselbe noch einmal und machte die Box doppelt so
+          hoch — gemessen am 2026-08-27 im 390-px-Verify. Sie bleibt für die Telegram-
+          Nachricht, wo es keinen Platz für den ganzen Satz gibt. */}
+      {record && (
         <p className="plan-record">
-          {recordLine}
-          <br />
-          <span className="plan-record-note">{record?.line}</span>
+          <b>Bilanz dieser Liste:</b> {record.line}
         </p>
       )}
 
