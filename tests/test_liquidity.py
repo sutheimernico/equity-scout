@@ -83,11 +83,22 @@ def test_euro_names_need_no_fx_lookup() -> None:
     assert assess(_quote("SAP.DE", currency="EUR", cap=2e11, volume=1e6, price=200.0), rate=no_rates) is None
 
 
-def test_an_unknown_currency_is_not_silently_converted() -> None:
-    """Ohne Kurs ist der Börsenwert unbekannt — dann trägt der Umsatz, der ebenfalls
-    unbekannt ist. Ergebnis: raus, nicht durchgewunken."""
+def test_a_failed_fx_lookup_does_not_disqualify_a_stock() -> None:
+    """Der Wechselkurs kommt aus derselben gedrosselten Quelle wie alles andere. Fällt er
+    aus, ist das ein Infrastrukturproblem — kein Befund über den Titel. Ohne diese
+    Unterscheidung hätte EIN fehlgeschlagener FX-Abruf mitten im Wochenlauf das GESAMTE
+    Universum aussortiert (gefunden 2026-08-27, als der parallel laufende Scout Yahoo
+    drosselte und die Pipeline-Tests rot wurden)."""
     assert assess(
         _quote("X.ZZ", currency="ZZZ", cap=1e12, volume=1e9, price=100.0), rate=lambda c: None
+    ) is None
+
+
+def test_no_numbers_at_all_is_still_a_rejection() -> None:
+    """Fail-open gilt NUR für die Umrechnung. Wer gar keine Rohwerte hat, bleibt draußen —
+    sonst wäre der Filter für genau die dünnen Titel abgeschaltet, für die er da ist."""
+    assert assess(
+        _quote("X.ZZ", currency="ZZZ", cap=None, volume=None, price=None), rate=lambda c: None
     ) == REASON_NO_DATA
 
 

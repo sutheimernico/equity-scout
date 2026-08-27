@@ -95,6 +95,16 @@ def assess(
     turnover = turnover_eur(quote, rate)
 
     if cap is None and turnover is None:
+        # Unterscheidung, die am 2026-08-27 einen Testlauf gekippt hat und im Produktivlauf
+        # das GANZE Universum gekostet hätte: liegen ROHWERTE vor und scheitert nur die
+        # Umrechnung, dann ist der Wechselkurs das Problem, nicht der Titel. yfinance
+        # liefert den FX-Kurs aus derselben gedrosselten Quelle wie alles andere — genau
+        # dann, wenn ein großer Lauf läuft, fällt er am ehesten aus. Ein Infrastruktur-
+        # ausfall darf keinen Titel aussortieren, also: durchlassen.
+        if quote.market_cap is not None or (
+            quote.avg_volume is not None and quote.price is not None
+        ):
+            return None
         return REASON_NO_DATA
     if cap is None:
         threshold = min_turnover_eur * NO_CAP_TURNOVER_MULTIPLE

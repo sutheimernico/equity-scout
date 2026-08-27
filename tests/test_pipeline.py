@@ -3,6 +3,11 @@ from equity_scout.data.fake_provider import FakeProvider
 from equity_scout.models import Instrument
 from equity_scout.pipeline import run_pipeline
 
+# Fester Wechselkurs statt des echten yfinance-Abrufs: der Investierbarkeitsfilter rechnet
+# Börsenwerte in Euro um, und ohne diesen Stub hinge ein Pipeline-Test am Netz — er wurde am
+# 2026-08-27 genau dadurch sporadisch rot, während nebenan ein Screener-Lauf Yahoo drosselte.
+_FX = {"USD": 0.86, "EUR": 1.0, "XXX": 1.0}.get
+
 
 def _find(buckets, ticker):
     for picks in buckets.values():
@@ -23,7 +28,7 @@ def test_pipeline_end_to_end_with_fakes():
                      momentum_6m=0.1),
         "THIN": dict(trailing_pe=10.0),  # no momentum -> gated out
     })
-    run = run_pipeline(universe, provider, analysis=FakeAnalysis(),
+    run = run_pipeline(universe, provider, analysis=FakeAnalysis(), fx_rate=_FX,
                        top_n=5, created_at="2026-06-24T00:00:00")
     assert run.universe_size == 2
     assert "THIN" in run.gated_out
@@ -38,7 +43,7 @@ def test_pipeline_without_llm_leaves_thesis_none():
         "GOOD": dict(trailing_pe=10.0, price_to_book=2.0, return_on_equity=0.3,
                      profit_margins=0.2, momentum_6m=0.1),
     })
-    run = run_pipeline(universe, provider, analysis=None, top_n=5,
+    run = run_pipeline(universe, provider, analysis=None, top_n=5, fx_rate=_FX,
                        created_at="2026-06-24T00:00:00")
     good = _find(run.buckets, "GOOD")
     assert good is not None

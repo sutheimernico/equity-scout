@@ -19,7 +19,8 @@ def test_pipeline_ranking_sink_gets_full_buckets_result_keeps_top_n():
     universe = [_inst(f"T{i:02d}") for i in range(30)]
     captured: dict = {}
 
-    result = run_pipeline(universe, FakeProvider(), top_n=2,
+    # Fester FX-Stub: sonst zieht der Investierbarkeitsfilter einen echten Wechselkurs.
+    result = run_pipeline(universe, FakeProvider(), top_n=2, fx_rate=lambda c: 0.86,
                           ranking_sink=lambda full: captured.update(full))
 
     full_count = sum(len(picks) for picks in captured.values())
