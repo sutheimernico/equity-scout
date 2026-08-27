@@ -1,0 +1,149 @@
+# Baut die Cockpit-App als Android-APK — kostenlos auf GitHub-Runnern, weil dort JDK und
+# Android-SDK schon liegen (lokal in WSL fehlt beides, und ein SDK von Hand nachzuziehen
+# ist ~1,5 GB für einen Build, der hier zweimal im Jahr läuft).
+#
+# Technik: Trusted Web Activity (TWA) via Bubblewrap. Die App ist ein Vollbild-Chrome auf
+# die eigene Cockpit-Adresse — kein zweites Frontend, keine zweite Codebasis. Das ist auch
+# der Grund für diese Bauweise statt einer WebView-App: eine TWA läuft in echtem Chrome
+# und kann deshalb WEB PUSH. Eine Android-WebView kann das nicht, und Push war der ganze
+# Anlass (Nico, 2026-08-27).
+#
+# Voraussetzungen (einmalig, siehe docs/handy-app.md):
+#   - Secret ANDROID_KEYSTORE_B64      base64 des PKCS12-Keystores
+#   - Secret ANDROID_KEYSTORE_PASSWORD dessen Passwort
+#   - Die Cockpit-Adresse muss per HTTPS erreichbar sein und
+#     /.well-known/assetlinks.json mit dem Fingerprint dieses Keystores ausliefern.
+name: Android-APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Cockpit-Adresse ohne https:// (z. B. wsl-claude.tail7dff17.ts.net)"
+        required: true
+        type: string
+      app_name:
+        description: "Name unter dem Icon"
+        required: false
+        default: "Equity Scout"
+        type: string
+      version_code:
+        description: "Fortlaufende Zahl; muss bei jedem Update steigen"
+        required: false
+        default: "1"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Keystore aus dem Secret herstellen
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::Secret ANDROID_KEYSTORE_B64 fehlt — siehe docs/handy-app.md"
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/keystore.p12"
+
+      - name: Bubblewrap installieren
+        run: npm install -g @bubblewrap/cli@latest
+
+      - name: TWA erzeugen
+        env:
+          HOST: ${{ inputs.host }}
+          APP_NAME: ${{ inputs.app_name }}
+          VERSION_CODE: ${{ inputs.version_code }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/twa" && cd "$RUNNER_TEMP/twa"
+          # Bubblewrap liest normalerweise das Web-App-Manifest von der Zieladresse. Die
+          # steht hier im Tailnet und ist vom Runner aus NICHT erreichbar, also wird das
+          # Manifest hier direkt geschrieben. Die Werte spiegeln
+          # frontend/public/manifest.webmanifest — beide müssen zusammenpassen, sonst
+          # zeigt die App andere Farben als die Website.
+          cat > twa-manifest.json <<JSON
+          {
+            "packageId": "net.sutheimernico.equityscout",
+            "host": "${HOST}",
+            "name": "${APP_NAME}",
+            "launcherName": "${APP_NAME}",
+            "display": "standalone",
+            "themeColor": "#0f1114",
+            "navigationColor": "#0f1114",
+            "backgroundColor": "#0f1114",
+            "enableNotifications": true,
+            "startUrl": "/",
+            "iconUrl": "https://${HOST}/icons/icon-512.png",
+            "maskableIconUrl": "https://${HOST}/icons/icon-512.png",
+            "splashScreenFadeOutDuration": 300,
+            "signingKey": { "path": "${RUNNER_TEMP}/keystore.p12", "alias": "equity-scout" },
+            "appVersionName": "1.0.${VERSION_CODE}",
+            "appVersionCode": ${VERSION_CODE},
+            "shortcuts": [],
+            "generatorApp": "bubblewrap-cli",
+            "webManifestUrl": "https://${HOST}/manifest.webmanifest",
+            "fallbackType": "customtabs",
+            "enableSiteSettingsShortcut": true,
+            "isChromeOSOnly": false,
+            "isMetaQuest": false,
+            "fullScopeUrl": "https://${HOST}/",
+            "minSdkVersion": 23,
+            "orientation": "default"
+          }
+          JSON
+          # --skipPwaValidation: die Adresse ist vom Runner aus nicht erreichbar, die
+          # Prüfung würde also an der Erreichbarkeit scheitern, nicht an der App.
+          bubblewrap init --manifest="https://${HOST}/manifest.webmanifest" \
+            --directory=. --skipPwaValidation <<< "" || true
+          # init überschreibt das Manifest, wenn es die Adresse doch erreicht — hier zählt
+          # unseres, deshalb danach noch einmal drüber.
+          cp twa-manifest.json twa-manifest.json.bak
+          bubblewrap update --skipVersionUpgrade || true
+          cp twa-manifest.json.bak twa-manifest.json
+
+      - name: APK bauen
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/twa"
+          bubblewrap build --skipPwaValidation \
+            --signingKeyPassword="$KEYSTORE_PASSWORD" \
+            --keystorePassword="$KEYSTORE_PASSWORD"
+          ls -la ./*.apk ./*.aab || true
+
+      - name: Fingerprint für assetlinks.json ausgeben
+        run: |
+          cd "$RUNNER_TEMP/twa"
+          if [ -f assetlinks.json ]; then
+            echo "### assetlinks.json" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat assetlinks.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: APK als Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: equity-scout-apk
+          path: |
+            ${{ runner.temp }}/twa/*.apk
+            ${{ runner.temp }}/twa/assetlinks.json
+          if-no-files-found: error
+          retention-days: 30

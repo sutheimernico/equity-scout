@@ -109,3 +109,30 @@ def test_opportunities_endpoint_returns_the_history(tmp_path, monkeypatch) -> No
     assert body["counts"] == {"chance": 1, "total": 1}
     row = body["opportunities"][0]
     assert row["why_now"] == ["Grund eins."] and row["buy_limit"] == 98.0
+
+
+def test_assetlinks_is_readable_without_the_token(tmp_path, monkeypatch) -> None:
+    """Chrome holt diese Datei ohne Cookie und ohne Header. Hinter dem Token läuft die
+    installierte App dauerhaft mit Adressleiste statt im Vollbild — und niemand sieht,
+    warum."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TWA_FINGERPRINT", "AA:BB:CC")
+    db = str(tmp_path / "api.db")
+    init_db(db)
+    client = TestClient(create_app(db, dash_token="geheim"), base_url="http://testserver")
+    # Ein Client, der NICHT loopback ist: sonst greift das Gate ohnehin nicht.
+    response = client.get(
+        "/.well-known/assetlinks.json", headers={"host": "cockpit.example"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["target"]["sha256_cert_fingerprints"] == ["AA:BB:CC"]
+
+
+def test_assetlinks_stays_empty_without_a_fingerprint(tmp_path, monkeypatch) -> None:
+    """Ein erfundener Fingerabdruck wird von Chrome ohnehin abgelehnt — dann lieber die
+    ehrliche leere Liste, an der man sieht, dass der Schritt noch fehlt."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("TWA_FINGERPRINT", raising=False)
+    client, _ = _client(tmp_path)
+    assert client.get("/.well-known/assetlinks.json").json() == []

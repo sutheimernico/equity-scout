@@ -508,6 +508,13 @@ def create_app(
     async def _token_gate(request, call_next):  # noqa: ANN001, ANN202
         if not token:
             return await call_next(request)
+        # Digital Asset Links: Chrome holt diese Datei OHNE Cookie und ohne Header, bevor
+        # es die Android-App der Website zuordnet. Hinter dem Token wäre sie für Chrome
+        # nicht lesbar und die App liefe dauerhaft mit Browser-Adressleiste statt im
+        # Vollbild. Der Inhalt ist ein öffentlicher Zertifikats-Fingerabdruck — die
+        # einzige Datei dieser App, die nichts zu verbergen hat.
+        if request.url.path == "/.well-known/assetlinks.json":
+            return await call_next(request)
         client_host = request.client.host if request.client else ""
         if client_host in ("127.0.0.1", "::1"):
             return await call_next(request)
@@ -2058,6 +2065,35 @@ def create_app(
             },
             "disclaimer": DISCLAIMER,
         })
+
+    @app.get("/.well-known/assetlinks.json")
+    def assetlinks() -> JSONResponse:
+        """Verknüpft die Android-App mit dieser Adresse (Digital Asset Links).
+
+        Ohne diese Datei öffnet die installierte App die Seite in einer Chrome-Leiste
+        statt im Vollbild. Der Fingerabdruck ist der des Signaturschlüssels, mit dem die
+        APK gebaut wurde (siehe docs/handy-app.md); ohne ihn liefert der Endpunkt eine
+        leere Liste — ehrlicher als ein erfundener Wert, den Chrome ohnehin ablehnt.
+        """
+        fingerprint = (os.environ.get("TWA_FINGERPRINT") or "").strip()
+        if not fingerprint:
+            path = Path(".state/android-fingerprint.txt")
+            if path.exists():
+                fingerprint = path.read_text().strip()
+        if not fingerprint:
+            return JSONResponse([])
+        return JSONResponse([
+            {
+                "relation": ["delegate_permission/common.handle_all_urls"],
+                "target": {
+                    "namespace": "android_app",
+                    "package_name": os.environ.get(
+                        "TWA_PACKAGE", "net.sutheimernico.equityscout"
+                    ),
+                    "sha256_cert_fingerprints": [fingerprint],
+                },
+            }
+        ])
 
     # --- Phone push notifications (2026-08-27) ---
     # Web Push subscriptions are per-device: the phone hands us an endpoint URL plus two
