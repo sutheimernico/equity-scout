@@ -32,14 +32,24 @@ Ehrlichkeitsgrenzen, die die Zahlen lesbar halten (LOOP.md-Messregeln, hier ange
   der Vorschlag zählt in der Rohrendite, aber nicht im Urteil. Ein fehlender Benchmark wird
   nie durch einen fremdwährigen ersetzt — das misst dann Wechselkurse.
 - **n ist klein.** Der Screen läuft im vollen Universum erst seit 2026-07-14. Das Urteil aus
-  `assess_excess` sagt darum meistens „noch nicht aussagekräftig", und das ist die ehrliche
+  `assess_trades` sagt darum meistens „noch nicht aussagekräftig", und das ist die ehrliche
   Antwort, keine Ausflucht.
+- **Zwei Quellen mal drei Horizonte sind SECHS Tests, nicht einer.** Bei p<0,05 sieht rund
+  jeder zwanzigste Blick zufällig signifikant aus; wer sechsmal schaut und den besten Wert
+  meldet, hat gesucht statt gemessen. `summarise` bekommt darum das korrigierte Niveau
+  übergeben (`bonferroni_alpha(6)` = 0,0083), und ein p, das nur das unkorrigierte 5-%-Niveau
+  reißt, wird ausdrücklich NICHT als Befund ausgewiesen. Beim ersten Lauf am 2026-08-27 hat
+  genau das zwei „signifikante" Ergebnisse (p=0,016 und p=0,021) wieder eingefangen.
+- **Kosten sind nicht abgezogen.** Gemessen werden Schlusskurse. Spread, Ordergebühr und —
+  bei den vielen ausländischen Titeln dieser Liste — Wechselkurs und Fremdkostenpauschale
+  fehlen vollständig. Bei fünf Handelstagen Haltedauer ist das kein Rundungsfehler: eine
+  Überrendite von einem Prozentpunkt kann davon restlos aufgezehrt werden.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from equity_scout.significance import SignificanceVerdict, assess_trades
+from equity_scout.significance import SignificanceVerdict, assess_trades, bonferroni_alpha
 
 # Horizonte in Handelstagen. 5/20/60 ~ Woche/Monat/Quartal — dieselbe Staffel, die
 # entry_predictions verwendet, damit die beiden Messungen vergleichbar bleiben.
@@ -80,6 +90,9 @@ BENCHMARK_BY_REGION: dict[str, str] = {"US": "^GSPC"}
 # Ein Vorschlag zählt für den Horizont erst, wenn die Kursreihe ihn wirklich abdeckt. 80 %
 # lässt Feiertage und einzelne Lücken durch, aber kein halb gemessenes Quartal.
 MIN_HORIZON_COVERAGE = 0.8
+
+# Zwei Quellen (Pitch, Rangliste) mal drei Horizonte = sechs Blicke auf dieselbe Frage.
+N_COMPARISONS = 2 * len(HORIZONS)
 
 
 @dataclass(frozen=True)
@@ -280,14 +293,26 @@ def sector_concentration(outcomes: list[Outcome]) -> float | None:
     return top / len(sectors)
 
 
-def summarise(outcomes: list[Outcome], label: str, horizon_days: int) -> ReviewSummary:
-    """Aggregat. Alle Urteilszahlen kommen aus der UNABHÄNGIGEN Stichprobe, `n` zeigt beide."""
+def summarise(
+    outcomes: list[Outcome],
+    label: str,
+    horizon_days: int,
+    *,
+    alpha: float | None = None,
+) -> ReviewSummary:
+    """Aggregat. Alle Urteilszahlen kommen aus der UNABHÄNGIGEN Stichprobe, `n` zeigt beide.
+
+    `alpha` ist standardmäßig das für sechs Blicke korrigierte Niveau, nicht die üblichen
+    5 %: dieselbe Frage sechsmal zu stellen und den besten Wert zu melden ist Suchen, nicht
+    Messen.
+    """
     independent = independent_outcomes(outcomes)
     with_excess = [o for o in independent if o.excess_pct is not None]
 
     excesses = [o.excess_pct for o in with_excess if o.excess_pct is not None]
     returns = [o.return_pct for o in independent]
-    verdict = assess_trades(excesses) if excesses else None
+    level = bonferroni_alpha(N_COMPARISONS) if alpha is None else alpha
+    verdict = assess_trades(excesses, alpha=level) if excesses else None
 
     best = worst = None
     if with_excess:
@@ -340,9 +365,20 @@ def verdict_line(summary: ReviewSummary) -> str:
         core += f", {summary.hit_rate * 100:.0f} % davon im Plus gegen den Index"
     if summary.verdict is None or summary.verdict.p_value is None:
         return core + ". Zu wenige für einen Test — das ist eine Beobachtung, kein Befund."
-    if summary.verdict.p_value < 0.05:
-        return core + f" (p={summary.verdict.p_value:.3f} — von null unterscheidbar)."
+    p_value = summary.verdict.p_value
+    level = summary.verdict.alpha
+    if p_value < level:
+        return (
+            core + f" (p={p_value:.3f} unter dem für sechs Tests korrigierten Niveau "
+            f"{level:.4f} — von null unterscheidbar). Kosten sind darin nicht abgezogen."
+        )
+    if p_value < 0.05:
+        return (
+            core + f" (p={p_value:.3f}). Das reißt zwar die üblichen 5 %, aber NICHT das für "
+            f"sechs Tests korrigierte Niveau {level:.4f} — wer sechsmal hinschaut, findet "
+            "so etwas auch in Zufallszahlen. Kein Befund."
+        )
     return (
-        core + f" (p={summary.verdict.p_value:.2f} — von reinem Zufall NICHT unterscheidbar). "
+        core + f" (p={p_value:.2f} — von reinem Zufall NICHT unterscheidbar). "
         "Bei dieser Stichprobengröße ist das der erwartete Befund, kein Freispruch."
     )

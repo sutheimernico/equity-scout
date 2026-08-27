@@ -267,3 +267,42 @@ def test_a_sample_without_any_benchmark_refuses_to_judge():
     assert summary.mean_excess_pct is None
     assert summary.mean_return_pct == pytest.approx(30.0)  # die Rohrendite bleibt sichtbar
     assert "ohne Vergleichsmaßstab" in verdict_line(summary)
+
+
+# --- Sechs Blicke sind sechs Tests ------------------------------------------------------------
+
+def test_a_p_below_five_percent_but_above_the_corrected_level_is_not_a_finding():
+    """Der reale Fall vom 2026-08-27: p=0,016 sah nach Befund aus und war keiner."""
+    from equity_scout.significance import bonferroni_alpha
+    from equity_scout.suggestion_review import N_COMPARISONS
+
+    # Streuung so gewählt, dass p zwischen dem korrigierten und dem üblichen Niveau landet.
+    summary = summarise(
+        _outcomes_with_excess([0.05, 0.07, -0.01, 0.03, 0.01, 0.05, 0.02, 0.02]), "X", 5
+    )
+    assert summary.verdict is not None and summary.verdict.p_value is not None
+    assert bonferroni_alpha(N_COMPARISONS) < summary.verdict.p_value < 0.05
+    line = verdict_line(summary)
+    assert "Kein Befund" in line
+    assert "sechsmal hinschaut" in line
+
+
+def test_the_corrected_level_is_the_default_not_the_usual_five_percent():
+    from equity_scout.significance import bonferroni_alpha
+    from equity_scout.suggestion_review import N_COMPARISONS
+
+    summary = summarise(_outcomes_with_excess([0.05] * 6), "X", 5)
+    assert summary.verdict is not None
+    assert summary.verdict.alpha == bonferroni_alpha(N_COMPARISONS)
+
+
+def test_a_caller_may_pass_its_own_level_when_it_really_runs_one_test():
+    summary = summarise(_outcomes_with_excess([0.05] * 6), "X", 5, alpha=0.05)
+    assert summary.verdict is not None and summary.verdict.alpha == 0.05
+
+
+def test_a_survivor_of_the_corrected_level_still_names_the_missing_costs():
+    summary = summarise(_outcomes_with_excess([0.05, 0.051, 0.049, 0.05, 0.05, 0.05]), "X", 5)
+    line = verdict_line(summary)
+    assert "unterscheidbar" in line
+    assert "Kosten" in line  # eine Überrendite vor Kosten ist keine im Depot

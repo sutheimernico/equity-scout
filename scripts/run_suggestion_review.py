@@ -38,6 +38,12 @@ DB_PATH = str(Path(__file__).resolve().parents[1] / "equity_scout.db")
 # Ein Jahr deckt jeden Vorschlag seit dem ersten Lauf plus den längsten Horizont ab.
 HISTORY_PERIOD = "1y"
 
+# Vollständigkeitsschwelle vor dem Speichern. Am 2026-08-27 lieferte ein gedrosselter Lauf
+# NULL Kursreihen und schrieb einen leeren Bericht über einen gültigen — ein zusammen-
+# gebrochener Netzabruf sah damit aus wie das Messergebnis „nichts gefunden". Unterhalb
+# dieser Abdeckung ist der Lauf ein Fehlschlag und wird nicht gespeichert.
+MIN_COVERAGE = 0.7
+
 
 def fetch_series(tickers: list[str]) -> dict[str, list[tuple[str, float]]]:
     """Bereinigte Tagesschlusskurse je Ticker. Netz — im Test durch eine Fake ersetzt."""
@@ -62,6 +68,13 @@ def fetch_series(tickers: list[str]) -> dict[str, list[tuple[str, float]]]:
             (str(idx)[:10], float(value)) for idx, value in closes.items() if value > 0
         ]
     return series
+
+
+def ticker_coverage(tickers: list[str], series: dict[str, list[tuple[str, float]]]) -> float:
+    """Anteil der Titel mit einer Kursreihe. Ohne Titel 0.0 — nie 1.0 aus einer leeren Menge."""
+    if not tickers:
+        return 0.0
+    return sum(1 for t in tickers if series.get(t)) / len(tickers)
 
 
 def build_report(
@@ -177,6 +190,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default=DB_PATH)
     parser.add_argument("--dry-run", action="store_true", help="messen und drucken, nicht speichern")
+    parser.add_argument(
+        "--force", action="store_true",
+        help="auch unter der Abdeckungsschwelle speichern (nur für einen bewussten Teillauf)",
+    )
     args = parser.parse_args()
 
     suggestions = collect_pitch_suggestions(args.db) + collect_rank_suggestions(args.db)
@@ -197,9 +214,20 @@ def main() -> int:
     report = build_report(suggestions, series, now=now)
     print_report(report)
 
-    if not args.dry_run:
-        review_id = save_review(args.db, now, report)
-        print(f"Gespeichert als suggestion_reviews.id={review_id}")
+    coverage = ticker_coverage(tickers, series)
+    report["ticker_coverage"] = round(coverage, 3)
+    if args.dry_run:
+        return 0
+    if coverage < MIN_COVERAGE and not args.force:
+        print(
+            f"NICHT gespeichert: nur {coverage * 100:.0f} % der Titel hatten eine Kursreihe "
+            f"(Schwelle {MIN_COVERAGE * 100:.0f} %). Ein gedrosselter Abruf ist ein Fehlschlag, "
+            "kein Messergebnis — der letzte gültige Bericht bleibt stehen. "
+            "Mit --force überschreiben."
+        )
+        return 1
+    review_id = save_review(args.db, now, report)
+    print(f"Gespeichert als suggestion_reviews.id={review_id} (Abdeckung {coverage * 100:.0f} %)")
     return 0
 
 

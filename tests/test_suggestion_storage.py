@@ -200,3 +200,25 @@ def test_every_horizon_gets_its_own_row_even_when_empty():
 def test_the_report_carries_the_disclaimer():
     report = build_report([], {}, now="2026-08-27T00:00:00+00:00")
     assert "keine anlageberatung" in report["disclaimer"].lower()
+
+
+# --- Ein gedrosselter Abruf ist ein Fehlschlag, kein Messergebnis ------------------------------
+
+def test_coverage_counts_only_tickers_that_really_have_a_series():
+    from run_suggestion_review import ticker_coverage
+
+    assert ticker_coverage(["A", "B", "C", "D"], {"A": [("2026-07-01", 1.0)], "B": []}) == 0.25
+
+
+def test_coverage_of_an_empty_ticker_list_is_zero_not_one():
+    """Eine leere Menge ist nicht „vollständig abgedeckt" — das würde die Schwelle aushebeln."""
+    from run_suggestion_review import ticker_coverage
+
+    assert ticker_coverage([], {}) == 0.0
+
+
+def test_a_throttled_run_falls_below_the_threshold():
+    """Der reale Lauf vom 2026-08-27 00:05 hatte 0 von 37 Reihen und schrieb trotzdem."""
+    from run_suggestion_review import MIN_COVERAGE, ticker_coverage
+
+    assert ticker_coverage([f"T{i}" for i in range(37)], {}) < MIN_COVERAGE
