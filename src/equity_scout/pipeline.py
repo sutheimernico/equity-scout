@@ -12,6 +12,7 @@ from equity_scout.data.yf_provider import FetchStats
 from equity_scout.data_quality import build_data_quality_report
 from equity_scout.factors import score_factors
 from equity_scout.gate import apply_gate, summarize_gate
+from equity_scout.liquidity import filter_investable
 from equity_scout.models import Instrument, Pick, Quote, RunResult
 
 
@@ -40,11 +41,19 @@ def run_pipeline(
     fetch_stats: FetchStats | None = None,
     sector_sink: Callable[[dict[str, str]], None] | None = None,
     ranking_sink: Callable[[dict[str, list[Pick]]], None] | None = None,
+    investable_only: bool = True,
+    fx_rate: Callable[[str | None], float | None] | None = None,
 ) -> RunResult:
     quotes = fetch_all(provider, universe, max_workers=max_workers)
     if sector_sink is not None:
         sector_sink(harvest_sectors(universe, quotes))
     passed, rejected = apply_gate(quotes, min_metrics=min_metrics)
+    if investable_only:
+        # Zweite Stufe nach der Datenvollständigkeit: Größe und Handelsumsatz. Beide
+        # Ablehnungsarten laufen in denselben Bericht, damit im Cockpit sichtbar bleibt,
+        # WARUM ein Lauf über 1 200 Titel am Ende 30 zeigt (siehe liquidity.py).
+        passed, illiquid = filter_investable(passed, rate=fx_rate)
+        rejected = {**rejected, **illiquid}
     scores = score_factors(passed)
     if ranking_sink is not None:
         # Full cross-section for the filter feature; RunResult keeps the top-N slice

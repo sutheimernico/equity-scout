@@ -32,6 +32,12 @@ class Quote:
     # (2004): proximity to the 52w high predicts returns better than raw momentum. May exceed
     # 1.0 briefly when the info field lags a fresh breakout — ranking is ordinal, that's fine.
     high_52w_proximity: float | None = None
+    # Größe und Handelsumsatz, beide frei aus demselben `info`-Abruf (kein zusätzlicher
+    # Netzverkehr). Sie ranken NICHT mit — sie entscheiden, ob ein Titel überhaupt
+    # investierbar ist (`liquidity.py`). Befund 2026-08-27: Platz 2 der Watchlist war EHLD
+    # mit 27 Mio $ Börsenwert und 4 071 gehandelten Stücken am Tag.
+    market_cap: float | None = None       # in der Notierungswährung
+    avg_volume: float | None = None       # durchschnittliche Stückzahl pro Tag
 
 
 @dataclass(frozen=True)

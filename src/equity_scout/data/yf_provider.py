@@ -33,6 +33,17 @@ def _proximity_to_52w_high(last: float | None, high: object) -> float | None:
     return last / float(high)
 
 
+def _positive(value: object) -> float | None:
+    """Untypisierte JSON-Zahl -> positiver float, sonst None. `.info` liefert für dünne
+    Titel gern 0 oder None; eine 0 als Börsenwert würde den Liquiditätsfilter härter
+    machen als beabsichtigt (0 < Schwelle), eine None sagt ehrlich „unbekannt"."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value) or value <= 0:
+        return None
+    return float(value)
+
+
 def quote_from_info_and_history(
     instrument: Instrument, info: dict, closes: list[float]
 ) -> Quote:
@@ -63,6 +74,8 @@ def quote_from_info_and_history(
         high_52w_proximity=_proximity_to_52w_high(
             clean[-1] if clean else None, info.get("fiftyTwoWeekHigh")
         ),
+        market_cap=_positive(info.get("marketCap")),
+        avg_volume=_positive(info.get("averageVolume")),
     )
 
 

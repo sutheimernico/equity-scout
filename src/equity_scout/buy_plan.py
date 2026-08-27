@@ -107,6 +107,7 @@ class BuyPlan:
     sizing: Sizing
     business: str | None
     why: list[str]
+    factors: list[dict]      # dieselben Faktoren als Daten, für Oberflächen mit eigener Sprache
     news: list[dict]
     buyers: list[dict]
     tradability: dict
@@ -319,20 +320,31 @@ def hold_note(target: float | None, stop: float | None, currency: str | None) ->
     )
 
 
+def factor_ranking(breakdown: dict | None, limit: int = 3) -> list[dict]:
+    """Die stärksten Faktoren als Daten: [{"name": "value", "score": 100}, …].
+
+    Strukturiert statt vorformatiert, weil zwei Oberflächen dieselben Faktoren
+    unterschiedlich ausdrücken müssen: die Kaufplan-Karte zeigt sie als Zahl, die
+    Chancen-Meldung (opportunity.py) übersetzt sie in einen Laiensatz. Aus einem fertigen
+    String „value: 100/100" wäre der Laiensatz nur durch Zurückparsen zu holen.
+    """
+    if not breakdown:
+        return []
+    scored = [
+        (name, value) for name, value in breakdown.items()
+        if isinstance(value, (int, float)) and value > 0
+    ]
+    scored.sort(key=lambda item: item[1], reverse=True)
+    return [{"name": name, "score": round(value * 100)} for name, value in scored[:limit]]
+
+
 def why_lines(breakdown: dict | None, limit: int = 3) -> list[str]:
     """Die stärksten Faktoren im Klartext — die Antwort auf „warum ist das eine gute Aktie".
 
     Gelesen wird der gespeicherte Faktor-Breakdown des Screens, nicht eine LLM-Begründung:
     was den Titel nach oben gebracht hat, ist berechnet und muss auch so dastehen.
     """
-    if not breakdown:
-        return []
-    scored = [
-        (name, value) for name, value in breakdown.items()
-        if isinstance(value, (int, float))
-    ]
-    scored.sort(key=lambda item: item[1], reverse=True)
-    return [f"{name}: {value * 100:.0f}/100" for name, value in scored[:limit] if value > 0]
+    return [f"{item['name']}: {item['score']}/100" for item in factor_ranking(breakdown, limit)]
 
 
 def build_plan(
@@ -407,6 +419,7 @@ def build_plan(
         ),
         business=insight.get("business"),
         why=why_lines(breakdown),
+        factors=factor_ranking(breakdown),
         news=news,
         buyers=list(buyers or []),
         tradability=tradability(brief["ticker"]),

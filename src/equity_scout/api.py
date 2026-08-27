@@ -24,15 +24,6 @@ from equity_scout.briefs import (
     rank_entries,
 )
 from equity_scout.buckets import BUCKET_WEIGHTS
-from equity_scout.buy_plan import (
-    build_plan,
-    buy_limit_for,
-    buyers_from_events,
-    relabel_tranches,
-    sort_plans,
-    stance_for,
-    tranche_basis,
-)
 from equity_scout.constants import (
     DEFAULT_CACHE_DB_PATH,
     DEFAULT_DB_PATH,
@@ -887,84 +878,23 @@ def create_app(
         derselben Brief-Quelle wie die Aktienliste, die Tranchenleiter aus `entry`, gemeldete
         Käufe aus dem Evidenzspeicher und die gemessene Bilanz der Vorschlagsquelle aus
         `suggestion_review`. Kein zusätzlicher Netzabruf gegenüber /api/briefs.
+
+        Der Aufbau liegt seit 2026-08-27 in `kaufplan_service`, weil der Chancen-Job
+        (scripts/run_opportunities.py) exakt dieselben Pläne meldet — zwei Kopien wären
+        irgendwann zwei verschiedene Wahrheiten.
         """
-        limit = max(1, min(limit, 20))
-        watchlist = load_latest_watchlist(db_path)
-        entries = rank_entries((watchlist or {}).get("entries", []))[:limit]
-        if not entries:
+        from equity_scout.kaufplan_service import build_buy_plans
+
+        result = build_buy_plans(db_path, limit=limit)
+        if not result["plans"] and result.get("note"):
             return JSONResponse({
                 "plans": [], "generated_at": None,
-                "note": "Noch keine Watchlist berechnet.", "disclaimer": DISCLAIMER,
+                "note": result["note"], "disclaimer": DISCLAIMER,
             })
-
-        def _fetch(ticker: str):
-            try:
-                return fetch_fundamentals_cached(ticker)
-            except Exception:  # noqa: BLE001 - ein Titel darf die Liste nie kippen
-                return None
-
-        with ThreadPoolExecutor(max_workers=5) as pool:
-            fetched = list(pool.map(_fetch, [e["ticker"] for e in entries]))
-
-        insights = load_insights(db_path)
-        series = load_price_series(db_path)
-        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        events = events_in_window(
-            db_path, window_days=90, now=now,
-            tickers=[e["ticker"] for e in entries],
-        )
-        review = _review_for("rank")
-
-        import equity_scout.entry as entry_mod
-
-        champ = entry_champion(db_path, family="entry_tb")
-        barrier_config = champ[2].get("barrier_config") if champ is not None else None
-
-        plans = []
-        for entry, fundamentals in zip(entries, fetched):
-            ticker = entry["ticker"]
-            cached = series.get(ticker)
-            target_stop = (
-                entry_mod.resolve_target_stop(cached["closes"], barrier_config)
-                if cached else None
-            )
-            brief = build_brief(
-                entry, fundamentals,
-                insight=insights.get(ticker), chart=None, target_stop=target_stop,
-            )
-            # Die Leiter hängt an der Zahl, die auch in die Order geht — nie am
-            # aktuellen Kurs, wenn das Limit woanders liegt.
-            stance = stance_for(
-                in_zone=brief["in_zone"], price=brief["price"],
-                zone_low=brief["zone_low"], zone_high=brief["zone_high"],
-            )
-            basis = tranche_basis(
-                stance, price=brief["price"],
-                limit=buy_limit_for(stance, price=brief["price"], zone_high=brief["zone_high"]),
-            )
-            plans.append(build_plan(
-                brief,
-                horizon="lang",
-                evidence_state=(
-                    review["line"] if review
-                    else "Noch nie gemessen — die Bilanz dieser Quelle ist unbekannt."
-                ),
-                breakdown=entry.get("breakdown"),
-                tranches=relabel_tranches(
-                    [
-                        {"label": t.label, "share": t.fraction, "trigger_price": t.trigger_price}
-                        for t in entry_mod.dip_tranche_plan(basis)
-                    ],
-                    at_limit=basis != brief["price"],
-                ) if basis is not None else [],
-                buyers=buyers_from_events(events.get(ticker, [])),
-                track_record=review,
-            ))
-
         return JSONResponse({
-            "generated_at": (watchlist or {}).get("created_at"),
-            "plans": [p.to_dict() for p in sort_plans(plans)],
-            "ready_count": sum(1 for p in plans if p.entry.stance == "kaufbereit"),
+            "generated_at": result["generated_at"],
+            "plans": [p.to_dict() for p in result["plans"]],
+            "ready_count": result["ready_count"],
             "disclaimer": DISCLAIMER,
         })
 
