@@ -7,7 +7,7 @@
 // Bump CACHE_VERSION whenever the caching logic or the precache list changes: activate()
 // deletes every cache that isn't this version, so a bump is how already-installed workers
 // pick up new behaviour on next load instead of running the old logic forever.
-const CACHE_VERSION = "es-v1";
+const CACHE_VERSION = "es-v2";
 
 const PRECACHE_URLS = ["/", "/index.html", "/manifest.webmanifest"];
 
@@ -123,3 +123,52 @@ async function cacheFirst(request) {
   }
   return response;
 }
+
+// --- Push notifications (2026-08-27) ------------------------------------------------
+// The whole point of the PWA/TWA install: an alert that reaches the phone's lock screen
+// as THIS app, not as a chat message in someone else's. The payload is the small JSON
+// object push.py::build_payload writes — kept flat so a malformed or truncated body can
+// still render something rather than throwing inside the worker and showing nothing.
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch (err) {
+    // A push with a non-JSON body is still a push worth showing: Android silently
+    // penalises a worker that wakes up and shows no notification at all.
+    payload = { title: "equity-scout", body: event.data ? event.data.text() : "" };
+  }
+  const title = payload.title || "equity-scout";
+  const options = {
+    body: payload.body || "",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    // tag + renotify: a second alert for the same ticker REPLACES the first on the lock
+    // screen (one line per subject) but still buzzes, because the update is the news.
+    tag: payload.tag || "equity-scout",
+    renotify: Boolean(payload.tag),
+    // requireInteraction on high urgency only: a trading window that closes at the bell
+    // is worth staying on screen; the daily digest is not.
+    requireInteraction: payload.urgency === "high",
+    data: { url: payload.url || "/" },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Tapping the notification focuses an already-open cockpit tab (and navigates it) instead
+// of stacking a second one — on a phone, two copies of the app is a bug, not a feature.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      for (const client of windows) {
+        if ("focus" in client) {
+          if ("navigate" in client) client.navigate(target).catch(() => undefined);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    }),
+  );
+});

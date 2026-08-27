@@ -2108,6 +2108,95 @@ def create_app(
             "disclaimer": DISCLAIMER,
         })
 
+    # --- Phone push notifications (2026-08-27) ---
+    # Web Push subscriptions are per-device: the phone hands us an endpoint URL plus two
+    # keys, we store them, and every later alert is encrypted to that device. Nothing here
+    # is a secret worth more than the DASH_TOKEN gate already protects — the endpoint is
+    # useless without the keys, and the keys are useless without our VAPID private key.
+    @app.get("/api/push/config")
+    def push_config() -> JSONResponse:
+        from equity_scout import push as push_mod
+        from equity_scout.push_storage import list_subscriptions
+
+        keys = push_mod.load_or_create_keys()
+        devices = list_subscriptions(db_path)
+        return JSONResponse({
+            "public_key": keys.public_key,
+            "devices": [
+                {
+                    "endpoint_hint": row["endpoint"][-12:],
+                    "label": row["label"],
+                    "created_at": row["created_at"],
+                    "last_ok_at": row["last_ok_at"],
+                    "failures": row["failures"],
+                    "last_error": row["last_error"],
+                }
+                for row in devices
+            ],
+            # An honest "is this actually wired up" line for the settings screen: a channel
+            # that is configured but has never delivered looks identical to a working one
+            # until the day it matters.
+            "channels": {
+                "telegram": bool(os.environ.get("COPILOT_TG_BOT_TOKEN")),
+                "ntfy": bool((os.environ.get("NTFY_TOPIC") or "").strip()),
+                "webpush": len(devices) > 0,
+            },
+            "public_base_url": os.environ.get("PUBLIC_BASE_URL") or None,
+            "disclaimer": DISCLAIMER,
+        })
+
+    @app.post("/api/push/subscribe")
+    def push_subscribe(body: dict) -> JSONResponse:
+        from equity_scout.push_storage import save_subscription
+
+        payload = body or {}
+        endpoint = str(payload.get("endpoint") or "")
+        keys = payload.get("keys") or {}
+        p256dh = str(keys.get("p256dh") or "")
+        auth = str(keys.get("auth") or "")
+        if not endpoint.startswith("https://") or not p256dh or not auth:
+            return JSONResponse({"error": "Unvollständiges Abo."}, status_code=422)
+        save_subscription(
+            db_path,
+            endpoint=endpoint,
+            p256dh=p256dh,
+            auth=auth,
+            label=str(payload.get("label") or "")[:80] or None,
+            created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        )
+        return JSONResponse({"ok": True})
+
+    @app.post("/api/push/unsubscribe")
+    def push_unsubscribe(body: dict) -> JSONResponse:
+        from equity_scout.push_storage import delete_subscription
+
+        endpoint = str((body or {}).get("endpoint") or "")
+        if not endpoint:
+            return JSONResponse({"error": "Kein Endpunkt."}, status_code=422)
+        return JSONResponse({"ok": delete_subscription(db_path, endpoint)})
+
+    @app.post("/api/push/test")
+    def push_test() -> JSONResponse:
+        """Send a test notification to every registered device AND every other channel.
+
+        This exists because the failure mode of a notification system is silence, and
+        silence is indistinguishable from "nothing happened today". One button proves the
+        whole chain end to end.
+        """
+        from equity_scout.channels import Alert, deliver
+
+        report = deliver(
+            Alert(
+                title="equity-scout: Test",
+                body="Wenn du das siehst, kommen Benachrichtigungen auf diesem Gerät an.",
+                url="/?view=heute",
+                tag="test",
+                emoji_tags=["white_check_mark"],
+            ),
+            db_path=db_path,
+        )
+        return JSONResponse({"ok": True, "report": report})
+
     # Serve the built React dashboard. Mounted at "/" LAST so the /api/* routes above win.
     # Run `cd frontend && npm install && npm run build` to produce dist/.
     if _DIST.exists():

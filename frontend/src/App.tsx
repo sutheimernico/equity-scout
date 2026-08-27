@@ -10,6 +10,7 @@ import { ProofView } from "./components/ProofView";
 import { StockProfileView } from "./components/StockProfileView";
 import { TodayView } from "./components/TodayView";
 import { WerKauftView } from "./components/WerKauftView";
+import { AlarmeView } from "./components/AlarmeView";
 import { WieView } from "./components/WieView";
 import { BottomNav } from "./components/BottomNav";
 import {
@@ -211,6 +212,7 @@ export default function App() {
             {view === "ergebnisse" && <ProofView />}
             {view === "werkauft" && <WerKauftView />}
             {view === "labor" && <LaborView />}
+            {view === "alarme" && <AlarmeView />}
             {view === "wie" && <WieView />}
           </div>
         </main>

@@ -12,6 +12,7 @@ export type View =
   | "ergebnisse"
   | "werkauft"
   | "labor"
+  | "alarme"
   | "wie";
 
 export type Group = "start" | "mehr";
@@ -30,6 +31,7 @@ export const NAV: { key: View; label: string; group: Group }[] = [
   { key: "depot", label: "Depot", group: "start" },
   { key: "ergebnisse", label: "Ergebnisse", group: "mehr" },
   { key: "werkauft", label: "Wer kauft?", group: "mehr" },
+  { key: "alarme", label: "Benachrichtigungen", group: "mehr" },
   { key: "wie", label: "Wie funktioniert das?", group: "mehr" },
   { key: "labor", label: "Labor", group: "mehr" },
 ];
@@ -48,6 +50,7 @@ export const MOBILE_LABELS: Record<string, string> = {
 export const SHEET_NOTES: Record<string, string> = {
   ergebnisse: "Funktioniert das alles? Die ehrliche Auswertung.",
   werkauft: "Politiker, Insider, Fonds & bekannte Stimmen.",
+  alarme: "Was dir das Handy meldet — und warum.",
   wie: "Die App in sechs einfachen Antworten.",
   labor: "Strategien, Modelle, Lernkurven — und Daten aktualisieren.",
 };

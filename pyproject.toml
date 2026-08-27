@@ -19,6 +19,7 @@ dependencies = [
     "scikit-learn>=1.4",
     "scipy>=1.11",
     "catboost>=1.2.10",
+    "pywebpush>=2.4.0",
 ]
 
 [dependency-groups]

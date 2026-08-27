@@ -1435,3 +1435,53 @@ export async function startJob(key: string, force: boolean): Promise<StartJobRes
   const body = (await response.json()) as Omit<StartJobResponse, "status">;
   return { ...body, status: response.status };
 }
+
+// --- Phone push notifications (2026-08-27) ------------------------------------------
+export interface PushDevice {
+  endpoint_hint: string;
+  label: string | null;
+  created_at: string;
+  last_ok_at: string | null;
+  failures: number;
+  last_error: string | null;
+}
+
+export interface PushConfig {
+  public_key: string;
+  devices: PushDevice[];
+  channels: { telegram: boolean; ntfy: boolean; webpush: boolean };
+  public_base_url: string | null;
+  disclaimer: string;
+}
+
+export async function fetchPushConfig(): Promise<PushConfig> {
+  const response = await fetch("/api/push/config");
+  if (!response.ok) throw new Error(`/api/push/config returned ${response.status}`);
+  return response.json();
+}
+
+export async function registerPush(
+  subscription: PushSubscriptionJSON,
+  label: string,
+): Promise<void> {
+  const response = await fetch("/api/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...subscription, label }),
+  });
+  if (!response.ok) throw new Error(`/api/push/subscribe returned ${response.status}`);
+}
+
+export async function unregisterPush(endpoint: string): Promise<void> {
+  await fetch("/api/push/unsubscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ endpoint }),
+  });
+}
+
+export async function sendTestPush(): Promise<{ ok: boolean; report: Record<string, unknown> }> {
+  const response = await fetch("/api/push/test", { method: "POST" });
+  if (!response.ok) throw new Error(`/api/push/test returned ${response.status}`);
+  return response.json();
+}

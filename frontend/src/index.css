@@ -4093,3 +4093,48 @@ li.pd-alloc-row {
   gap: var(--space-2);
   margin-bottom: var(--space-1);
 }
+
+/* --- Benachrichtigungen (2026-08-27) -----------------------------------------------
+   Der Zustand dieser Karte IST die Information: „aktiv" muss sich optisch von „nicht
+   aktiv" unterscheiden, sonst liest man Stille als Ruhe statt als Ausfall. */
+.push-state {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--border-strong);
+}
+.push-state.ok {
+  color: var(--positive);
+  border-left-color: var(--positive);
+}
+.push-note,
+.push-error {
+  font-size: var(--text-sm);
+  margin: var(--space-3) 0 0;
+}
+.push-note {
+  color: var(--positive);
+}
+.push-error {
+  color: var(--negative);
+}
+/* Eine primäre Aktion pro Karte: der eine Knopf, der etwas einschaltet, darf nicht wie
+   die Nebenaktionen daneben aussehen. */
+.tab.primary {
+  color: var(--accent);
+  font-weight: 600;
+}
+.push-devices {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.push-devices li {
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-faint);
+}
+.push-devices li:first-child {
+  border-top: none;
+}

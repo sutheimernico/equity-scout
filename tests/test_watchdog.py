@@ -93,7 +93,14 @@ def test_run_watchdog_cli_sends_once_then_respects_cooldown(tmp_path, monkeypatc
     monkeypatch.setattr(
         wd, "send_message", lambda token, chat_id, text: sent.append(text) or 1
     )
-    monkeypatch.setattr(sys, "argv", ["run_watchdog.py", "--db", db])
+    # --shortterm-db must point at the tmp dir too: its default is the repo's live
+    # shortterm.db, and a real book/broker divergence there makes this CLI send a SECOND
+    # message — the test then fails for a reason that has nothing to do with the watchdog.
+    # (Found 2026-08-27: a standing WSHP divergence turned the whole gate red.)
+    monkeypatch.setattr(
+        sys, "argv",
+        ["run_watchdog.py", "--db", db, "--shortterm-db", str(tmp_path / "lanes.db")],
+    )
 
     assert wd.main() == 0
     assert len(sent) == 1 and "crypto" in sent[0]
@@ -109,7 +116,10 @@ def test_run_watchdog_cli_records_its_own_heartbeat(tmp_path, monkeypatch) -> No
 
     db = str(tmp_path / "main.db")
     monkeypatch.delenv("COPILOT_TG_BOT_TOKEN", raising=False)
-    monkeypatch.setattr(sys, "argv", ["run_watchdog.py", "--db", db])
+    monkeypatch.setattr(
+        sys, "argv",
+        ["run_watchdog.py", "--db", db, "--shortterm-db", str(tmp_path / "lanes.db")],
+    )
     assert wd.main() == 0
     assert get_state(db, key="heartbeat_watchdog") is not None
 
@@ -234,7 +244,10 @@ def test_the_cli_reports_the_gap_before_overwriting_the_heartbeat(tmp_path, monk
     monkeypatch.setenv("COPILOT_TG_CHAT_ID", "1")
     sent: list[str] = []
     monkeypatch.setattr(wd, "send_message", lambda token, chat_id, text: sent.append(text) or 1)
-    monkeypatch.setattr(sys, "argv", ["run_watchdog.py", "--db", db])
+    monkeypatch.setattr(
+        sys, "argv",
+        ["run_watchdog.py", "--db", db, "--shortterm-db", str(tmp_path / "lanes.db")],
+    )
 
     assert wd.main() == 0
     assert any("Scheduler" in text for text in sent)
