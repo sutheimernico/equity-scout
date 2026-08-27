@@ -119,6 +119,26 @@ class EntryPlan:
 _FIB_LABEL = {"0.382": "Fibonacci 38.2 %", "0.5": "Fibonacci 50 %", "0.618": "Fibonacci 61.8 %"}
 
 
+def dca_tranche_plan() -> list[Tranche]:
+    """Baseline: 4 equal, time-staggered tranches (no price trigger)."""
+    return [Tranche(f"Tranche {i + 1}", 0.25, None) for i in range(4)]
+
+
+def dip_tranche_plan(price: float) -> list[Tranche]:
+    """Scale in on drawdown: thirds at now / -7 % / -15 % of the current price.
+
+    Extracted from compute_entry_plan (2026-08-27) so the buy-plan surface can offer the
+    SAME ladder without a 1y OHLC fetch. Retyping these three levels next to a price the
+    user is about to trade on is exactly the class of duplication that put three dead
+    branches into people.ts.
+    """
+    return [
+        Tranche("Jetzt", 1 / 3, round(price, 2)),
+        Tranche("bei −7 %", 1 / 3, round(price * 0.93, 2)),
+        Tranche("bei −15 %", 1 / 3, round(price * 0.85, 2)),
+    ]
+
+
 def compute_entry_plan(
     ticker: str, closes: list[float], highs: list[float], lows: list[float]
 ) -> EntryPlan:
@@ -168,15 +188,8 @@ def compute_entry_plan(
             "Zwei Tagesschwankungen unter dem Kurs (tiefere Pullback-Zone).",
         ))
 
-    # Baseline: 4 equal, time-staggered DCA tranches (no price trigger).
-    dca = [Tranche(f"Tranche {i + 1}", 0.25, None) for i in range(4)]
-
-    # Option: scale in on drawdown. Thirds at now / -7 % / -15 % relative to the current price.
-    dip = [
-        Tranche("Jetzt", 1 / 3, round(price, 2)),
-        Tranche("bei −7 %", 1 / 3, round(price * 0.93, 2)),
-        Tranche("bei −15 %", 1 / 3, round(price * 0.85, 2)),
-    ]
+    dca = dca_tranche_plan()
+    dip = dip_tranche_plan(price)
 
     # Neutral "reference zone" flag — confluence of below-fair-value AND near a support level.
     near_support = (swing is not None and price <= swing * 1.05) or price <= fibs["0.618"] * 1.02

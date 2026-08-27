@@ -28,6 +28,11 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 
+from equity_scout.evidence.base import (
+    SOURCE_13F,
+    SOURCE_CONGRESS,
+    SOURCE_INSIDER,
+)
 from equity_scout.exits import ExitRules
 
 # Positionsobergrenze für einen Einzeltitel. Dieselbe Faustregel, die der Pitch-Text seit
@@ -108,6 +113,45 @@ class BuyPlan:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+# Wer als KÄUFER zählt. Die Quellenkennungen werden aus `evidence.base` gespiegelt, nie
+# getippt: dieselbe Konstante einmal abzuschreiben hat in `people.ts` drei tote Zweige und
+# 80 falsch beschriftete Fondsmeldungen erzeugt (LOOP.md, 2026-08-23).
+#
+# `voice` ist ausdrücklich NICHT dabei. Eine Stimme im Nachrichtenstrom ist keine
+# Kaufmeldung, und der Bestand zeigt, warum das mehr als eine Definitionsfrage ist: am
+# 2026-08-26 hing „Warren Buffett" an einer Meldung über Meteoritenfunde in Medina County.
+_BUYER_LABELS = {
+    SOURCE_CONGRESS: ("Kongress", "politician"),
+    SOURCE_INSIDER: ("Insider", "insider"),
+    SOURCE_13F: ("Fonds (13F)", "fund"),
+}
+
+
+def buyers_from_events(events: list[dict]) -> list[dict]:
+    """Gemeldete Käufe zu einem Titel, jüngste zuerst — die Antwort auf „wer hat gekauft".
+
+    Meldungen sind verzögert: ein Kongress-Kauf erscheint bis zu 45 Tage später, eine
+    13F-Position bis zu 45 Tage nach Quartalsende. `reported_at` steht deshalb neben
+    `event_date`, damit die Karte kein frisches Kaufsignal vortäuscht.
+    """
+    buyers: list[dict] = []
+    for event in events:
+        label = _BUYER_LABELS.get(event.get("source", ""))
+        if label is None:
+            continue
+        kind_label, person_field = label
+        details = event.get("details") or {}
+        buyers.append({
+            "kind": kind_label,
+            "source": event["source"],
+            "person": details.get(person_field) or "unbekannt",
+            "event_date": event.get("event_date"),
+            "reported_at": details.get("filing_date") or details.get("filed_at"),
+            "detail": details.get("change") or details.get("amount"),
+        })
+    return sorted(buyers, key=lambda b: b["event_date"] or "", reverse=True)
 
 
 def stance_for(*, in_zone: bool, price: float, zone_low: float, zone_high: float) -> str:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from equity_scout.buy_plan import (
     MAX_POSITION_SHARE_PCT,
+    buyers_from_events,
     STANCE_AVOID,
     STANCE_FAR,
     STANCE_READY,
@@ -19,6 +20,7 @@ from equity_scout.buy_plan import (
     stance_for,
     why_lines,
 )
+from equity_scout.evidence.base import SOURCE_13F, SOURCE_CONGRESS, SOURCE_INSIDER
 from equity_scout.exits import ExitRules
 
 
@@ -240,3 +242,47 @@ def test_a_plan_serialises_to_plain_json_types():
     assert as_dict["entry"]["stance"] == STANCE_READY
     assert as_dict["exit"]["target"] == 120.0
     assert as_dict["sizing"]["max_share_pct"] == MAX_POSITION_SHARE_PCT
+
+
+# --- Wer hat gekauft ---------------------------------------------------------------------------
+
+def test_a_voice_in_the_news_is_not_a_buyer():
+    """Am 2026-08-26 hing „Warren Buffett" an einer Meldung über Meteoritenfunde."""
+    events = [{"source": "voice", "event_date": "2026-08-26",
+               "details": {"speaker": "Warren Buffett", "kind": "context"}}]
+    assert buyers_from_events(events) == []
+
+
+def test_news_themes_and_filings_that_are_not_purchases_are_excluded():
+    events = [
+        {"source": "news_theme", "event_date": "2026-08-26", "details": {"theme": "inflation"}},
+        {"source": "edgar_8k", "event_date": "2026-08-26", "details": {}},
+    ]
+    assert buyers_from_events(events) == []
+
+
+def test_the_three_purchase_sources_are_recognised_by_their_shared_constants():
+    """Gespiegelt aus evidence.base — ein getippter String wäre der people.ts-Fehler noch einmal."""
+    events = [
+        {"source": SOURCE_CONGRESS, "event_date": "2026-08-01",
+         "details": {"politician": "Abgeordnete X", "filing_date": "2026-08-20"}},
+        {"source": SOURCE_INSIDER, "event_date": "2026-08-02",
+         "details": {"insider": "CFO Y", "filing_date": "2026-08-05"}},
+        {"source": SOURCE_13F, "event_date": "2026-08-03",
+         "details": {"fund": "Fonds Z", "filed_at": "2026-08-14", "change": "new"}},
+    ]
+    buyers = buyers_from_events(events)
+    assert [b["kind"] for b in buyers] == ["Fonds (13F)", "Insider", "Kongress"]  # jüngste zuerst
+    assert [b["person"] for b in buyers] == ["Fonds Z", "CFO Y", "Abgeordnete X"]
+
+
+def test_the_reporting_delay_is_carried_so_the_card_cannot_fake_freshness():
+    events = [{"source": SOURCE_CONGRESS, "event_date": "2026-07-01",
+               "details": {"politician": "Abgeordnete X", "filing_date": "2026-08-14"}}]
+    buyer = buyers_from_events(events)[0]
+    assert buyer["event_date"] == "2026-07-01" and buyer["reported_at"] == "2026-08-14"
+
+
+def test_a_purchase_without_a_named_person_says_unknown_rather_than_dropping_it():
+    events = [{"source": SOURCE_CONGRESS, "event_date": "2026-08-01", "details": {}}]
+    assert buyers_from_events(events)[0]["person"] == "unbekannt"
