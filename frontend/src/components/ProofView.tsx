@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { fetchProof, type ProofBook, type ProofResponse } from "../api";
 import { LANE_NOTES } from "../lanes";
+import { HonestVerdict } from "./HonestVerdict";
 import { RueckschauPanel } from "./RueckschauPanel";
 import { Explain } from "./ui/Explain";
 import { InfoIcon } from "./ui/InfoIcon";
@@ -200,6 +201,10 @@ export function ProofView() {
           was die Messung bisher hergibt und was noch nicht.
         </p>
       </header>
+
+      {/* Die Antwort zuerst. Wer sich erst durch acht Bücher liest, um sie selbst zu
+          ziehen, zieht sie meistens gar nicht. */}
+      <HonestVerdict />
 
       {data.conviction && (
         <Explain tone="hint">

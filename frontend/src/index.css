@@ -4281,3 +4281,14 @@ li.pd-alloc-row {
     font-size: var(--text-xl);
   }
 }
+
+/* --- Die ehrliche Antwort (Ergebnisse) ---------------------------------------------- */
+.verdict-answer {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.strat-block.verdict {
+  border-left: 3px solid var(--violet);
+}

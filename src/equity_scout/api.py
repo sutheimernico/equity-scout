@@ -2045,6 +2045,30 @@ def create_app(
             "disclaimer": DISCLAIMER,
         })
 
+    @app.get("/api/diversification")
+    def diversification() -> JSONResponse:
+        """Die Antwort auf „schlägt das den Markt?" — aus der Studie vom 2026-08-27.
+
+        Sie steht in einer Datei statt in einer Berechnung, weil sie zwölf Backtests über
+        acht Jahre braucht (rund zwei Minuten). Der Endpunkt liefert sie so, wie sie
+        gemessen wurde, samt Datum — eine Kennzahl ohne Messdatum wäre genau die Art
+        Behauptung, gegen die dieses Projekt seine Regeln hat.
+        """
+        path = Path("docs/research/2026-08-27-diversification.json")
+        if not path.exists():
+            return JSONResponse({
+                "available": False,
+                "hint": "uv run python scripts/run_diversification_study.py",
+                "disclaimer": DISCLAIMER,
+            })
+        payload = json.loads(path.read_text())
+        payload["available"] = True
+        payload["measured_at"] = datetime.fromtimestamp(
+            path.stat().st_mtime, tz=timezone.utc
+        ).date().isoformat()
+        payload["disclaimer"] = DISCLAIMER
+        return JSONResponse(payload)
+
     @app.get("/api/opportunities")
     def opportunities(limit: int = 20) -> JSONResponse:
         """Was dir gemeldet wurde — der Verlauf hinter den Benachrichtigungen.

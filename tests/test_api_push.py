@@ -136,3 +136,21 @@ def test_assetlinks_stays_empty_without_a_fingerprint(tmp_path, monkeypatch) -> 
     monkeypatch.delenv("TWA_FINGERPRINT", raising=False)
     client, _ = _client(tmp_path)
     assert client.get("/.well-known/assetlinks.json").json() == []
+
+
+def test_diversification_endpoint_carries_its_measurement_date(tmp_path, monkeypatch) -> None:
+    """Eine Kennzahl ohne Messdatum ist genau die Art Behauptung, gegen die dieses Projekt
+    seine Regeln hat — der Endpunkt liefert das Datum aus der Datei mit."""
+    monkeypatch.chdir(tmp_path)
+    import json as _json
+    from pathlib import Path as _Path
+
+    client, _ = _client(tmp_path)
+    assert client.get("/api/diversification").json()["available"] is False
+
+    target = _Path("docs/research/2026-08-27-diversification.json")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(_json.dumps({"effective_bets": 3.19, "sleeve_count": 12}))
+    body = client.get("/api/diversification").json()
+    assert body["available"] is True and body["effective_bets"] == 3.19
+    assert len(body["measured_at"]) == 10

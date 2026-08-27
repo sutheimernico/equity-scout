@@ -1520,3 +1520,31 @@ export async function fetchOpportunities(limit = 20): Promise<OpportunitiesRespo
   if (!response.ok) throw new Error(`/api/opportunities returned ${response.status}`);
   return response.json();
 }
+
+// --- Diversifikations-Studie (2026-08-27) ---------------------------------------------
+export interface SchemeStats {
+  cagr_pct: number;
+  vol_pct: number;
+  return_to_vol: number;
+  sharpe: number;
+  max_drawdown_pct: number;
+}
+
+export interface DiversificationResponse {
+  available: boolean;
+  hint?: string;
+  measured_at?: string;
+  effective_bets?: number;
+  sleeve_count?: number;
+  mean_pairwise_correlation?: number;
+  betas_vs_spy?: Record<string, number>;
+  schemes?: Record<string, SchemeStats>;
+  vol_matched?: SchemeStats & { scheme: string; leverage: number; financing_rate: number };
+  disclaimer: string;
+}
+
+export async function fetchDiversification(): Promise<DiversificationResponse> {
+  const response = await fetch("/api/diversification");
+  if (!response.ok) throw new Error(`/api/diversification returned ${response.status}`);
+  return response.json();
+}
