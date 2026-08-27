@@ -149,3 +149,27 @@ nur im US-Marktfenster und hätte sie erst am Nachmittag erneuert. Ergebnis:
 upsert — ein abgebrochener Lauf verliert nichts).
 
 Zweite Telegram-Nachricht (id 284) korrigiert die erste, die noch „0 von 30" sagte.
+
+### Nachtrag 02:55 — die kurze Seite des Auftrags
+Nico wollte „langfristige Aktie, **kurzfristige Aktie**". Die lange Seite liefert Kaufpläne. Für
+die kurze wurde **bewusst keine Kaufliste gebaut**, und das ist keine Vorsicht, sondern der
+Messstand von heute (`/api/shortterm`):
+
+| Lane | realisierte Trades | Ø je Trade | Urteil | Depot-Kapital? |
+|---|---|---|---|---|
+| Krypto | 32 | −14,11 | **negativ** (p = 0,0003) | nein |
+| Intraday-Session | 63 | −4,14 | noch nicht aussagekräftig | nein (pausiert) |
+| Event-Swing | 13 | +7,35 | noch nicht aussagekräftig | nein |
+| Katalysator-Zündung | 3 | +86,20 | zu wenige Trades | nein |
+
+**Keine einzige Lane hat das Ergebnis-Gate bestanden**, eine verliert nachweisbar. Aus
+ungeprüften Katalysator-Meldungen trotzdem eine Kaufliste zu bauen, hätte genau die Oberfläche
+erzeugt, die dieses Repo an anderer Stelle mühsam wieder eingefangen hat. Der Horizont-Umschalter
+„Kurzfristig" zeigt darum die Messung und sagt, was daraus folgt (`kurzfrist.ts`, 18 Tests).
+
+**Dabei ein Widerspruch gefunden und behoben:** Die Krypto-Karte zeigte „+10,2 %" und
+gleichzeitig „verliert messbar". Beides stimmt — die Rendite ist Buchwert von vier OFFENEN
+Positionen in einer BTC-Rally, während die 32 abgeschlossenen Trades zusammen **−451,60**
+brachten, bei **548,34 Gebühren**. Die Gebühren sind also größer als der Bruttoverlust; ohne
+sie wäre die Lane knapp positiv gewesen. `realizedNote` trennt das jetzt auf jeder Karte —
+ohne diese Zeile liest sich die Lane wie eine funktionierende Strategie.
