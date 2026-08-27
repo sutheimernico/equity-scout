@@ -295,3 +295,23 @@ ob die bisherigen Vorschläge gute Einstiege gewesen wären. Plan + vollständig
   Divergenz steht (WSHP: Buch 169 vs. Konto 338). Und der Watchdog alarmiert seit 59 h täglich
   für `gapfade`, dessen Cron-Zeile am 24.08. entfernt wurde (`5cc67b3`).
 - Gate: 2 638 Tests grün (105 neu) + 166 Frontend-Tests (20 neu), ruff + tsc sauber.
+- 2026-08-27 — Nachmittags-/Abendsitzung („Handy-Push, APK, FE besser, Autotrader
+  weiterentwickeln", Nico für ~5 h weg). Vier Stränge, 9 Commits, Gate 2707 pytest + 197
+  vitest + ruff grün. **Push:** drei Kanäle hinter einem Fan-out (`channels.deliver`) —
+  Web Push mit VAPID (Meldung kommt von der eigenen App), ntfy als Reserve (live
+  zugestellt), Telegram unverändert; Ansicht mit Ein/Aus, Test und Zustellhistorie.
+  **APK:** Bubblewrap-Workflow auf GitHub-Runnern (lokal fehlen JDK und Android-SDK), TWA
+  statt WebView, weil nur echtes Chrome Web Push kann; `/.well-known/assetlinks.json`
+  bewusst VOR dem Token-Gate; Signaturschlüssel per openssl erzeugt und als Repo-Secret
+  hinterlegt. `scripts/setup_https.sh` bündelt den einen Schritt, der Root braucht.
+  **Chancen:** `opportunity.py` übersetzt Kaufpläne in vier Sätze für Laien, zwei Klassen
+  („Chance" heute kaufbar, „Bald" = Limit legen — ohne die zweite null Meldungen), täglich
+  in der Kette, Verlauf unter `/api/opportunities`. **Screener:** Investierbarkeitsfilter
+  (≥ 300 Mio € / ≥ 1 Mio € Tagesumsatz) nach dem Befund, dass Platz 2 der Watchlist 4 071
+  Stück am Tag handelte. Drei Datenfallen dabei geschlossen, davon eine P0: ein
+  fehlgeschlagener FX-Abruf hätte das ganze Universum aussortiert. **Autotrader:** Studie
+  misst 3,19 unabhängige Wetten von 12 und DCA ≡ 60/40 (Korrelation 1,000) → Duplikate
+  teilen sich ein Gewicht; kein Verfahren schlägt Gleichgewichtung; auf Marktrisiko
+  skaliert 12,63 % gegen SPY 16,07 % — die ehrliche Antwort steht jetzt oben in
+  „Ergebnisse". **Nebenbei:** roter Watchdog-Test war undicht gegen die Live-DB, behoben.
+  Needs Nico: `sudo bash scripts/setup_https.sh`, dann App installieren.

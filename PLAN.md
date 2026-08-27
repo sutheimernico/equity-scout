@@ -21,6 +21,86 @@ This file is the binding backlog for the autonomous loop. Each iteration picks t
 highest-value open `- [ ]` task, does it on `autopilot/work`, runs the gate, commits only if green,
 checks the box, and appends one line to `AUTOPILOT_LOG.md`.
 
+## Runde 2026-08-27 (Nico: „Handy-Push, APK, FE besser, Autotrader weiterentwickeln") — DONE
+
+Vier Stränge in einer Sitzung. Details in `AUTOPILOT_LOG.md`; hier nur, was für spätere
+Entscheidungen zählt.
+
+### Benachrichtigungen kommen jetzt von der App
+Drei Kanäle hinter EINEM Fan-out (`channels.deliver`): **Web Push** (VAPID, eigenes
+App-Icon auf dem Sperrbildschirm), **ntfy** als Reserve ohne Installationszwang, Telegram
+unverändert für die lange Fassung. Jeder Kanal für sich — ein totes Token darf den Push
+nicht kosten. Ansicht „Mehr → Benachrichtigungen" mit Ein/Aus, Testknopf, Geräteliste und
+Zustellhistorie; der Ausfallmodus eines Meldesystems ist Stille, und Stille sieht aus wie
+Ruhe.
+
+- [ ] **Needs Nico (5 Minuten, einmalig):** `sudo bash scripts/setup_https.sh`. Web Push,
+      „App installieren" und die APK verlangen alle eine HTTPS-Adresse; Tailscale liefert
+      sie kostenlos und tailnet-intern. Es ist der einzige Schritt, der Root braucht.
+      Anleitung: `docs/handy-app.md`. **ntfy funktioniert schon jetzt** — Topic liegt in
+      der `.env`, eine Testmeldung wurde am 2026-08-27 zugestellt.
+- [ ] **Needs Nico (optional):** GitHub → Actions → „Android-APK" → Run workflow mit
+      `host=wsl-claude.tail7dff17.ts.net`. Signaturschlüssel und Secrets liegen schon.
+
+### Chancen-Meldungen mit Begründung in Alltagssprache
+`opportunity.py` macht aus einem Kaufplan vier Sätze: Anlass, Gründe, Gegenrede, Plan.
+Zwei Klassen — **„Chance"** (heute kaufbar) und **„Bald"** (Kurs knapp über der Zone, also
+Limit legen). Ohne die zweite Klasse hätte das System am 2026-08-27 exakt null Meldungen
+gehabt. Läuft täglich in `daily_copilot.sh` nach `notify`.
+
+Der LLM-Schliff formuliert **nur die Gründe** um, nie die Gegenrede: im Live-Test machte
+qwen2.5:7b aus „Fällt der Kurs unter 18,91 $, ist die Idee widerlegt" einen Satz ohne jede
+Zahl. Antworten mit Empfehlungswortlaut werden ganz verworfen, nicht gefiltert.
+
+### Der Screener rankt nur noch, was man kaufen kann
+**BEFUND:** Platz 2 der Watchlist war EHLD — 27 Mio $ Börsenwert, **4 071 gehandelte Stücke
+am Tag**. Faktor-Perzentile sind bei Winzlingen systematisch extrem, weil ein einzelner
+Bilanzposten den Quotienten dominiert; ein Faktor-Screen ohne Größenfilter findet deshalb
+verlässlich das, was niemand kaufen kann. `liquidity.py` filtert auf ≥ 300 Mio € Börsenwert
+und ≥ 1 Mio € Tagesumsatz — beide Zahlen fallen im selben `info`-Abruf ab, den der Screen
+ohnehin macht. An der Watchlist gemessen: 7 von 30 raus, jeder mit Grund.
+
+Drei Datenfallen dabei gefunden und geschlossen: yfinance liefert britische Kurse in Pence,
+aber Börsenwerte in Pfund (easyJet wäre als 59-Mio-Klitsche geflogen); für manche großen
+Titel fehlt der Börsenwert ganz (Ageas — der Umsatz trägt dann allein, mit Aufschlag); und
+ein **fehlgeschlagener FX-Abruf hätte das GESAMTE Universum aussortiert**, weil
+„unbekannt" als „raus" gelesen wurde. Letzteres ist der gefährlichste der drei: Yahoo
+drosselt genau dann, wenn ein großer Lauf läuft.
+
+- [ ] **Wirksam ab dem nächsten Voll-Lauf.** Der Quote-Cache musste um zwei Felder wachsen;
+      Zeilen von vorher gelten als veraltet und werden neu geholt. Ein am 2026-08-27
+      gestarteter Lauf hat **3 130 von 7 778 Titeln (40 %)** vorbefüllt, bevor er wegen
+      Yahoo-Drosselung abgebrochen wurde — der nächste Lauf holt nur den Rest.
+
+### Autotrader: gemessen statt vermutet
+Studie `docs/research/2026-08-27-diversification.md` (reproduzierbar über
+`scripts/run_diversification_study.py`), acht Jahre ETF-Panel, alle zwölf Sleeves:
+
+- **3,19 unabhängige Wetten von 12.** Mittlere Paar-Korrelation 0,65.
+- **DCA und 60/40 korrelieren mit 1,000** — DCA kauft sich über zwölf Monate in ein
+  60/40-Portfolio ein und ist danach identisch. Diese eine Wette zog 18,2 % statt 9,1 %.
+  Behoben über `duplicate_groups` + `split_within_groups` (wirkt in beiden Modi).
+  **Live-Wirkung heute null, nachgemessen:** die Forward-Reihen haben 30 gemeinsame
+  Beobachtungen, die Schwelle liegt bei 40 → greift ab etwa Mitte September 2026.
+- **Kein Gewichtungsverfahren schlägt Gleichgewichtung** (DeMiguel et al. reproduziert).
+  Auch ERC nicht, das die Korrelationen kennt. Der Inverse-Vol-Umbau vom 17.08. bleibt wie
+  er ist — aber auf dieser Achse ist nichts mehr zu holen.
+- **Die ehrliche Antwort auf „schlägt es den Markt": nein, und nicht knapp.** Auf
+  Marktvolatilität skaliert (Faktor 1,94, 5 % Finanzierung) 12,63 % gegen 16,07 % bei
+  identischem Rückgang. Was es liefert: zwei Drittel der Marktrendite bei halbem Risiko.
+  Steht seit heute ganz oben in „Ergebnisse", statt in einer Forschungsdatei.
+
+- [ ] **Entscheidung für Nico:** Ein dreizehnter Sleeve aus demselben ETF-Universum hebt
+      die effektive Wettenzahl praktisch nicht. Wer hier weiterkommen will, braucht eine
+      andere Anlageklasse oder einen anderen Horizont — nicht eine weitere Auswahlregel auf
+      denselben zwanzig ETFs. Das ist eine Richtungsfrage, keine Aufgabe.
+
+### Frontend
+Startseite beantwortet zuerst „muss ich heute etwas tun?" (`TodayAction`), statt die
+Antwort aus fünf Blöcken ableiten zu lassen — „heute nichts zu tun" ist dabei eine
+vollwertige Antwort mit eigener Optik, keine leere Seite. Reihenfolge nach Dringlichkeit,
+in `today.ts` getestet. „Ergebnisse" führt mit der gemessenen Marktantwort.
+
 ## Von Nico angesetzt — nächste Session (notiert 2026-08-16, 03:00)
 - [x] **Das Handy-Cockpit fertig bauen.** — ERLEDIGT 2026-08-23 auf Nicos "finishe das Ding".
       Der Scope war nie festgelegt; statt zu raten wurde **gemessen**: Playwright gegen den
