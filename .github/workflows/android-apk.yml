@@ -64,6 +64,24 @@ jobs:
       - name: Bubblewrap installieren
         run: npm install -g @bubblewrap/cli@latest
 
+      # Ohne diese Datei fragt Bubblewrap beim ersten Lauf interaktiv
+      # "Do you want Bubblewrap to install the Android SDK?" und bricht auf dem Runner
+      # mit Exit 130 ab, weil dort niemand antwortet (passiert am 2026-08-28, Run
+      # 33163688184). Der Runner bringt SDK und JDK schon mit - hier wird nur darauf
+      # gezeigt, statt 1,5 GB ein zweites Mal herunterzuladen.
+      - name: Bubblewrap auf das vorinstallierte SDK zeigen
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          if [ -z "$SDK" ] || [ ! -d "$SDK" ]; then
+            echo "::error::Kein Android-SDK auf dem Runner gefunden"
+            exit 1
+          fi
+          mkdir -p "$HOME/.bubblewrap"
+          printf '{"jdkPath":"%s","androidSdkPath":"%s"}\n' "$JAVA_HOME" "$SDK" \
+            > "$HOME/.bubblewrap/config.json"
+          cat "$HOME/.bubblewrap/config.json"
+
       - name: TWA erzeugen
         env:
           HOST: ${{ inputs.host }}
@@ -125,7 +143,7 @@ jobs:
           cd "$RUNNER_TEMP/twa"
           bubblewrap build --skipPwaValidation \
             --signingKeyPassword="$KEYSTORE_PASSWORD" \
-            --keystorePassword="$KEYSTORE_PASSWORD"
+            --keystorePassword="$KEYSTORE_PASSWORD" < /dev/null
           ls -la ./*.apk ./*.aab || true
 
       - name: Fingerprint für assetlinks.json ausgeben
