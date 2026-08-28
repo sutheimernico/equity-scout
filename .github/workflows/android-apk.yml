@@ -11,8 +11,10 @@
 # Voraussetzungen (einmalig, siehe docs/handy-app.md):
 #   - Secret ANDROID_KEYSTORE_B64      base64 des PKCS12-Keystores
 #   - Secret ANDROID_KEYSTORE_PASSWORD dessen Passwort
-#   - Die Cockpit-Adresse muss per HTTPS erreichbar sein und
-#     /.well-known/assetlinks.json mit dem Fingerprint dieses Keystores ausliefern.
+#   - Die Cockpit-Adresse muss /.well-known/assetlinks.json mit dem Fingerprint dieses
+#     Keystores ausliefern - sonst startet die App mit Chrome-Adressleiste statt im
+#     Vollbild. Zum BAUEN muss die Adresse dagegen nicht erreichbar sein: Manifest und
+#     Icons kommen aus dem Repo (erstmals grün am 2026-08-28, Run 33165111175).
 name: Android-APK
 
 on:

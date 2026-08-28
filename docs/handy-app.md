@@ -74,6 +74,14 @@ Die installierte Web-App reicht für alles, auch für Push. Wer trotzdem eine `.
 3. Nach dem Lauf das Artefakt `equity-scout-apk` herunterladen und auf dem Handy
    installieren (Android fragt einmal nach „Installation aus unbekannter Quelle")
 
+Version 1 ist am 2026-08-28 gebaut und liegt bereits als
+`Downloads/equity-scout-v1.apk`. Ihr Signatur-Fingerprint wurde gegen den geprüft, den
+das Cockpit unter `/.well-known/assetlinks.json` ausliefert — beide stimmen überein, die
+App startet also im Vollbild.
+
+**Reihenfolge beachten:** Erst Schritt 0 und 1 (HTTPS), dann die APK öffnen. Vorher
+findet sie ihre Adresse nicht und zeigt nur eine Fehlerseite.
+
 Die App ist eine **Trusted Web Activity**: außen eine echte Android-App, innen Chrome auf
 dieselbe Adresse. Genau deshalb funktioniert Web Push darin — eine klassische WebView-App
 kann das nicht.
