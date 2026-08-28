@@ -184,10 +184,14 @@ jobs:
           cp /tmp/ours-manifest.json twa-manifest.json
           bubblewrap update --skipVersionUpgrade < /dev/null
 
-          # Sicherheitsnetz: manifest-checksum.txt ist sha1(twa-manifest.json) im Klartext
-          # (shared.js computeChecksum). Fehlt oder hinkt sie, fragt `build` wieder.
-          sha1sum twa-manifest.json | cut -d" " -f1 > manifest-checksum.txt
-          echo "Checksumme: $(cat manifest-checksum.txt)"
+          # `update` schreibt manifest-checksum.txt selbst - sha1(twa-manifest.json) OHNE
+          # abschließenden Zeilenumbruch. Sie hier mit `sha1sum` zu überschreiben hängte
+          # genau dieses \n an, worauf `build` die Prüfsumme für veraltet hielt und
+          # interaktiv nachfragte (Exit 130, Run 33164613601). Also nur noch prüfen.
+          if [ ! -s manifest-checksum.txt ]; then
+            echo "::error::manifest-checksum.txt fehlt - update ist nicht durchgelaufen"
+            exit 1
+          fi
 
       - name: APK bauen
         env:
