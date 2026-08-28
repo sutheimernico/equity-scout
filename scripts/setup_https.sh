@@ -75,13 +75,38 @@ else
 fi
 chown "${REAL_USER}:${REAL_USER}" "$ENV_FILE"
 
+echo "==> Dienst neu starten, damit er PUBLIC_BASE_URL sieht"
+# equity-scout-dash ist eine USER-Unit mit Linger - erreichbar nur im --user-Scope des
+# Benutzers, nicht über "sudo systemctl". Deshalb der Umweg über sudo -u.
+USER_UID="$(id -u "$REAL_USER")"
+if sudo -u "$REAL_USER" XDG_RUNTIME_DIR="/run/user/${USER_UID}" \
+     systemctl --user restart equity-scout-dash.service 2>/dev/null; then
+  sleep 2
+  if sudo -u "$REAL_USER" XDG_RUNTIME_DIR="/run/user/${USER_UID}" \
+       systemctl --user is-active --quiet equity-scout-dash.service; then
+    echo "    Dienst läuft."
+  else
+    echo "    WARNUNG: Dienst kam nach dem Neustart nicht hoch." >&2
+  fi
+else
+  echo "    WARNUNG: Neustart fehlgeschlagen - bitte von Hand:" >&2
+  echo "      systemctl --user restart equity-scout-dash" >&2
+fi
+
 echo
-echo "Fertig. Und jetzt:"
-echo "  1. Dienst neu starten, damit er PUBLIC_BASE_URL sieht:"
-echo "       sudo systemctl restart equity-scout-dash   (oder wie der Dienst bei dir heißt)"
-echo "  2. Auf dem Handy https://${DOMAIN} öffnen (Tailscale muss an sein)."
-echo "  3. Chrome-Menü -> 'App installieren'."
-echo "  4. In der App: Mehr -> Benachrichtigungen -> einschalten."
+echo "==> Gegenprobe: Ist die HTTPS-Adresse wirklich da?"
+if curl -fsS -o /dev/null -w '    /.well-known/assetlinks.json -> HTTP %{http_code}\n' \
+     "https://${DOMAIN}/.well-known/assetlinks.json"; then
+  :
+else
+  echo "    WARNUNG: Die Adresse antwortet noch nicht - siehe Meldungen oben." >&2
+fi
+
+echo
+echo "Fertig. Und jetzt am Handy:"
+echo "  1. https://${DOMAIN} öffnen (Tailscale muss an sein)."
+echo "  2. Chrome-Menü -> 'App installieren'."
+echo "  3. In der App: Mehr -> Benachrichtigungen -> einschalten."
 echo
 echo "Prüfen, ob die App-Verknüpfung steht:"
 echo "  curl -s https://${DOMAIN}/.well-known/assetlinks.json"
