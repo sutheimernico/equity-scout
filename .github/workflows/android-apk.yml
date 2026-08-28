@@ -193,6 +193,32 @@ jobs:
             exit 1
           fi
 
+      # Bubblewrap ruft Gradle über Node's execFile OHNE maxBuffer auf, es gilt also das
+      # 1-MB-Default. Der erste Gradle-Lauf schreibt mit Distributions- und Abhängigkeits-
+      # Download weit mehr als das nach stderr, worauf der Build mit "stderr maxBuffer
+      # length exceeded" abbrach (Run 33164861912). Zwei Gegenmittel: Gradle leise stellen
+      # und alles Herunterzuladende vorher holen, damit der Lauf unter Bubblewrap fast
+      # nichts mehr ausgibt.
+      - name: Gradle leise stellen und vorwärmen
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/twa"
+          cat >> gradle.properties <<'PROPS'
+org.gradle.console=plain
+org.gradle.daemon=false
+org.gradle.warning.mode=none
+org.gradle.logging.level=quiet
+PROPS
+          chmod +x ./gradlew
+          # Ausgabe bewusst in eine Datei: sie interessiert nur, wenn es schiefgeht.
+          ./gradlew --version > /tmp/gradle-warmup.log 2>&1
+          ./gradlew assembleRelease bundleRelease >> /tmp/gradle-warmup.log 2>&1 || {
+            echo "::error::Gradle-Vorlauf fehlgeschlagen - letzte Zeilen:"
+            tail -40 /tmp/gradle-warmup.log
+            exit 1
+          }
+          echo "Gradle-Vorlauf ok ($(wc -l < /tmp/gradle-warmup.log) Zeilen Ausgabe)"
+
       # Die Passwörter nimmt Bubblewrap NUR über diese beiden Umgebungsvariablen entgegen
       # (build.js getPasswords). Die früher benutzten Flags --keystorePassword /
       # --signingKeyPassword kennt der build-Befehl gar nicht, also fragte er trotzdem
