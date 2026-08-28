@@ -11,6 +11,20 @@ weder für Push noch für „App installieren". Tailscale kann genau das kostenl
 echte HTTPS-Adresse `https://wsl-claude.tail7dff17.ts.net`, gültiges Zertifikat, nur
 innerhalb deines Tailnets erreichbar. Das Internet kommt da nicht ran.
 
+## Schritt 0 — zwei Schalter in der Tailscale-Konsole (einmalig, im Browser)
+
+Beides ist ein Klick, kein Befehl, und **ohne beides scheitert Schritt 1**:
+
+| Schalter | Wo | Wofür |
+| --- | --- | --- |
+| **HTTPS Certificates** | [login.tailscale.com/admin/dns](https://login.tailscale.com/admin/dns) | damit `tailscale cert` ein echtes Let's-Encrypt-Zertifikat ausstellen darf |
+| **Serve** | Hinweis-Link, den `tailscale serve` selbst ausgibt (node-spezifisch) | damit Port 443 vor den Dienst darf |
+
+Am 2026-08-28 hing genau hier der erste Anlauf: `tailscale serve` antwortete
+`Serve is not enabled on your tailnet` — und zwar mit Exit-Code 0, also ohne dass ein
+Skript das als Fehler bemerkt hätte. `scripts/setup_https.sh` prüft das inzwischen selbst
+und nennt dir die Adresse, statt wortlos abzubrechen.
+
 ## Schritt 1 — HTTPS anschalten (einmalig, braucht Root)
 
 ```bash
@@ -18,9 +32,10 @@ cd ~/private/equity-scout
 sudo bash scripts/setup_https.sh
 ```
 
-Das Skript setzt den Tailscale-Operator (damit danach nichts mehr Root braucht), holt das
-Zertifikat, hängt HTTPS vor den Dienst auf Port 8420 und trägt die Adresse als
-`PUBLIC_BASE_URL` in die `.env` ein. Danach den Dienst einmal neu starten, damit er die
+Das Skript setzt den Tailscale-Operator (damit danach nichts mehr Root braucht), schaltet
+Tailscale-SSH ein (der Weg, über den Claude vom Handy aus arbeitet), holt das Zertifikat,
+hängt HTTPS vor den Dienst auf Port 8420 und trägt die Adresse als `PUBLIC_BASE_URL` in
+die `.env` ein. Jeder dieser Schritte meldet sich einzeln, wenn er nicht durchkommt. Danach den Dienst einmal neu starten, damit er die
 Variable sieht.
 
 **Warum nicht automatisch erledigt:** `tailscale cert` verlangt Root, und in dieser Sitzung

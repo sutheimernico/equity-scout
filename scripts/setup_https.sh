@@ -30,14 +30,42 @@ PORT="${ES_PORT:-8420}"
 echo "==> Operator setzen (danach braucht Tailscale hier kein sudo mehr)"
 tailscale set "--operator=${REAL_USER}"
 
+
+echo "==> Tailscale-SSH sicherstellen (Zugang vom Handy)"
+tailscale set --ssh
+
 DOMAIN="$(tailscale status --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')"
 echo "==> Adresse: https://${DOMAIN}"
 
 echo "==> Zertifikat holen (beim ersten Mal dauert das ein paar Sekunden)"
-tailscale cert "${DOMAIN}" >/dev/null
+# Wie bei serve hängt auch das an einem Schalter in der Admin-Konsole ("HTTPS Certificates").
+# set -e würde hier sonst wortlos abbrechen, deshalb die eigene Meldung.
+if ! CERT_OUT="$(tailscale cert "${DOMAIN}" 2>&1)"; then
+  printf '%s\n' "$CERT_OUT" >&2
+  echo >&2
+  echo "STOPP: Das Zertifikat kam nicht. Meist fehlt der Schalter 'HTTPS Certificates':" >&2
+  echo "  https://login.tailscale.com/admin/dns  (Abschnitt HTTPS Certificates -> Enable)" >&2
+  echo "Danach dieses Skript einfach noch einmal starten." >&2
+  exit 4
+fi
 
 echo "==> HTTPS vor den Dienst auf 127.0.0.1:${PORT} hängen"
-tailscale serve --bg --https=443 "http://127.0.0.1:${PORT}"
+# Serve muss EINMAL pro Tailnet in der Admin-Konsole freigeschaltet werden. Fehlt das,
+# antwortet Tailscale mit einem Hinweis samt node-spezifischer URL - und mit Exit 0, also
+# muss die Ausgabe geprüft werden, nicht der Rückgabewert (verifiziert am 2026-08-28).
+SERVE_OUT="$(tailscale serve --bg --https=443 "http://127.0.0.1:${PORT}" 2>&1 || true)"
+printf '%s\n' "$SERVE_OUT"
+if printf '%s' "$SERVE_OUT" | grep -qi 'not enabled'; then
+  echo
+  echo "STOPP: Serve ist auf deinem Tailnet noch nicht freigeschaltet."
+  echo "Das ist ein Klick im Browser, kein Befehl - Adresse steht direkt darüber."
+  echo "Danach dieses Skript einfach noch einmal starten."
+  exit 2
+fi
+if ! tailscale serve status 2>/dev/null | grep -q '127.0.0.1:'"${PORT}"; then
+  echo "STOPP: Serve meldet keinen Eintrag auf 127.0.0.1:${PORT} - bitte Ausgabe oben prüfen." >&2
+  exit 3
+fi
 
 ENV_FILE="${REPO_DIR}/.env"
 if grep -q '^PUBLIC_BASE_URL=' "$ENV_FILE" 2>/dev/null; then
