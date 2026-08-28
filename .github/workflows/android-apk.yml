@@ -140,15 +140,27 @@ jobs:
             "orientation": "default"
           }
           JSON
+          # Unsere Fassung sichern, BEVOR init sie anfassen kann.
+          cp twa-manifest.json /tmp/ours-manifest.json
+
           # --skipPwaValidation: die Adresse ist vom Runner aus nicht erreichbar, die
           # Prüfung würde also an der Erreichbarkeit scheitern, nicht an der App.
           bubblewrap init --manifest="https://${HOST}/manifest.webmanifest" \
-            --directory=. --skipPwaValidation <<< "" || true
+            --directory=. --skipPwaValidation < /dev/null || true
+
           # init überschreibt das Manifest, wenn es die Adresse doch erreicht — hier zählt
-          # unseres, deshalb danach noch einmal drüber.
-          cp twa-manifest.json twa-manifest.json.bak
-          bubblewrap update --skipVersionUpgrade || true
-          cp twa-manifest.json.bak twa-manifest.json
+          # unseres. Erst danach `update`, denn update generiert das Android-Projekt AUS
+          # dem Manifest und schreibt die passende manifest-checksum.txt. Die frühere
+          # Reihenfolge kopierte das Manifest NACH dem update zurück und machte damit die
+          # Prüfsumme ungültig — `build` fragte dann interaktiv nach und starb auf dem
+          # Runner mit Exit 130 (2026-08-28, Run 33164085475).
+          cp /tmp/ours-manifest.json twa-manifest.json
+          bubblewrap update --skipVersionUpgrade < /dev/null
+
+          # Sicherheitsnetz: manifest-checksum.txt ist sha1(twa-manifest.json) im Klartext
+          # (shared.js computeChecksum). Fehlt oder hinkt sie, fragt `build` wieder.
+          sha1sum twa-manifest.json | cut -d" " -f1 > manifest-checksum.txt
+          echo "Checksumme: $(cat manifest-checksum.txt)"
 
       - name: APK bauen
         env:
