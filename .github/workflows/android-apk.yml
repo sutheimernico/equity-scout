@@ -104,7 +104,9 @@ jobs:
       # Projekt war stillschweigend unvollständig. Die Icons liegen aber ohnehin im Repo,
       # also werden sie hier lokal ausgeliefert - das funktioniert auch, wenn das Repo
       # eines Tages privat ist, anders als ein raw.githubusercontent.com-Link.
-      - name: Icons lokal ausliefern
+      # Dasselbe gilt für webManifestUrl: TwaGenerator lädt auch das Web-Manifest
+      # herunter, um es ins Android-Projekt zu legen.
+      - name: Icons und Web-Manifest lokal ausliefern
         run: |
           set -euo pipefail
           nohup python3 -m http.server 8099 \
@@ -151,7 +153,7 @@ jobs:
             "appVersionCode": ${VERSION_CODE},
             "shortcuts": [],
             "generatorApp": "bubblewrap-cli",
-            "webManifestUrl": "https://${HOST}/manifest.webmanifest",
+            "webManifestUrl": "http://127.0.0.1:8099/manifest.webmanifest",
             "fallbackType": "customtabs",
             "enableSiteSettingsShortcut": true,
             "isChromeOSOnly": false,
