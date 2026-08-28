@@ -77,6 +77,21 @@ jobs:
             echo "::error::Kein Android-SDK auf dem Runner gefunden"
             exit 1
           fi
+          echo "SDK-Inhalt:"; ls -1 "$SDK"
+          # Bubblewrap akzeptiert ein SDK nur, wenn darin `tools/` ODER `bin/` liegt
+          # (AndroidSdkTools.validatePath, @bubblewrap/core 1.25). Moderne SDKs - auch das
+          # des Runners - haben stattdessen nur `cmdline-tools/<version>/bin`, weshalb der
+          # Build sonst mit "The provided androidSdk isn't correct." abbricht. Der Symlink
+          # stellt genau die eine erwartete Stelle her, ohne am SDK selbst zu drehen.
+          if [ ! -d "$SDK/tools" ] && [ ! -d "$SDK/bin" ]; then
+            CLT="$(ls -d "$SDK"/cmdline-tools/*/bin 2>/dev/null | sort | tail -1)"
+            if [ -z "$CLT" ]; then
+              echo "::error::Weder tools/, bin/ noch cmdline-tools/*/bin im SDK gefunden"
+              exit 1
+            fi
+            sudo ln -s "$CLT" "$SDK/bin"
+            echo "Symlink gesetzt: $SDK/bin -> $CLT"
+          fi
           mkdir -p "$HOME/.bubblewrap"
           printf '{"jdkPath":"%s","androidSdkPath":"%s"}\n' "$JAVA_HOME" "$SDK" \
             > "$HOME/.bubblewrap/config.json"
