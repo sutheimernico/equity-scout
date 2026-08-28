@@ -193,15 +193,18 @@ jobs:
             exit 1
           fi
 
+      # Die Passwörter nimmt Bubblewrap NUR über diese beiden Umgebungsvariablen entgegen
+      # (build.js getPasswords). Die früher benutzten Flags --keystorePassword /
+      # --signingKeyPassword kennt der build-Befehl gar nicht, also fragte er trotzdem
+      # interaktiv und starb mit Exit 130 (Run 33164784406).
       - name: APK bauen
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/twa"
-          bubblewrap build --skipPwaValidation \
-            --signingKeyPassword="$KEYSTORE_PASSWORD" \
-            --keystorePassword="$KEYSTORE_PASSWORD" < /dev/null
+          bubblewrap build --skipPwaValidation < /dev/null
           ls -la ./*.apk ./*.aab || true
 
       - name: Fingerprint für assetlinks.json ausgeben
