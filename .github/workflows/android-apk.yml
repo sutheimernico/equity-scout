@@ -203,12 +203,12 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/twa"
-          cat >> gradle.properties <<'PROPS'
-org.gradle.console=plain
-org.gradle.daemon=false
-org.gradle.warning.mode=none
-org.gradle.logging.level=quiet
-PROPS
+          {
+            echo "org.gradle.console=plain"
+            echo "org.gradle.daemon=false"
+            echo "org.gradle.warning.mode=none"
+            echo "org.gradle.logging.level=quiet"
+          } >> gradle.properties
           chmod +x ./gradlew
           # Ausgabe bewusst in eine Datei: sie interessiert nur, wenn es schiefgeht.
           ./gradlew --version > /tmp/gradle-warmup.log 2>&1
