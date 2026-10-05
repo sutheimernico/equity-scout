@@ -93,7 +93,7 @@ sie floss direkt ins Depot. Welle 1 hätte ohne Welle 2 Schaden angerichtet.
 
 ### Nico
 1. **`DASH_TOKEN` rotieren** · **Voices-Personenliste** bestätigen · **Cockpit-Durchklick**
-   (jetzt per Tailscale: `http://100.99.224.50:8420`).
+   (jetzt per Tailscale: `http://<tailnet-ip>:8420`).
 2. Zur Kenntnis: Das Depot verhält sich ab heute Nacht anders (mehr investiert). Die
    Kurve vor/nach `protection_regime` sind zwei Serien.
 3. Optional: der 1.5b-Modellvergleich für den Assistenten, sobald die Maschine ruhig ist.

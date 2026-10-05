@@ -617,10 +617,10 @@ This is what lets the digest stay short: every section head becomes a tap into t
 def test_section_heads_link_into_the_cockpit_in_html_mode():
     text = build_digest(
         [], date_label="2026-08-04", autodepot=AUTODEPOT,
-        dash_url="https://wsl-claude.tailnet.ts.net:8420", html=True,
+        dash_url="https://tailnet-host.example.ts.net:8420", html=True,
     )
     assert (
-        '<b><a href="https://wsl-claude.tailnet.ts.net:8420/?view=depots">'
+        '<b><a href="https://tailnet-host.example.ts.net:8420/?view=depots">'
         "🤖 Auto-Depot" in text
     )
 
@@ -1057,6 +1057,6 @@ Abweichungen:
 - Drei Absenz-Tests waren trivial wahr geworden und wurden geschärft (Commit e0a1f13).
 
 Zusätzlich (nicht geplant, aber nötig): `DASH_URL` war in `.env` nie gesetzt — ohne den
-Wert rendert der Digest keine Deeplinks. Auf `http://100.99.224.50:8420` gesetzt.
+Wert rendert der Digest keine Deeplinks. Auf `http://<tailnet-ip>:8420` gesetzt.
 
 Details: `docs/sessions/2026-08-04_telegram-diet-and-mobile-focus-app.md`.

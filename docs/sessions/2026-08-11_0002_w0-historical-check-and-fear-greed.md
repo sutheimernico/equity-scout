@@ -108,7 +108,7 @@ Weiter offen aus der Vorsession, unverändert:
 
 5. `DASH_TOKEN` erneuern (alter liegt in einem Chat-Protokoll).
 6. Namensliste der beobachteten Investoren bestätigen (`evidence/voices.py`, 8 Fondsmanager).
-7. Cockpit einmal am Handy durchklicken: `http://100.99.224.50:8420` über Tailscale.
+7. Cockpit einmal am Handy durchklicken: `http://<tailnet-ip>:8420` über Tailscale.
 8. Server für ~5 €/Monat ja/nein — Begründung ist Verfügbarkeit, nicht Geschwindigkeit. Nichts
    gebucht.
 9. `docs/sessions/` ist in diesem Repo **nicht** gitignored, liegt also auf dem öffentlichen

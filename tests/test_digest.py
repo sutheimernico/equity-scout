@@ -438,10 +438,10 @@ def test_below_threshold_count_no_longer_appears():
 def test_section_heads_link_into_the_cockpit_in_html_mode():
     text = build_digest(
         [], date_label="2026-08-04", autodepot=AUTODEPOT,
-        dash_url="https://wsl-claude.tailnet.ts.net:8420", html=True,
+        dash_url="https://tailnet-host.example.ts.net:8420", html=True,
     )
     assert (
-        '<b><a href="https://wsl-claude.tailnet.ts.net:8420/?view=depots">'
+        '<b><a href="https://tailnet-host.example.ts.net:8420/?view=depots">'
         "🤖 Auto-Depot" in text
     )
 

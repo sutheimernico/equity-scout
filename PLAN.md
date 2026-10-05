@@ -40,7 +40,7 @@ Ruhe.
       Anleitung: `docs/handy-app.md`. **ntfy funktioniert schon jetzt** — Topic liegt in
       der `.env`, eine Testmeldung wurde am 2026-08-27 zugestellt.
 - [ ] **Needs Nico (optional):** GitHub → Actions → „Android-APK" → Run workflow mit
-      `host=wsl-claude.tail7dff17.ts.net`. Signaturschlüssel und Secrets liegen schon.
+      `host=<tailnet-host>.ts.net`. Signaturschlüssel und Secrets liegen schon.
 
 ### Chancen-Meldungen mit Begründung in Alltagssprache
 `opportunity.py` macht aus einem Kaufplan vier Sätze: Anlass, Gründe, Gegenrede, Plan.
@@ -1205,8 +1205,8 @@ der Entthronung, die heute Nacht erstmals wirkt.
   der MOC-Exits macht Alpaca selbst (22:00), dafür muss nichts laufen.
 - ~~**v12 Handy-Cockpit scharf schalten**: `DASH_TOKEN`, `install_dash_service.sh`,
   `DASH_URL`~~ — **ERLEDIGT, verifiziert 2026-08-23**: `DASH_TOKEN` gesetzt (32 Zeichen),
-  `DASH_URL=http://100.99.224.50:8420`, Unit `equity-scout-dash.service` ist `enabled` und
-  `active`, Tailscale läuft (`wsl-claude` 100.99.224.50). Gegenprobe: über die Tailscale-IP
+  `DASH_URL=http://<tailnet-ip>:8420`, Unit `equity-scout-dash.service` ist `enabled` und
+  `active`, Tailscale läuft (`<tailnet-node>` <tailnet-ip>). Gegenprobe: über die Tailscale-IP
   antwortet der Dienst **mit** Token 200 und **ohne** Token 401.
 - autopilot/work → main merge/push decision (repo is public on GitHub since 2026-07-04; the v3/v4 work is local-only until you push).
 - Any data source that would require a paid key (do NOT sign up — log here instead).

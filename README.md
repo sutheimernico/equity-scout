@@ -703,7 +703,7 @@ lässt `DASH_TOKEN` beim Digest-Lauf ungesetzt; die Links funktionieren dann wei
 eben erst nach einmaligem Login. Gemessen (05.08.): Telegram dekodiert das `&amp;` aus dem
 HTML-Attribut korrekt zu `&`, die Link-Entity trägt die vollständige URL.
 
-**Erreichbarkeit ist die häufigere Fehlerursache als der Token**: `100.99.224.50` existiert
+**Erreichbarkeit ist die häufigere Fehlerursache als der Token**: `<tailnet-ip>` existiert
 nur im Tailnet. Ist Tailscale am Handy aus, läuft jeder Link ins Nichts — `tailscale status`
 zeigt, ob der Handy-Node online ist. Ein WLAN-Weg besteht nicht: WSL läuft im NAT-Modus,
 die WSL-IP ist von außen nicht erreichbar, und es gibt keinen Windows-Port-Proxy.
@@ -712,7 +712,7 @@ die WSL-IP ist von außen nicht erreichbar, und es gibt keinen Windows-Port-Prox
 equity-scout-dash` — alte Cookies sind sofort ungültig, und der nächste Digest verlinkt
 automatisch mit dem neuen Token. Loopback (127.0.0.1) ist vom Token-Gate bewusst
 ausgenommen; über LAN/Tailscale greift es (401 ohne Token).
-**Von unterwegs**: läuft über Tailscale (Node `wsl-claude`), solange WSL an ist.
+**Von unterwegs**: läuft über Tailscale (Node `<tailnet-node>`), solange WSL an ist.
 
 ## Automation (cron)
 

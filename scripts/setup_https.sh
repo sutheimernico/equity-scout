@@ -4,7 +4,7 @@
 #   sudo bash scripts/setup_https.sh
 #
 # Warum überhaupt: Web Push, Service Worker und die Installation als App verlangen alle
-# eine HTTPS-Adresse. `http://100.99.224.50:8420` erfüllt das nicht, `https://<host>.ts.net`
+# eine HTTPS-Adresse. `http://<tailnet-ip>:8420` erfüllt das nicht, `https://<host>.ts.net`
 # schon — Tailscale stellt dafür ein echtes Let's-Encrypt-Zertifikat aus, kostenlos, und
 # die Adresse bleibt im Tailnet: nur Nicos eigene Geräte erreichen sie, das Internet nicht.
 #

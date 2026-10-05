@@ -39,7 +39,7 @@ Cockpit live unter `/.well-known/assetlinks.json` ausliefert.
 
 ## Befund, der Nico gehört
 
-Tailnet-Adresse (`wsl-claude.tail7dff17.ts.net`) und Tailnet-IP stehen **seit Wochen im
+Tailnet-Adresse (`<tailnet-host>.ts.net`) und Tailnet-IP stehen **seit Wochen im
 öffentlichen Repo** — nicht erst seit heute, sie waren schon in `origin/main`. Keine
 Credentials, und ohne Tailscale-Anmeldung erreicht die Adresse niemand. Sauber bekommt man
 das nur mit einem History-Rewrite plus Force-Push, und beides ist bestätigungspflichtig.

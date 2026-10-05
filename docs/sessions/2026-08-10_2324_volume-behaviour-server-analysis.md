@@ -84,7 +84,7 @@ Frühere Runden derselben Nacht (eigene Session-Docs): v16 Wellen 1–3 in
 1. **`DASH_TOKEN` erneuern** — der alte ist in einem früheren Chat-Protokoll gelandet.
 2. **Namensliste der beobachteten Investoren bestätigen** oder erweitern (`evidence/voices.py`,
    aktuell 8 Fondsmanager) — reine Ja/Nein-Entscheidung.
-3. **Cockpit einmal am Handy durchklicken**: `http://100.99.224.50:8420` über Tailscale. Neu
+3. **Cockpit einmal am Handy durchklicken**: `http://<tailnet-ip>:8420` über Tailscale. Neu
    drin: „Wer handelt gerade" unter der Marktlage, Aussagekraft-Zeile und Verlustanatomie pro
    Handelsspur.
 4. **Entscheiden, ob ein Server für ~5 €/Monat kommt** — Begründung ist Verfügbarkeit (heute ist

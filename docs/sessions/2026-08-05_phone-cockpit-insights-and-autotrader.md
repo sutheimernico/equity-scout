@@ -146,10 +146,10 @@ inkl Token immer schicken".
 
 **Die gemeldete Ursache war nicht der Token.** `tailscale status` zeigte
 `oneplus-13 … offline, last seen 19h ago` — das Handy war nicht im Tailnet, und
-`100.99.224.50` existiert nur dort. Der Server war korrekt: lauscht auf `0.0.0.0:8420`,
+`<tailnet-ip>` existiert nur dort. Der Server war korrekt: lauscht auf `0.0.0.0:8420`,
 Tailscale-IP aktiv, 401 ohne / 200 mit Token gemessen. Ein WLAN-Weg besteht nicht: keine
 `.wslconfig` (NAT-Modus), also ist `172.31.12.11` von außen unerreichbar, und auf Windows
-(LAN-IP `192.168.178.59`) ist kein Port-Proxy eingerichtet. Das wurde so gesagt, der
+(LAN-IP `<lan-ip>`) ist kein Port-Proxy eingerichtet. Das wurde so gesagt, der
 Token-Wunsch danach trotzdem umgesetzt — er löst einen anderen, echten Fall: ein Browser
 ohne gültiges `es_dash`-Cookie.
 

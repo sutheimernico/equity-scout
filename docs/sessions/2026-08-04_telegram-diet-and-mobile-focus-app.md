@@ -70,7 +70,7 @@ erfolgreichen Kontakt, geprüft über den neuen, absichtlich billigen `/api/heal
   bewusst ausgenommen (`api.py:152`).
 - `equity-scout-dash.service` neu gestartet (nötig für `/api/health`), `sw.js` und
   `manifest.webmanifest` werden über Tailscale ausgeliefert.
-- `DASH_URL=http://100.99.224.50:8420` an `.env` angehängt (Tailscale-Node `wsl-claude`).
+- `DASH_URL=http://<tailnet-ip>:8420` an `.env` angehängt (Tailscale-Node `<tailnet-node>`).
 
 ## Abweichungen von den Plänen
 
@@ -90,7 +90,7 @@ erfolgreichen Kontakt, geprüft über den neuen, absichtlich billigen `/api/heal
 
 ## Offen / Needs Nico
 
-1. **Walk-Through am Handy**: `http://100.99.224.50:8420/?token=<DASH_TOKEN>` einmal
+1. **Walk-Through am Handy**: `http://<tailnet-ip>:8420/?token=<DASH_TOKEN>` einmal
    öffnen (Token wandert ins Cookie), zum Startbildschirm hinzufügen, dann aus dem
    Digest eine Überschrift antippen — die App muss direkt im richtigen Fokus öffnen.
    Danach eine Entscheidung unter „Entscheiden" durchklicken und WSL einmal ausschalten,

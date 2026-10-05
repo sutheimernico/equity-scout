@@ -6,9 +6,9 @@ Benachrichtigungen selbst.
 ## Warum das überhaupt Schritte braucht
 
 Ein Handy zeigt eine Benachrichtigung nur dann als *App*-Nachricht an, wenn die Seite,
-die sie schickt, über **HTTPS** läuft. `http://100.99.224.50:8420` reicht dafür nicht —
+die sie schickt, über **HTTPS** läuft. `http://<tailnet-ip>:8420` reicht dafür nicht —
 weder für Push noch für „App installieren". Tailscale kann genau das kostenlos: eine
-echte HTTPS-Adresse `https://wsl-claude.tail7dff17.ts.net`, gültiges Zertifikat, nur
+echte HTTPS-Adresse `https://<tailnet-host>.ts.net`, gültiges Zertifikat, nur
 innerhalb deines Tailnets erreichbar. Das Internet kommt da nicht ran.
 
 ## Schritt 0 — zwei Schalter in der Tailscale-Konsole (einmalig, im Browser)
@@ -43,7 +43,7 @@ gibt es kein Passwort. Es ist der einzige Schritt dieser Art.
 
 ## Schritt 2 — App installieren
 
-Auf dem Handy (Tailscale an) `https://wsl-claude.tail7dff17.ts.net` öffnen, einmal den
+Auf dem Handy (Tailscale an) `https://<tailnet-host>.ts.net` öffnen, einmal den
 Token eingeben (`?token=…`), dann Chrome-Menü → **App installieren**. Ab jetzt liegt das
 Cockpit als Icon auf dem Startbildschirm und läuft im Vollbild.
 
@@ -70,7 +70,7 @@ Die installierte Web-App reicht für alles, auch für Push. Wer trotzdem eine `.
 (eigenes Icon im App-Drawer, kein Chrome-Branding beim Start):
 
 1. Auf GitHub → **Actions → Android-APK → Run workflow**
-2. `host` = `wsl-claude.tail7dff17.ts.net`, `version_code` bei jedem Update um 1 erhöhen
+2. `host` = `<tailnet-host>.ts.net`, `version_code` bei jedem Update um 1 erhöhen
 3. Nach dem Lauf das Artefakt `equity-scout-apk` herunterladen und auf dem Handy
    installieren (Android fragt einmal nach „Installation aus unbekannter Quelle")
 

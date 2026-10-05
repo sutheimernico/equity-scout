@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       host:
-        description: "Cockpit-Adresse ohne https:// (z. B. wsl-claude.tail7dff17.ts.net)"
+        description: "Cockpit-Adresse ohne https:// (z. B. <tailnet-host>.ts.net)"
         required: true
         type: string
       app_name:

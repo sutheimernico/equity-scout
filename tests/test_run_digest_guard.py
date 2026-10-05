@@ -143,7 +143,7 @@ def test_dash_url_turns_section_heads_into_cockpit_links(tmp_path, monkeypatch):
     section heads themselves — DASH_URL must reach build_digest and land in the sent text."""
     db = str(tmp_path / "inbox.db")
     _tg_env(monkeypatch)
-    monkeypatch.setenv("DASH_URL", "http://192.168.1.20:8420")
+    monkeypatch.setenv("DASH_URL", "http://192.0.2.20:8420")
     sent: list[str] = []
     monkeypatch.setattr(
         run_digest, "send_long_message",
@@ -153,7 +153,7 @@ def test_dash_url_turns_section_heads_into_cockpit_links(tmp_path, monkeypatch):
 
     assert main() == 0
     assert "📱 Dashboard (Heimnetz)" not in sent[0]
-    assert 'href="http://192.168.1.20:8420/?view=' in sent[0]
+    assert 'href="http://192.0.2.20:8420/?view=' in sent[0]
 
 
 def test_without_dash_url_the_digest_carries_no_links(tmp_path, monkeypatch):
