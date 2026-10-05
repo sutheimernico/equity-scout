@@ -121,7 +121,7 @@ class WikipediaSP500Source:
     """
 
     URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-    USER_AGENT = "equity-scout/0.1 (research; contact: nico.sutheimer@bekumoo.de)"
+    USER_AGENT = "equity-scout/0.1 (research; contact: https://github.com/sutheimernico/equity-scout)"
 
     def fetch(self) -> list[Instrument]:
         import io
@@ -282,7 +282,7 @@ class WikipediaStoxx600Source:
     """Scrapes the STOXX Europe 600 list from Wikipedia. Lazy imports so tests never hit the network."""
 
     URL = "https://en.wikipedia.org/wiki/STOXX_Europe_600"
-    USER_AGENT = "equity-scout/0.1 (research; contact: nico.sutheimer@bekumoo.de)"
+    USER_AGENT = "equity-scout/0.1 (research; contact: https://github.com/sutheimernico/equity-scout)"
 
     def fetch(self) -> list[Instrument]:
         import io
@@ -306,7 +306,7 @@ class WikipediaNikkei225Source:
     """Scrapes the Nikkei 225 list from Wikipedia (sector-bulleted text, not a table)."""
 
     URL = "https://en.wikipedia.org/wiki/Nikkei_225"
-    USER_AGENT = "equity-scout/0.1 (research; contact: nico.sutheimer@bekumoo.de)"
+    USER_AGENT = "equity-scout/0.1 (research; contact: https://github.com/sutheimernico/equity-scout)"
 
     def fetch(self) -> list[Instrument]:
         import httpx
@@ -402,7 +402,7 @@ class NasdaqTraderSource:
     the "screen everything" source (Nico, 2026-07-14); the completeness gate downstream drops
     thin-data names honestly instead of ranking noise."""
 
-    USER_AGENT = "equity-scout/0.1 (research; contact: nico.sutheimer@bekumoo.de)"
+    USER_AGENT = "equity-scout/0.1 (research; contact: https://github.com/sutheimernico/equity-scout)"
 
     def fetch(self) -> list[Instrument]:
         import httpx
@@ -560,7 +560,7 @@ class WikipediaIndexSource:
     """Config-driven Wikipedia constituents scraper. One class serves every standard-table
     index page; odd pages (Nikkei bullets) keep their bespoke sources."""
 
-    USER_AGENT = "equity-scout/0.1 (research; contact: nico.sutheimer@bekumoo.de)"
+    USER_AGENT = "equity-scout/0.1 (research; contact: https://github.com/sutheimernico/equity-scout)"
 
     def __init__(self, config: IndexConfig) -> None:
         self.config = config

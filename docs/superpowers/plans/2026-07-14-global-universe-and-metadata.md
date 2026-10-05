@@ -476,7 +476,7 @@ class WikipediaIndexSource:
     """Config-driven Wikipedia constituents scraper. One class serves every standard-table
     index page; odd pages (Nikkei bullets) keep their bespoke sources."""
 
-    USER_AGENT = "equity-scout/0.1 (research; contact: nico.sutheimer@bekumoo.de)"
+    USER_AGENT = "equity-scout/0.1 (research; contact: https://github.com/sutheimernico/equity-scout)"
 
     def __init__(self, config: IndexConfig) -> None:
         self.config = config
